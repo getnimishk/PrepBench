@@ -1,0 +1,3 @@
+text,question_type,difficulty,domain,topic,certification,explanation,option_1,option_1_correct,option_2,option_2_correct,option_3,option_3_correct,option_4,option_4_correct
+"Which protocol does gRPC use under the hood for multiplexed streaming?",single_choice,medium,System Design,RPC & Networking,System Design Architecture,"gRPC relies on HTTP/2 for multiplexing multiple requests over a single TCP connection.",HTTP/1.1,false,HTTP/2,true,UDP,false,WebSockets,false
+"True or False: Kafka guarantees total global ordering across all partitions.",true_false,easy,Event Streaming,Kafka Fundamentals,Kafka Developer,"Kafka only guarantees total ordering within a single partition.",True,false,False,true
