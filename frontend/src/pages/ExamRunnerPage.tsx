@@ -215,6 +215,13 @@ export const ExamRunnerPage: React.FC = () => {
     persistAnswer(currentQuestion.id, selectedOptionIds, undefined, undefined, lvl);
   };
 
+  const openFinishConfirm = async () => {
+    if (currentQuestion) {
+      await persistAnswer(currentQuestion.id, selectedOptionIds);
+    }
+    setConfirmFinish(true);
+  };
+
   const handleFinish = async () => {
     if (finishingRef.current) return;
     finishingRef.current = true;
@@ -337,8 +344,8 @@ export const ExamRunnerPage: React.FC = () => {
             <Button
               variant="contained"
               startIcon={<CheckSquare size={18} />}
-              onClick={() => setConfirmFinish(true)}
-              sx={{ 
+              onClick={openFinishConfirm}
+              sx={{
                 whiteSpace: 'nowrap',
                 borderRadius: '100px',
                 bgcolor: 'success.main',
@@ -420,7 +427,7 @@ export const ExamRunnerPage: React.FC = () => {
                   <Button
                     variant="contained"
                     endIcon={currentIdx === totalQ - 1 ? <CheckSquare size={18} /> : <ArrowRight size={18} />}
-                    onClick={currentIdx === totalQ - 1 ? () => setConfirmFinish(true) : handleNext}
+                    onClick={currentIdx === totalQ - 1 ? openFinishConfirm : handleNext}
                     disabled={selectedOptionIds.length === 0 && !isPracticeMode}
                     sx={{
                       borderRadius: '100px',

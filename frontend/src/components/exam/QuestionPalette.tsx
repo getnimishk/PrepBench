@@ -71,6 +71,7 @@ export const QuestionPalette: React.FC<Props> = ({
               <Button
                 disableElevation
                 onClick={() => onSelectIndex(idx)}
+                aria-label={`Question ${idx + 1}, ${status.isAnswered ? 'answered' : 'unanswered'}${status.isFlagged ? ', flagged' : ''}${isCurrent ? ', current' : ''}`}
                   sx={{
                   minWidth: 0,
                   width: '100%',
