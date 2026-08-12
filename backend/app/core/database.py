@@ -33,6 +33,9 @@ def apply_lightweight_migrations():
             if "initial_seed_completed" not in columns and len(columns) > 0:
                 conn.execute(text("ALTER TABLE app_settings ADD COLUMN initial_seed_completed BOOLEAN DEFAULT 0"))
                 conn.commit()
+            if "default_target_role" not in columns and len(columns) > 0:
+                conn.execute(text("ALTER TABLE app_settings ADD COLUMN default_target_role VARCHAR(200)"))
+                conn.commit()
         except Exception:
             pass
 

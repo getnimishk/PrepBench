@@ -5,7 +5,7 @@ import {
   Alert, CircularProgress, LinearProgress
 } from '@mui/material';
 import { ArrowRight, Clock } from 'lucide-react';
-import { getSystemDesignPrompt, submitSystemDesignAttempt } from '../services/api';
+import { getSystemDesignPrompt, submitSystemDesignAttempt, getSettings } from '../services/api';
 import { SystemDesignPrompt } from '../types/systemDesign';
 
 const formatElapsed = (seconds: number): string => {
@@ -42,6 +42,12 @@ export const SystemDesignAnswerPage: React.FC = () => {
       })
       .catch(() => setFetchError('Failed to load prompt. Please check backend connection.'))
       .finally(() => setLoading(false));
+
+    getSettings()
+      .then((s) => {
+        if (s?.default_target_role) setTargetRole(s.default_target_role);
+      })
+      .catch(console.error);
   }, [pid]);
 
   useEffect(() => {

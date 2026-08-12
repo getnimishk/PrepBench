@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel, ConfigDict
 
 class AppSettingsSchema(BaseModel):
@@ -9,5 +10,6 @@ class AppSettingsSchema(BaseModel):
     shuffle_questions: bool = True
     shuffle_options: bool = True
     daily_practice_goal: int = 20
+    default_target_role: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)

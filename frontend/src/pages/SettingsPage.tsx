@@ -4,7 +4,7 @@ import {
   Slider, MenuItem, TextField, Button, Divider, Alert, Chip, LinearProgress,
   Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
-import { Save, Settings as SettingsIcon, Moon, Volume2, AlertTriangle, RotateCcw } from 'lucide-react';
+import { Save, Settings as SettingsIcon, Moon, Volume2, AlertTriangle, RotateCcw, Network } from 'lucide-react';
 import { getSettings, updateSettings, resetApplication } from '../services/api';
 import { useThemeMode } from '../context/ThemeContext';
 import { AppSettings } from '../types/settings';
@@ -238,6 +238,22 @@ export const SettingsPage: React.FC = () => {
               </Box>
             </Grid>
           </Grid>
+        </CardContent>
+      </Card>
+
+      <Card sx={{ mb: 3, borderRadius: '12px', boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
+        <CardContent>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Network size={20} /> System Design Defaults
+          </Typography>
+          <TextField
+            fullWidth
+            label="Default Target Role"
+            placeholder="e.g. Senior Backend Engineer, fintech"
+            value={settings.default_target_role || ''}
+            onChange={(e) => setSettings({ ...settings, default_target_role: e.target.value || null })}
+            helperText="Pre-fills the Target Role field when starting a new System Design attempt, so feedback is calibrated to this role by default. Leave blank for no default -- you can still override it per attempt."
+          />
         </CardContent>
       </Card>
 
