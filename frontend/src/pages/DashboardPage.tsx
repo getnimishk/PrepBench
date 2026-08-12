@@ -32,20 +32,24 @@ import {
 } from 'lucide-react';
 import { MetricCard } from '../components/dashboard/MetricCard';
 import { WeakTopicsWidget } from '../components/dashboard/WeakTopicsWidget';
-import { getDashboardOverview } from '../services/api';
+import { getDashboardOverview, getSettings } from '../services/api';
 import { DashboardOverview } from '../types/analytics';
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const [data, setData] = useState<DashboardOverview | null>(null);
+  const [passingPercentage, setPassingPercentage] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchDashboard = () => {
     setLoading(true);
     setFetchError(null);
-    getDashboardOverview()
-      .then((res) => setData(res))
+    Promise.all([getDashboardOverview(), getSettings()])
+      .then(([overview, settings]) => {
+        setData(overview);
+        setPassingPercentage(settings.default_passing_percentage);
+      })
       .catch((err) => {
         console.error(err);
         setFetchError('Failed to load dashboard data. Please check backend connection.');
@@ -171,7 +175,7 @@ export const DashboardPage: React.FC = () => {
           <MetricCard
             title="Overall Accuracy"
             value={`${data.overall_accuracy_percentage}%`}
-            subtitle="Passing threshold: 70%"
+            subtitle={passingPercentage !== null ? `Passing threshold: ${passingPercentage}%` : 'Overall accuracy'}
             icon={Target}
             color="#34D399"
           />
