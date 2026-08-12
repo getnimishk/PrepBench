@@ -35,5 +35,5 @@ frontend/dist/
 .DS_Store
 Thumbs.db
 
-# Claude Code local settings (personal, machine-specific)
-.claude/settings.local.json
+# Claude Code config (tool-specific, not project source)
+.claude/
