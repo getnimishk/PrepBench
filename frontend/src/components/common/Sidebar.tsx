@@ -24,6 +24,7 @@ const CONTENT_ITEMS = [
 const PROGRESS_ITEMS = [
   { label: 'Analytics', path: '/analytics', icon: BarChart3 },
   { label: 'Exam History', path: '/history', icon: History },
+  { label: 'System Design History', path: '/system-design/history', icon: Network },
   { label: 'Settings', path: '/settings', icon: Settings },
 ];
 

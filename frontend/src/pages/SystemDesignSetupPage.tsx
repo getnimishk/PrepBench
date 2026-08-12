@@ -85,7 +85,10 @@ export const SystemDesignSetupPage: React.FC = () => {
 
   return (
     <Box sx={{ maxWidth: 1000, mx: 'auto', pb: 8 }}>
-      <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>System Design Practice</Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+        <Typography variant="h4" sx={{ fontWeight: 800 }}>System Design Practice</Typography>
+        <Button size="small" onClick={() => navigate('/system-design/history')}>View History</Button>
+      </Box>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
         Pick a prompt from the bank, or generate a new one, then write your answer for AI-graded feedback.
       </Typography>

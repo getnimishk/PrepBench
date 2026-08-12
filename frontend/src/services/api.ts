@@ -281,6 +281,14 @@ export const getSystemDesignAttempt = async (id: number) => {
   return res.data;
 };
 
+export const getSystemDesignAttempts = async (params?: { skip?: number; limit?: number }) => {
+  const res = await api.get<{ items: SystemDesignAttempt[]; total: number; skip: number; limit: number }>(
+    `/system-design/attempts`,
+    { params }
+  );
+  return res.data;
+};
+
 export const getSystemDesignAnalytics = async () => {
   const res = await api.get<SystemDesignAnalytics>(`/system-design/analytics`);
   return res.data;
