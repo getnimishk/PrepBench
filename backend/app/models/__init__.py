@@ -5,6 +5,11 @@ from app.models.exam_answer import ExamAnswer, ConfidenceLevel
 from app.models.note_bookmark import UserNote, Bookmark
 from app.models.spaced_repetition import SpacedRepetition
 from app.models.settings import AppSettings
+from app.models.system_design_prompt import SystemDesignPrompt
+from app.models.system_design_attempt import SystemDesignAttempt
+from app.models.practice_recording import PracticeRecording
+from app.models.recording_analysis import RecordingAnalysis
+from app.models.interview_question import InterviewQuestion, InterviewRoundType
 
 __all__ = [
     "Question",
@@ -20,4 +25,10 @@ __all__ = [
     "Bookmark",
     "SpacedRepetition",
     "AppSettings",
+    "SystemDesignPrompt",
+    "SystemDesignAttempt",
+    "PracticeRecording",
+    "RecordingAnalysis",
+    "InterviewQuestion",
+    "InterviewRoundType",
 ]

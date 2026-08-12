@@ -2,9 +2,11 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.core.database import Base, engine, apply_lightweight_migrations
+from app.core.database import Base, engine, apply_lightweight_migrations, SessionLocal
 from app.api.v1.router import api_router
 from app.core.logging_config import logger
+from app.utils.seed_system_design_prompts import seed_system_design_prompts_if_empty
+from app.utils.seed_interview_questions import seed_interview_questions_if_empty
 
 # Create DB Tables
 Base.metadata.create_all(bind=engine)
@@ -15,6 +17,19 @@ async def lifespan(app: FastAPI):
     """Modern FastAPI lifespan handler replacing deprecated @app.on_event('startup')."""
     logger.info("Initializing database and applying migrations...")
     apply_lightweight_migrations()
+
+    db = SessionLocal()
+    try:
+        seeded = seed_system_design_prompts_if_empty(db)
+        if seeded:
+            logger.info(f"Seeded {seeded} built-in system design prompts.")
+
+        seeded_questions = seed_interview_questions_if_empty(db)
+        if seeded_questions:
+            logger.info(f"Seeded {seeded_questions} built-in interview questions.")
+    finally:
+        db.close()
+
     yield  # Application runs here
     logger.info("Exam Simulator shutting down.")
 

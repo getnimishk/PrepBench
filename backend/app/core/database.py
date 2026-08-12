@@ -69,6 +69,33 @@ def apply_lightweight_migrations():
         except Exception:
             pass
 
+        try:
+            # practice_recordings: link to an optional interview_question (added
+            # when Practice Recordings became round-based Interview Practice --
+            # NULL stays valid and means "freeform/General Practice", so this is
+            # a pure additive column, no backfill needed).
+            result = conn.execute(text("PRAGMA table_info(practice_recordings)")).fetchall()
+            columns = [row[1] for row in result]
+            if "interview_question_id" not in columns and len(columns) > 0:
+                conn.execute(text("ALTER TABLE practice_recordings ADD COLUMN interview_question_id INTEGER"))
+                conn.commit()
+        except Exception:
+            pass
+
+        try:
+            # recording_analyses: content-quality grading columns, additive
+            # alongside the existing delivery-only communication_scores/summary.
+            result = conn.execute(text("PRAGMA table_info(recording_analyses)")).fetchall()
+            columns = [row[1] for row in result]
+            if "content_scores" not in columns and len(columns) > 0:
+                conn.execute(text("ALTER TABLE recording_analyses ADD COLUMN content_scores TEXT"))
+                conn.commit()
+            if "content_summary" not in columns and len(columns) > 0:
+                conn.execute(text("ALTER TABLE recording_analyses ADD COLUMN content_summary TEXT"))
+                conn.commit()
+        except Exception:
+            pass
+
 def get_db():
     db = SessionLocal()
     try:

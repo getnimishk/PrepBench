@@ -1,16 +1,26 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Box, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Tooltip, IconButton, Typography, useTheme } from '@mui/material';
-import { LayoutDashboard, PlayCircle, BookOpen, BarChart3, History, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, PlayCircle, BookOpen, BarChart3, History, Settings, ChevronLeft, ChevronRight, Network, Mic } from 'lucide-react';
 import { useSidebar } from '../../App';
 
-const MAIN_ITEMS = [
-  { label: 'Dashboard', path: '/', icon: LayoutDashboard },
-  { label: 'Start Exam', path: '/exam-setup', icon: PlayCircle },
+const DASHBOARD_ITEM = { label: 'Dashboard', path: '/', icon: LayoutDashboard };
+
+// Grouped by what the user is trying to do, not by feature-add order --
+// PrepBench's whole purpose is interview/exam prep, so the three ways to
+// practice are grouped together and named as activities ("... Practice"),
+// not left as a flat list of unrelated-looking links.
+const PRACTICE_ITEMS = [
+  { label: 'Exam Practice', path: '/exam-setup', icon: PlayCircle },
+  { label: 'System Design Practice', path: '/system-design', icon: Network },
+  { label: 'Interview Practice', path: '/interview-practice', icon: Mic },
+];
+
+const QUESTION_BANK_ITEMS = [
   { label: 'Question Bank', path: '/question-bank', icon: BookOpen },
 ];
 
-const TOOLS_ITEMS = [
+const PROGRESS_ITEMS = [
   { label: 'Analytics', path: '/analytics', icon: BarChart3 },
   { label: 'Exam History', path: '/history', icon: History },
   { label: 'Settings', path: '/settings', icon: Settings },
@@ -21,13 +31,14 @@ export const Sidebar: React.FC = () => {
   const theme = useTheme();
   const dark = theme.palette.mode === 'dark';
 
-  const renderItems = (items: typeof MAIN_ITEMS) => {
+  const renderItems = (items: typeof PRACTICE_ITEMS) => {
     return items.map((item) => {
       const Icon = item.icon;
       const buttonContent = (
         <ListItemButton
           component={NavLink}
           to={item.path}
+          end={item.path === '/'}
           sx={{
             minHeight: 48,
             px: 2,
@@ -77,6 +88,26 @@ export const Sidebar: React.FC = () => {
     });
   };
 
+  const renderSectionHeader = (title: string, mt: number = 2) => (
+    <Typography
+      variant="caption"
+      sx={{
+        px: 3,
+        mt,
+        mb: 1,
+        display: 'block',
+        fontWeight: 700,
+        letterSpacing: '0.08em',
+        color: dark ? '#94A3B8' : '#64748B',
+        opacity: collapsed ? 0 : 1,
+        transition: 'opacity 0.3s',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {title}
+    </Typography>
+  );
+
   return (
     <Box
       sx={{
@@ -90,42 +121,16 @@ export const Sidebar: React.FC = () => {
     >
       <Box sx={{ flexGrow: 1, overflowY: 'auto', py: 2, overflowX: 'hidden' }}>
         <List disablePadding>
-          <Typography
-            variant="caption"
-            sx={{
-              px: 3,
-              mb: 1,
-              display: 'block',
-              fontWeight: 700,
-              letterSpacing: '0.08em',
-              color: dark ? '#94A3B8' : '#64748B',
-              opacity: collapsed ? 0 : 1,
-              transition: 'opacity 0.3s',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            MAIN
-          </Typography>
-          {renderItems(MAIN_ITEMS)}
+          {renderItems([DASHBOARD_ITEM])}
 
-          <Typography
-            variant="caption"
-            sx={{
-              px: 3,
-              mt: 2,
-              mb: 1,
-              display: 'block',
-              fontWeight: 700,
-              letterSpacing: '0.08em',
-              color: dark ? '#94A3B8' : '#64748B',
-              opacity: collapsed ? 0 : 1,
-              transition: 'opacity 0.3s',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            TOOLS
-          </Typography>
-          {renderItems(TOOLS_ITEMS)}
+          {renderSectionHeader('PRACTICE')}
+          {renderItems(PRACTICE_ITEMS)}
+
+          {renderSectionHeader('QUESTION BANK')}
+          {renderItems(QUESTION_BANK_ITEMS)}
+
+          {renderSectionHeader('PROGRESS')}
+          {renderItems(PROGRESS_ITEMS)}
         </List>
       </Box>
       <Box

@@ -8,25 +8,12 @@ import httpx
 from app.core.config import DATA_DIR, settings
 from app.core.logging_config import logger
 from app.schemas.question_validation import ContentJudgment, ValidationErrorItem
+from app.services import llm_client
 
 DEFAULT_CACHE_PATH = DATA_DIR / "scrum_guide_index.json"
 EMBEDDING_MODEL = "models/gemini-embedding-001"
-JUDGE_MODEL = "models/gemini-2.0-flash"
+JUDGE_MODEL = "models/gemini-flash-latest"
 TOP_K_CHUNKS = 4
-
-# Shared client, lazily created. ContentValidator is instantiated per-request
-# (see QuestionValidator.__init__), so each instance must NOT own its own
-# httpx.Client — that would leak sockets/connections with no owner to close
-# them. A single process-wide client with its own connection pool is reused
-# across every ContentValidator instance instead.
-_shared_client: Optional[httpx.Client] = None
-
-
-def _get_client() -> httpx.Client:
-    global _shared_client
-    if _shared_client is None or _shared_client.is_closed:
-        _shared_client = httpx.Client(timeout=15.0)
-    return _shared_client
 
 
 class ScrumGuideRetriever:
@@ -69,7 +56,7 @@ class ContentValidator:
     def __init__(self, api_key: Optional[str] = None, cache_path: Path = DEFAULT_CACHE_PATH):
         self.api_key = api_key or settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY")
         self.model_name = JUDGE_MODEL
-        self._client = _get_client()
+        self._client = llm_client.get_shared_client()
 
         # This is the part that was silently dropped in the previous revision:
         # without actually constructing the retriever, is_available() could
@@ -87,42 +74,10 @@ class ContentValidator:
         return self._available
 
     def _post_json(self, url: str, payload: dict, timeout: float) -> Tuple[Optional[dict], Optional[str]]:
-        """Low-level POST + status/parse handling shared by every Gemini call."""
-        try:
-            res = self._client.post(url, json=payload, timeout=timeout)
-        except Exception as e:
-            return None, f"Network/HTTP Exception: {str(e)}"
-        if res.status_code != 200:
-            return None, f"HTTP {res.status_code}: {res.text[:150]}"
-        try:
-            return res.json(), None
-        except Exception as e:
-            return None, f"Response was not valid JSON: {str(e)}"
+        return llm_client.post_json(self._client, url, payload, timeout)
 
     def _call_gemini(self, model: str, prompt: str, timeout: float = 15.0) -> Tuple[Optional[dict], Optional[str]]:
-        if not self.api_key:
-            return None, "Gemini API key not configured"
-        url = f"https://generativelanguage.googleapis.com/v1beta/{model}:generateContent?key={self.api_key}"
-        payload = {"contents": [{"parts": [{"text": prompt}]}]}
-
-        data, error_msg = self._post_json(url, payload, timeout)
-        if error_msg:
-            return None, error_msg
-
-        if "candidates" not in data or not data["candidates"]:
-            return None, "LLM response contained no candidate parts"
-
-        raw = data["candidates"][0]["content"]["parts"][0]["text"].strip()
-        raw = raw.replace("```json", "").replace("```", "").strip()
-        try:
-            parsed = json.loads(raw)
-        except json.JSONDecodeError as err:
-            return None, f"LLM returned malformed JSON: {str(err)}"
-
-        if not isinstance(parsed, dict):
-            return None, f"LLM returned non-dictionary JSON structure ({type(parsed).__name__})"
-
-        return parsed, None
+        return llm_client.call_gemini(self._client, self.api_key, model, prompt, timeout)
 
     def _embed_query(self, text: str) -> List[float]:
         if not self.api_key:

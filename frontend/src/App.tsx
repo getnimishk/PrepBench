@@ -12,6 +12,13 @@ import { QuestionBankPage } from './pages/QuestionBankPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { SystemDesignSetupPage } from './pages/SystemDesignSetupPage';
+import { SystemDesignAnswerPage } from './pages/SystemDesignAnswerPage';
+import { SystemDesignResultsPage } from './pages/SystemDesignResultsPage';
+import { RecordingsPage } from './pages/RecordingsPage';
+import { InterviewPracticeSetupPage } from './pages/InterviewPracticeSetupPage';
+import { InterviewPracticeRecordPage } from './pages/InterviewPracticeRecordPage';
+import { InterviewPracticeResultsPage } from './pages/InterviewPracticeResultsPage';
 
 export const SidebarContext = createContext({ collapsed: false, toggleCollapsed: () => {} });
 export const useSidebar = () => useContext(SidebarContext);
@@ -72,6 +79,13 @@ const App: React.FC = () => {
             <Route path="/analytics" element={<AppLayout><AnalyticsPage /></AppLayout>} />
             <Route path="/history" element={<AppLayout><HistoryPage /></AppLayout>} />
             <Route path="/settings" element={<AppLayout><SettingsPage /></AppLayout>} />
+            <Route path="/system-design" element={<AppLayout><SystemDesignSetupPage /></AppLayout>} />
+            <Route path="/system-design/:promptId/answer" element={<AppLayout><SystemDesignAnswerPage /></AppLayout>} />
+            <Route path="/system-design/attempts/:attemptId" element={<AppLayout><SystemDesignResultsPage /></AppLayout>} />
+            <Route path="/recordings" element={<AppLayout><RecordingsPage /></AppLayout>} />
+            <Route path="/interview-practice" element={<AppLayout><InterviewPracticeSetupPage /></AppLayout>} />
+            <Route path="/interview-practice/:questionId/record" element={<AppLayout><InterviewPracticeRecordPage /></AppLayout>} />
+            <Route path="/interview-practice/recordings/:recordingId/results" element={<AppLayout><InterviewPracticeResultsPage /></AppLayout>} />
           </Routes>
         </BrowserRouter>
       </SidebarContext.Provider>

@@ -18,6 +18,9 @@ backend/data/*.db-journal
 backend/data/*.db-wal
 backend/data/*.db-shm
 
+# Personal audio recordings
+backend/data/recordings/
+
 # Logs
 logs/
 *.log

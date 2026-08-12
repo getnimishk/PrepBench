@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1 import questions, exams, analytics, imports, export, settings
+from app.api.v1 import questions, exams, analytics, imports, export, settings, system_design, recordings, interview_questions
 
 api_router = APIRouter()
 
@@ -9,3 +9,6 @@ api_router.include_router(analytics.router)
 api_router.include_router(imports.router)
 api_router.include_router(export.router)
 api_router.include_router(settings.router)
+api_router.include_router(system_design.router)
+api_router.include_router(recordings.router)
+api_router.include_router(interview_questions.router)
