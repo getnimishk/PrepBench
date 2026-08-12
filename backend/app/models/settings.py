@@ -14,3 +14,4 @@ class AppSettings(Base):
     shuffle_options = Column(Boolean, default=True)
     daily_practice_goal = Column(Integer, default=20)
     initial_seed_completed = Column(Boolean, default=False)
+    default_target_role = Column(String(200), nullable=True)

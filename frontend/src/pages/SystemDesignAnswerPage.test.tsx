@@ -7,10 +7,12 @@ import { SystemDesignAnswerPage } from './SystemDesignAnswerPage';
 
 const mockGetPrompt = vi.fn();
 const mockSubmit = vi.fn();
+const mockGetSettings = vi.fn();
 
 vi.mock('../services/api', () => ({
   getSystemDesignPrompt: (...args: any[]) => mockGetPrompt(...args),
   submitSystemDesignAttempt: (...args: any[]) => mockSubmit(...args),
+  getSettings: (...args: any[]) => mockGetSettings(...args),
 }));
 
 function renderPage() {
@@ -35,6 +37,7 @@ beforeEach(() => {
     is_ai_generated: false,
     created_at: '',
   });
+  mockGetSettings.mockResolvedValue({ default_target_role: null });
 });
 
 describe('SystemDesignAnswerPage', () => {
@@ -60,5 +63,25 @@ describe('SystemDesignAnswerPage', () => {
       prompt_id: 1,
       answer_text: 'A thorough design answer.',
     }));
+  });
+
+  it('pre-fills Target Role from the default_target_role setting, still editable per attempt', async () => {
+    const user = userEvent.setup();
+    mockGetSettings.mockResolvedValue({ default_target_role: 'Senior Backend Engineer, fintech' });
+    mockSubmit.mockResolvedValue({ id: 42, grading_status: 'graded' });
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Design a URL Shortener')).toBeInTheDocument());
+
+    const roleField = await screen.findByLabelText(/target role/i) as HTMLInputElement;
+    await waitFor(() => expect(roleField.value).toBe('Senior Backend Engineer, fintech'));
+
+    await user.clear(roleField);
+    await user.type(roleField, 'Staff SRE');
+    await user.type(screen.getByLabelText('Your Answer'), 'A thorough design answer.');
+    await user.click(screen.getByRole('button', { name: /submit for feedback/i }));
+
+    await waitFor(() => expect(mockSubmit).toHaveBeenCalledWith(expect.objectContaining({
+      target_role: 'Staff SRE',
+    })));
   });
 });
