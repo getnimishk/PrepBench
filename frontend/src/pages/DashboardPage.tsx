@@ -17,7 +17,8 @@ import {
   LinearProgress,
   CircularProgress,
   Alert,
-  alpha
+  alpha,
+  useTheme
 } from '@mui/material';
 import {
   Brain,
@@ -37,6 +38,8 @@ import { DashboardOverview } from '../types/analytics';
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const [data, setData] = useState<DashboardOverview | null>(null);
   const [passingPercentage, setPassingPercentage] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -106,19 +109,18 @@ export const DashboardPage: React.FC = () => {
       <Card
         sx={{
           borderRadius: 3,
-          // Sanctioned exception to "no gradients": purely decorative,
-          // non-interactive background layer. Both stops are real MD3
-          // primary/primary-dark tokens, but NOT theme.palette.primary.main
-          // directly -- in dark mode that resolves to a light pastel
-          // (#A8C7FA, meant for text/icons on dark surfaces per MD3, not as
-          // a large fill), which would make auto-computed contrastText
-          // illegible over part of the gradient. Text color is pinned to
-          // white rather than relying on contrastText, since white is safe
-          // against both stops in both modes.
-          background: (theme) => theme.palette.mode === 'dark'
-            ? 'linear-gradient(135deg, #0B57D0, #001D35)'
-            : 'linear-gradient(135deg, #001D35, #0B57D0)',
-          color: '#FFFFFF',
+          // Light mode: the one sanctioned gradient exception (decorative,
+          // non-interactive), both stops real MD3 primary/primary-dark
+          // tokens. Dark mode: NOT the same gradient inverted -- that read
+          // as a generic navy-SaaS hero disconnected from the rest of dark
+          // mode's actual palette, which uses neutral dark surfaces with the
+          // light pastel primary (#A8C7FA) as the accent, not a saturated
+          // color block. So dark mode instead reuses the same
+          // surfaceContainerHigh + primary-accent language as every other
+          // card on this page -- a cohesive "this app's dark mode" hero
+          // rather than a borrowed light-mode formula.
+          background: isDark ? 'surfaceContainerHigh.main' : 'linear-gradient(135deg, #001D35, #0B57D0)',
+          color: isDark ? 'text.primary' : '#FFFFFF',
           boxShadow: 'none',
           position: 'relative',
           overflow: 'hidden'
@@ -126,10 +128,10 @@ export const DashboardPage: React.FC = () => {
       >
         <CardContent sx={{ py: 4, px: { xs: 3, md: 4 }, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
           <Box>
-            <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>
+            <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, color: isDark ? 'primary.main' : 'inherit' }}>
               Welcome back to PrepBench
             </Typography>
-            <Typography variant="body1" sx={{ opacity: 0.9 }}>
+            <Typography variant="body1" sx={{ opacity: isDark ? 1 : 0.9, color: isDark ? 'text.secondary' : 'inherit' }}>
               100% Offline Certification & Interview Preparation Platform
             </Typography>
           </Box>
@@ -139,11 +141,16 @@ export const DashboardPage: React.FC = () => {
               size="large"
               startIcon={<PlayCircle size={20} />}
               onClick={() => navigate('/exam-setup')}
-              // Fixed white/navy pair, not primary.contrastText -- that token
-              // is computed against theme.palette.primary.main, not the hero's
-              // own gradient (see gradient comment above), so it'd drift out
-              // of sync with what's actually behind this button.
-              sx={{ px: 3, py: 1.5, fontSize: '1rem', fontWeight: 700, borderRadius: '100px', bgcolor: '#FFFFFF', color: '#001D35', '&:hover': { bgcolor: 'rgba(255,255,255,0.85)' } }}
+              // Light mode: fixed white/navy pair, not primary.contrastText --
+              // that token is computed against theme.palette.primary.main, not
+              // this card's own gradient, so it'd drift out of sync with what's
+              // actually behind the button. Dark mode: plain color="primary"
+              // is correct here since the card is a neutral surface now, not
+              // a gradient -- contrastText is guaranteed accurate again.
+              color={isDark ? 'primary' : undefined}
+              sx={isDark
+                ? { px: 3, py: 1.5, fontSize: '1rem', fontWeight: 700, borderRadius: '100px' }
+                : { px: 3, py: 1.5, fontSize: '1rem', fontWeight: 700, borderRadius: '100px', bgcolor: '#FFFFFF', color: '#001D35', '&:hover': { bgcolor: 'rgba(255,255,255,0.85)' } }}
             >
               Start New Exam
             </Button>
@@ -152,13 +159,16 @@ export const DashboardPage: React.FC = () => {
               size="large"
               startIcon={<RotateCcw size={20} />}
               onClick={() => navigate('/exam-setup?mode=weak_topic')}
-              sx={{
-                px: 3, py: 1.5, fontSize: '1rem', fontWeight: 700,
-                borderRadius: '100px',
-                borderColor: '#FFFFFF',
-                color: '#FFFFFF',
-                '&:hover': { borderColor: '#FFFFFF', bgcolor: 'rgba(255,255,255,0.1)' },
-              }}
+              color={isDark ? 'primary' : undefined}
+              sx={isDark
+                ? { px: 3, py: 1.5, fontSize: '1rem', fontWeight: 700, borderRadius: '100px' }
+                : {
+                    px: 3, py: 1.5, fontSize: '1rem', fontWeight: 700,
+                    borderRadius: '100px',
+                    borderColor: '#FFFFFF',
+                    color: '#FFFFFF',
+                    '&:hover': { borderColor: '#FFFFFF', bgcolor: 'rgba(255,255,255,0.1)' },
+                  }}
             >
               Weak Topic Practice
             </Button>
