@@ -6,16 +6,16 @@ import { useThemeMode } from '../../context/ThemeContext';
 export const Navbar: React.FC = () => {
   const { mode, toggleTheme } = useThemeMode();
   const theme = useTheme();
-  const dark = theme.palette.mode === 'dark';
 
   return (
     <AppBar
       position="sticky"
       elevation={0}
       sx={{
-        bgcolor: dark ? '#131314' : '#F8F9FA',
-        color: dark ? '#E2E8F0' : '#0F172A',
-        borderBottom: `1px solid ${dark ? '#1E1F22' : '#E2E8F0'}`,
+        bgcolor: 'background.default',
+        color: 'text.primary',
+        borderBottom: '1px solid',
+        borderColor: 'divider',
       }}
     >
       <Toolbar>
@@ -23,10 +23,10 @@ export const Navbar: React.FC = () => {
           <Box
             sx={{
               p: 1.25,
-              bgcolor: dark ? '#A8C7FA' : '#0B57D0',
+              bgcolor: 'primary.main',
               borderRadius: '100px',
               display: 'flex',
-              color: dark ? '#000000' : '#FFFFFF',
+              color: 'primary.contrastText',
             }}
           >
             <Sparkles size={22} />
@@ -36,7 +36,7 @@ export const Navbar: React.FC = () => {
             sx={{
               fontWeight: 800,
               letterSpacing: '-0.02em',
-              color: dark ? '#A8C7FA' : '#0B57D0',
+              color: 'primary.main',
             }}
           >
             PrepBench
@@ -44,13 +44,14 @@ export const Navbar: React.FC = () => {
           <Chip
             label="100% Offline"
             size="small"
-            icon={<ShieldCheck size={14} color={dark ? '#8FDF8D' : '#146C2E'} />}
+            icon={<ShieldCheck size={14} color={theme.palette.success.main} />}
             sx={{
               ml: 1,
-              bgcolor: dark ? '#1E1F22' : '#FFFFFF',
-              border: `1px solid ${dark ? '#333' : '#E2E8F0'}`,
+              bgcolor: 'surfaceContainer.main',
+              border: '1px solid',
+              borderColor: 'divider',
               fontWeight: 600,
-              color: dark ? '#E2E8F0' : '#0F172A',
+              color: 'text.primary',
               borderRadius: '8px',
               '& .MuiChip-label': { px: 1 },
             }}

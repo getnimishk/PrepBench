@@ -41,6 +41,7 @@ export const Sidebar: React.FC = () => {
           to={item.path}
           end={item.path === '/'}
           sx={{
+            position: 'relative',
             minHeight: 48,
             px: 2,
             mx: 1.5,
@@ -48,13 +49,24 @@ export const Sidebar: React.FC = () => {
             borderRadius: '100px',
             justifyContent: collapsed ? 'center' : 'flex-start',
             transition: 'all 0.2s ease',
-            color: dark ? '#E2E8F0' : '#475569',
+            color: 'text.secondary',
             '&:hover': {
-              bgcolor: dark ? '#1E1F22' : '#F1F5F9',
+              bgcolor: 'action.hover',
             },
             '&.active': {
-              bgcolor: dark ? 'rgba(168, 199, 250, 0.2)' : 'rgba(11, 87, 208, 0.1)',
-              color: dark ? '#A8C7FA' : '#0B57D0',
+              bgcolor: 'action.selected',
+              color: 'primary.main',
+              // MD3-style leading indicator, not a gradient -- solid role color.
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                left: 0,
+                top: '20%',
+                bottom: '20%',
+                width: 3,
+                borderRadius: '0 4px 4px 0',
+                bgcolor: 'primary.main',
+              },
             },
           }}
         >
@@ -115,7 +127,7 @@ export const Sidebar: React.FC = () => {
         width: collapsed ? 76 : 260,
         transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         borderRight: `1px solid ${dark ? '#1E1F22' : '#E2E8F0'}`,
-        bgcolor: dark ? '#131314' : '#F8F9FA',
+        bgcolor: 'background.default',
         display: 'flex',
         flexDirection: 'column',
       }}

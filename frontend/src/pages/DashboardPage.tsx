@@ -106,8 +106,19 @@ export const DashboardPage: React.FC = () => {
       <Card
         sx={{
           borderRadius: 3,
-          bgcolor: 'primary.main',
-          color: 'primary.contrastText',
+          // Sanctioned exception to "no gradients": purely decorative,
+          // non-interactive background layer. Both stops are real MD3
+          // primary/primary-dark tokens, but NOT theme.palette.primary.main
+          // directly -- in dark mode that resolves to a light pastel
+          // (#A8C7FA, meant for text/icons on dark surfaces per MD3, not as
+          // a large fill), which would make auto-computed contrastText
+          // illegible over part of the gradient. Text color is pinned to
+          // white rather than relying on contrastText, since white is safe
+          // against both stops in both modes.
+          background: (theme) => theme.palette.mode === 'dark'
+            ? 'linear-gradient(135deg, #0B57D0, #001D35)'
+            : 'linear-gradient(135deg, #001D35, #0B57D0)',
+          color: '#FFFFFF',
           boxShadow: 'none',
           position: 'relative',
           overflow: 'hidden'
@@ -128,7 +139,11 @@ export const DashboardPage: React.FC = () => {
               size="large"
               startIcon={<PlayCircle size={20} />}
               onClick={() => navigate('/exam-setup')}
-              sx={{ px: 3, py: 1.5, fontSize: '1rem', fontWeight: 700, borderRadius: '100px', bgcolor: 'primary.contrastText', color: 'primary.main', '&:hover': { bgcolor: 'background.paper' } }}
+              // Fixed white/navy pair, not primary.contrastText -- that token
+              // is computed against theme.palette.primary.main, not the hero's
+              // own gradient (see gradient comment above), so it'd drift out
+              // of sync with what's actually behind this button.
+              sx={{ px: 3, py: 1.5, fontSize: '1rem', fontWeight: 700, borderRadius: '100px', bgcolor: '#FFFFFF', color: '#001D35', '&:hover': { bgcolor: 'rgba(255,255,255,0.85)' } }}
             >
               Start New Exam
             </Button>
@@ -140,9 +155,9 @@ export const DashboardPage: React.FC = () => {
               sx={{
                 px: 3, py: 1.5, fontSize: '1rem', fontWeight: 700,
                 borderRadius: '100px',
-                borderColor: 'primary.contrastText',
-                color: 'primary.contrastText',
-                '&:hover': { borderColor: 'primary.contrastText', bgcolor: 'rgba(255,255,255,0.1)' },
+                borderColor: '#FFFFFF',
+                color: '#FFFFFF',
+                '&:hover': { borderColor: '#FFFFFF', bgcolor: 'rgba(255,255,255,0.1)' },
               }}
             >
               Weak Topic Practice

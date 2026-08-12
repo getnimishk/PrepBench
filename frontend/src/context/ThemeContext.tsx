@@ -1,6 +1,23 @@
 import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
-import { ThemeProvider, createTheme, CssBaseline, alpha } from '@mui/material';
+import { ThemeProvider, createTheme, CssBaseline, Theme } from '@mui/material';
 import { getSettings } from '../services/api';
+
+// MD3 surface-container tiers: dark-mode surfaces get progressively
+// *lighter* as they elevate (never a drop shadow, which barely reads on
+// dark backgrounds) -- light mode mirrors this with progressively
+// slightly-dimmer tiers off white.
+declare module '@mui/material/styles' {
+  interface Palette {
+    surfaceContainerLow: Palette['primary'];
+    surfaceContainer: Palette['primary'];
+    surfaceContainerHigh: Palette['primary'];
+  }
+  interface PaletteOptions {
+    surfaceContainerLow?: PaletteOptions['primary'];
+    surfaceContainer?: PaletteOptions['primary'];
+    surfaceContainerHigh?: PaletteOptions['primary'];
+  }
+}
 
 type ThemeMode = 'dark' | 'light';
 
@@ -72,6 +89,18 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
             main: mode === 'dark' ? '#93CCFF' : '#00639B',
           },
           divider: mode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)',
+          surfaceContainerLow: { main: mode === 'dark' ? '#1A1A1C' : '#F3F4F6' },
+          surfaceContainer: { main: mode === 'dark' ? '#1E1F22' : '#FFFFFF' },
+          surfaceContainerHigh: { main: mode === 'dark' ? '#26272B' : '#F8F9FA' },
+          // MUI's action.* opacities ARE Material's state-layer mechanism, just
+          // defaulted quite faint (hover 4%). Tuned to the real MD3 spec values
+          // so hover/selected/focus are actually visible without resorting to
+          // glow, scale, or brightness effects on interactive elements.
+          action: {
+            hoverOpacity: 0.08,
+            selectedOpacity: 0.08,
+            focusOpacity: 0.12,
+          },
         },
         typography: {
           fontFamily: "'Roboto', 'Helvetica', 'Arial', sans-serif",
@@ -83,10 +112,10 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
         components: {
           MuiCssBaseline: {
             styleOverrides: {
-              body: {
+              body: ({ theme }: { theme: Theme }) => ({
                 minHeight: '100vh',
-                backgroundColor: mode === 'dark' ? '#131314' : '#F8F9FA',
-              },
+                backgroundColor: theme.palette.background.default,
+              }),
             },
           },
           MuiButton: {
@@ -111,13 +140,13 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
           },
           MuiCard: {
             styleOverrides: {
-              root: {
+              root: ({ theme }: { theme: Theme }) => ({
                 borderRadius: 12,
                 boxShadow: 'none',
                 border: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)'}`,
                 backgroundImage: 'none',
-                backgroundColor: mode === 'dark' ? '#1E1F22' : '#FFFFFF',
-              },
+                backgroundColor: theme.palette.surfaceContainer.main,
+              }),
             },
           },
           MuiPaper: {
@@ -137,13 +166,13 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
           },
           MuiTooltip: {
             styleOverrides: {
-              tooltip: {
-                backgroundColor: mode === 'dark' ? '#1E1F22' : '#FFFFFF',
+              tooltip: ({ theme }: { theme: Theme }) => ({
+                backgroundColor: theme.palette.surfaceContainer.main,
                 border: `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)'}`,
                 borderRadius: 8,
                 color: mode === 'dark' ? '#E3E3E3' : '#1F1F1F',
                 boxShadow: '0px 1px 2px rgba(0,0,0,0.1)',
-              },
+              }),
             },
           },
           MuiLinearProgress: {
@@ -169,13 +198,13 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
           },
           MuiDialog: {
             styleOverrides: {
-              paper: {
+              paper: ({ theme }: { theme: Theme }) => ({
                 borderRadius: 28,
                 border: 'none',
                 backgroundImage: 'none',
-                backgroundColor: mode === 'dark' ? '#1E1F22' : '#FFFFFF',
+                backgroundColor: theme.palette.surfaceContainer.main,
                 boxShadow: '0px 4px 24px rgba(0,0,0,0.1)',
-              },
+              }),
             },
           },
           MuiTableRow: {
