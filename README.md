@@ -11,8 +11,11 @@
 |---|---|
 | **Exam Modes** | Practice, Timed, Custom, Weak Topic Focus, Spaced Repetition (SM-2) |
 | **Question Types** | Single Choice, Multiple Choice, True/False, Scenario, Case Study, Code, Image |
-| **Analytics** | Score trends, Radar charts, Domain mastery, Rolling averages |
+| **System Design Practice** | Typed answers to system design prompts, AI-graded (Gemini) against a 6-category rubric |
+| **Interview Practice** | Round-based audio practice (HR Screening, Hiring Manager, System Design, Behavioral) with AI-graded content + delivery scoring |
+| **Analytics** | Per-mode tabs (Exams / System Design / Interview Practice) — score trends, rolling averages, domain & category breakdowns |
 | **Question Bank** | CRUD editor, Bulk import (JSON/CSV/Excel), Advanced search/filter |
+| **Interview Question Bank** | Curated per-round question sets, plus your own import (text/JSON/CSV) and edit/delete |
 | **Export** | PDF & Excel exam reports per session |
 | **Spaced Repetition** | SM-2 algorithm schedules question reviews at optimal intervals |
 | **Certifications** | Pre-seeded with Scrum (PSM I), Kafka, System Design, AWS question packs |
@@ -104,7 +107,7 @@ The application includes template `.env.example` configuration files at both the
 | `DEFAULT_PASSING_PERCENTAGE` | Default passing score percentage for exams | `70.0` | No |
 | `DEFAULT_EXAM_DURATION_MINUTES` | Default duration for generated exam sessions | `60` | No |
 
-> 💡 **LLM Features**: If `GEMINI_API_KEY` is provided, the application enables 1-click AI option refinements, Scrum Guide 2020 RAG grounding, and blind LLM answer key auditing. If unconfigured, the app runs 100% offline using structural rule checks.
+> 💡 **LLM Features**: If `GEMINI_API_KEY` is provided, the application enables 1-click AI option refinements, Scrum Guide 2020 RAG grounding, blind LLM answer key auditing, System Design attempt grading, and Interview Practice recording analysis. Without a key, these features report as "unavailable" rather than fabricating a score — the rest of the app still runs 100% offline.
 
 ---
 
