@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Box, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Tooltip, IconButton, Typography, useTheme } from '@mui/material';
-import { LayoutDashboard, PlayCircle, BookOpen, BarChart3, History, Settings, ChevronLeft, ChevronRight, Network, Mic } from 'lucide-react';
+import { LayoutDashboard, PlayCircle, BookOpen, BarChart3, History, Settings, ChevronLeft, ChevronRight, Network, Mic, Headphones } from 'lucide-react';
 import { useSidebar } from '../../App';
 
 const DASHBOARD_ITEM = { label: 'Dashboard', path: '/', icon: LayoutDashboard };
@@ -16,8 +16,9 @@ const PRACTICE_ITEMS = [
   { label: 'Interview Practice', path: '/interview-practice', icon: Mic },
 ];
 
-const QUESTION_BANK_ITEMS = [
+const CONTENT_ITEMS = [
   { label: 'Question Bank', path: '/question-bank', icon: BookOpen },
+  { label: 'Audio Recordings', path: '/recordings', icon: Headphones },
 ];
 
 const PROGRESS_ITEMS = [
@@ -126,8 +127,8 @@ export const Sidebar: React.FC = () => {
           {renderSectionHeader('PRACTICE')}
           {renderItems(PRACTICE_ITEMS)}
 
-          {renderSectionHeader('QUESTION BANK')}
-          {renderItems(QUESTION_BANK_ITEMS)}
+          {renderSectionHeader('CONTENT')}
+          {renderItems(CONTENT_ITEMS)}
 
           {renderSectionHeader('PROGRESS')}
           {renderItems(PROGRESS_ITEMS)}

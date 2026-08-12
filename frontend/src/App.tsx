@@ -49,6 +49,19 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   );
 };
 
+// Full-screen, no-sidebar shell for the "Attempt" stage of every practice
+// mode (actively taking an exam, writing a design answer, recording audio) --
+// distraction-free, and for Interview Practice specifically avoids a stray
+// sidebar click navigating away mid-recording and losing the take.
+const FocusLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: 'background.default' }}>
+    <Navbar />
+    <Box sx={{ p: 2, flexGrow: 1 }}>
+      {children}
+    </Box>
+  </Box>
+);
+
 const App: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const toggleCollapsed = () => setCollapsed((prev) => !prev);
@@ -58,18 +71,10 @@ const App: React.FC = () => {
       <SidebarContext.Provider value={{ collapsed, toggleCollapsed }}>
         <BrowserRouter>
           <Routes>
-            {/* Full-screen exam runner - no sidebar */}
-            <Route
-              path="/exam/:sessionId"
-              element={
-                <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: 'background.default' }}>
-                  <Navbar />
-                  <Box sx={{ p: 2, flexGrow: 1 }}>
-                    <ExamRunnerPage />
-                  </Box>
-                </Box>
-              }
-            />
+            {/* Full-screen, no-sidebar "Attempt" stage for every practice mode */}
+            <Route path="/exam/:sessionId" element={<FocusLayout><ExamRunnerPage /></FocusLayout>} />
+            <Route path="/system-design/:promptId/answer" element={<FocusLayout><SystemDesignAnswerPage /></FocusLayout>} />
+            <Route path="/interview-practice/:questionId/record" element={<FocusLayout><InterviewPracticeRecordPage /></FocusLayout>} />
 
             {/* Standard layout with sidebar */}
             <Route path="/" element={<AppLayout><DashboardPage /></AppLayout>} />
@@ -80,11 +85,9 @@ const App: React.FC = () => {
             <Route path="/history" element={<AppLayout><HistoryPage /></AppLayout>} />
             <Route path="/settings" element={<AppLayout><SettingsPage /></AppLayout>} />
             <Route path="/system-design" element={<AppLayout><SystemDesignSetupPage /></AppLayout>} />
-            <Route path="/system-design/:promptId/answer" element={<AppLayout><SystemDesignAnswerPage /></AppLayout>} />
             <Route path="/system-design/attempts/:attemptId" element={<AppLayout><SystemDesignResultsPage /></AppLayout>} />
             <Route path="/recordings" element={<AppLayout><RecordingsPage /></AppLayout>} />
             <Route path="/interview-practice" element={<AppLayout><InterviewPracticeSetupPage /></AppLayout>} />
-            <Route path="/interview-practice/:questionId/record" element={<AppLayout><InterviewPracticeRecordPage /></AppLayout>} />
             <Route path="/interview-practice/recordings/:recordingId/results" element={<AppLayout><InterviewPracticeResultsPage /></AppLayout>} />
           </Routes>
         </BrowserRouter>
