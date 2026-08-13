@@ -20,6 +20,8 @@ import { RecordingsPage } from './pages/RecordingsPage';
 import { InterviewPracticeSetupPage } from './pages/InterviewPracticeSetupPage';
 import { InterviewPracticeRecordPage } from './pages/InterviewPracticeRecordPage';
 import { InterviewPracticeResultsPage } from './pages/InterviewPracticeResultsPage';
+import { RoadmapListPage } from './pages/RoadmapListPage';
+import { RoadmapDetailPage } from './pages/RoadmapDetailPage';
 
 export const SidebarContext = createContext({ collapsed: false, toggleCollapsed: () => {} });
 export const useSidebar = () => useContext(SidebarContext);
@@ -88,6 +90,8 @@ const App: React.FC = () => {
             <Route path="/system-design" element={<AppLayout><SystemDesignSetupPage /></AppLayout>} />
             <Route path="/system-design/attempts/:attemptId" element={<AppLayout><SystemDesignResultsPage /></AppLayout>} />
             <Route path="/system-design/history" element={<AppLayout><SystemDesignHistoryPage /></AppLayout>} />
+            <Route path="/roadmaps" element={<AppLayout><RoadmapListPage /></AppLayout>} />
+            <Route path="/roadmaps/:roadmapId" element={<AppLayout><RoadmapDetailPage /></AppLayout>} />
             <Route path="/recordings" element={<AppLayout><RecordingsPage /></AppLayout>} />
             <Route path="/interview-practice" element={<AppLayout><InterviewPracticeSetupPage /></AppLayout>} />
             <Route path="/interview-practice/recordings/:recordingId/results" element={<AppLayout><InterviewPracticeResultsPage /></AppLayout>} />
