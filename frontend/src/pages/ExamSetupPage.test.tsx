@@ -48,7 +48,12 @@ describe('ExamSetupPage', () => {
     // Practice mode card should be selected (highlighted) once settings load --
     // verified indirectly through the Time Limit slider, which only renders in 'timed' mode.
     await waitFor(() => expect(screen.getByText('IAM')).toBeInTheDocument());
-    expect(screen.queryByText(/Time Limit:/i)).not.toBeInTheDocument();
+    // Waited for, not asserted synchronously: 'IAM' resolves from
+    // getQuestionFilters, while the Time Limit slider's removal depends on
+    // the separate getSettings() promise -- asserting immediately after the
+    // first without waiting on the second couples this test's pass/fail to
+    // both mocks happening to resolve within the same microtask drain.
+    await waitFor(() => expect(screen.queryByText(/Time Limit:/i)).not.toBeInTheDocument());
   });
 
   it('respects an explicit ?mode= query param over the settings default', async () => {
@@ -68,6 +73,13 @@ describe('ExamSetupPage', () => {
     renderPage();
 
     await waitFor(() => expect(screen.getByText('IAM')).toBeInTheDocument());
+    // Wait for the settings-driven prefill (question count/passing %/shuffle
+    // flags) to actually land before interacting, so this test's outcome
+    // isn't a race against the settings promise resolving after the click.
+    // '40' (not '80%') because the passing-score slider has a static '80%'
+    // mark label that would otherwise collide with the dynamic chip text.
+    await waitFor(() => expect(screen.getByText('40')).toBeInTheDocument());
+
     await user.click(screen.getByText('IAM'));
     await user.click(screen.getByText('EASY'));
 
@@ -78,6 +90,13 @@ describe('ExamSetupPage', () => {
         expect.objectContaining({
           topics: ['IAM'],
           difficulties: ['easy'],
+          // These four come straight from the mocked getSettings() response --
+          // asserting them proves ExamSetupPage's settings-prefill effect
+          // actually reaches the submitted payload, not just local state.
+          total_questions: 40,
+          passing_percentage: 80,
+          randomize_questions: true,
+          randomize_options: true,
         })
       );
     });

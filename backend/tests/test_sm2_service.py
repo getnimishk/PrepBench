@@ -129,9 +129,18 @@ class TestUpdateItem:
         db = TestingSessionLocal()
         try:
             SM2Service.update_item(db, qid, True, ConfidenceLevel.HIGH)
-            SM2Service.update_item(db, qid, True, ConfidenceLevel.MEDIUM)
+            second = SM2Service.update_item(db, qid, True, ConfidenceLevel.MEDIUM)
 
             rows = db.query(SpacedRepetition).filter(SpacedRepetition.question_id == qid).all()
+            # len(rows) == 1 alone would hold even if update_item were broken --
+            # question_id is a unique DB column, so a duplicate insert would
+            # raise IntegrityError rather than produce a second row. Assert the
+            # single row actually reflects the *second* call's outcome (not
+            # left over from the first) to prove it was updated in place.
             assert len(rows) == 1
+            assert rows[0].id == second.id
+            assert rows[0].repetition == 2
+            assert rows[0].interval_days == 6
+            assert rows[0].ease_factor == pytest.approx(2.6)
         finally:
             db.close()

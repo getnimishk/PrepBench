@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { HistoryPage } from './HistoryPage';
@@ -60,9 +60,13 @@ describe('HistoryPage', () => {
 
     expect(screen.getByText('Weak Topic Drill')).toBeInTheDocument();
     expect(screen.getByText('IN_PROGRESS')).toBeInTheDocument();
-    // An in-progress session has no score to show and its Review/PDF actions are disabled.
-    const reviewButtons = screen.getAllByRole('button', { name: /review/i });
-    expect(reviewButtons[1]).toBeDisabled();
+    // Scoped to this row specifically (rather than a positional index into
+    // getAllByRole) so the assertion survives HistoryPage re-sorting rows,
+    // and covers both disabled actions -- Review and PDF -- for an
+    // in-progress session, not just Review.
+    const inProgressRow = screen.getByText('Weak Topic Drill').closest('tr') as HTMLElement;
+    expect(within(inProgressRow).getByRole('button', { name: /review/i })).toBeDisabled();
+    expect(within(inProgressRow).getByRole('button', { name: /pdf/i })).toBeDisabled();
   });
 
   it('navigates to the exam review page when Review is clicked on a completed session', async () => {

@@ -364,8 +364,8 @@ export const QuestionBankPage: React.FC = () => {
                 }}
               />
               <FormControl size="small" sx={{ minWidth: 180 }}>
-                <InputLabel>Domain</InputLabel>
-                <Select value={domain} label="Domain" onChange={(e) => setDomain(e.target.value)}>
+                <InputLabel id="domain-filter-label">Domain</InputLabel>
+                <Select labelId="domain-filter-label" value={domain} label="Domain" onChange={(e) => setDomain(e.target.value)}>
                   <MenuItem value="">All Domains</MenuItem>
                   {filterOptions.domains.map((d) => (
                     <MenuItem key={d} value={d}>{d}</MenuItem>
@@ -373,8 +373,9 @@ export const QuestionBankPage: React.FC = () => {
                 </Select>
               </FormControl>
               <FormControl size="small" sx={{ minWidth: 140 }}>
-                <InputLabel>Difficulty</InputLabel>
+                <InputLabel id="difficulty-filter-label">Difficulty</InputLabel>
                 <Select
+                  labelId="difficulty-filter-label"
                   value={difficulty}
                   label="Difficulty"
                   onChange={(e) => setDifficulty(e.target.value)}
@@ -386,8 +387,8 @@ export const QuestionBankPage: React.FC = () => {
                 </Select>
               </FormControl>
               <FormControl size="small" sx={{ minWidth: 200 }}>
-                <InputLabel>Certification</InputLabel>
-                <Select value={certification} label="Certification" onChange={(e) => setCertification(e.target.value)}>
+                <InputLabel id="certification-filter-label">Certification</InputLabel>
+                <Select labelId="certification-filter-label" value={certification} label="Certification" onChange={(e) => setCertification(e.target.value)}>
                   <MenuItem value="">All Certifications</MenuItem>
                   {filterOptions.certifications.map((c) => (
                     <MenuItem key={c} value={c}>{c}</MenuItem>
@@ -395,8 +396,8 @@ export const QuestionBankPage: React.FC = () => {
                 </Select>
               </FormControl>
               <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel>Reviewed</InputLabel>
-                <Select value={reviewedFilter} label="Reviewed" onChange={(e) => setReviewedFilter(e.target.value as '' | 'true' | 'false')}>
+                <InputLabel id="reviewed-filter-label">Reviewed</InputLabel>
+                <Select labelId="reviewed-filter-label" value={reviewedFilter} label="Reviewed" onChange={(e) => setReviewedFilter(e.target.value as '' | 'true' | 'false')}>
                   <MenuItem value="">All</MenuItem>
                   <MenuItem value="true">Reviewed</MenuItem>
                   <MenuItem value="false">Not Reviewed</MenuItem>
