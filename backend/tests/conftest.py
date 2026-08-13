@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
 
 from app.core.config import DATA_DIR
-from app.core.database import Base, get_db
+from app.core.database import Base, get_db, register_sqlite_pragmas
 from app.main import app
 
 # Dedicated isolated test database path
@@ -16,6 +16,12 @@ test_engine = create_engine(
     TEST_SQLALCHEMY_DATABASE_URI,
     connect_args={"check_same_thread": False}
 )
+
+# Without this the test engine runs with SQLite's default foreign_keys=OFF,
+# so ON DELETE CASCADE silently does not fire under test even though it works
+# in the real app -- tests would pass against orphaned rows the app would
+# never actually produce.
+register_sqlite_pragmas(test_engine)
 
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 

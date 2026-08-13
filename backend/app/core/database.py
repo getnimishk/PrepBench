@@ -11,13 +11,32 @@ engine = create_engine(
 # Enable foreign key constraints and WAL mode in SQLite for reliability & speed.
 # busy_timeout makes a connection wait (up to 10s) and retry on a locked database
 # instead of raising OperationalError immediately on any write contention.
-@event.listens_for(engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA busy_timeout=10000")
     cursor.close()
+
+
+def register_sqlite_pragmas(target_engine) -> None:
+    """
+    Attach the SQLite pragma listener above to `target_engine`.
+
+    Exposed as a function rather than a bare `@event.listens_for(engine, ...)`
+    decorator because the listener binds to one specific Engine instance. The
+    test suite builds its own isolated engine (tests/conftest.py), which meant
+    it silently ran with foreign_keys=OFF -- so `ondelete="CASCADE"` never
+    fired there. Bulk deletes that bypass the ORM (Query.delete()) left
+    orphaned child rows behind in tests while behaving correctly in the real
+    app, and SQLite's rowid reuse could then re-attach those orphans to a
+    newly inserted parent. Any engine that talks to this schema must call
+    this.
+    """
+    event.listens_for(target_engine, "connect")(set_sqlite_pragma)
+
+
+register_sqlite_pragmas(engine)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
