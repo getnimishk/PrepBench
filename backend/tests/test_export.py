@@ -9,19 +9,65 @@ app/utils/excel_generator.py) -- previously untested.
 import io
 import uuid
 import openpyxl
+import pytest
 from fastapi.testclient import TestClient
 from app.main import app
+from app.models.exam_session import ExamSession
+from app.models.exam_answer import ExamAnswer
+from app.models.question import Question
+from app.models.option import QuestionOption
+from app.models.spaced_repetition import SpacedRepetition
+from tests.conftest import TestingSessionLocal
 
 client = TestClient(app)
 
 
-def _create_completed_exam_session():
+@pytest.fixture
+def cleanup_registry():
+    """
+    Tracks exam sessions/questions created during a test so they can be
+    removed afterward. conftest.py's test database is created once per
+    pytest session with no per-test rollback, so rows left behind here would
+    otherwise persist for the rest of the run and could corrupt count-based
+    assertions in other test modules depending on collection order (e.g.
+    test_e2e_full_suite.py's `total == 0` check after clearing all questions).
+
+    Children are deleted explicitly rather than relying on each model's
+    `ondelete="CASCADE"` -- that only fires when SQLite's `PRAGMA
+    foreign_keys` is ON, which is set on app.core.database's production
+    `engine` via a connect-event listener that conftest.py's separate
+    `test_engine` never receives. Without this, a bulk delete of just the
+    Question row leaves its question_options/spaced_repetition rows
+    orphaned; SQLite then reuses the freed question id on the next insert
+    (ROWID reuse once a table is empty), silently attaching the new
+    question to the old orphaned option rows too.
+    """
+    created = {"session_ids": [], "question_ids": []}
+    yield created
+    db = TestingSessionLocal()
+    try:
+        if created["session_ids"]:
+            db.query(ExamAnswer).filter(ExamAnswer.session_id.in_(created["session_ids"])).delete(synchronize_session=False)
+            db.query(ExamSession).filter(ExamSession.id.in_(created["session_ids"])).delete(synchronize_session=False)
+        if created["question_ids"]:
+            db.query(ExamAnswer).filter(ExamAnswer.question_id.in_(created["question_ids"])).delete(synchronize_session=False)
+            db.query(SpacedRepetition).filter(SpacedRepetition.question_id.in_(created["question_ids"])).delete(synchronize_session=False)
+            db.query(QuestionOption).filter(QuestionOption.question_id.in_(created["question_ids"])).delete(synchronize_session=False)
+            db.query(Question).filter(Question.id.in_(created["question_ids"])).delete(synchronize_session=False)
+        db.commit()
+    finally:
+        db.close()
+
+
+def _create_completed_exam_session(registry):
     """
     Creates one dedicated question under a unique certification tag (so this
     exam session's question filter can't accidentally pick up questions
     created by other tests sharing the same persistent test database),
     answers it correctly, and finishes the exam. Returns the completed
-    session's id together with its raw JSON for assertions.
+    session's id together with its raw JSON for assertions. Registers both
+    the question and the session with `registry` so `cleanup_registry`
+    removes them after the test.
     """
     # A pure hex string (no shared static word) -- create_exam's certification
     # filter tokenizes on '-'/whitespace and does substring ilike matching, so
@@ -43,6 +89,7 @@ def _create_completed_exam_session():
     q_res = client.post("/api/v1/questions", json=q_payload)
     assert q_res.status_code == 201
     question = q_res.json()
+    registry["question_ids"].append(question["id"])
 
     exam_req = {
         "title": "Export Verification Exam",
@@ -55,6 +102,7 @@ def _create_completed_exam_session():
     start_res = client.post("/api/v1/exams", json=exam_req)
     assert start_res.status_code == 201
     session_id = start_res.json()["id"]
+    registry["session_ids"].append(session_id)
 
     correct_option_id = next(o["id"] for o in question["options"] if o["is_correct"])
     ans_res = client.post(
@@ -72,8 +120,8 @@ def _create_completed_exam_session():
     return session_id, completed
 
 
-def test_export_pdf_returns_a_valid_pdf_for_a_completed_session():
-    session_id, _ = _create_completed_exam_session()
+def test_export_pdf_returns_a_valid_pdf_for_a_completed_session(cleanup_registry):
+    session_id, _ = _create_completed_exam_session(cleanup_registry)
 
     res = client.get(f"/api/v1/export/pdf/{session_id}")
 
@@ -86,8 +134,8 @@ def test_export_pdf_returns_a_valid_pdf_for_a_completed_session():
     assert len(res.content) > 100
 
 
-def test_export_excel_returns_a_workbook_with_correct_summary_and_answers():
-    session_id, completed = _create_completed_exam_session()
+def test_export_excel_returns_a_workbook_with_correct_summary_and_answers(cleanup_registry):
+    session_id, completed = _create_completed_exam_session(cleanup_registry)
 
     res = client.get(f"/api/v1/export/excel/{session_id}")
 
@@ -122,7 +170,7 @@ def test_export_excel_for_nonexistent_session_returns_404():
     assert res.status_code == 404
 
 
-def test_export_pdf_works_for_an_in_progress_session_too():
+def test_export_pdf_works_for_an_in_progress_session_too(cleanup_registry):
     # The export endpoints never check session.status -- an in-progress
     # session's partial report should still render, not error out.
     unique_cert = uuid.uuid4().hex
@@ -132,13 +180,15 @@ def test_export_pdf_works_for_an_in_progress_session_too():
         "certification": unique_cert,
         "options": [{"option_text": "A", "is_correct": True, "order_index": 0}],
     }
-    client.post("/api/v1/questions", json=q_payload)
+    q_res = client.post("/api/v1/questions", json=q_payload)
+    cleanup_registry["question_ids"].append(q_res.json()["id"])
 
     start_res = client.post(
         "/api/v1/exams",
         json={"exam_mode": "custom", "certification": unique_cert, "total_questions": 1, "randomize_questions": False},
     )
     session_id = start_res.json()["id"]
+    cleanup_registry["session_ids"].append(session_id)
 
     res = client.get(f"/api/v1/export/pdf/{session_id}")
     assert res.status_code == 200

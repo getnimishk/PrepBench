@@ -35,13 +35,13 @@ vi.mock('../services/api', () => ({
 // testable in isolation, matching the pattern used for QuestionView in
 // ExamRunnerPage.test.tsx.
 vi.mock('../components/question_bank/QuestionTable', () => ({
-  QuestionTable: ({ questions, mode, selectedIds, onToggleSelect, onToggleSelectAll, onEdit, onDelete }: any) => (
+  QuestionTable: ({ questions, mode, selectedIds, onToggleSelect, onToggleSelectAll, onRowClick, onEdit, onDelete }: any) => (
     <div>
       <div>QuestionTable mode: {mode}</div>
       {mode === 'bank' && <button onClick={() => onToggleSelectAll?.()}>Toggle Select All</button>}
       {questions.map((q: Question) => (
         <div key={q.id}>
-          <span>{q.text}</span>
+          <span role="button" onClick={() => onRowClick(q)}>{q.text}</span>
           {mode === 'bank' && (
             <input
               type="checkbox"
@@ -72,18 +72,51 @@ vi.mock('../components/question_bank/QuestionEditorModal', () => ({
 }));
 
 vi.mock('../components/question_bank/ImportModal', () => ({
-  ImportModal: ({ open, onClose }: any) =>
+  ImportModal: ({ open, onClose, onOpenAuditStudio }: any) =>
     open ? (
       <div>
         <div>Import Modal Open</div>
         <button onClick={onClose}>Close Import</button>
+        {/* Simulates a real import validating a file and staging its parsed
+            questions for review -- the one path through ImportModal that
+            actually reaches QuestionBankPage's Audit Studio branch. A plain
+            object literal (not a call out to makeQuestion) because vi.mock
+            factories are hoisted above the rest of the module and can only
+            safely reference identifiers prefixed with "mock". */}
+        <button
+          onClick={() =>
+            onOpenAuditStudio?.([
+              {
+                id: 99,
+                text: 'Staged Question From Import',
+                question_type: 'single_choice',
+                difficulty: 'medium',
+                domain: 'Security',
+                topic: 'IAM',
+                certification: 'AWS SAA',
+                tags: [],
+                created_at: '',
+                updated_at: '',
+                is_reviewed: false,
+                options: [{ id: 991, option_text: 'Option A', is_correct: true }],
+              },
+            ])
+          }
+        >
+          Simulate Staged Import
+        </button>
       </div>
     ) : null,
 }));
 
 vi.mock('../components/question_bank/QuestionDetailPanel', () => ({
-  QuestionDetailPanel: ({ open, question }: any) =>
-    open && question ? <div>Detail Panel: {question.text}</div> : null,
+  QuestionDetailPanel: ({ open, question, onToggleReviewed }: any) =>
+    open && question ? (
+      <div>
+        <div>Detail Panel: {question.text}</div>
+        <button onClick={() => onToggleReviewed?.(question)}>Toggle Reviewed</button>
+      </div>
+    ) : null,
 }));
 
 function makeQuestion(id: number, text: string): Question {
@@ -158,10 +191,7 @@ describe('QuestionBankPage', () => {
     await waitFor(() => expect(screen.getByText('What is IAM?')).toBeInTheDocument());
 
     mockGetQuestions.mockClear();
-    // The Domain <Select> isn't linked to its <InputLabel> via id/labelId, so
-    // it has no accessible name -- select it by position (it's the first of
-    // the four filter dropdowns) rather than by name.
-    await user.click(screen.getAllByRole('combobox')[0]);
+    await user.click(screen.getByRole('combobox', { name: 'Domain' }));
     await user.click(await screen.findByRole('option', { name: 'Security' }));
 
     await waitFor(() => {
@@ -265,5 +295,77 @@ describe('QuestionBankPage', () => {
 
     await user.click(screen.getByRole('button', { name: /bulk import/i }));
     await waitFor(() => expect(screen.getByText('Import Modal Open')).toBeInTheDocument());
+  });
+
+  it('opens the detail panel on row click and toggles reviewed status from it', async () => {
+    const user = userEvent.setup();
+    const question = makeQuestion(1, 'What is IAM?');
+    mockGetQuestions.mockResolvedValue({ items: [question], total: 1 });
+    mockUpdateQuestion.mockResolvedValue({ ...question, is_reviewed: true });
+    renderPage();
+    await waitFor(() => expect(screen.getByText('What is IAM?')).toBeInTheDocument());
+
+    await user.click(screen.getByText('What is IAM?'));
+    await waitFor(() => expect(screen.getByText('Detail Panel: What is IAM?')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: /toggle reviewed/i }));
+
+    await waitFor(() => {
+      expect(mockUpdateQuestion).toHaveBeenCalledWith(1, { is_reviewed: true });
+    });
+  });
+
+  it('imports staged questions through the Audit Studio flow: auto-refine, then commit', async () => {
+    const user = userEvent.setup();
+    mockGetQuestions.mockResolvedValue({ items: [makeQuestion(1, 'What is IAM?')], total: 1 });
+    mockAutoRefineBatch.mockResolvedValue([makeQuestion(99, 'Staged Question From Import (refined)')]);
+    mockConfirmImportBatch.mockResolvedValue({});
+    renderPage();
+    await waitFor(() => expect(screen.getByText('What is IAM?')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: /bulk import/i }));
+    await waitFor(() => expect(screen.getByText('Import Modal Open')).toBeInTheDocument());
+
+    // Simulates what a real import validate step does: hand staged questions
+    // to onOpenAuditStudio. This is the only path that reaches
+    // QuestionBankPage's staging/Audit Studio branch at all.
+    await user.click(screen.getByRole('button', { name: /simulate staged import/i }));
+    await waitFor(() => expect(screen.getByText(/Pre-Import Audit Studio/i)).toBeInTheDocument());
+    expect(screen.getByText('Staged Question From Import')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /auto-refine entire batch/i }));
+    await waitFor(() => {
+      expect(mockAutoRefineBatch).toHaveBeenCalledWith(
+        expect.arrayContaining([expect.objectContaining({ id: 99, text: 'Staged Question From Import' })])
+      );
+    });
+    await waitFor(() => expect(screen.getByText('Staged Question From Import (refined)')).toBeInTheDocument());
+
+    mockGetQuestions.mockResolvedValue({
+      items: [makeQuestion(1, 'What is IAM?'), makeQuestion(99, 'Staged Question From Import (refined)')],
+      total: 2,
+    });
+    await user.click(screen.getByRole('button', { name: /approve & commit batch/i }));
+
+    await waitFor(() => expect(mockConfirmImportBatch).toHaveBeenCalled());
+    // Staging mode exits (back to the normal bank table) once committed.
+    await waitFor(() => expect(screen.queryByText(/Pre-Import Audit Studio/i)).not.toBeInTheDocument());
+  });
+
+  it('debounces the search field before refetching with the keyword', async () => {
+    const user = userEvent.setup();
+    mockGetQuestions.mockResolvedValue({ items: [makeQuestion(1, 'What is IAM?')], total: 1 });
+    renderPage();
+    await waitFor(() => expect(screen.getByText('What is IAM?')).toBeInTheDocument());
+
+    mockGetQuestions.mockClear();
+    await user.type(screen.getByPlaceholderText(/search questions/i), 'IAM');
+
+    // Not fired immediately -- the 300ms debounce hasn't elapsed yet.
+    expect(mockGetQuestions).not.toHaveBeenCalled();
+
+    await waitFor(() => {
+      expect(mockGetQuestions).toHaveBeenCalledWith(expect.objectContaining({ keyword: 'IAM' }));
+    });
   });
 });

@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { DashboardPage } from './DashboardPage';
@@ -53,11 +53,23 @@ describe('DashboardPage', () => {
     mockGetDashboardOverview.mockResolvedValue(makeOverview());
     renderPage();
 
-    await waitFor(() => expect(screen.getByText('5')).toBeInTheDocument());
-    expect(screen.getByText('200')).toBeInTheDocument();
-    expect(screen.getByText('82%')).toBeInTheDocument();
-    expect(screen.getByText('45s')).toBeInTheDocument();
-    expect(screen.getByText('Passing threshold: 70%')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Total Exams Completed')).toBeInTheDocument());
+
+    // Each value is scoped to its own MetricCard -- title and value are
+    // unlinked sibling nodes in the DOM, so asserting the bare numbers exist
+    // anywhere on the page wouldn't catch two metrics' values being swapped.
+    const examsCard = screen.getByText('Total Exams Completed').closest('.MuiCard-root') as HTMLElement;
+    expect(within(examsCard).getByText('5')).toBeInTheDocument();
+
+    const questionsCard = screen.getByText('Questions Attempted').closest('.MuiCard-root') as HTMLElement;
+    expect(within(questionsCard).getByText('200')).toBeInTheDocument();
+
+    const accuracyCard = screen.getByText('Overall Accuracy').closest('.MuiCard-root') as HTMLElement;
+    expect(within(accuracyCard).getByText('82%')).toBeInTheDocument();
+    expect(within(accuracyCard).getByText('Passing threshold: 70%')).toBeInTheDocument();
+
+    const paceCard = screen.getByText('Avg Time / Question').closest('.MuiCard-root') as HTMLElement;
+    expect(within(paceCard).getByText('45s')).toBeInTheDocument();
   });
 
   it('shows the empty-state message when there are no recent exam sessions', async () => {
@@ -93,7 +105,19 @@ describe('DashboardPage', () => {
     mockGetDashboardOverview.mockResolvedValue(makeOverview());
     await user.click(screen.getByRole('button', { name: /retry/i }));
 
-    await waitFor(() => expect(screen.getByText('5')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Total Exams Completed')).toBeInTheDocument());
+  });
+
+  it('fails the whole dashboard load if only the settings request fails, even though overview succeeded', async () => {
+    // Promise.all([getDashboardOverview(), getSettings()]) shares one catch --
+    // a settings-only outage blanks the entire dashboard rather than just
+    // omitting the passing-threshold subtitle.
+    mockGetDashboardOverview.mockResolvedValue(makeOverview());
+    mockGetSettings.mockRejectedValue(new Error('settings network error'));
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(/Failed to load dashboard data/i)).toBeInTheDocument());
+    expect(screen.queryByText('Total Exams Completed')).not.toBeInTheDocument();
   });
 
   it('navigates to exam setup from the hero buttons, including weak-topic mode', async () => {
@@ -115,5 +139,52 @@ describe('DashboardPage', () => {
 
     await waitFor(() => expect(screen.getByText(/queued in Spaced Repetition/i)).toBeInTheDocument());
     expect(screen.queryByText(/On a weak spot like/i)).not.toBeInTheDocument();
+  });
+
+  it('recommends the specific weakest topic when nothing is due for spaced repetition', async () => {
+    mockGetDashboardOverview.mockResolvedValue(makeOverview({
+      spaced_repetition_due_count: 0,
+      weak_topics: [{ topic: 'IAM', domain: 'Security', total_attempted: 10, correct_count: 4, accuracy_percentage: 40 }],
+    }));
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(/On a weak spot like "IAM" \(40%\)/i)).toBeInTheDocument());
+  });
+
+  it('suggests starting small when nothing has been practiced today and there is no streak yet', async () => {
+    mockGetDashboardOverview.mockResolvedValue(makeOverview({
+      today_practiced_count: 0,
+      study_streak_days: 0,
+    }));
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(/Start small: 10-15 questions a day/i)).toBeInTheDocument());
+  });
+
+  it('reminds to keep the streak going when nothing has been practiced today but a streak exists', async () => {
+    mockGetDashboardOverview.mockResolvedValue(makeOverview({
+      today_practiced_count: 0,
+      study_streak_days: 4,
+    }));
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(/keeps today's streak and your spaced-repetition schedule on track/i)).toBeInTheDocument());
+  });
+
+  it('highlights that a first exam calibrates everything when none have been taken yet', async () => {
+    mockGetDashboardOverview.mockResolvedValue(makeOverview({
+      total_exams: 0,
+      today_practiced_count: 5,
+    }));
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(/Your first exam is what calibrates everything else/i)).toBeInTheDocument());
+  });
+
+  it('suggests a full timed exam when nothing is due and no weak areas remain', async () => {
+    mockGetDashboardOverview.mockResolvedValue(makeOverview());
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(/try a full timed exam under real conditions/i)).toBeInTheDocument());
   });
 });
