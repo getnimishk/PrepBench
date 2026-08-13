@@ -10,6 +10,13 @@ from app.models.system_design_attempt import SystemDesignAttempt
 from app.models.practice_recording import PracticeRecording
 from app.models.recording_analysis import RecordingAnalysis
 from app.models.interview_question import InterviewQuestion, InterviewRoundType
+from app.models.roadmap import (
+    Roadmap,
+    RoadmapPhase,
+    RoadmapTopic,
+    RoadmapResource,
+    RoadmapTopicStatus,
+)
 
 __all__ = [
     "Question",
@@ -31,4 +38,9 @@ __all__ = [
     "RecordingAnalysis",
     "InterviewQuestion",
     "InterviewRoundType",
+    "Roadmap",
+    "RoadmapPhase",
+    "RoadmapTopic",
+    "RoadmapResource",
+    "RoadmapTopicStatus",
 ]

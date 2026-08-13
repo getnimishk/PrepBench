@@ -20,6 +20,19 @@ import {
   InterviewQuestionImportResult,
   ImportInterviewQuestionsRequest,
 } from '../types/interviewQuestion';
+import {
+  RoadmapSummary,
+  RoadmapDetail,
+  RoadmapSchedule,
+  RoadmapCreateRequest,
+  RoadmapUpdateRequest,
+  RoadmapTopic,
+  RoadmapTopicUpdateRequest,
+  RoadmapPhase,
+  RoadmapImportPreview,
+  RoadmapImportConfirm,
+  RoadmapImportResult,
+} from '../types/roadmap';
 
 const API_BASE = '/api/v1';
 
@@ -403,3 +416,86 @@ export const importInterviewQuestions = async (req: ImportInterviewQuestionsRequ
   return res.data;
 };
 
+
+// ------------------------------------------------------------- Roadmaps
+
+export const getRoadmaps = async (includeArchived = false) => {
+  const res = await api.get<RoadmapSummary[]>(`/roadmaps`, {
+    params: { include_archived: includeArchived },
+  });
+  return res.data;
+};
+
+export const getRoadmap = async (roadmapId: number) => {
+  const res = await api.get<RoadmapDetail>(`/roadmaps/${roadmapId}`);
+  return res.data;
+};
+
+export const createRoadmap = async (data: RoadmapCreateRequest) => {
+  const res = await api.post<RoadmapDetail>(`/roadmaps`, data);
+  return res.data;
+};
+
+export const updateRoadmap = async (roadmapId: number, data: RoadmapUpdateRequest) => {
+  const res = await api.put<RoadmapDetail>(`/roadmaps/${roadmapId}`, data);
+  return res.data;
+};
+
+export const deleteRoadmap = async (roadmapId: number) => {
+  await api.delete(`/roadmaps/${roadmapId}`);
+};
+
+export const getRoadmapSchedule = async (roadmapId: number) => {
+  const res = await api.get<RoadmapSchedule>(`/roadmaps/${roadmapId}/schedule`);
+  return res.data;
+};
+
+export const addRoadmapPhase = async (roadmapId: number, name: string) => {
+  const res = await api.post<RoadmapPhase>(`/roadmaps/${roadmapId}/phases`, { name });
+  return res.data;
+};
+
+export const deleteRoadmapPhase = async (roadmapId: number, phaseId: number) => {
+  await api.delete(`/roadmaps/${roadmapId}/phases/${phaseId}`);
+};
+
+export const addRoadmapTopic = async (
+  roadmapId: number,
+  data: { phase_id: number; title: string; estimated_hours?: number | null }
+) => {
+  const res = await api.post<RoadmapTopic>(`/roadmaps/${roadmapId}/topics`, data);
+  return res.data;
+};
+
+// PATCH, not PUT -- callers send one field (usually just `status`), and a
+// full-representation contract would make them round-trip the whole topic and
+// risk clobbering evidence_notes.
+export const updateRoadmapTopic = async (
+  roadmapId: number,
+  topicId: number,
+  data: RoadmapTopicUpdateRequest
+) => {
+  const res = await api.patch<RoadmapTopic>(`/roadmaps/${roadmapId}/topics/${topicId}`, data);
+  return res.data;
+};
+
+export const deleteRoadmapTopic = async (roadmapId: number, topicId: number) => {
+  await api.delete(`/roadmaps/${roadmapId}/topics/${topicId}`);
+};
+
+export const validateRoadmapImport = async (file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await api.post<RoadmapImportPreview>(`/roadmaps/import/validate`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 30000,
+  });
+  return res.data;
+};
+
+export const confirmRoadmapImport = async (data: RoadmapImportConfirm) => {
+  const res = await api.post<RoadmapImportResult>(`/roadmaps/import/confirm`, data, {
+    timeout: 30000,
+  });
+  return res.data;
+};

@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Box, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Tooltip, IconButton, Typography, useTheme } from '@mui/material';
-import { LayoutDashboard, PlayCircle, BookOpen, BarChart3, History, Settings, ChevronLeft, ChevronRight, Network, Mic, Headphones } from 'lucide-react';
+import { LayoutDashboard, PlayCircle, BookOpen, BarChart3, History, Settings, ChevronLeft, ChevronRight, Network, Mic, Headphones, Map } from 'lucide-react';
 import { useSidebar } from '../../App';
 
 const DASHBOARD_ITEM = { label: 'Dashboard', path: '/', icon: LayoutDashboard };
@@ -14,6 +14,13 @@ const PRACTICE_ITEMS = [
   { label: 'Exam Practice', path: '/exam-setup', icon: PlayCircle },
   { label: 'System Design Practice', path: '/system-design', icon: Network },
   { label: 'Interview Practice', path: '/interview-practice', icon: Mic },
+];
+
+// Roadmaps straddle CONTENT (importable material) and PROGRESS (tracked
+// state), so they get their own group rather than being filed under either
+// and reading as the wrong kind of thing. One item for now.
+const LEARN_ITEMS = [
+  { label: 'Roadmaps', path: '/roadmaps', icon: Map },
 ];
 
 const CONTENT_ITEMS = [
@@ -139,6 +146,9 @@ export const Sidebar: React.FC = () => {
 
           {renderSectionHeader('PRACTICE')}
           {renderItems(PRACTICE_ITEMS)}
+
+          {renderSectionHeader('LEARN')}
+          {renderItems(LEARN_ITEMS)}
 
           {renderSectionHeader('CONTENT')}
           {renderItems(CONTENT_ITEMS)}
