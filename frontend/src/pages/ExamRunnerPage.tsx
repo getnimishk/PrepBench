@@ -97,6 +97,25 @@ export const ExamRunnerPage: React.FC = () => {
     fetchExam();
   }, [fetchExam]);
 
+  // Answers persist on navigation, so everything except the question currently
+  // on screen is already saved. Closing the tab mid-exam would silently drop
+  // that one, and there's no way to recover it -- so warn first. Suppressed
+  // once the exam is being submitted, where leaving is the expected outcome.
+  useEffect(() => {
+    const examInProgress = examDetail?.status === 'in_progress';
+    if (!examInProgress || finishing) return;
+
+    const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      // Browsers ignore custom text now and show their own wording; assigning
+      // returnValue is still what triggers the prompt at all.
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', warnBeforeLeaving);
+    return () => window.removeEventListener('beforeunload', warnBeforeLeaving);
+  }, [examDetail?.status, finishing]);
+
   useEffect(() => {
     if (currentQuestion) {
       setSelectedOptionIds(answeredMap.get(currentQuestion.id) || []);

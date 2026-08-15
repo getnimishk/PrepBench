@@ -7,7 +7,10 @@ from app.models.exam_session import ExamSession, ExamStatus
 from app.models.exam_answer import ExamAnswer
 from app.models.settings import AppSettings
 from app.models.spaced_repetition import SpacedRepetition
-from datetime import datetime, date, UTC
+from app.core.timeutils import (
+    utc_now_naive, to_local_date, local_today, local_day_start_as_naive_utc,
+)
+from datetime import timedelta
 
 class AnalyticsService:
     def __init__(self, db: Session):
@@ -18,6 +21,11 @@ class AnalyticsService:
     # single miss reads as a permanent "0%") rather than a real pattern worth
     # calling out on the dashboard.
     MIN_ATTEMPTS_FOR_CALLOUT = 3
+
+    # The score-trend chart plots one point per completed exam. Past a few
+    # hundred the line is unreadable anyway, so cap the query rather than
+    # loading every session a long-running database has ever accumulated.
+    MAX_TREND_POINTS = 200
 
     def get_dashboard_overview(self) -> DashboardOverview:
         overall = self.repo.get_overall_stats()
@@ -57,35 +65,49 @@ class AnalyticsService:
         settings = self.db.query(AppSettings).filter(AppSettings.id == 1).first()
         daily_goal = settings.daily_practice_goal if settings else 20
 
-        today_utc = datetime.now(UTC).replace(tzinfo=None).date()
+        # Day boundaries come from the machine's local timezone, not UTC.
+        # Timestamps are stored as naive UTC (correct), but asking "did I
+        # practice today?" against a UTC calendar day is wrong for anyone not
+        # on UTC: at +05:30 the UTC day doesn't roll over until 05:30 local, so
+        # studying at 01:00 wouldn't count toward today and a streak would
+        # break on a day the user actually practiced.
+        today_local = local_today()
         today_answers = self.db.query(ExamAnswer)\
-            .filter(ExamAnswer.answered_at >= datetime.combine(today_utc, datetime.min.time()))\
+            .filter(
+                ExamAnswer.first_answered_at >= local_day_start_as_naive_utc(today_local),
+                # is_correct is NULL exactly when nothing was selected (see
+                # ExamEngine.save_answer), which is how a merely-navigated-past
+                # question is recorded. Those aren't practice.
+                ExamAnswer.is_correct.isnot(None),
+            )\
             .count()
 
-        # Dynamic streak calculation based on completed exam dates
-        completed_dates = [
-            d[0] for d in self.db.query(func.date(ExamSession.end_time))
-            .filter(ExamSession.status == ExamStatus.COMPLETED, ExamSession.end_time != None)
-            .distinct().order_by(func.date(ExamSession.end_time).desc()).all()
+        # Streak over local calendar dates. Converted in Python rather than via
+        # SQL date() because that would extract the UTC date and reintroduce
+        # the same off-by-one for non-UTC users.
+        completed_end_times = [
+            row[0] for row in self.db.query(ExamSession.end_time)
+            .filter(ExamSession.status == ExamStatus.COMPLETED, ExamSession.end_time.isnot(None))
+            .all()
         ]
+        completed_dates = sorted({to_local_date(t) for t in completed_end_times}, reverse=True)
 
         streak = 0
         if completed_dates:
-            check_date = today_utc
-            # If no exam completed today, check if active yesterday
-            if completed_dates[0] != check_date.isoformat() and len(completed_dates) > 0:
-                from datetime import timedelta
-                check_date = today_utc - timedelta(days=1)
+            check_date = today_local
+            # Yesterday still counts as an unbroken streak -- today just isn't
+            # over yet.
+            if completed_dates[0] != check_date:
+                check_date = today_local - timedelta(days=1)
 
-            for d_str in completed_dates:
-                if d_str == check_date.isoformat():
+            for completed_on in completed_dates:
+                if completed_on == check_date:
                     streak += 1
-                    from datetime import timedelta
                     check_date -= timedelta(days=1)
-                else:
+                elif completed_on < check_date:
                     break
 
-        now = datetime.now(UTC).replace(tzinfo=None)
+        now = utc_now_naive()
         sr_due_count = self.db.query(func.count(SpacedRepetition.id))\
             .filter(SpacedRepetition.next_review_date <= now)\
             .scalar() or 0
@@ -105,9 +127,14 @@ class AnalyticsService:
         )
 
     def get_score_trends(self) -> List[ScoreTrendPoint]:
+        # Newest-first with a cap, then reversed back into chronological order
+        # for plotting -- so the limit keeps the *most recent* N exams rather
+        # than the oldest N.
         sessions = self.db.query(ExamSession)\
             .filter(ExamSession.status == ExamStatus.COMPLETED)\
-            .order_by(ExamSession.end_time.asc()).all()
+            .order_by(ExamSession.end_time.desc())\
+            .limit(self.MAX_TREND_POINTS).all()
+        sessions.reverse()
 
         points = []
         scores = []

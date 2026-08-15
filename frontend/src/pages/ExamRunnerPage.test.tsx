@@ -171,3 +171,36 @@ describe('ExamRunnerPage finish confirmation', () => {
     );
   });
 });
+
+describe('ExamRunnerPage unsaved-work guard', () => {
+  it('warns before the tab is closed mid-exam', async () => {
+    // Answers persist on navigation, so only the question currently on screen
+    // is unsaved -- and there is no way to recover it once the tab is gone.
+    renderExamRunner();
+    await waitFor(() => expect(screen.getByText('Question: Question 1')).toBeInTheDocument());
+
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('stops warning once the exam has been submitted', async () => {
+    const user = userEvent.setup();
+    renderExamRunner();
+    await waitFor(() => expect(screen.getByText('Question: Question 1')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: /Question 2,/i }));
+    await user.click(screen.getByText('Select Option A'));
+    await user.click(screen.getByRole('button', { name: /submit & finish/i }));
+    await waitFor(() => expect(screen.getByText(/finish & submit exam/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /yes, submit/i }));
+
+    await waitFor(() => expect(mockFinishExam).toHaveBeenCalled());
+
+    // Leaving after submitting is the expected outcome, not lost work.
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+  });
+});

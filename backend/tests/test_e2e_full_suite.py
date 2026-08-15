@@ -213,10 +213,18 @@ def test_negative_finish_already_completed_exam():
     start_res = client.post("/api/v1/exams", json={"question_count": 1})
     session_id = start_res.json()["id"]
 
-    client.post(f"/api/v1/exams/{session_id}/finish")
+    first_finish = client.post(f"/api/v1/exams/{session_id}/finish")
     second_finish = client.post(f"/api/v1/exams/{session_id}/finish")
     assert second_finish.status_code == 200
     assert second_finish.json()["status"] == "completed"
+
+    # Finishing twice must be a no-op, not a re-scoring. Asserting only the
+    # status let a real bug through: end_time used to be re-stamped on every
+    # call, so each extra finish inflated the recorded duration.
+    first, second = first_finish.json(), second_finish.json()
+    assert second["end_time"] == first["end_time"]
+    assert second["time_spent_seconds"] == first["time_spent_seconds"]
+    assert second["score_percentage"] == first["score_percentage"]
 
 # ==========================================
 # 4. EDGE CASE TEST SUITE
