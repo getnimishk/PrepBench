@@ -24,6 +24,37 @@ router = APIRouter(prefix="/recordings", tags=["Recordings"])
 RECORDINGS_DIR = DATA_DIR / "recordings"
 RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
 
+# Roughly 3 hours of Opus-encoded speech -- far beyond any realistic interview
+# answer, while still bounding what a mistaken file pick can consume.
+MAX_RECORDING_BYTES = 100 * 1024 * 1024
+
+# MediaRecorder reports audio-only WebM as either audio/webm or video/webm
+# depending on the browser, so both are legitimate here.
+ALLOWED_MIME_PREFIXES = ("audio/",)
+ALLOWED_MIME_EXACT = {"video/webm"}
+FALLBACK_MIME = "audio/webm"
+
+
+def _safe_mime_type(raw: str | None) -> str:
+    """
+    Constrain the stored MIME type to audio.
+
+    It is echoed straight back on download via FileResponse(media_type=...),
+    so accepting whatever the client sends would let a file be served from
+    this origin under an attacker-chosen type. Anything unrecognised is
+    rejected rather than silently coerced, so a genuine format mismatch
+    surfaces at upload instead of as a broken player later.
+    """
+    if not raw:
+        return FALLBACK_MIME
+    normalized = raw.split(";")[0].strip().lower()
+    if normalized.startswith(ALLOWED_MIME_PREFIXES) or normalized in ALLOWED_MIME_EXACT:
+        return normalized
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=f"Unsupported recording type '{normalized}'. Expected an audio format.",
+    )
+
 
 @router.post("", response_model=PracticeRecordingResponse, status_code=status.HTTP_201_CREATED)
 async def upload_recording(
@@ -33,16 +64,24 @@ async def upload_recording(
     interview_question_id: int = Form(None),
     db: Session = Depends(get_db),
 ):
+    # Validate the declared type before reading the body, so an obviously
+    # wrong upload is rejected without buffering it at all.
+    mime_type = _safe_mime_type(file.content_type)
+
     contents = await file.read()
     if not contents:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded recording is empty.")
+    if len(contents) > MAX_RECORDING_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Recording exceeds the {MAX_RECORDING_BYTES // (1024 * 1024)}MB limit.",
+        )
 
     if interview_question_id is not None:
         question_repo = InterviewQuestionRepository(db)
         if not question_repo.get_by_id(interview_question_id):
             raise ResourceNotFoundException("InterviewQuestion", interview_question_id)
 
-    mime_type = file.content_type or "audio/webm"
     ext = ".webm"
     filename = f"{uuid.uuid4().hex}{ext}"
     dest_path = RECORDINGS_DIR / filename

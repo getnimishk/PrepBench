@@ -126,8 +126,8 @@ The application includes template `.env.example` configuration files at both the
 | `GEMINI_API_KEY` | Google Gemini API key for LLM RAG Grounding & AI Option Refinements | `None` | Optional |
 | `LOG_LEVEL` | Application logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`) | `DEBUG` | No |
 | `DATABASE_PATH` | Path to local SQLite database file | `data/exam_simulator.db` | No |
-| `DEFAULT_PASSING_PERCENTAGE` | Default passing score percentage for exams | `70.0` | No |
-| `DEFAULT_EXAM_DURATION_MINUTES` | Default duration for generated exam sessions | `60` | No |
+
+> **Exam defaults** (passing score, question count, duration, shuffling) are **not** environment variables — they're stored per-install and edited in **Settings** inside the app, which is the only place the app reads them from.
 
 > 💡 **LLM Features**: If `GEMINI_API_KEY` is provided, the application enables 1-click AI option refinements, Scrum Guide 2020 RAG grounding, blind LLM answer key auditing, System Design attempt grading, and Interview Practice recording analysis. Without a key, these features report as "unavailable" rather than fabricating a score — the rest of the app still runs 100% offline.
 

@@ -17,6 +17,14 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
-    setupFiles: ['./src/test/setup.ts']
+    setupFiles: ['./src/test/setup.ts'],
+    // Vitest's 5s default is too tight for this suite. The heaviest tests
+    // drive a full MUI dialog through render -> type -> save -> refetch, which
+    // measures ~7s here even running alone, and jsdom + MUI make every
+    // interaction a real re-render. Tests were failing intermittently on
+    // timeout with nothing wrong in the code under test -- the classic way a
+    // suite loses its credibility. Raised rather than papered over with
+    // retries, so a genuine hang still fails instead of being retried away.
+    testTimeout: 20000,
   }
 });
