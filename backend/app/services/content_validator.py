@@ -1,18 +1,16 @@
-import os
 import json
 import math
 import re
 from pathlib import Path
 from typing import List, Optional, Tuple
-import httpx
-from app.core.config import DATA_DIR, settings
+from sqlalchemy.orm import Session
+from app.core.config import DATA_DIR
 from app.core.logging_config import logger
+from app.llm.gateway import LLMGateway
+from app.llm.types import LLMTask
 from app.schemas.question_validation import ContentJudgment, ValidationErrorItem
-from app.services import llm_client
 
 DEFAULT_CACHE_PATH = DATA_DIR / "scrum_guide_index.json"
-EMBEDDING_MODEL = "models/gemini-embedding-001"
-JUDGE_MODEL = "models/gemini-flash-latest"
 TOP_K_CHUNKS = 4
 
 
@@ -21,6 +19,24 @@ class ScrumGuideRetriever:
         if not cache_path.exists():
             raise FileNotFoundError(f"Scrum Guide vector index not found at {cache_path}.")
         self._chunks = json.loads(cache_path.read_text(encoding="utf-8"))
+
+    @property
+    def expected_dimension(self) -> Optional[int]:
+        """
+        Vector width of the index, or None if it is empty.
+
+        Needed because the embedding provider is now user-configurable while
+        the index on disk was built by whichever provider was configured when
+        it was generated. Vectors from two different embedding models are not
+        comparable -- and _cosine_similarity's zip() would silently truncate to
+        the shorter one and return a confident, meaningless score rather than
+        failing. Callers check this and fall back to keyword retrieval.
+        """
+        for chunk in self._chunks:
+            embedding = chunk.get("embedding")
+            if embedding:
+                return len(embedding)
+        return None
 
     @staticmethod
     def _cosine_similarity(a: List[float], b: List[float]) -> float:
@@ -53,10 +69,11 @@ class ScrumGuideRetriever:
 
 
 class ContentValidator:
-    def __init__(self, api_key: Optional[str] = None, cache_path: Path = DEFAULT_CACHE_PATH):
-        self.api_key = api_key or settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY")
-        self.model_name = JUDGE_MODEL
-        self._client = llm_client.get_shared_client()
+    def __init__(self, db: Optional[Session] = None, cache_path: Path = DEFAULT_CACHE_PATH):
+        # No session is passed by most call sites (see api/v1/questions.py),
+        # in which case the gateway resolves from the environment exactly as
+        # this class used to do directly.
+        self.gateway = LLMGateway(db)
 
         # This is the part that was silently dropped in the previous revision:
         # without actually constructing the retriever, is_available() could
@@ -73,29 +90,39 @@ class ContentValidator:
     def is_available(self) -> bool:
         return self._available
 
-    def _post_json(self, url: str, payload: dict, timeout: float) -> Tuple[Optional[dict], Optional[str]]:
-        return llm_client.post_json(self._client, url, payload, timeout)
+    def _llm_configured(self) -> bool:
+        """Whether any provider can run the judge. Distinct from is_available(),
+        which reports whether the Scrum Guide index loaded."""
+        return self.gateway.is_available(LLMTask.CONTENT_VALIDATION)
 
-    def _call_gemini(self, model: str, prompt: str, timeout: float = 15.0) -> Tuple[Optional[dict], Optional[str]]:
-        return llm_client.call_gemini(self._client, self.api_key, model, prompt, timeout)
+    def _judge(self, prompt: str) -> Tuple[Optional[dict], Optional[str]]:
+        return self.gateway.run(LLMTask.CONTENT_VALIDATION, prompt).as_tuple()
 
     def _embed_query(self, text: str) -> List[float]:
-        if not self.api_key:
+        """
+        Embed the question for retrieval, returning [] on any failure.
+
+        An empty vector is a supported outcome, not an error: callers fall back
+        to keyword retrieval, so grounding still works when no embedding
+        provider is configured.
+        """
+        result = self.gateway.embed(text)
+        if result.vector is None:
+            if result.error and not result.unavailable:
+                logger.warning(f"Embedding query failed: {result.error}")
             return []
-        url = f"https://generativelanguage.googleapis.com/v1beta/{EMBEDDING_MODEL}:embedContent?key={self.api_key}"
-        payload = {
-            "model": EMBEDDING_MODEL,
-            "content": {"parts": [{"text": text}]}
-        }
-        data, error_msg = self._post_json(url, payload, timeout=10.0)
-        if error_msg:
-            logger.warning(f"Embedding query failed: {error_msg}")
+
+        expected = self.retriever.expected_dimension if self.retriever else None
+        if expected is not None and len(result.vector) != expected:
+            logger.warning(
+                f"Embedding provider {result.provider_name!r} returned "
+                f"{len(result.vector)}-dimensional vectors but the Scrum Guide index "
+                f"holds {expected}-dimensional ones. Falling back to keyword retrieval. "
+                "Rebuild the index with the current provider to restore semantic search."
+            )
             return []
-        try:
-            return data["embedding"]["values"]
-        except (KeyError, TypeError):
-            logger.warning("Embedding response missing expected 'embedding.values' field")
-            return []
+
+        return result.vector
 
     def _build_blind_prompt(self, question_text: str, options: List[str], grounding_chunks: List[dict]) -> str:
         options_block = "\n".join(f"{chr(65 + i)}. {opt}" for i, opt in enumerate(options))
@@ -154,12 +181,12 @@ If the question or options are ambiguous, or the excerpts don't clearly settle i
             else:
                 grounding_chunks = self.retriever.top_k_keyword(question_text, k=TOP_K_CHUNKS) if self.retriever else []
 
-            if not self.api_key:
+            if not self._llm_configured():
                 return ContentJudgment(
                     judged_correct_options=[],
                     stated_correct_options=stated_sorted,
                     agrees_with_stated_key=False,
-                    judge_reasoning=f"Grounding passages retrieved ({len(grounding_chunks)} chunks); LLM evaluation skipped (missing GEMINI_API_KEY).",
+                    judge_reasoning=f"Grounding passages retrieved ({len(grounding_chunks)} chunks); LLM evaluation skipped (no AI provider configured).",
                     grounding_chunk_ids=[c["id"] for c in grounding_chunks],
                     error_category="content",
                     human_review_required=True,
@@ -168,7 +195,7 @@ If the question or options are ambiguous, or the excerpts don't clearly settle i
                 )
 
             prompt = self._build_blind_prompt(question_text, options, grounding_chunks)
-            parsed, error_msg = self._call_gemini(model=self.model_name, prompt=prompt, timeout=15.0)
+            parsed, error_msg = self._judge(prompt)
 
             if not parsed or error_msg:
                 return ContentJudgment(
@@ -232,7 +259,7 @@ If the question or options are ambiguous, or the excerpts don't clearly settle i
 
         citation_text = "\n\n".join([f"• [Scrum Guide Chunk #{c['id']}] {c['text'][:250]}..." for c in grounding_chunks]) if grounding_chunks else "Scrum Guide 2020 - General Framework Principles"
 
-        if self.api_key:
+        if self._llm_configured():
             options_block = "\n".join([f"{chr(65+i)}. {opt['option_text']} {'(Stated Correct)' if opt.get('is_correct') else ''}" for i, opt in enumerate(options)])
             context_block = "\n\n".join([c["text"] for c in grounding_chunks])
 
@@ -266,7 +293,7 @@ Respond ONLY in valid JSON format matching this schema:
   "suggested_stem": null
 }}
 """
-            parsed, error_msg = self._call_gemini(model=self.model_name, prompt=prompt, timeout=15.0)
+            parsed, error_msg = self._judge(prompt)
             if parsed:
                 parsed["question_id"] = question_id
                 return parsed

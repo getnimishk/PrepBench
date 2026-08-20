@@ -42,7 +42,7 @@ class RecordingAnalysisService:
         self.question_repo = InterviewQuestionRepository(db)
 
     def list_providers(self) -> list:
-        return list_providers()
+        return list_providers(db=self.db)
 
     def analyze_recording(self, recording_id: int, provider_name: Optional[str] = None) -> RecordingAnalysisResponse:
         recording = self.recording_repo.get_by_id(recording_id)
@@ -54,7 +54,7 @@ class RecordingAnalysisService:
             raise ResourceNotFoundException("PracticeRecording file on disk", recording_id)
 
         try:
-            provider = get_analysis_provider(provider_name)
+            provider = get_analysis_provider(provider_name, db=self.db)
         except ValueError as e:
             saved = self.analysis_repo.upsert(
                 recording_id,
@@ -70,7 +70,10 @@ class RecordingAnalysisService:
                 recording_id,
                 provider=provider.name,
                 analysis_status="unavailable",
-                analysis_error=f"Provider '{provider.name}' is not configured (missing API key).",
+                analysis_error=(
+                    f"Provider '{provider.name}' cannot analyse recordings right now. "
+                    "No configured AI provider supports audio analysis."
+                ),
                 **_EMPTY_RESULT_FIELDS,
             )
             return RecordingAnalysisResponse.model_validate(saved)

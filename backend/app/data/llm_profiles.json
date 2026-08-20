@@ -1,0 +1,110 @@
+{
+  "_comment": [
+    "Built-in provider catalogue. Everything that used to be a Python literal",
+    "-- endpoint URLs, model names, auth style -- lives here instead.",
+    "",
+    "'adapter' names a WIRE PROTOCOL, not a vendor. There are ~3 protocols and",
+    "~30 vendors, so most vendors need no code at all: llamafile, Ollama,",
+    "LM Studio, vLLM, OpenAI, Groq, Together and DeepSeek all speak",
+    "openai_compatible.",
+    "",
+    "'capabilities' lists only what the adapter actually implements today, not",
+    "everything the vendor's API can do. Advertising a capability the code",
+    "cannot deliver would produce exactly the fabricated-result failure this",
+    "app is careful to avoid elsewhere.",
+    "",
+    "To add a vendor without modifying the app, create",
+    "backend/data/llm_profiles.custom.json with the same shape -- it is merged",
+    "over this file at load time."
+  ],
+
+  "llamafile": {
+    "label": "Llamafile (local)",
+    "adapter": "openai_compatible",
+    "base_url": "http://localhost:8080/v1",
+    "auth": { "style": "none" },
+    "capabilities": ["text_json"],
+    "is_local": true,
+    "supports_json_mode": true,
+    "model_discovery": "/models",
+    "setup_guide": "llamafile"
+  },
+
+  "ollama": {
+    "label": "Ollama (local)",
+    "adapter": "openai_compatible",
+    "base_url": "http://localhost:11434/v1",
+    "auth": { "style": "none" },
+    "capabilities": ["text_json", "embedding"],
+    "is_local": true,
+    "supports_json_mode": true,
+    "model_discovery": "/models",
+    "setup_guide": "ollama"
+  },
+
+  "lmstudio": {
+    "label": "LM Studio (local)",
+    "adapter": "openai_compatible",
+    "base_url": "http://localhost:1234/v1",
+    "auth": { "style": "none" },
+    "capabilities": ["text_json", "embedding"],
+    "is_local": true,
+    "supports_json_mode": true,
+    "model_discovery": "/models",
+    "setup_guide": "lmstudio"
+  },
+
+  "gemini": {
+    "label": "Google Gemini",
+    "adapter": "gemini",
+    "base_url": "https://generativelanguage.googleapis.com/v1beta",
+    "auth": { "style": "query_param", "param": "key" },
+    "capabilities": ["text_json", "audio_json", "embedding"],
+    "is_local": false,
+    "supports_json_mode": true,
+    "default_models": {
+      "text_json": "models/gemini-flash-latest",
+      "audio_json": "models/gemini-flash-latest",
+      "embedding": "models/gemini-embedding-001"
+    }
+  },
+
+  "openai": {
+    "label": "OpenAI",
+    "adapter": "openai_compatible",
+    "base_url": "https://api.openai.com/v1",
+    "auth": { "style": "bearer" },
+    "capabilities": ["text_json", "embedding"],
+    "is_local": false,
+    "supports_json_mode": true,
+    "model_discovery": "/models",
+    "default_models": {
+      "text_json": "gpt-4o-mini",
+      "embedding": "text-embedding-3-small"
+    }
+  },
+
+  "anthropic": {
+    "label": "Anthropic Claude",
+    "adapter": "anthropic",
+    "base_url": "https://api.anthropic.com/v1",
+    "auth": { "style": "header", "header": "x-api-key" },
+    "capabilities": ["text_json"],
+    "is_local": false,
+    "supports_json_mode": false,
+    "default_models": {
+      "text_json": "claude-sonnet-4-5"
+    }
+  },
+
+  "custom_openai": {
+    "label": "Custom (OpenAI-compatible)",
+    "adapter": "openai_compatible",
+    "base_url": null,
+    "auth": { "style": "optional_bearer" },
+    "capabilities": ["text_json"],
+    "is_local": null,
+    "supports_json_mode": true,
+    "model_discovery": "/models"
+  }
+}

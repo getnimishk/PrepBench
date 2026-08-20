@@ -7,6 +7,7 @@ from app.api.v1.router import api_router
 from app.core.logging_config import logger
 from app.utils.seed_system_design_prompts import seed_system_design_prompts_if_empty
 from app.utils.seed_interview_questions import seed_interview_questions_if_empty
+from app.llm.bootstrap import import_env_provider_if_absent
 
 # Create DB Tables
 Base.metadata.create_all(bind=engine)
@@ -27,6 +28,9 @@ async def lifespan(app: FastAPI):
         seeded_questions = seed_interview_questions_if_empty(db)
         if seeded_questions:
             logger.info(f"Seeded {seeded_questions} built-in interview questions.")
+
+        # Turns a pre-existing GEMINI_API_KEY into a visible provider row, once.
+        import_env_provider_if_absent(db)
     finally:
         db.close()
 

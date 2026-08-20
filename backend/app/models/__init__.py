@@ -17,6 +17,7 @@ from app.models.roadmap import (
     RoadmapResource,
     RoadmapTopicStatus,
 )
+from app.models.llm_config import LLMProviderConfig, LLMTaskBinding
 
 __all__ = [
     "Question",
@@ -43,4 +44,6 @@ __all__ = [
     "RoadmapTopic",
     "RoadmapResource",
     "RoadmapTopicStatus",
+    "LLMProviderConfig",
+    "LLMTaskBinding",
 ]

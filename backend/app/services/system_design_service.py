@@ -1,12 +1,11 @@
-import os
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
-from app.core.config import settings
 from app.core.exceptions import ResourceNotFoundException
 from app.core.logging_config import logger
-from app.services import llm_client
+from app.llm.gateway import LLMGateway
+from app.llm.types import LLMTask
 from app.repositories.system_design_repository import (
     SystemDesignPromptRepository,
     SystemDesignAttemptRepository,
@@ -26,8 +25,6 @@ from app.schemas.system_design import (
 )
 from app.schemas.analytics import ScoreTrendPoint
 
-GRADING_MODEL = "models/gemini-flash-latest"
-
 CATEGORIES = [
     "Requirements Clarification",
     "High-Level Architecture",
@@ -43,8 +40,9 @@ class SystemDesignService:
         self.db = db
         self.prompt_repo = SystemDesignPromptRepository(db)
         self.attempt_repo = SystemDesignAttemptRepository(db)
-        self.api_key = settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY")
-        self._client = llm_client.get_shared_client()
+        # Which provider and model answer these tasks is resolved per call from
+        # user configuration -- this service names the task and nothing else.
+        self.gateway = LLMGateway(db)
 
     # ---- Prompts -----------------------------------------------------
 
@@ -71,7 +69,7 @@ class SystemDesignService:
         a fake "AI-generated" result, so they always know whether they got a
         real generation or not.
         """
-        if not self.api_key:
+        if not self.gateway.is_available(LLMTask.SYSTEM_DESIGN_PROMPT_GEN):
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="AI prompt generation is unavailable: no GEMINI_API_KEY configured. "
@@ -79,7 +77,7 @@ class SystemDesignService:
             )
 
         prompt = self._build_generation_prompt(req.topic, req.difficulty)
-        parsed, error_msg = llm_client.call_gemini(self._client, self.api_key, GRADING_MODEL, prompt, timeout=20.0)
+        parsed, error_msg = self.gateway.run(LLMTask.SYSTEM_DESIGN_PROMPT_GEN, prompt).as_tuple()
 
         if not parsed or error_msg:
             logger.warning(f"System design prompt generation failed: {error_msg}")
@@ -160,7 +158,7 @@ Respond ONLY in this exact JSON format, no other text:
             time_spent_seconds=req.time_spent_seconds,
         )
 
-        if not self.api_key:
+        if not self.gateway.is_available(LLMTask.SYSTEM_DESIGN_GRADING):
             attempt.grading_status = "unavailable"
             attempt.grading_error = "No GEMINI_API_KEY configured -- this answer was saved but not graded."
             attempt.overall_score = None
@@ -172,7 +170,7 @@ Respond ONLY in this exact JSON format, no other text:
             return SystemDesignAttemptResponse.model_validate(saved)
 
         grading_prompt = self._build_grading_prompt(prompt.prompt_text, req.answer_text, req.target_role)
-        parsed, error_msg = llm_client.call_gemini(self._client, self.api_key, GRADING_MODEL, grading_prompt, timeout=25.0)
+        parsed, error_msg = self.gateway.run(LLMTask.SYSTEM_DESIGN_GRADING, grading_prompt).as_tuple()
 
         if not parsed or error_msg:
             logger.warning(f"System design grading failed: {error_msg}")

@@ -105,6 +105,45 @@ def apply_lightweight_migrations():
             pass
 
         try:
+            # LLM provider configuration. Both tables are new rather than
+            # altered, so create_all already covers a fresh database -- this
+            # step exists for an existing one, where create_all does run but
+            # only for tables it can see, and a user upgrading in place has
+            # neither. CREATE TABLE IF NOT EXISTS keeps it idempotent.
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS llm_provider_config (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name VARCHAR(80) NOT NULL UNIQUE,
+                    profile_key VARCHAR(50) NOT NULL,
+                    base_url VARCHAR(500),
+                    api_key_ref VARCHAR(200),
+                    default_text_model VARCHAR(200),
+                    default_audio_model VARCHAR(200),
+                    default_embedding_model VARCHAR(200),
+                    is_enabled BOOLEAN NOT NULL DEFAULT 1,
+                    last_verified_at DATETIME,
+                    last_verify_error TEXT,
+                    last_latency_ms INTEGER,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL
+                )
+            """))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS llm_task_binding (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    task VARCHAR(50) NOT NULL UNIQUE,
+                    provider_config_id INTEGER
+                        REFERENCES llm_provider_config(id) ON DELETE SET NULL,
+                    model VARCHAR(200),
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL
+                )
+            """))
+            conn.commit()
+        except Exception as exc:
+            _log_migration_failure('llm provider configuration tables', exc)
+
+        try:
             # recording_analyses: content-quality grading columns, additive
             # alongside the existing delivery-only communication_scores/summary.
             result = conn.execute(text("PRAGMA table_info(recording_analyses)")).fetchall()

@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.services import recording_analysis_providers as providers_module
+from app.services.recording_analysis_providers import DEFAULT_PROVIDER_NAME
 from app.core.config import DATA_DIR
 
 client = TestClient(app)
@@ -116,7 +117,7 @@ def test_playback_endpoint_works_with_no_analysis_present():
 
 
 def test_analyze_no_provider_available_returns_unavailable_not_fabricated(monkeypatch):
-    fake = _FakeProvider("gemini", available=False)
+    fake = _FakeProvider(DEFAULT_PROVIDER_NAME, available=False)
     _register_fake(monkeypatch, fake)
 
     recording = _upload(title="No Provider Test")
@@ -132,7 +133,7 @@ def test_analyze_no_provider_available_returns_unavailable_not_fabricated(monkey
 
 
 def test_analyze_mocked_provider_success(monkeypatch):
-    fake = _FakeProvider("gemini", available=True, result={
+    fake = _FakeProvider(DEFAULT_PROVIDER_NAME, available=True, result={
         "transcript": "So, um, I would design this by first, uh, clarifying requirements.",
         "communication_scores": [
             {"category": "Clarity", "score": 6, "max_score": 10, "feedback": "Mostly clear, some hedging."},
@@ -161,7 +162,7 @@ def test_analyze_mocked_provider_success(monkeypatch):
 
 
 def test_analyze_mocked_provider_error_persists_error_status(monkeypatch):
-    fake = _FakeProvider("gemini", available=True, result=None, error="LLM returned malformed JSON")
+    fake = _FakeProvider(DEFAULT_PROVIDER_NAME, available=True, result=None, error="LLM returned malformed JSON")
     _register_fake(monkeypatch, fake)
 
     recording = _upload(title="Error Test")
@@ -176,20 +177,20 @@ def test_analyze_mocked_provider_error_persists_error_status(monkeypatch):
 
 
 def test_provider_registry_lists_availability_correctly(monkeypatch):
-    real_gemini = _FakeProvider("gemini", available=True)
+    real_default = _FakeProvider(DEFAULT_PROVIDER_NAME, available=True)
     always_off = _FakeProvider("always_off_test_provider", available=False)
-    _register_fake(monkeypatch, real_gemini)
+    _register_fake(monkeypatch, real_default)
     _register_fake(monkeypatch, always_off)
 
     res = client.get("/api/v1/recordings/providers")
     assert res.status_code == 200
     by_name = {p["name"]: p["is_available"] for p in res.json()}
-    assert by_name["gemini"] is True
+    assert by_name[DEFAULT_PROVIDER_NAME] is True
     assert by_name["always_off_test_provider"] is False
 
 
 def test_analyze_recording_linked_to_question_gets_content_scores(monkeypatch):
-    fake = _FakeProvider("gemini", available=True, result={
+    fake = _FakeProvider(DEFAULT_PROVIDER_NAME, available=True, result={
         "transcript": "I once had to give a teammate difficult feedback about missed deadlines.",
         "communication_scores": [{"category": "Clarity", "score": 7, "max_score": 10, "feedback": "Clear."}],
         "filler_word_count": 1,
@@ -225,7 +226,7 @@ def test_analyze_freeform_recording_gets_empty_content_scores(monkeypatch):
     question must get exactly today's delivery-only behavior -- empty content
     fields, not nulls-that-happen-to-look-empty, and the provider must not
     even be asked for content grading (question_context is None)."""
-    fake = _FakeProvider("gemini", available=True, result={
+    fake = _FakeProvider(DEFAULT_PROVIDER_NAME, available=True, result={
         "transcript": "Just practicing speaking out loud.",
         "communication_scores": [{"category": "Clarity", "score": 8, "max_score": 10, "feedback": "Clear."}],
         "filler_word_count": 0,
@@ -256,7 +257,7 @@ def test_analyze_linked_recording_communication_rubric_unaffected_by_question(mo
     """The delivery rubric (communication_scores) must be identical in shape
     whether or not a question is attached -- only content_scores should
     depend on question presence."""
-    fake = _FakeProvider("gemini", available=True, result={
+    fake = _FakeProvider(DEFAULT_PROVIDER_NAME, available=True, result={
         "transcript": "Some spoken answer.",
         "communication_scores": [
             {"category": "Clarity", "score": 5, "max_score": 10, "feedback": "Somewhat unclear."},
