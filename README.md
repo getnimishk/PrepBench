@@ -88,12 +88,39 @@ cd backend
 python -m venv .venv
 .venv\Scripts\activate
 
-# Install dependencies
+# Install dependencies.
+#   requirements.txt      - what the app needs to run
+#   requirements-dev.txt  - the above plus the test runner
+#   requirements.lock     - every version, transitives included, known to work
 pip install -r requirements.txt
 
 # Run server
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
+
+To reproduce a known-good environment exactly, install the lock instead:
+
+```powershell
+pip install -r requirements.lock
+```
+
+### Running the tests
+
+```powershell
+cd backend
+pip install -r requirements-dev.txt
+python -m pytest -q                          # 216 tests
+python -m pytest -q --cov --cov-report=term  # with coverage
+```
+
+```powershell
+cd frontend
+npm test        # 135 tests
+npm run lint
+npm run typecheck
+```
+
+CI runs all of the above on every push and pull request.
 
 ### Frontend
 
@@ -109,27 +136,33 @@ npm run dev
 
 ---
 
-## ⚙️ Configuration Setup (.env)
+## ⚙️ AI setup (optional)
 
-The application includes template `.env.example` configuration files at both the root and backend levels.
+PrepBench works with no AI at all. Exams, the question bank, roadmaps, analytics, spaced repetition and export never touch a model. AI adds three things: System Design grading, interview recording analysis, and question generation.
 
-1. **Create your `.env` file**:
-   ```powershell
-   # Copy template to .env
-   cp .env.example .env
-   ```
+You choose who runs it. **Open Settings → AI Providers.**
 
-2. **Configuration Variables**:
+**Run a model on your own machine.** Click *Set up a local model*. The wizard reads how much memory you have, recommends a model your hardware can actually run well (not the largest one that technically fits), shows the exact command to start it, and can save you a start script. PrepBench never downloads a model and never launches a server for you — you do that yourself, deliberately. Nothing leaves the machine, so AI grading works with the Wi-Fi off like everything else.
 
-| Variable | Description | Default | Required? |
-|---|---|---|---|
-| `GEMINI_API_KEY` | Google Gemini API key for LLM RAG Grounding & AI Option Refinements | `None` | Optional |
-| `LOG_LEVEL` | Application logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`) | `DEBUG` | No |
-| `DATABASE_PATH` | Path to local SQLite database file | `data/exam_simulator.db` | No |
-| `DEFAULT_PASSING_PERCENTAGE` | Default passing score percentage for exams | `70.0` | No |
-| `DEFAULT_EXAM_DURATION_MINUTES` | Default duration for generated exam sessions | `60` | No |
+**Or connect a cloud API.** Gemini, OpenAI, Anthropic, or anything OpenAI-compatible — Groq, Together, DeepSeek, vLLM, LM Studio. Adding a vendor PrepBench does not ship a profile for takes a JSON file, not a code change.
 
-> 💡 **LLM Features**: If `GEMINI_API_KEY` is provided, the application enables 1-click AI option refinements, Scrum Guide 2020 RAG grounding, blind LLM answer key auditing, System Design attempt grading, and Interview Practice recording analysis. Without a key, these features report as "unavailable" rather than fabricating a score — the rest of the app still runs 100% offline.
+Keys are stored by reference: in your OS keyring where one is available, otherwise in an encrypted local file. No endpoint ever returns a key, and the database never holds one.
+
+Routing is per task, so you can grade System Design on a local model and send only audio to a cloud one.
+
+### Environment file (optional)
+
+Copy `backend/.env.example` to `backend/.env` if you want to set any of these. None are required.
+
+| Variable | Description | Default |
+|---|---|---|
+| `GEMINI_API_KEY` | Legacy, still supported. If it is set on first start and no provider is configured yet, it is imported as a provider named "Gemini (from environment)". The key stays in `.env` — only a reference to it is stored. | `None` |
+| `LOG_LEVEL` | Logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`) | `DEBUG` |
+| `DATABASE_PATH` | Path to the SQLite database file | `data/exam_simulator.db` |
+
+Exam defaults — passing percentage, duration, question count — are **not** environment variables. They live in the database and are edited on the Settings page.
+
+> 💡 Without any provider configured, the AI features report themselves as "unavailable" rather than fabricating a score. That is a deliberate rule, not an oversight: an invented grade is worse than no grade.
 
 ---
 
@@ -302,13 +335,13 @@ Import your own question packs from the Question Bank to add any certification.
 Yes. MIT-licensed, no paid tier, no account, no usage limits. Clone it and run it.
 
 ### Does PrepBench work without an internet connection?
-Yes — that's the point. Exams, the question bank, roadmaps, analytics, and PDF/Excel export all run with your Wi-Fi off. Only the optional AI grading features need a network, and the app stays fully usable without them.
+Yes — that's the point. Exams, the question bank, roadmaps, analytics, and PDF/Excel export all run with your Wi-Fi off. So does AI grading, if you run a model locally — Settings → AI Providers has a wizard for that. A network is only needed if you *choose* a cloud provider, and the app stays fully usable with neither.
 
 ### Is my study data sent anywhere?
 No. Everything lives in one SQLite file at `backend/data/exam_simulator.db` on your machine. There is no telemetry, no analytics SDK, and no account system. If you delete that file, the data is gone — nobody else has a copy.
 
 ### Do I need an API key?
-Only for the AI features (system design grading, interview recording analysis, question refinement). Set `GEMINI_API_KEY` in `.env` to enable them. Without it, those features honestly report "unavailable" rather than inventing a score, and everything else works normally.
+No. The AI features (System Design grading, interview recording analysis, question generation) need *a model*, not a cloud account — and Settings → AI Providers will walk you through running one on your own machine. Connect a cloud key instead if you want sharper feedback and don't mind the round trip. With neither, those three features report "unavailable" rather than inventing a score, and everything else works normally.
 
 ### Which certifications does it support?
 It ships with PSM I, PSPO I, AWS Solutions Architect, Kafka, and System Design question packs — but it's certification-agnostic. Import your own questions from JSON, CSV, Excel, or Markdown and you can prepare for anything.

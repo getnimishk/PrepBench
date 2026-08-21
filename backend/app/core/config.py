@@ -23,11 +23,13 @@ class Settings(BaseSettings):
     # Default Question Bank Path (falls back to the repo-local copy in app/data)
     DEFAULT_QUESTION_BANK_PATH: Path = BASE_DIR / "app" / "data" / "PSM_I_Question_Bank.json"
     
-    # Defaults
-    DEFAULT_PASSING_PERCENTAGE: float = 95.0
-    DEFAULT_EXAM_DURATION_MINUTES: int = 60
-    DEFAULT_QUESTIONS_PER_EXAM: int = 80
-    
+    # Exam defaults are deliberately NOT here. They live in the app_settings
+    # table, edited from the Settings page, and the column defaults on the
+    # AppSettings model are the single source of truth for them. Three settings
+    # fields used to shadow those defaults, were never read by anything, and
+    # disagreed with the real values -- the README documented one of them as
+    # 70.0 while this said 95.0.
+
     class Config:
         case_sensitive = True
         env_file = str(BASE_DIR / ".env")

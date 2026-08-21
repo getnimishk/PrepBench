@@ -1,0 +1,75 @@
+name: CI
+
+# There was no CI at all. 340-odd tests existed and nothing ran them but a
+# person remembering to, which is how a reset endpoint kept eleven tables for
+# months without anyone noticing.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+# A new push to the same branch makes the previous run irrelevant.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (pytest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: backend/requirements.lock
+
+      # The lock, not requirements.txt: it pins transitives too, so a green run
+      # here means the same tree that is green locally.
+      - name: Install dependencies
+        run: pip install -r requirements.lock
+
+      # No .env on a runner, and there should not need to be. GEMINI_API_KEY
+      # defaults to None and the tests that need a provider create one; this
+      # was verified by running the suite locally with .env moved aside.
+      - name: Run tests with coverage
+        run: python -m pytest -q --cov --cov-report=term-missing
+
+  frontend:
+    name: Frontend (vitest, tsc, eslint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Lint and types run before tests: both fail in seconds and catch a whole
+      # class of breakage the test suite would take three minutes to reach.
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
