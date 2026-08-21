@@ -72,8 +72,9 @@ class SystemDesignService:
         if not self.gateway.is_available(LLMTask.SYSTEM_DESIGN_PROMPT_GEN):
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="AI prompt generation is unavailable: no GEMINI_API_KEY configured. "
-                       "Browse the built-in prompt bank instead, or configure an API key to enable generation.",
+                detail="No AI provider is set up yet. Add one in Settings -> AI Providers "
+                       "-- a local model is free and keeps your answers on this machine. "
+                       "Meanwhile, the built-in prompt bank works without any AI.",
             )
 
         prompt = self._build_generation_prompt(req.topic, req.difficulty)
@@ -160,7 +161,10 @@ Respond ONLY in this exact JSON format, no other text:
 
         if not self.gateway.is_available(LLMTask.SYSTEM_DESIGN_GRADING):
             attempt.grading_status = "unavailable"
-            attempt.grading_error = "No GEMINI_API_KEY configured -- this answer was saved but not graded."
+            attempt.grading_error = (
+                "No AI provider is set up, so this answer was saved but not graded. "
+                "Add one in Settings -> AI Providers to get feedback."
+            )
             attempt.overall_score = None
             attempt.category_scores = []
             attempt.strengths = []

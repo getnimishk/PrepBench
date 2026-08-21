@@ -58,6 +58,18 @@ TASK_SPECS: Dict[LLMTask, TaskSpec] = {
 }
 
 
+def utc_now_naive_safe():
+    """
+    Naive-UTC 'now', matching how every timestamp in this app is stored.
+
+    Here rather than in core.timeutils because the LLM package is imported by
+    services that must not pull in the analytics helpers.
+    """
+    from datetime import datetime, UTC
+
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
 @dataclass(frozen=True)
 class Connection:
     """

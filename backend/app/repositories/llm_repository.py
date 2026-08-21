@@ -36,6 +36,21 @@ class LLMConfigRepository:
         self.db.refresh(obj)
         return obj
 
+    def delete_provider(self, provider_id: int) -> bool:
+        obj = self.get_provider(provider_id)
+        if not obj:
+            return False
+        # ORM delete rather than a bulk query delete, so SQLAlchemy emits a
+        # single-row DELETE and SQLite applies the ON DELETE SET NULL on
+        # llm_task_binding.provider_config_id.
+        self.db.delete(obj)
+        self.db.commit()
+        return True
+
+    def commit(self) -> None:
+        """Persist in-place edits made by the service on a fetched row."""
+        self.db.commit()
+
     # ---- Task bindings -----------------------------------------------
 
     def get_binding(self, task: str) -> Optional[LLMTaskBinding]:

@@ -12,6 +12,12 @@ __pycache__/
 .venv/
 .pytest_cache/
 
+# Local credential store for AI providers. Holds the user's API keys
+# (obfuscated) and the machine-local key used to obfuscate them -- must never
+# be tracked, on any machine.
+backend/data/.llm_secrets.json
+backend/data/.llm_secret_key
+
 # Databases
 backend/data/*.db
 backend/data/*.db-journal

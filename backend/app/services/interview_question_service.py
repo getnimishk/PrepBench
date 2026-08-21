@@ -71,8 +71,9 @@ class InterviewQuestionService:
         if not self.gateway.is_available(LLMTask.INTERVIEW_QUESTION_GEN):
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="AI question generation is unavailable: no GEMINI_API_KEY configured. "
-                       "Browse the built-in question bank instead, or configure an API key to enable generation.",
+                detail="No AI provider is set up yet. Add one in Settings -> AI Providers "
+                       "-- a local model is free and keeps your answers on this machine. "
+                       "Meanwhile, the built-in question bank works without any AI.",
             )
 
         prompt = self._build_generation_prompt(req.round_type, req.topic)

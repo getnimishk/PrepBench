@@ -4,6 +4,16 @@ import { ExamSession, ExamDetail, ExamCreateRequest, SaveAnswerRequest } from '.
 import { DashboardOverview, ScoreTrendPoint, DomainMasteryItem } from '../types/analytics';
 import { AppSettings } from '../types/settings';
 import {
+  LLMProfile,
+  LLMProvider,
+  LLMProviderCreate,
+  LLMProviderUpdate,
+  LLMVerifyResult,
+  LLMTaskBinding,
+  LLMModelList,
+  DetectedRunner,
+} from '../types/llm';
+import {
   SystemDesignPrompt,
   GeneratePromptRequest,
   SubmitAttemptRequest,
@@ -249,6 +259,62 @@ export const updateSettings = async (data: Partial<AppSettings>) => {
 
 export const resetApplication = async () => {
   const res = await api.post<{ status: string; message: string }>(`/settings/reset-app`);
+  return res.data;
+};
+
+// ---------------------------------------------------------------------------
+// AI Providers (LLM) API
+// ---------------------------------------------------------------------------
+export const getLLMProfiles = async () => {
+  const res = await api.get<LLMProfile[]>(`/llm/profiles`);
+  return res.data;
+};
+
+export const getLLMProviders = async () => {
+  const res = await api.get<LLMProvider[]>(`/llm/providers`);
+  return res.data;
+};
+
+export const createLLMProvider = async (data: LLMProviderCreate) => {
+  const res = await api.post<LLMProvider>(`/llm/providers`, data);
+  return res.data;
+};
+
+export const updateLLMProvider = async (id: number, data: LLMProviderUpdate) => {
+  const res = await api.patch<LLMProvider>(`/llm/providers/${id}`, data);
+  return res.data;
+};
+
+export const deleteLLMProvider = async (id: number) => {
+  const res = await api.delete<{ status: string; deleted_id: number }>(`/llm/providers/${id}`);
+  return res.data;
+};
+
+export const verifyLLMProvider = async (id: number) => {
+  const res = await api.post<LLMVerifyResult>(`/llm/providers/${id}/verify`);
+  return res.data;
+};
+
+export const getLLMProviderModels = async (id: number) => {
+  const res = await api.get<LLMModelList>(`/llm/providers/${id}/models`);
+  return res.data;
+};
+
+export const getLLMTasks = async () => {
+  const res = await api.get<LLMTaskBinding[]>(`/llm/tasks`);
+  return res.data;
+};
+
+export const setLLMTaskBinding = async (
+  task: string,
+  data: { provider_id: number | null; model?: string | null }
+) => {
+  const res = await api.put<LLMTaskBinding>(`/llm/tasks/${task}`, data);
+  return res.data;
+};
+
+export const detectLocalRunners = async () => {
+  const res = await api.get<DetectedRunner[]>(`/llm/local/detect`);
   return res.data;
 };
 

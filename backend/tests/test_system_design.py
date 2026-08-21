@@ -49,7 +49,11 @@ def test_generate_prompt_no_api_key_returns_clear_error(monkeypatch):
     _clear_api_key(monkeypatch)
     res = client.post("/api/v1/system-design/prompts/generate", json={})
     assert res.status_code == 503
-    assert "GEMINI_API_KEY" in res.json()["detail"]
+    # Vendor-neutral and actionable: it points at the setup flow, not at one
+    # vendor's API key, since a local model is an equally valid answer.
+    detail = res.json()["detail"]
+    assert "GEMINI" not in detail.upper()
+    assert "AI Providers" in detail
 
 
 def test_submit_attempt_no_api_key_returns_ungraded_not_fabricated_score(monkeypatch):

@@ -55,7 +55,9 @@ def test_generate_question_no_api_key_returns_clear_error(monkeypatch):
     _clear_api_key(monkeypatch)
     res = client.post("/api/v1/interview-questions/generate", json={"round_type": "hr_screening"})
     assert res.status_code == 503
-    assert "GEMINI_API_KEY" in res.json()["detail"]
+    detail = res.json()["detail"]
+    assert "GEMINI" not in detail.upper()
+    assert "AI Providers" in detail
 
 
 def test_generate_question_mocked_gemini_with_save_to_bank(monkeypatch):
