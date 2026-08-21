@@ -2,12 +2,13 @@ import re
 import difflib
 from typing import List, Set, Dict, Optional
 from sqlalchemy.orm import Session
-from app.models.question import Question, QuestionType
+from app.models.question import QuestionType
 from app.schemas.question import QuestionCreate
 from app.schemas.question_validation import (
     ValidationErrorItem, ValidatedQuestionItem, QuestionValidationReport, ContentJudgment
 )
 from app.services.content_validator import ContentValidator
+from app.repositories.question_repository import QuestionRepository
 
 NUMBER_WORDS = {
     "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
@@ -20,8 +21,9 @@ class QuestionValidator:
         self.db = db
         # Pre-fetch existing question texts for exact and fuzzy duplicate detection
         if db:
-            existing = db.query(Question.text).all()
-            self.existing_texts: List[str] = [t[0] for t in existing if t[0]]
+            self.existing_texts: List[str] = [
+                t for t in QuestionRepository(db).all_question_texts() if t
+            ]
         else:
             self.existing_texts = []
         self.existing_hashes: Set[str] = {self._normalize(t) for t in self.existing_texts if t}

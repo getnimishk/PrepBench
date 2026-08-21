@@ -1,12 +1,13 @@
 import random
 import re
 from datetime import datetime, UTC
-from typing import List, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import func, case, or_, and_
 from app.repositories.exam_repository import ExamRepository
+from app.repositories.question_repository import QuestionRepository
+from app.repositories.analytics_repository import AnalyticsRepository
+from app.repositories.spaced_repetition_repository import SpacedRepetitionRepository
 from app.models.exam_session import ExamSession, ExamMode, ExamStatus
-from app.models.exam_answer import ExamAnswer, ConfidenceLevel
+from app.models.exam_answer import ExamAnswer
 from app.models.question import Question
 from app.models.spaced_repetition import SpacedRepetition
 from app.schemas.exam import ExamCreateRequest, SaveAnswerRequest, ExamDetailResponse, ExamSessionResponse
@@ -18,9 +19,16 @@ class ExamEngine:
     def __init__(self, db: Session):
         self.db = db
         self.repo = ExamRepository(db)
+        self.question_repo = QuestionRepository(db)
+        self.analytics_repo = AnalyticsRepository(db)
+        self.sr_repo = SpacedRepetitionRepository(db)
 
     def create_exam(self, req: ExamCreateRequest) -> ExamSessionResponse:
-        query = self.db.query(Question)
+        # Filter pieces are assembled here -- what a certification token means,
+        # what counts as a weak topic -- and handed to the repository to run.
+        certification_conditions = None
+        restrict_to_topics = None
+        restrict_to_ids = None
 
         if req.certification and req.certification.strip():
             cert_val = req.certification.strip()
@@ -39,45 +47,30 @@ class ExamEngine:
                     conditions.append(Question.certification.ilike(f"%{t}%"))
                     conditions.append(Question.domain.ilike(f"%{t}%"))
 
-            query = query.filter(or_(*conditions))
-
-        if req.topics and len(req.topics) > 0:
-            query = query.filter(Question.topic.in_(req.topics))
-
-        if req.difficulties and len(req.difficulties) > 0:
-            query = query.filter(Question.difficulty.in_(req.difficulties))
+            certification_conditions = conditions
 
         if req.exam_mode == ExamMode.WEAK_TOPIC:
-            # Only count answers from completed sessions where the question was
-            # actually answered (is_correct is NULL for skipped/never-answered
-            # questions, e.g. auto-saved on navigation) -- otherwise skipped
-            # questions inflate the denominator and unfairly deflate the ratio,
-            # and in-progress sessions' interim answers get counted too early.
-            weak_topics_query = self.db.query(Question.topic)\
-                .join(ExamAnswer, Question.id == ExamAnswer.question_id)\
-                .join(ExamSession, ExamAnswer.session_id == ExamSession.id)\
-                .filter(ExamSession.status == ExamStatus.COMPLETED, ExamAnswer.is_correct.isnot(None))\
-                .group_by(Question.topic)\
-                .having((func.sum(case((ExamAnswer.is_correct == True, 1), else_=0)) * 100.0 / func.count(ExamAnswer.id)) < 70.0)\
-                .all()
-            weak_topic_names = [t[0] for t in weak_topics_query]
+            weak_topic_names = self.analytics_repo.get_weak_topic_names(below_percent=70.0)
             if weak_topic_names:
-                query = query.filter(Question.topic.in_(weak_topic_names))
+                restrict_to_topics = weak_topic_names
 
         elif req.exam_mode == ExamMode.SPACED_REPETITION:
             now = datetime.now(UTC).replace(tzinfo=None)
-            due_q_ids = self.db.query(SpacedRepetition.question_id)\
-                .filter(SpacedRepetition.next_review_date <= now)\
-                .all()
-            q_ids = [q[0] for q in due_q_ids]
-            if q_ids:
-                query = query.filter(Question.id.in_(q_ids))
+            due_ids = self.sr_repo.due_question_ids(now)
+            if due_ids:
+                restrict_to_ids = due_ids
 
-        available_questions = query.all()
+        available_questions = self.question_repo.find_for_exam(
+            certification_conditions=certification_conditions,
+            topics=list(req.topics) if req.topics else None,
+            difficulties=list(req.difficulties) if req.difficulties else None,
+            restrict_to_ids=restrict_to_ids,
+            restrict_to_topics=restrict_to_topics,
+        )
 
         # Fallback to all questions if specific filter produces no result
         if not available_questions:
-            available_questions = self.db.query(Question).all()
+            available_questions = self.question_repo.get_all_unpaginated()
             if not available_questions:
                 raise InvalidExamStateException("Question bank is empty. Please import questions first.")
 
@@ -126,7 +119,7 @@ class ExamEngine:
             raise ResourceNotFoundException("ExamSession", session_id)
 
         questions_dict = {
-            q.id: q for q in self.db.query(Question).filter(Question.id.in_(session.question_ids_order)).all()
+            q.id: q for q in self.question_repo.get_by_ids(session.question_ids_order)
         }
         ordered_questions = [questions_dict[qid] for qid in session.question_ids_order if qid in questions_dict]
 
@@ -146,7 +139,7 @@ class ExamEngine:
                 f"Question {req.question_id} is not part of this exam session."
             )
 
-        question = self.db.query(Question).filter(Question.id == req.question_id).first()
+        question = self.question_repo.get_by_id(req.question_id)
         if not question:
             raise ResourceNotFoundException("Question", req.question_id)
 

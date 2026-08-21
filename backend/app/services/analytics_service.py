@@ -1,18 +1,22 @@
 from typing import List
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 from app.repositories.analytics_repository import AnalyticsRepository
+from app.repositories.settings_repository import SettingsRepository
+from app.repositories.spaced_repetition_repository import SpacedRepetitionRepository
 from app.schemas.analytics import DashboardOverview, TopicMasteryItem, DomainMasteryItem, ScoreTrendPoint
-from app.models.exam_session import ExamSession, ExamStatus
-from app.models.exam_answer import ExamAnswer
-from app.models.settings import AppSettings
-from app.models.spaced_repetition import SpacedRepetition
-from datetime import datetime, date, UTC
+from datetime import datetime, timedelta, UTC
+
+# What the dashboard shows if the settings row has not been created yet. Matches
+# the column default on AppSettings, which is the source of truth for it.
+FALLBACK_DAILY_GOAL = 20
+
 
 class AnalyticsService:
     def __init__(self, db: Session):
         self.db = db
         self.repo = AnalyticsRepository(db)
+        self.settings_repo = SettingsRepository(db)
+        self.sr_repo = SpacedRepetitionRepository(db)
 
     # Below this many attempts, an accuracy percentage is mostly noise (e.g. a
     # single miss reads as a permanent "0%") rather than a real pattern worth
@@ -37,11 +41,9 @@ class AnalyticsService:
         strong = [TopicMasteryItem(**g) for g in sorted_groups if g["accuracy_percentage"] >= 70][-5:]
 
         # Recent exams
-        recent_db = self.db.query(ExamSession)\
-            .filter(ExamSession.status == ExamStatus.COMPLETED)\
-            .order_by(ExamSession.end_time.desc())\
-            .limit(5).all()
-        
+        recent_db = self.repo.get_recent_completed_sessions(limit=5)
+
+
         recent_exams = [
             {
                 "id": s.id,
@@ -54,41 +56,33 @@ class AnalyticsService:
         ]
 
         # Streak calculation & today practice count
-        settings = self.db.query(AppSettings).filter(AppSettings.id == 1).first()
-        daily_goal = settings.daily_practice_goal if settings else 20
+        settings = self.settings_repo.get()
+        daily_goal = settings.daily_practice_goal if settings else FALLBACK_DAILY_GOAL
 
         today_utc = datetime.now(UTC).replace(tzinfo=None).date()
-        today_answers = self.db.query(ExamAnswer)\
-            .filter(ExamAnswer.answered_at >= datetime.combine(today_utc, datetime.min.time()))\
-            .count()
+        today_answers = self.repo.count_answers_since(
+            datetime.combine(today_utc, datetime.min.time())
+        )
 
         # Dynamic streak calculation based on completed exam dates
-        completed_dates = [
-            d[0] for d in self.db.query(func.date(ExamSession.end_time))
-            .filter(ExamSession.status == ExamStatus.COMPLETED, ExamSession.end_time != None)
-            .distinct().order_by(func.date(ExamSession.end_time).desc()).all()
-        ]
+        completed_dates = self.repo.get_completed_exam_dates()
 
         streak = 0
         if completed_dates:
             check_date = today_utc
             # If no exam completed today, check if active yesterday
-            if completed_dates[0] != check_date.isoformat() and len(completed_dates) > 0:
-                from datetime import timedelta
+            if completed_dates[0] != check_date.isoformat():
                 check_date = today_utc - timedelta(days=1)
 
             for d_str in completed_dates:
                 if d_str == check_date.isoformat():
                     streak += 1
-                    from datetime import timedelta
                     check_date -= timedelta(days=1)
                 else:
                     break
 
         now = datetime.now(UTC).replace(tzinfo=None)
-        sr_due_count = self.db.query(func.count(SpacedRepetition.id))\
-            .filter(SpacedRepetition.next_review_date <= now)\
-            .scalar() or 0
+        sr_due_count = self.sr_repo.count_due(now)
 
         return DashboardOverview(
             total_exams=overall["total_exams"],
@@ -105,9 +99,7 @@ class AnalyticsService:
         )
 
     def get_score_trends(self) -> List[ScoreTrendPoint]:
-        sessions = self.db.query(ExamSession)\
-            .filter(ExamSession.status == ExamStatus.COMPLETED)\
-            .order_by(ExamSession.end_time.asc()).all()
+        sessions = self.repo.get_completed_sessions_chronological()
 
         points = []
         scores = []

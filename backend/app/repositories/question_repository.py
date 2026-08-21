@@ -1,7 +1,7 @@
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
-from app.models.question import Question, QuestionDifficulty
+from app.models.question import Question
 from app.models.option import QuestionOption
 from app.schemas.question import QuestionCreate, QuestionUpdate, QuestionFilter
 
@@ -170,3 +170,62 @@ class QuestionRepository:
         count = self.db.query(Question).delete(synchronize_session=False)
         self.db.commit()
         return count
+
+    # ---- reads used when composing an exam ---------------------------
+    #
+    # ExamEngine used to build these against self.db directly. The *decisions*
+    # -- which certification tokens are meaningful, what counts as a weak topic
+    # -- stay in the service; only the query lives here.
+
+    def get_all_unpaginated(self) -> List[Question]:
+        """Every question. Used as the fallback when a filter matches nothing."""
+        return self.db.query(Question).all()
+
+    def get_by_ids(self, ids: List[int]) -> List[Question]:
+        if not ids:
+            return []
+        return self.db.query(Question).filter(Question.id.in_(ids)).all()
+
+    def find_for_exam(
+        self,
+        certification_conditions: Optional[list] = None,
+        topics: Optional[List[str]] = None,
+        difficulties: Optional[List[str]] = None,
+        restrict_to_ids: Optional[List[int]] = None,
+        restrict_to_topics: Optional[List[str]] = None,
+    ) -> List[Question]:
+        """
+        Candidate questions for a new exam.
+
+        Takes prepared filter pieces rather than the request object, so the
+        repository stays unaware of exam modes and the service keeps the rules
+        about what those modes mean.
+        """
+        query = self.db.query(Question)
+
+        if certification_conditions:
+            query = query.filter(or_(*certification_conditions))
+        if topics:
+            query = query.filter(Question.topic.in_(topics))
+        if difficulties:
+            query = query.filter(Question.difficulty.in_(difficulties))
+        if restrict_to_topics:
+            query = query.filter(Question.topic.in_(restrict_to_topics))
+        if restrict_to_ids:
+            query = query.filter(Question.id.in_(restrict_to_ids))
+
+        return query.all()
+
+    def count_options_for_questions(self, ids: List[int]) -> int:
+        """Total option rows across the given questions, for import verification."""
+        if not ids:
+            return 0
+        return (
+            self.db.query(func.count(QuestionOption.id))
+            .filter(QuestionOption.question_id.in_(ids))
+            .scalar() or 0
+        )
+
+    def all_question_texts(self) -> List[str]:
+        """Every question's text, for duplicate detection during import."""
+        return [row[0] for row in self.db.query(Question.text).all()]

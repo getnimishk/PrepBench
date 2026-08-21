@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 from typing import List, Dict
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case
@@ -159,3 +160,77 @@ class AnalyticsRepository:
                 "accuracy_percentage": round(acc, 1),
             })
         return out
+
+    # ---- session and answer reads ------------------------------------
+    #
+    # These moved out of AnalyticsService, which was querying ExamSession,
+    # ExamAnswer and AppSettings directly. Every other service in the codebase
+    # reaches persistence through a repository; analytics was reaching around
+    # the one it already held.
+
+    def get_recent_completed_sessions(self, limit: int = 5) -> List[ExamSession]:
+        return (
+            self.db.query(ExamSession)
+            .filter(ExamSession.status == ExamStatus.COMPLETED)
+            .order_by(ExamSession.end_time.desc())
+            .limit(limit)
+            .all()
+        )
+
+    def get_completed_sessions_chronological(self) -> List[ExamSession]:
+        """Oldest first, so a rolling average can be accumulated in one pass."""
+        return (
+            self.db.query(ExamSession)
+            .filter(ExamSession.status == ExamStatus.COMPLETED)
+            .order_by(ExamSession.end_time.asc())
+            .all()
+        )
+
+    def count_answers_since(self, moment: datetime) -> int:
+        return (
+            self.db.query(ExamAnswer)
+            .filter(ExamAnswer.answered_at >= moment)
+            .count()
+        )
+
+    def get_completed_exam_dates(self) -> List[str]:
+        """
+        Distinct ISO dates of completed exams, newest first, for the streak.
+
+        Returned as strings because that is what func.date gives back on
+        SQLite, and the streak comparison is done on isoformat() strings.
+        """
+        return [
+            row[0]
+            for row in self.db.query(func.date(ExamSession.end_time))
+            .filter(ExamSession.status == ExamStatus.COMPLETED, ExamSession.end_time != None)
+            .distinct()
+            .order_by(func.date(ExamSession.end_time).desc())
+            .all()
+        ]
+
+    def get_weak_topic_names(self, below_percent: float = 70.0) -> List[str]:
+        """
+        Topics answered correctly less than `below_percent` of the time.
+
+        Counts only answered questions in completed sessions. is_correct is NULL
+        for skipped or never-answered questions -- those are auto-saved on
+        navigation -- so including them would inflate the denominator and report
+        topics as weak that were never actually attempted.
+        """
+        rows = (
+            self.db.query(Question.topic)
+            .join(ExamAnswer, Question.id == ExamAnswer.question_id)
+            .join(ExamSession, ExamAnswer.session_id == ExamSession.id)
+            .filter(
+                ExamSession.status == ExamStatus.COMPLETED,
+                ExamAnswer.is_correct.isnot(None),
+            )
+            .group_by(Question.topic)
+            .having(
+                (func.sum(case((ExamAnswer.is_correct == True, 1), else_=0)) * 100.0
+                 / func.count(ExamAnswer.id)) < below_percent
+            )
+            .all()
+        )
+        return [row[0] for row in rows]
