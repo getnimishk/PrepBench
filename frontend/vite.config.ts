@@ -6,6 +6,11 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    // Fail rather than drift. Without this, a busy 5173 sends Vite quietly to
+    // 5174 while start_app.bat still opens 5173 -- the browser lands on a dead
+    // URL and the app looks broken with no error printed anywhere. A refused
+    // start naming the busy port is far easier to act on.
+    strictPort: true,
     host: true,
     proxy: {
       '/api': {
