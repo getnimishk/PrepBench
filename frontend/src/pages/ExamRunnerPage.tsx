@@ -47,7 +47,9 @@ export const ExamRunnerPage: React.FC = () => {
   const bookmarkedSetRef = useRef<Set<number>>(bookmarkedSet);
 
   const questionStartTimeRef = useRef<number>(questionStartTime);
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // ReturnType<typeof setTimeout>, not NodeJS.Timeout: this is browser code,
+  // and the NodeJS namespace only resolved here because @types/node leaked in.
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const finishingRef = useRef<boolean>(false);
 
   useEffect(() => { currentQuestionRef.current = currentQuestion; }, [currentQuestion]);
