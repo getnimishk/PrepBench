@@ -10,9 +10,12 @@ interface MetricCardProps {
   color?: string;
 }
 
-export const MetricCard: React.FC<MetricCardProps> = ({ title, value, subtitle, icon: Icon, color = 'primary.main' }) => {
+export const MetricCard: React.FC<MetricCardProps> = ({ title, value, subtitle, icon: Icon, color }) => {
   const theme = useTheme();
-  const dark = theme.palette.mode === 'dark';
+  // The `color` prop was accepted and then ignored: the icon tile hardcoded the
+  // theme primary, so the four dashboard cards all rendered the same colour
+  // while their call sites each asked for a different one.
+  const accent = color ?? theme.palette.primary.main;
 
   return (
     <Card
@@ -48,8 +51,8 @@ export const MetricCard: React.FC<MetricCardProps> = ({ title, value, subtitle, 
               alignItems: 'center',
               justifyContent: 'center',
               borderRadius: '14px',
-              bgcolor: alpha(theme.palette.primary.main, 0.1),
-              color: 'primary.main',
+              bgcolor: alpha(accent, 0.1),
+              color: accent,
             }}
           >
             <Icon size={24} />

@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Box, Chip } from '@mui/material';
-import { keyframes } from '@mui/material/styles';
 import { Timer } from 'lucide-react';
 
 interface ExamTimerProps {

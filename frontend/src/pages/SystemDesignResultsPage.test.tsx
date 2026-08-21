@@ -66,7 +66,7 @@ describe('SystemDesignResultsPage', () => {
       improvements: [],
       summary: null,
       grading_status: 'unavailable',
-      grading_error: 'No GEMINI_API_KEY configured -- this answer was saved but not graded.',
+      grading_error: 'No AI provider is set up yet. Add one in Settings -> AI Providers to get feedback.',
       time_spent_seconds: 30,
       created_at: '',
       prompt: { id: 1, title: 'Design a URL Shortener', prompt_text: '', category: 'Distributed Systems', difficulty: 'easy', is_ai_generated: false, created_at: '' },

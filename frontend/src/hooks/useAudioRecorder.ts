@@ -58,7 +58,9 @@ export function useAudioRecorder(onStopped: (blob: Blob, elapsedSeconds: number)
         elapsedRef.current += 1;
         setElapsed(elapsedRef.current);
       }, 1000);
-    } catch (err: any) {
+    } catch {
+      // getUserMedia failing is a browser permission problem, not a server
+      // response, so there is nothing more specific to surface than this.
       setRecordError('Microphone access denied or unavailable. Please allow microphone permission and try again.');
     }
   };

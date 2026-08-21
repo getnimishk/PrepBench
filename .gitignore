@@ -43,3 +43,9 @@ Thumbs.db
 
 # Claude Code config (tool-specific, not project source)
 .claude/
+
+# Coverage artifacts
+.coverage
+.coverage.*
+htmlcov/
+coverage/

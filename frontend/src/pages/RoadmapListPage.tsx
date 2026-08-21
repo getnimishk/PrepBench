@@ -9,7 +9,8 @@ import { Upload, Plus, Map, Trash2, Archive, Clock } from 'lucide-react';
 import { getRoadmaps, createRoadmap, deleteRoadmap, updateRoadmap } from '../services/api';
 import { RoadmapSummary } from '../types/roadmap';
 import { RoadmapImportModal } from '../components/roadmap/RoadmapImportModal';
-import { formatPercentage, progressCaption, hoursCaption } from '../components/roadmap/progressDisplay';
+import { formatPercentage, progressCaption, hoursCaption } from '../components/roadmap/progressDisplay';
+import { apiErrorMessage } from '../services/apiError';
 
 export const RoadmapListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -49,8 +50,8 @@ export const RoadmapListPage: React.FC = () => {
       setCreateOpen(false);
       setNewTitle('');
       navigate(`/roadmaps/${created.id}`);
-    } catch (err: any) {
-      setActionError(err?.response?.data?.detail || 'Failed to create roadmap.');
+    } catch (err) {
+      setActionError(apiErrorMessage(err, 'Failed to create roadmap.'));
     } finally {
       setCreating(false);
     }
@@ -63,8 +64,8 @@ export const RoadmapListPage: React.FC = () => {
       await deleteRoadmap(deleteTarget.id);
       setDeleteTarget(null);
       fetchRoadmaps();
-    } catch (err: any) {
-      setActionError(err?.response?.data?.detail || 'Failed to delete roadmap.');
+    } catch (err) {
+      setActionError(apiErrorMessage(err, 'Failed to delete roadmap.'));
     }
   };
 
@@ -73,8 +74,8 @@ export const RoadmapListPage: React.FC = () => {
     try {
       await updateRoadmap(roadmap.id, { is_archived: true });
       fetchRoadmaps();
-    } catch (err: any) {
-      setActionError(err?.response?.data?.detail || 'Failed to archive roadmap.');
+    } catch (err) {
+      setActionError(apiErrorMessage(err, 'Failed to archive roadmap.'));
     }
   };
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead,
+  Typography, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, Select, MenuItem, Paper, Tooltip, IconButton, Chip,
 } from '@mui/material';
 import { FileText } from 'lucide-react';

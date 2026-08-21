@@ -147,7 +147,7 @@ export const ExamRunnerPage: React.FC = () => {
         is_flagged: isFlaggedVal,
         is_bookmarked: isBookmarkedVal,
       });
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to save answer', err);
       setAnsweredMap((prev) => {
         const reverted = new Map(prev);
@@ -192,7 +192,8 @@ export const ExamRunnerPage: React.FC = () => {
     const nextState = !flaggedSet.has(currentQuestion.id);
     setFlaggedSet((prev) => {
       const next = new Set(prev);
-      nextState ? next.add(currentQuestion.id) : next.delete(currentQuestion.id);
+      if (nextState) next.add(currentQuestion.id);
+      else next.delete(currentQuestion.id);
       return next;
     });
     persistAnswer(currentQuestion.id, selectedOptionIds, nextState, undefined, undefined);
@@ -203,7 +204,8 @@ export const ExamRunnerPage: React.FC = () => {
     const nextState = !bookmarkedSet.has(currentQuestion.id);
     setBookmarkedSet((prev) => {
       const next = new Set(prev);
-      nextState ? next.add(currentQuestion.id) : next.delete(currentQuestion.id);
+      if (nextState) next.add(currentQuestion.id);
+      else next.delete(currentQuestion.id);
       return next;
     });
     persistAnswer(currentQuestion.id, selectedOptionIds, undefined, nextState, undefined);

@@ -100,7 +100,10 @@ describe('InterviewPracticeResultsPage', () => {
 
     renderPage();
 
-    await waitFor(() => expect(screen.getByText(/no AI provider is configured/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/no AI provider is set up yet/i)).toBeInTheDocument());
+    // Points at the setup flow, not at one vendor's environment variable --
+    // a local model is an equally valid answer since the provider layer landed.
+    expect(screen.getByText(/Settings -> AI Providers/i)).toBeInTheDocument();
     expect(screen.queryByText('Delivery -- How You Said It')).not.toBeInTheDocument();
   });
 });

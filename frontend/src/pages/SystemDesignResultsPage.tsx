@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Box, Card, CardContent, Typography, Chip, Button, Alert,
+  Box, Card, CardContent, Typography, Button, Alert,
   LinearProgress, Divider, List, ListItem, ListItemIcon, ListItemText
 } from '@mui/material';
 import { CheckCircle2, AlertTriangle, ArrowLeft } from 'lucide-react';
@@ -58,7 +58,7 @@ export const SystemDesignResultsPage: React.FC = () => {
       {notGraded ? (
         <Alert severity={attempt.grading_status === 'unavailable' ? 'info' : 'warning'} sx={{ mb: 3 }}>
           {attempt.grading_status === 'unavailable'
-            ? 'This answer was saved but not graded — no GEMINI_API_KEY is configured. Set one to enable AI feedback.'
+            ? 'This answer was saved but not graded — no AI provider is set up yet. Add one in Settings → AI Providers to enable feedback.'
             : `Grading failed: ${attempt.grading_error || 'Unknown error'}. Your answer was saved; try again later.`}
         </Alert>
       ) : (

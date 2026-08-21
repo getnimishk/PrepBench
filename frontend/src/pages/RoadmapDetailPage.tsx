@@ -15,7 +15,8 @@ import {
 import { RoadmapTableView } from '../components/roadmap/RoadmapTableView';
 import { RoadmapJourneyView } from '../components/roadmap/RoadmapJourneyView';
 import { RoadmapGanttView } from '../components/roadmap/RoadmapGanttView';
-import { formatPercentage, progressCaption, hoursCaption } from '../components/roadmap/progressDisplay';
+import { formatPercentage, progressCaption, hoursCaption } from '../components/roadmap/progressDisplay';
+import { apiErrorMessage } from '../services/apiError';
 
 type ViewTab = 'table' | 'journey' | 'gantt' | 'resources';
 
@@ -79,8 +80,8 @@ export const RoadmapDetailPage: React.FC = () => {
     try {
       await updateRoadmapTopic(id, topic.id, { status });
       await refreshQuietly();
-    } catch (err: any) {
-      setActionError(err?.response?.data?.detail || 'Failed to update this topic.');
+    } catch (err) {
+      setActionError(apiErrorMessage(err, 'Failed to update this topic.'));
     } finally {
       setBusyTopicId(null);
     }
@@ -93,8 +94,8 @@ export const RoadmapDetailPage: React.FC = () => {
       await updateRoadmapTopic(id, notesTopic.id, { evidence_notes: notesDraft || null });
       setNotesTopic(null);
       await refreshQuietly();
-    } catch (err: any) {
-      setActionError(err?.response?.data?.detail || 'Failed to save notes.');
+    } catch (err) {
+      setActionError(apiErrorMessage(err, 'Failed to save notes.'));
     }
   };
 
@@ -107,8 +108,8 @@ export const RoadmapDetailPage: React.FC = () => {
       });
       setScheduleOpen(false);
       await refreshQuietly();
-    } catch (err: any) {
-      setActionError(err?.response?.data?.detail || 'Failed to update the schedule.');
+    } catch (err) {
+      setActionError(apiErrorMessage(err, 'Failed to update the schedule.'));
     }
   };
 

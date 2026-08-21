@@ -2,12 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box, Card, CardContent, Typography, Grid, TextField, MenuItem,
-  Slider, Switch, FormControlLabel, Button, Chip, Divider, Alert,
+  Slider, Switch, FormControlLabel, Button, Chip, Alert,
   CircularProgress
 } from '@mui/material';
 import { PlayCircle, Clock, Zap, BookOpen, Brain, Target } from 'lucide-react';
 import { startExam, getQuestionFilters, getSettings } from '../services/api';
 import { ExamMode } from '../types/exam';
+import { apiErrorMessage } from '../services/apiError';
 
 const EXAM_MODES = [
   { value: 'practice', label: 'Practice Mode', description: 'Unlimited time. Instant explanations after each question.', icon: BookOpen, color: '#34D399' },
@@ -119,8 +120,8 @@ export const ExamSetupPage: React.FC = () => {
         randomize_options: randomizeOpts,
       });
       navigate(`/exam/${session.id}`);
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to start exam. Please check your filter criteria.');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Failed to start exam. Please check your filter criteria.'));
     } finally {
       setLoading(false);
     }

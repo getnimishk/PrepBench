@@ -12,6 +12,7 @@ import {
 import { PracticeRecording, RecordingAnalysis, ProviderInfo } from '../types/recording';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { CategoryScoreList } from '../components/common/CategoryScoreList';
+import { apiErrorMessage } from '../services/apiError';
 
 const formatElapsed = (seconds: number): string => {
   const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -41,8 +42,8 @@ export const RecordingsPage: React.FC = () => {
     try {
       await uploadRecording(blob, `Practice Recording ${new Date().toLocaleString()}`, elapsedSeconds);
       fetchRecordings();
-    } catch (err: any) {
-      setUploadError('Failed to save recording. Please try again.');
+    } catch (err) {
+      setUploadError(apiErrorMessage(err, 'Failed to save recording. Please try again.'));
     } finally {
       setUploading(false);
     }
@@ -81,10 +82,10 @@ export const RecordingsPage: React.FC = () => {
     try {
       const result = await analyzeRecording(id, selectedProvider || undefined);
       setAnalyses((prev) => ({ ...prev, [id]: result }));
-    } catch (err: any) {
+    } catch (err) {
       setAnalyzeErrors((prev) => ({
         ...prev,
-        [id]: err?.response?.data?.detail || 'Failed to analyze recording.',
+        [id]: apiErrorMessage(err, 'Failed to analyze recording.'),
       }));
     } finally {
       setAnalyzingId(null);

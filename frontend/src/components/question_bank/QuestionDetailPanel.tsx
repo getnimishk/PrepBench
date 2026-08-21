@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { Question, QuestionDifficulty } from '../../types/question';
 import { researchQuestion, QuestionResearchResponse, updateQuestion } from '../../services/api';
+import { apiErrorMessage } from '../../services/apiError';
 
 interface QuestionDetailPanelProps {
   open: boolean;
@@ -63,9 +64,9 @@ export const QuestionDetailPanel: React.FC<QuestionDetailPanelProps> = ({
       const data = await researchQuestion(currentQ.id);
       researchCache.current.set(currentQ.id, data);
       setResearchData(data);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to perform LLM research:', err);
-      setActionError(err?.response?.data?.detail || 'Failed to perform LLM research');
+      setActionError(apiErrorMessage(err, 'Failed to perform LLM research'));
     } finally {
       setResearching(false);
     }
@@ -77,9 +78,9 @@ export const QuestionDetailPanel: React.FC<QuestionDetailPanelProps> = ({
     try {
       await updateQuestion(currentQ.id, { explanation: researchData.suggested_explanation });
       onRefresh();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to update explanation:', err);
-      setActionError(err?.response?.data?.detail || 'Failed to update explanation');
+      setActionError(apiErrorMessage(err, 'Failed to update explanation'));
     }
   };
 
@@ -98,9 +99,9 @@ export const QuestionDetailPanel: React.FC<QuestionDetailPanelProps> = ({
     try {
       await updateQuestion(currentQ.id, { options: updatedOptions });
       onRefresh();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to update option text:', err);
-      setActionError(err?.response?.data?.detail || 'Failed to update option text');
+      setActionError(apiErrorMessage(err, 'Failed to update option text'));
     }
   };
 

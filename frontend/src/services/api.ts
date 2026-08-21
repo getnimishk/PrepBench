@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Question, QuestionType, QuestionDifficulty } from '../types/question';
+import { Question, QuestionDifficulty } from '../types/question';
 import { ExamSession, ExamDetail, ExamCreateRequest, SaveAnswerRequest } from '../types/exam';
 import { DashboardOverview, ScoreTrendPoint, DomainMasteryItem } from '../types/analytics';
 import { AppSettings } from '../types/settings';

@@ -7,6 +7,7 @@ import {
 import { ArrowRight, Clock } from 'lucide-react';
 import { getSystemDesignPrompt, submitSystemDesignAttempt, getSettings } from '../services/api';
 import { SystemDesignPrompt } from '../types/systemDesign';
+import { apiErrorMessage } from '../services/apiError';
 
 const formatElapsed = (seconds: number): string => {
   const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -69,8 +70,8 @@ export const SystemDesignAnswerPage: React.FC = () => {
         time_spent_seconds: elapsed,
       });
       navigate(`/system-design/attempts/${attempt.id}`);
-    } catch (err: any) {
-      setSubmitError(err?.response?.data?.detail || 'Failed to submit your answer. Please try again.');
+    } catch (err) {
+      setSubmitError(apiErrorMessage(err, 'Failed to submit your answer. Please try again.'));
     } finally {
       setSubmitting(false);
     }

@@ -1,0 +1,17 @@
+# Coverage is configured here but not switched on by default -- measuring it on
+# every local run slows the loop while you are iterating. CI passes --cov
+# explicitly; run it yourself the same way:
+#
+#     python -m pytest --cov --cov-report=term-missing
+
+[run]
+source = app
+omit =
+    app/data/*
+    */__pycache__/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if TYPE_CHECKING:
+    raise NotImplementedError

@@ -4,7 +4,7 @@ import {
   Box, Card, CardContent, Typography, Grid, TextField, MenuItem,
   Chip, Button, Alert, CircularProgress, Switch, FormControlLabel, Divider
 } from '@mui/material';
-import { PlayCircle, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import {
   getSystemDesignPrompts,
   getSystemDesignPromptCategories,
@@ -12,6 +12,7 @@ import {
 } from '../services/api';
 import { SystemDesignPrompt } from '../types/systemDesign';
 import { QuestionDifficulty } from '../types/question';
+import { apiErrorMessage } from '../services/apiError';
 
 const DIFFICULTIES: QuestionDifficulty[] = ['easy', 'medium', 'hard'];
 
@@ -73,10 +74,9 @@ export const SystemDesignSetupPage: React.FC = () => {
         return;
       }
       navigate(`/system-design/${prompt.id}/answer`);
-    } catch (err: any) {
+    } catch (err) {
       setGenerateError(
-        err?.response?.data?.detail ||
-        'AI prompt generation is unavailable. Configure GEMINI_API_KEY, or pick a prompt from the bank below.'
+        apiErrorMessage(err, 'AI prompt generation is unavailable. Set up a provider in Settings -> AI Providers, or pick a prompt from the bank below.')
       );
     } finally {
       setGenerating(false);

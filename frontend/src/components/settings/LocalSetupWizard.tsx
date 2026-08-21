@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { apiErrorMessage } from '../../services/apiError';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, Stepper, Step,
   StepLabel, Box, Typography, Alert, Chip, CircularProgress, TextField,
@@ -98,7 +99,7 @@ export const LocalSetupWizard: React.FC<Props> = ({ open, onClose, onConnected }
         const recommended = modelList.find((m) => m.recommended);
         if (recommended) setModelId(recommended.id);
       })
-      .catch((err: any) => setError(err?.response?.data?.detail || 'Could not load setup information.'));
+      .catch((err) => setError(apiErrorMessage(err, 'Could not load setup information.')));
   }, [open]);
 
   // Regenerate the command whenever anything it depends on changes, so what is
@@ -149,8 +150,8 @@ export const LocalSetupWizard: React.FC<Props> = ({ open, onClose, onConnected }
       a.download = script.filename;
       a.click();
       URL.revokeObjectURL(url);
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Could not build the start script.');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Could not build the start script.'));
     }
   };
 
@@ -169,8 +170,8 @@ export const LocalSetupWizard: React.FC<Props> = ({ open, onClose, onConnected }
       const result = await verifyLLMProvider(created.id);
       setVerifyResult(result);
       if (result.ok) onConnected();
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Could not connect to the model server.');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Could not connect to the model server.'));
     } finally {
       setConnecting(false);
     }

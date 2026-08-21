@@ -8,7 +8,8 @@ import { Save, Settings as SettingsIcon, Moon, Volume2, AlertTriangle, RotateCcw
 import { getSettings, updateSettings, resetApplication } from '../services/api';
 import { useThemeMode } from '../context/ThemeContext';
 import { AppSettings } from '../types/settings';
-import { AIProvidersSection } from '../components/settings/AIProvidersSection';
+import { AIProvidersSection } from '../components/settings/AIProvidersSection';
+import { apiErrorMessage } from '../services/apiError';
 
 export const SettingsPage: React.FC = () => {
   const { setThemeMode } = useThemeMode();
@@ -55,9 +56,9 @@ export const SettingsPage: React.FC = () => {
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to save settings', err);
-      setSaveError(err?.response?.data?.detail || 'Failed to save settings. Please try again.');
+      setSaveError(apiErrorMessage(err, 'Failed to save settings. Please try again.'));
     }
   };
 
@@ -72,9 +73,9 @@ export const SettingsPage: React.FC = () => {
       setConfirmInput('');
       fetchSettings();
       setTimeout(() => setResetSuccess(false), 5000);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to reset application', err);
-      setResetError(err?.response?.data?.detail || 'Failed to reset application state.');
+      setResetError(apiErrorMessage(err, 'Failed to reset application state.'));
     } finally {
       setResetting(false);
     }

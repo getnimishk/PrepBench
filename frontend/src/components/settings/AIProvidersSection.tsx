@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Box, Card, CardContent, Typography, Button, Chip, Alert, IconButton, Dialog,
   DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Switch,
-  FormControlLabel, CircularProgress, Divider, Tooltip, Accordion,
+  CircularProgress, Tooltip, Accordion,
   AccordionSummary, AccordionDetails,
 } from '@mui/material';
 import {
@@ -19,6 +19,7 @@ import {
   CAPABILITY_LABELS,
 } from '../../types/llm';
 import { LocalSetupWizard } from './LocalSetupWizard';
+import { apiErrorMessage } from '../../services/apiError';
 
 const readinessStyles: Record<string, { color: 'success' | 'warning' | 'error'; Icon: typeof CheckCircle2 }> = {
   ready: { color: 'success', Icon: CheckCircle2 },
@@ -55,8 +56,8 @@ export const AIProvidersSection: React.FC = () => {
       setProfiles(p);
       setProviders(pr);
       setTasks(t);
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Could not load AI provider settings.');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Could not load AI provider settings.'));
     } finally {
       setLoading(false);
     }
@@ -84,8 +85,8 @@ export const AIProvidersSection: React.FC = () => {
       const result = await verifyLLMProvider(provider.id);
       setVerifyResults((prev) => ({ ...prev, [provider.id]: result }));
       await load();
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || `Could not check ${provider.name}.`);
+    } catch (err) {
+      setError(apiErrorMessage(err, `Could not check ${provider.name}.`));
     } finally {
       setVerifying(null);
     }
@@ -97,8 +98,8 @@ export const AIProvidersSection: React.FC = () => {
       await deleteLLMProvider(confirmDelete.id);
       setConfirmDelete(null);
       await load();
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Could not remove this provider.');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Could not remove this provider.'));
     }
   };
 
@@ -106,8 +107,8 @@ export const AIProvidersSection: React.FC = () => {
     try {
       await updateLLMProvider(provider.id, { is_enabled: !provider.is_enabled });
       await load();
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Could not update this provider.');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Could not update this provider.'));
     }
   };
 
@@ -118,8 +119,8 @@ export const AIProvidersSection: React.FC = () => {
       setKeyEdit(null);
       setKeyValue('');
       await load();
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Could not save the API key.');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Could not save the API key.'));
     }
   };
 
@@ -127,8 +128,8 @@ export const AIProvidersSection: React.FC = () => {
     try {
       await setLLMTaskBinding(task, { provider_id: providerId });
       await load();
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Could not change which provider handles this.');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Could not change which provider handles this.'));
     }
   };
 
@@ -488,8 +489,8 @@ const AddProviderDialog: React.FC<AddProviderDialogProps> = ({
       });
       reset();
       onCreated();
-    } catch (err: any) {
-      onError(err?.response?.data?.detail || 'Could not add this provider.');
+    } catch (err) {
+      onError(apiErrorMessage(err, 'Could not add this provider.'));
     } finally {
       setSaving(false);
     }

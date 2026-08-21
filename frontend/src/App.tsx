@@ -27,7 +27,6 @@ export const SidebarContext = createContext({ collapsed: false, toggleCollapsed:
 export const useSidebar = () => useContext(SidebarContext);
 
 const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { collapsed } = useSidebar();
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Navbar />

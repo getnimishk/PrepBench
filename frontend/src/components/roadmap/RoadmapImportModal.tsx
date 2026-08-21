@@ -6,7 +6,8 @@ import {
 } from '@mui/material';
 import { UploadCloud, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { validateRoadmapImport, confirmRoadmapImport } from '../../services/api';
-import { RoadmapImportPreview } from '../../types/roadmap';
+import { RoadmapImportPreview } from '../../types/roadmap';
+import { apiErrorMessage } from '../../services/apiError';
 
 interface Props {
   open: boolean;
@@ -46,11 +47,9 @@ export const RoadmapImportModal: React.FC<Props> = ({ open, onClose, onImported 
     setValidating(true);
     try {
       setPreview(await validateRoadmapImport(selected));
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail;
+    } catch (err) {
       setError(
-        (typeof detail === 'string' ? detail : detail?.message) ||
-        'Could not read this file. Supported formats are .xlsx, .json, .md, and .csv.'
+        apiErrorMessage(err, 'Could not read this file. Supported formats are .xlsx, .json, .md, and .csv.')
       );
     } finally {
       setValidating(false);
@@ -73,9 +72,8 @@ export const RoadmapImportModal: React.FC<Props> = ({ open, onClose, onImported 
       });
       reset();
       onImported(result.roadmap_id);
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail;
-      setError((typeof detail === 'string' ? detail : detail?.message) || 'Failed to import this roadmap.');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Failed to import this roadmap.'));
     } finally {
       setImporting(false);
     }

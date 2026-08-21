@@ -91,14 +91,16 @@ describe('InterviewPracticeSetupPage', () => {
 
   it('shows an inline error and does not navigate when generation fails', async () => {
     const user = userEvent.setup();
-    mockGenerate.mockRejectedValue({ response: { data: { detail: 'AI question generation is unavailable: no GEMINI_API_KEY configured.' } } });
+    // Matches what the backend actually returns since the provider layer landed:
+    // vendor-neutral, and pointing at the setup flow rather than one vendor's key.
+    mockGenerate.mockRejectedValue({ response: { data: { detail: 'No AI provider is set up yet. Add one in Settings -> AI Providers to generate questions.' } } });
     renderPage();
     await waitFor(() => expect(screen.getByText('Behavioral')).toBeInTheDocument());
     await user.click(screen.getByText('Behavioral'));
     await waitFor(() => expect(screen.getByRole('button', { name: /generate/i })).toBeInTheDocument());
 
     await user.click(screen.getByRole('button', { name: /generate/i }));
-    await waitFor(() => expect(screen.getByText(/GEMINI_API_KEY configured/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Settings -> AI Providers/i)).toBeInTheDocument());
     expect(screen.queryByText('Record Page')).not.toBeInTheDocument();
   });
 

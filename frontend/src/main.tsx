@@ -4,7 +4,7 @@ import App from './App';
 import './index.css';
 
 // Register Chart.js defaults globally
-import { Chart, defaults } from 'chart.js';
+import { defaults } from 'chart.js';
 defaults.font.family = "'Inter', sans-serif";
 defaults.color = '#9CA3AF';
 
