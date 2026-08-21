@@ -19,12 +19,29 @@ def clear_env_provider(monkeypatch):
     """
     Make the gateway resolve nothing at all.
 
-    The developer .env holds a real key, so tests that assert unavailable
-    behaviour must neutralise both the settings attribute (which
-    pydantic-settings already read at import time) and the live environment.
+    Three things have to go, because the gateway resolves in three steps: a task
+    binding, then the first enabled capable provider row, then the environment.
+    Neutralising only the environment was enough before providers lived in the
+    database; afterwards it quietly stopped being enough, and a single leftover
+    provider row would make an "AI is not configured" test resolve a provider
+    and fail somewhere unrelated.
+
+    The settings attribute is separate from the environment variable because
+    pydantic-settings already read it at import time.
     """
+    from app.models.llm_config import LLMProviderConfig, LLMTaskBinding
+    from tests.conftest import TestingSessionLocal
+
     monkeypatch.setattr(settings, "GEMINI_API_KEY", None)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+
+    db = TestingSessionLocal()
+    try:
+        db.query(LLMTaskBinding).delete()
+        db.query(LLMProviderConfig).delete()
+        db.commit()
+    finally:
+        db.close()
 
 
 def set_env_provider(monkeypatch, key: str = "fake-key-for-test"):
