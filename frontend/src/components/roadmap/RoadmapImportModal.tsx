@@ -6,7 +6,8 @@ import {
 } from '@mui/material';
 import { UploadCloud, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { validateRoadmapImport, confirmRoadmapImport } from '../../services/api';
-import { RoadmapImportPreview } from '../../types/roadmap';
+import { RoadmapImportPreview } from '../../types/roadmap';
+
 import { apiErrorMessage } from '../../services/apiError';
 
 interface Props {
@@ -144,22 +145,34 @@ export const RoadmapImportModal: React.FC<Props> = ({ open, onClose, onImported 
             )}
 
             <Grid container spacing={2} sx={{ mt: 0.5, mb: 2 }}>
-              <Grid item xs={12} sm={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  sm: 6
+                }}>
                 <TextField
                   fullWidth type="date" label="Start date (optional)"
-                  InputLabelProps={{ shrink: true }}
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   helperText="Needed for the schedule view"
+                  slotProps={{
+                    inputLabel: { shrink: true }
+                  }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  sm: 6
+                }}>
                 <TextField
                   fullWidth type="number" label="Study hours per week (optional)"
                   value={weeklyHours}
                   onChange={(e) => setWeeklyHours(e.target.value)}
-                  inputProps={{ min: 1, step: 1 }}
                   helperText="Used to project the timeline"
+                  slotProps={{
+                    htmlInput: { min: 1, step: 1 }
+                  }}
                 />
               </Grid>
             </Grid>

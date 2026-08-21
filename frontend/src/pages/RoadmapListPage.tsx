@@ -9,7 +9,8 @@ import { Upload, Plus, Map, Trash2, Archive, Clock } from 'lucide-react';
 import { getRoadmaps, createRoadmap, deleteRoadmap, updateRoadmap } from '../services/api';
 import { RoadmapSummary } from '../types/roadmap';
 import { RoadmapImportModal } from '../components/roadmap/RoadmapImportModal';
-import { formatPercentage, progressCaption, hoursCaption } from '../components/roadmap/progressDisplay';
+import { formatPercentage, progressCaption, hoursCaption } from '../components/roadmap/progressDisplay';
+
 import { apiErrorMessage } from '../services/apiError';
 
 export const RoadmapListPage: React.FC = () => {
@@ -123,7 +124,12 @@ export const RoadmapListPage: React.FC = () => {
             const pct = roadmap.progress.completion_percentage;
             const hours = hoursCaption(roadmap.progress);
             return (
-              <Grid item xs={12} md={6} key={roadmap.id}>
+              <Grid
+                key={roadmap.id}
+                size={{
+                  xs: 12,
+                  md: 6
+                }}>
                 <Card
                   sx={{
                     height: '100%', borderRadius: 3, boxShadow: 'none',

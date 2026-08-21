@@ -177,7 +177,12 @@ export const DashboardPage: React.FC = () => {
 
       {/* KPI Cards Grid */}
       <Grid container spacing={2.5}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 3
+          }}>
           <MetricCard
             title="Total Exams Completed"
             value={data.total_exams}
@@ -186,7 +191,12 @@ export const DashboardPage: React.FC = () => {
             color="#6366F1"
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 3
+          }}>
           <MetricCard
             title="Questions Attempted"
             value={data.total_questions_attempted}
@@ -195,7 +205,12 @@ export const DashboardPage: React.FC = () => {
             color="#D946EF"
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 3
+          }}>
           <MetricCard
             title="Overall Accuracy"
             value={`${data.overall_accuracy_percentage}%`}
@@ -204,7 +219,12 @@ export const DashboardPage: React.FC = () => {
             color="#34D399"
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 3
+          }}>
           <MetricCard
             title="Avg Time / Question"
             value={`${data.average_time_per_question_seconds}s`}
@@ -217,11 +237,19 @@ export const DashboardPage: React.FC = () => {
 
       {/* Second Row: Weak Topics & Today Goal */}
       <Grid container spacing={2.5}>
-        <Grid item xs={12} md={7}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 7
+          }}>
           <WeakTopicsWidget topics={data.weak_topics} />
         </Grid>
 
-        <Grid item xs={12} md={5}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 5
+          }}>
           <Card sx={{ height: '100%', borderRadius: 3, boxShadow: 'none', bgcolor: 'background.paper', border: 1, borderColor: 'divider' }}>
             <CardContent>
               <Typography variant="h6" sx={{ mb: 2, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>

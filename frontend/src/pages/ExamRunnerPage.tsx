@@ -367,7 +367,11 @@ export const ExamRunnerPage: React.FC = () => {
       {/* Main Content: Question + Palette */}
       <Grid container spacing={3} sx={{ flexGrow: 1 }}>
         {/* Question Panel */}
-        <Grid item xs={12} md={8}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 8
+          }}>
           <Card sx={{ height: '100%', border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
             <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
               {currentQuestion ? (
@@ -447,7 +451,11 @@ export const ExamRunnerPage: React.FC = () => {
         </Grid>
 
         {/* Question Palette */}
-        <Grid item xs={12} md={4}>
+        <Grid
+          size={{
+            xs: 12,
+            md: 4
+          }}>
           <QuestionPalette
             totalQuestions={totalQ}
             currentIndex={currentIdx}

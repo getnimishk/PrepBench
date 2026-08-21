@@ -155,8 +155,14 @@ describe('SettingsPage', () => {
 
     await waitFor(() => expect(mockResetApplication).toHaveBeenCalled());
     await waitFor(() => expect(screen.getByText(/completely reset to fresh empty state/i)).toBeInTheDocument());
-    // The reset modal itself closes after a successful confirm.
-    expect(screen.queryByRole('button', { name: /confirm reset/i })).not.toBeInTheDocument();
+    // The reset modal itself closes after a successful confirm. Awaited rather
+    // than asserted synchronously: MUI keeps a Dialog's children mounted for
+    // the duration of its exit transition, so the node outlives the state
+    // change that closed it. The assertion is the same -- it just has to be
+    // allowed to happen.
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /confirm reset/i })).not.toBeInTheDocument()
+    );
   });
 
   it('shows a retry-able error state when the initial settings fetch fails', async () => {
