@@ -6,11 +6,16 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.llm_config import (
     DetectedRunner,
+    LauncherRequest,
+    LauncherScript,
+    LocalModelOption,
     ModelListResponse,
     ProfileInfo,
     ProviderCreate,
     ProviderResponse,
     ProviderUpdate,
+    RunnerInfo,
+    SystemInfo,
     TaskBindingInfo,
     TaskBindingUpdate,
     VerifyResult,
@@ -39,6 +44,47 @@ def detect_local_runners(db: Session = Depends(get_db)):
     guarantee holds.
     """
     return LLMConfigService(db).detect_local_runners()
+
+
+@router.get("/system-info", response_model=SystemInfo)
+def get_system_info(db: Session = Depends(get_db)):
+    """
+    What this machine can run. Read locally from the OS; nothing is reported
+    anywhere, and unmeasurable figures come back null rather than guessed.
+    """
+    return LLMConfigService(db).get_system_info()
+
+
+@router.get("/local/models", response_model=List[LocalModelOption])
+def list_local_models(ram_gb: float = None, db: Session = Depends(get_db)):
+    """
+    The model catalogue, annotated with whether this machine can run each one.
+
+    `ram_gb` overrides the measured value, so the UI can preview
+    recommendations for a different machine.
+    """
+    return LLMConfigService(db).list_local_models(ram_gb)
+
+
+@router.get("/local/runners", response_model=List[RunnerInfo])
+def list_runners(db: Session = Depends(get_db)):
+    return LLMConfigService(db).list_runners()
+
+
+@router.get("/local/runners/{key}", response_model=RunnerInfo)
+def get_runner(key: str, db: Session = Depends(get_db)):
+    return LLMConfigService(db).get_runner(key)
+
+
+@router.post("/local/launcher", response_model=LauncherScript)
+def build_launcher(req: LauncherRequest, db: Session = Depends(get_db)):
+    """
+    Generate a start script for the user to save and run themselves.
+
+    Returns the text only. PrepBench never writes an executable to disk and
+    never launches a model server -- see llm/local_setup.py for why.
+    """
+    return LLMConfigService(db).build_launcher(req)
 
 
 @router.get("/tasks", response_model=List[TaskBindingInfo])

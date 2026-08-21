@@ -26,6 +26,12 @@ vi.mock('../../services/api', () => ({
   getLLMProviderModels: () => Promise.resolve({ models: [], error: null }),
   setLLMTaskBinding: (...a: any[]) => mockSetBinding(...a),
   detectLocalRunners: (...a: any[]) => mockDetect(...a),
+  // LocalSetupWizard renders inside this component (closed), and pulls from
+  // the same module -- without these the mocked module returns undefined.
+  getSystemInfo: () => Promise.resolve({ os_family: 'windows', total_ram_gb: 16, available_ram_gb: 8, usable_for_model_gb: 14 }),
+  getLocalModelOptions: () => Promise.resolve([]),
+  getLocalRunners: () => Promise.resolve([]),
+  buildLauncherScript: () => Promise.resolve({ filename: 'x.bat', content: '', command: '', os_family: 'windows', port: 8080 }),
 }));
 
 function makeProfile(overrides: Partial<LLMProfile> = {}): LLMProfile {

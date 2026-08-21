@@ -131,3 +131,66 @@ class DetectedRunner(BaseModel):
 class ModelListResponse(BaseModel):
     models: List[str] = Field(default_factory=list)
     error: Optional[str] = None
+
+
+class SystemInfo(BaseModel):
+    """
+    What this machine can handle. Every figure is nullable: an unmeasurable
+    machine reports "unknown" rather than a fabricated number, and the UI says
+    so instead of recommending blind.
+    """
+
+    os_family: str
+    total_ram_gb: Optional[float] = None
+    available_ram_gb: Optional[float] = None
+    usable_for_model_gb: Optional[float] = None
+
+
+class LocalModelOption(BaseModel):
+    id: str
+    label: str
+    parameters_b: float
+    quantisation: str
+    download_gb: float
+    ram_required_gb: float
+    licence: str
+    licence_commercial_ok: bool
+    sweet_spot: bool = False
+    summary: str
+    download_url: str
+    good_for: List[str] = Field(default_factory=list)
+    weak_at: List[str] = Field(default_factory=list)
+
+    # Two different questions: `fits` is about the machine and is stable,
+    # `fits_now` is about this moment and tells the user to close some apps.
+    # None on either means the machine's memory could not be measured.
+    fits: Optional[bool] = None
+    fits_now: Optional[bool] = None
+    fit_note: str = ""
+    recommended: bool = False
+
+
+class RunnerInfo(BaseModel):
+    key: str
+    label: str
+    summary: str
+    download_url: str
+    default_port: int
+    pull_style: str
+    steps: dict = Field(default_factory=dict)
+
+
+class LauncherRequest(BaseModel):
+    runner_key: str
+    model_file: str
+    port: Optional[int] = None
+    ctx_size: int = 4096
+    os_family: Optional[str] = None
+
+
+class LauncherScript(BaseModel):
+    filename: str
+    content: str
+    command: str
+    os_family: str
+    port: Optional[int] = None

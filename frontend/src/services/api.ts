@@ -12,6 +12,11 @@ import {
   LLMTaskBinding,
   LLMModelList,
   DetectedRunner,
+  SystemInfo,
+  LocalModelOption,
+  RunnerInfo,
+  LauncherRequest,
+  LauncherScript,
 } from '../types/llm';
 import {
   SystemDesignPrompt,
@@ -315,6 +320,28 @@ export const setLLMTaskBinding = async (
 
 export const detectLocalRunners = async () => {
   const res = await api.get<DetectedRunner[]>(`/llm/local/detect`);
+  return res.data;
+};
+
+export const getSystemInfo = async () => {
+  const res = await api.get<SystemInfo>(`/llm/system-info`);
+  return res.data;
+};
+
+export const getLocalModelOptions = async (ramGb?: number) => {
+  const res = await api.get<LocalModelOption[]>(`/llm/local/models`, {
+    params: ramGb != null ? { ram_gb: ramGb } : undefined,
+  });
+  return res.data;
+};
+
+export const getLocalRunners = async () => {
+  const res = await api.get<RunnerInfo[]>(`/llm/local/runners`);
+  return res.data;
+};
+
+export const buildLauncherScript = async (data: LauncherRequest) => {
+  const res = await api.post<LauncherScript>(`/llm/local/launcher`, data);
   return res.data;
 };
 

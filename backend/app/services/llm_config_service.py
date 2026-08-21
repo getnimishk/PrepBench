@@ -13,8 +13,10 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import ResourceNotFoundException
 from app.core.logging_config import logger
+from app.llm import local_setup
 from app.llm import profiles as profile_store
 from app.llm import secrets
+from app.llm import system_info
 from app.llm.adapters import get_adapter
 from app.llm.gateway import LLMGateway
 from app.llm.transport import get_json, get_shared_client
@@ -22,8 +24,13 @@ from app.llm.types import TASK_SPECS, Capability, LLMRequest, LLMTask
 from app.repositories.llm_repository import LLMConfigRepository
 from app.schemas.llm_config import (
     DetectedRunner,
+    LauncherRequest,
+    LauncherScript,
+    LocalModelOption,
     ModelListResponse,
     ProfileInfo,
+    RunnerInfo,
+    SystemInfo,
     ProviderCreate,
     ProviderResponse,
     ProviderUpdate,
@@ -393,6 +400,45 @@ class LLMConfigService:
             ))
 
         return found
+
+    # ---- Guided local setup -------------------------------------------
+
+    def get_system_info(self) -> SystemInfo:
+        total, available = system_info.memory_gb()
+        return SystemInfo(
+            os_family=system_info.os_family(),
+            total_ram_gb=total,
+            available_ram_gb=available,
+            usable_for_model_gb=local_setup.usable_ram_gb(),
+        )
+
+    def list_local_models(self, ram_gb: Optional[float] = None) -> List[LocalModelOption]:
+        return [LocalModelOption(**m) for m in local_setup.recommend_models(ram_gb)]
+
+    def list_runners(self) -> List[RunnerInfo]:
+        return [RunnerInfo(**r) for r in local_setup.list_runners()]
+
+    def get_runner(self, key: str) -> RunnerInfo:
+        runner = local_setup.get_runner(key)
+        if not runner:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No setup guide for {key!r}.",
+            )
+        return RunnerInfo(**runner)
+
+    def build_launcher(self, req: LauncherRequest) -> LauncherScript:
+        try:
+            script = local_setup.build_launcher_script(
+                runner_key=req.runner_key,
+                model_file=req.model_file,
+                port=req.port,
+                ctx_size=req.ctx_size,
+                os_family=req.os_family,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        return LauncherScript(**script)
 
     # ---- Task routing -------------------------------------------------
 

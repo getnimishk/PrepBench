@@ -18,6 +18,7 @@ import {
   LLMProfile, LLMProvider, LLMTaskBinding, DetectedRunner, LLMVerifyResult,
   CAPABILITY_LABELS,
 } from '../../types/llm';
+import { LocalSetupWizard } from './LocalSetupWizard';
 
 const readinessStyles: Record<string, { color: 'success' | 'warning' | 'error'; Icon: typeof CheckCircle2 }> = {
   ready: { color: 'success', Icon: CheckCircle2 },
@@ -34,6 +35,7 @@ export const AIProvidersSection: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [addOpen, setAddOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [detected, setDetected] = useState<DetectedRunner[] | null>(null);
   const [detecting, setDetecting] = useState(false);
 
@@ -155,15 +157,26 @@ export const AIProvidersSection: React.FC = () => {
               Everything else in PrepBench works without any of this.
             </Typography>
           </Box>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<Plus size={16} />}
-            onClick={() => setAddOpen(true)}
-            sx={{ fontWeight: 700, borderRadius: '100px', flexShrink: 0 }}
-          >
-            Add
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<HardDrive size={16} />}
+              onClick={() => setWizardOpen(true)}
+              sx={{ fontWeight: 700, borderRadius: '100px' }}
+            >
+              Set up a local model
+            </Button>
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<Plus size={16} />}
+              onClick={() => setAddOpen(true)}
+              sx={{ fontWeight: 700, borderRadius: '100px' }}
+            >
+              Add
+            </Button>
+          </Box>
         </Box>
 
         {error && <Alert severity="error" sx={{ my: 2 }} onClose={() => setError(null)}>{error}</Alert>}
@@ -366,6 +379,12 @@ export const AIProvidersSection: React.FC = () => {
           </AccordionDetails>
         </Accordion>
       </CardContent>
+
+      <LocalSetupWizard
+        open={wizardOpen}
+        onClose={() => { setWizardOpen(false); load(); }}
+        onConnected={load}
+      />
 
       <AddProviderDialog
         open={addOpen}
