@@ -206,6 +206,35 @@ def test_output_truncated_by_token_limit_keeps_completed_fields():
     assert parsed["scores"] == [1, 2]
 
 
+def test_truncation_mid_value_keeps_the_partial_value():
+    """A cut-off sentence is visibly cut off, and more use to the reader than a
+    field that silently vanished."""
+    parsed, error = extract_json_object('{"summary": "the delivery was clear but the pac')
+    assert error is None
+    assert parsed["summary"].startswith("the delivery was clear")
+
+
+def test_truncation_mid_key_drops_the_valueless_key():
+    """The mirror case: a key cut off before its value cannot be kept, because
+    there is no value to keep."""
+    parsed, error = extract_json_object('{"score": 7, "feedb')
+    assert error is None
+    assert parsed == {"score": 7}
+
+
+def test_truncation_just_after_a_colon_drops_the_dangling_key():
+    parsed, error = extract_json_object('{"score": 7, "feedback": ')
+    assert error is None
+    assert parsed == {"score": 7}
+
+
+def test_truncation_inside_a_nested_array_closes_every_level():
+    parsed, error = extract_json_object('{"scores": [{"category": "Clarity", "score": 8')
+    assert error is None
+    assert parsed["scores"][0]["category"] == "Clarity"
+    assert parsed["scores"][0]["score"] == 8
+
+
 def test_genuinely_unparseable_output_fails_honestly():
     parsed, error = extract_json_object("I am afraid I cannot help with that.")
     assert parsed is None

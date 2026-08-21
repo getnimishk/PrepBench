@@ -79,8 +79,10 @@ def _close_truncated(text: str) -> Optional[str]:
     stack = []
     in_string = False
     escaped = False
+    string_start = -1  # where the currently-open string began
 
-    for ch in text[start:]:
+    for idx in range(start, len(text)):
+        ch = text[idx]
         if in_string:
             if escaped:
                 escaped = False
@@ -91,6 +93,7 @@ def _close_truncated(text: str) -> Optional[str]:
             continue
         if ch == '"':
             in_string = True
+            string_start = idx
         elif ch in "{[":
             stack.append(ch)
         elif ch in "}]":
@@ -101,11 +104,22 @@ def _close_truncated(text: str) -> Optional[str]:
         return None  # nothing was open; this isn't a truncation
 
     repaired = text[start:]
+
     if in_string:
-        repaired += '"'
-    # A truncation usually lands on a dangling key or comma; drop it so the
-    # close below produces valid JSON rather than {"a":1,"b"}.
-    repaired = re.sub(r'[,\s]*"[^"]*"\s*:?\s*$', "", repaired)
+        # Cut mid-string. Whether that string was a value or a key decides what
+        # can be salvaged, and the two look identical at the end of the text --
+        # only what precedes the opening quote tells them apart. A value just
+        # needs its closing quote (a visibly cut-off sentence is more use than
+        # a silently dropped field); a key with no value has to go entirely.
+        if text[start:string_start].rstrip().endswith(":"):
+            repaired += '"'
+        else:
+            repaired = text[start:string_start]
+
+    # Drop a key left dangling by a cut that landed *outside* a string, e.g.
+    # '{"a": 1, "b":'. Requires the colon, so a complete pair repaired above is
+    # not matched and destroyed.
+    repaired = re.sub(r',?\s*"[^"]*"\s*:\s*$', "", repaired.rstrip())
     repaired = repaired.rstrip().rstrip(",")
     for opener in reversed(stack):
         repaired += "}" if opener == "{" else "]"
