@@ -181,6 +181,12 @@ class ExamEngine:
         if not session:
             raise ResourceNotFoundException("ExamSession", session_id)
 
+        # Finishing is idempotent. Without this, a double-click on "Submit &
+        # Finish" (or any client retry) re-stamps end_time and recomputes the
+        # duration, inflating it a little further on every extra call.
+        if session.status == ExamStatus.COMPLETED:
+            return self.get_exam_details(session_id)
+
         answers = session.answers
         correct_count = sum(1 for a in answers if a.is_correct is True)
         total = session.total_questions
@@ -194,9 +200,13 @@ class ExamEngine:
         session.status = ExamStatus.COMPLETED
         session.end_time = datetime.now(UTC).replace(tzinfo=None)
 
-        if session.start_time:
-            delta = session.end_time - session.start_time
-            session.time_spent_seconds = int(delta.total_seconds())
+        # Sum of the per-question time the client actually measured, NOT the
+        # wall-clock gap between start_time and end_time. Practice mode is
+        # untimed by design, so a session left open overnight would otherwise
+        # report every idle hour as study time -- corrupting the History
+        # duration column, both exported reports, and the dashboard's recent
+        # exam list, all of which read this field.
+        session.time_spent_seconds = sum(a.time_spent_seconds or 0 for a in answers)
 
         self.repo.update_session(session)
         return self.get_exam_details(session_id)

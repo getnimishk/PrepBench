@@ -42,6 +42,20 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
+def _log_migration_failure(step: str, exc: Exception) -> None:
+    """
+    A migration step is allowed to fail without stopping startup (a fresh
+    database has nothing to alter, and create_all covers it), but it must not
+    fail *silently*. Swallowing these turns a schema problem into a confusing
+    "no such column" at first query, far from its cause.
+    """
+    # Imported lazily: logging_config configures handlers at import time, and
+    # this module is imported early enough that a module-level import would
+    # risk an import cycle through app.core.config.
+    from app.core.logging_config import logger
+    logger.error(f"Lightweight migration step '{step}' failed: {exc}")
+
+
 def apply_lightweight_migrations():
     """Auto-add missing columns/indexes to existing SQLite database tables safely."""
     with engine.connect() as conn:
@@ -55,8 +69,8 @@ def apply_lightweight_migrations():
             if "default_target_role" not in columns and len(columns) > 0:
                 conn.execute(text("ALTER TABLE app_settings ADD COLUMN default_target_role VARCHAR(200)"))
                 conn.commit()
-        except Exception:
-            pass
+        except Exception as exc:
+            _log_migration_failure('app_settings columns', exc)
 
         try:
             # Backfill the unique (session_id, question_id) index on exam_answers for
@@ -78,8 +92,26 @@ def apply_lightweight_migrations():
                     "ON exam_answers (session_id, question_id)"
                 ))
                 conn.commit()
-        except Exception:
-            pass
+        except Exception as exc:
+            _log_migration_failure('exam_answers unique index', exc)
+
+        try:
+            # exam_answers: an immutable first-answered timestamp. answered_at
+            # has onupdate= and gets bumped by ordinary navigation, so it can't
+            # answer "what did I actually practice today?". Backfilled from
+            # answered_at, which is the best estimate available for rows that
+            # predate the column.
+            result = conn.execute(text("PRAGMA table_info(exam_answers)")).fetchall()
+            columns = [row[1] for row in result]
+            if "first_answered_at" not in columns and len(columns) > 0:
+                conn.execute(text("ALTER TABLE exam_answers ADD COLUMN first_answered_at DATETIME"))
+                conn.execute(text(
+                    "UPDATE exam_answers SET first_answered_at = answered_at "
+                    "WHERE first_answered_at IS NULL"
+                ))
+                conn.commit()
+        except Exception as exc:
+            _log_migration_failure("exam_answers.first_answered_at", exc)
 
         try:
             # Check questions columns
@@ -88,8 +120,8 @@ def apply_lightweight_migrations():
             if "is_reviewed" not in columns and len(columns) > 0:
                 conn.execute(text("ALTER TABLE questions ADD COLUMN is_reviewed BOOLEAN DEFAULT 0"))
                 conn.commit()
-        except Exception:
-            pass
+        except Exception as exc:
+            _log_migration_failure("questions.is_reviewed", exc)
 
         try:
             # practice_recordings: link to an optional interview_question (added
@@ -101,8 +133,8 @@ def apply_lightweight_migrations():
             if "interview_question_id" not in columns and len(columns) > 0:
                 conn.execute(text("ALTER TABLE practice_recordings ADD COLUMN interview_question_id INTEGER"))
                 conn.commit()
-        except Exception:
-            pass
+        except Exception as exc:
+            _log_migration_failure('practice_recordings.interview_question_id', exc)
 
         try:
             # LLM provider configuration. Both tables are new rather than
@@ -154,8 +186,8 @@ def apply_lightweight_migrations():
             if "content_summary" not in columns and len(columns) > 0:
                 conn.execute(text("ALTER TABLE recording_analyses ADD COLUMN content_summary TEXT"))
                 conn.commit()
-        except Exception:
-            pass
+        except Exception as exc:
+            _log_migration_failure('recording_analyses content columns', exc)
 
 def get_db():
     db = SessionLocal()

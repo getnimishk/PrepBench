@@ -177,35 +177,61 @@ class AnalyticsRepository:
             .all()
         )
 
-    def get_completed_sessions_chronological(self) -> List[ExamSession]:
-        """Oldest first, so a rolling average can be accumulated in one pass."""
-        return (
+    def get_recent_completed_sessions_chronological(self, limit: int) -> List[ExamSession]:
+        """
+        The most recent `limit` completed sessions, oldest first.
+
+        Ordered newest-first for the LIMIT and reversed afterwards, so the cap
+        keeps the *latest* N exams rather than the first N a long-running
+        database ever recorded. Returned oldest-first so a rolling average can
+        be accumulated in a single pass.
+        """
+        sessions = (
             self.db.query(ExamSession)
             .filter(ExamSession.status == ExamStatus.COMPLETED)
-            .order_by(ExamSession.end_time.asc())
+            .order_by(ExamSession.end_time.desc())
+            .limit(limit)
             .all()
         )
+        sessions.reverse()
+        return sessions
 
-    def count_answers_since(self, moment: datetime) -> int:
+    def count_practice_answers_since(self, moment: datetime) -> int:
+        """
+        Answers that count as practice, from `moment` onwards.
+
+        Two details that are easy to get wrong, both fixed on main and kept
+        here:
+
+        first_answered_at, not answered_at -- the latter carries onupdate=, so
+        any later write to the row bumps it to now and yesterday's work would
+        silently start counting as today's.
+
+        is_correct IS NULL means nothing was selected (see
+        ExamEngine.save_answer), which is how a question merely navigated past
+        gets recorded. Those are not practice.
+        """
         return (
             self.db.query(ExamAnswer)
-            .filter(ExamAnswer.answered_at >= moment)
+            .filter(
+                ExamAnswer.first_answered_at >= moment,
+                ExamAnswer.is_correct.isnot(None),
+            )
             .count()
         )
 
-    def get_completed_exam_dates(self) -> List[str]:
+    def get_completed_exam_end_times(self) -> List[datetime]:
         """
-        Distinct ISO dates of completed exams, newest first, for the streak.
+        Raw completion timestamps of completed exams, for the streak.
 
-        Returned as strings because that is what func.date gives back on
-        SQLite, and the streak comparison is done on isoformat() strings.
+        Deliberately not grouped by SQL date(): that extracts the *UTC* date,
+        which is off by one for anyone not on UTC. The caller converts to local
+        calendar dates in Python, where the timezone rule is explicit.
         """
         return [
             row[0]
-            for row in self.db.query(func.date(ExamSession.end_time))
-            .filter(ExamSession.status == ExamStatus.COMPLETED, ExamSession.end_time != None)
-            .distinct()
-            .order_by(func.date(ExamSession.end_time).desc())
+            for row in self.db.query(ExamSession.end_time)
+            .filter(ExamSession.status == ExamStatus.COMPLETED, ExamSession.end_time.isnot(None))
             .all()
         ]
 

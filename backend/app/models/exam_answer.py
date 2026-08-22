@@ -35,6 +35,13 @@ class ExamAnswer(Base):
     
     answered_at = Column(DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None), onupdate=lambda: datetime.now(UTC).replace(tzinfo=None))
 
+    # Set once and never bumped. answered_at carries onupdate=, and the client
+    # re-saves an answer on every navigation, flag, and bookmark toggle -- so
+    # merely paging back through a week-old in-progress exam re-stamps those
+    # rows to now. Counting "questions practiced today" off answered_at
+    # therefore counts rows *touched* today, not answered today.
+    first_answered_at = Column(DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None), index=True)
+
     # Relationships
     session = relationship("ExamSession", back_populates="answers")
     question = relationship("Question", back_populates="answers")

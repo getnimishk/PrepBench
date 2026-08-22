@@ -4,7 +4,8 @@ from app.repositories.analytics_repository import AnalyticsRepository
 from app.repositories.settings_repository import SettingsRepository
 from app.repositories.spaced_repetition_repository import SpacedRepetitionRepository
 from app.schemas.analytics import DashboardOverview, TopicMasteryItem, DomainMasteryItem, ScoreTrendPoint
-from datetime import datetime, timedelta, UTC
+from app.core.timeutils import utc_now_naive, to_local_date, local_today, local_day_start_as_naive_utc
+from datetime import timedelta
 
 # What the dashboard shows if the settings row has not been created yet. Matches
 # the column default on AppSettings, which is the source of truth for it.
@@ -22,6 +23,11 @@ class AnalyticsService:
     # single miss reads as a permanent "0%") rather than a real pattern worth
     # calling out on the dashboard.
     MIN_ATTEMPTS_FOR_CALLOUT = 3
+
+    # The score-trend chart plots one point per completed exam. Past a few
+    # hundred the line is unreadable anyway, so cap the query rather than
+    # loading every session a long-running database has ever accumulated.
+    MAX_TREND_POINTS = 200
 
     def get_dashboard_overview(self) -> DashboardOverview:
         overall = self.repo.get_overall_stats()
@@ -43,7 +49,6 @@ class AnalyticsService:
         # Recent exams
         recent_db = self.repo.get_recent_completed_sessions(limit=5)
 
-
         recent_exams = [
             {
                 "id": s.id,
@@ -59,30 +64,41 @@ class AnalyticsService:
         settings = self.settings_repo.get()
         daily_goal = settings.daily_practice_goal if settings else FALLBACK_DAILY_GOAL
 
-        today_utc = datetime.now(UTC).replace(tzinfo=None).date()
-        today_answers = self.repo.count_answers_since(
-            datetime.combine(today_utc, datetime.min.time())
+        # Day boundaries come from the machine's local timezone, not UTC.
+        # Timestamps are stored as naive UTC (correct), but asking "did I
+        # practice today?" against a UTC calendar day is wrong for anyone not
+        # on UTC: at +05:30 the UTC day doesn't roll over until 05:30 local, so
+        # studying at 01:00 wouldn't count toward today and a streak would
+        # break on a day the user actually practiced.
+        today_local = local_today()
+        today_answers = self.repo.count_practice_answers_since(
+            local_day_start_as_naive_utc(today_local)
         )
 
-        # Dynamic streak calculation based on completed exam dates
-        completed_dates = self.repo.get_completed_exam_dates()
+        # Streak over local calendar dates. The conversion happens in Python
+        # rather than via SQL date(), because that would extract the UTC date
+        # and reintroduce the same off-by-one for non-UTC users -- so the
+        # repository hands back raw timestamps and the calendar logic lives
+        # here, where the timezone rule is stated.
+        completed_end_times = self.repo.get_completed_exam_end_times()
+        completed_dates = sorted({to_local_date(t) for t in completed_end_times}, reverse=True)
 
         streak = 0
         if completed_dates:
-            check_date = today_utc
-            # If no exam completed today, check if active yesterday
-            if completed_dates[0] != check_date.isoformat():
-                check_date = today_utc - timedelta(days=1)
+            check_date = today_local
+            # Yesterday still counts as an unbroken streak -- today just isn't
+            # over yet.
+            if completed_dates[0] != check_date:
+                check_date = today_local - timedelta(days=1)
 
-            for d_str in completed_dates:
-                if d_str == check_date.isoformat():
+            for completed_on in completed_dates:
+                if completed_on == check_date:
                     streak += 1
                     check_date -= timedelta(days=1)
-                else:
+                elif completed_on < check_date:
                     break
 
-        now = datetime.now(UTC).replace(tzinfo=None)
-        sr_due_count = self.sr_repo.count_due(now)
+        sr_due_count = self.sr_repo.count_due(utc_now_naive())
 
         return DashboardOverview(
             total_exams=overall["total_exams"],
@@ -99,7 +115,9 @@ class AnalyticsService:
         )
 
     def get_score_trends(self) -> List[ScoreTrendPoint]:
-        sessions = self.repo.get_completed_sessions_chronological()
+        sessions = self.repo.get_recent_completed_sessions_chronological(
+            limit=self.MAX_TREND_POINTS
+        )
 
         points = []
         scores = []

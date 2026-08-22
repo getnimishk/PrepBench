@@ -4,6 +4,13 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { InterviewQuestionImportModal } from './InterviewQuestionImportModal';
 
+// userEvent.setup({ delay: null }) throughout: these tests type multi-word
+// strings, and the default per-keystroke await makes each character its own
+// async tick plus a React re-render. Dropping the artificial pacing shaves
+// real time off the run; the key events themselves are still dispatched.
+// (It is not on its own what fixed this file's intermittent timeouts -- the
+// suite-wide testTimeout in vite.config.ts is. See the note there.)
+
 const mockImport = vi.fn();
 
 vi.mock('../../services/api', () => ({
@@ -21,7 +28,7 @@ beforeEach(() => {
 
 describe('InterviewQuestionImportModal', () => {
   it('paste-text import shows the success count', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const onSuccess = vi.fn();
     mockImport.mockResolvedValue({ imported_count: 2, skipped_count: 0, errors: [] });
 
@@ -47,7 +54,7 @@ describe('InterviewQuestionImportModal', () => {
   });
 
   it('shows skipped rows and error details, not hidden', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     mockImport.mockResolvedValue({
       imported_count: 1,
       skipped_count: 2,
@@ -73,7 +80,7 @@ describe('InterviewQuestionImportModal', () => {
   });
 
   it('shows an inline error and does not call onSuccess when the import request fails', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const onSuccess = vi.fn();
     mockImport.mockRejectedValue({ response: { data: { detail: 'Failed to import questions. Please check backend connection.' } } });
 
@@ -95,7 +102,7 @@ describe('InterviewQuestionImportModal', () => {
   });
 
   it('switching to the file tab and selecting a file enables Import without pasted text', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     mockImport.mockResolvedValue({ imported_count: 1, skipped_count: 0, errors: [] });
 
     render(
