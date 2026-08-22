@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 from typing import List, Dict
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case
@@ -159,3 +160,103 @@ class AnalyticsRepository:
                 "accuracy_percentage": round(acc, 1),
             })
         return out
+
+    # ---- session and answer reads ------------------------------------
+    #
+    # These moved out of AnalyticsService, which was querying ExamSession,
+    # ExamAnswer and AppSettings directly. Every other service in the codebase
+    # reaches persistence through a repository; analytics was reaching around
+    # the one it already held.
+
+    def get_recent_completed_sessions(self, limit: int = 5) -> List[ExamSession]:
+        return (
+            self.db.query(ExamSession)
+            .filter(ExamSession.status == ExamStatus.COMPLETED)
+            .order_by(ExamSession.end_time.desc())
+            .limit(limit)
+            .all()
+        )
+
+    def get_recent_completed_sessions_chronological(self, limit: int) -> List[ExamSession]:
+        """
+        The most recent `limit` completed sessions, oldest first.
+
+        Ordered newest-first for the LIMIT and reversed afterwards, so the cap
+        keeps the *latest* N exams rather than the first N a long-running
+        database ever recorded. Returned oldest-first so a rolling average can
+        be accumulated in a single pass.
+        """
+        sessions = (
+            self.db.query(ExamSession)
+            .filter(ExamSession.status == ExamStatus.COMPLETED)
+            .order_by(ExamSession.end_time.desc())
+            .limit(limit)
+            .all()
+        )
+        sessions.reverse()
+        return sessions
+
+    def count_practice_answers_since(self, moment: datetime) -> int:
+        """
+        Answers that count as practice, from `moment` onwards.
+
+        Two details that are easy to get wrong, both fixed on main and kept
+        here:
+
+        first_answered_at, not answered_at -- the latter carries onupdate=, so
+        any later write to the row bumps it to now and yesterday's work would
+        silently start counting as today's.
+
+        is_correct IS NULL means nothing was selected (see
+        ExamEngine.save_answer), which is how a question merely navigated past
+        gets recorded. Those are not practice.
+        """
+        return (
+            self.db.query(ExamAnswer)
+            .filter(
+                ExamAnswer.first_answered_at >= moment,
+                ExamAnswer.is_correct.isnot(None),
+            )
+            .count()
+        )
+
+    def get_completed_exam_end_times(self) -> List[datetime]:
+        """
+        Raw completion timestamps of completed exams, for the streak.
+
+        Deliberately not grouped by SQL date(): that extracts the *UTC* date,
+        which is off by one for anyone not on UTC. The caller converts to local
+        calendar dates in Python, where the timezone rule is explicit.
+        """
+        return [
+            row[0]
+            for row in self.db.query(ExamSession.end_time)
+            .filter(ExamSession.status == ExamStatus.COMPLETED, ExamSession.end_time.isnot(None))
+            .all()
+        ]
+
+    def get_weak_topic_names(self, below_percent: float = 70.0) -> List[str]:
+        """
+        Topics answered correctly less than `below_percent` of the time.
+
+        Counts only answered questions in completed sessions. is_correct is NULL
+        for skipped or never-answered questions -- those are auto-saved on
+        navigation -- so including them would inflate the denominator and report
+        topics as weak that were never actually attempted.
+        """
+        rows = (
+            self.db.query(Question.topic)
+            .join(ExamAnswer, Question.id == ExamAnswer.question_id)
+            .join(ExamSession, ExamAnswer.session_id == ExamSession.id)
+            .filter(
+                ExamSession.status == ExamStatus.COMPLETED,
+                ExamAnswer.is_correct.isnot(None),
+            )
+            .group_by(Question.topic)
+            .having(
+                (func.sum(case((ExamAnswer.is_correct == True, 1), else_=0)) * 100.0
+                 / func.count(ExamAnswer.id)) < below_percent
+            )
+            .all()
+        )
+        return [row[0] for row in rows]

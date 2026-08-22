@@ -1,0 +1,12 @@
+# Everything needed to run the test suite, on top of the runtime dependencies.
+#
+#   uv pip install --system-certs -r requirements-dev.txt
+#
+# --system-certs makes uv trust the Windows certificate store; antivirus that
+# intercepts TLS otherwise fails the download with a certificate error.
+
+-r requirements.txt
+
+pytest==8.3.4
+pytest-asyncio==0.24.0
+pytest-cov==6.0.0

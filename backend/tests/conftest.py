@@ -12,6 +12,16 @@ from app.main import app
 TEST_DB_PATH = DATA_DIR / "test_exam_simulator.db"
 TEST_SQLALCHEMY_DATABASE_URI = f"sqlite:///{TEST_DB_PATH}"
 
+# Start every run from an empty file rather than trusting the last run to have
+# cleaned up. On Windows the teardown unlink can fail while the file is still
+# mapped, and it fails silently -- so a leaked row from a previous run shows up
+# as a failure in a completely unrelated test, which is the worst kind to debug.
+if TEST_DB_PATH.exists():
+    try:
+        TEST_DB_PATH.unlink()
+    except OSError:
+        pass
+
 test_engine = create_engine(
     TEST_SQLALCHEMY_DATABASE_URI,
     connect_args={"check_same_thread": False}
@@ -43,10 +53,12 @@ def setup_test_database():
     """Ensure test database tables exist for the test session."""
     Base.metadata.create_all(bind=test_engine)
     yield
+    # Dispose first: an open pool keeps the file mapped and the unlink fails.
+    test_engine.dispose()
     if TEST_DB_PATH.exists():
         try:
             TEST_DB_PATH.unlink()
-        except Exception:
+        except OSError:
             pass
 
 

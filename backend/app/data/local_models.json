@@ -1,0 +1,170 @@
+{
+  "_comment": [
+    "Local models PrepBench can recommend. Data, not code, so the list can be",
+    "updated without a release and a user can edit it for their own hardware.",
+    "",
+    "'licence' is shown in the picker on purpose. It decides whether a model",
+    "could ever be bundled with a paid product, and that is far cheaper to",
+    "know when choosing than to discover later. Apache-2.0 entries are the",
+    "safe ones.",
+    "",
+    "'ram_required_gb' is the free memory the model needs at the stated context",
+    "size, not the download size. It is the number that decides whether this",
+    "will work at all, so recommendations are ranked by it.",
+    "",
+    "PrepBench never downloads any of these. The URL is shown to the user, who",
+    "downloads it themselves."
+  ],
+
+  "models": [
+    {
+      "id": "qwen2.5-1.5b-instruct-q4",
+      "label": "Qwen2.5 1.5B Instruct (Q4_K_M)",
+      "parameters_b": 1.5,
+      "quantisation": "Q4_K_M",
+      "download_gb": 1.1,
+      "ram_required_gb": 2.5,
+      "licence": "Apache-2.0",
+      "licence_commercial_ok": true,
+      "good_for": ["interview_question_gen", "system_design_prompt_gen"],
+      "weak_at": ["system_design_grading"],
+      "summary": "Runs almost anywhere. Fine for generating practice questions; too small to grade a system design answer well.",
+      "download_url": "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF"
+    },
+    {
+      "id": "qwen2.5-3b-instruct-q4",
+      "label": "Qwen2.5 3B Instruct (Q4_K_M)",
+      "parameters_b": 3,
+      "quantisation": "Q4_K_M",
+      "download_gb": 2.0,
+      "ram_required_gb": 4.0,
+      "licence": "Qwen Research Licence",
+      "licence_commercial_ok": false,
+      "good_for": ["interview_question_gen", "system_design_prompt_gen"],
+      "weak_at": ["system_design_grading"],
+      "summary": "A step up in writing quality. Note the licence is research-only, unlike the other Qwen sizes here.",
+      "download_url": "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF"
+    },
+    {
+      "id": "qwen2.5-7b-instruct-q4",
+      "label": "Qwen2.5 7B Instruct (Q4_K_M)",
+      "parameters_b": 7,
+      "quantisation": "Q4_K_M",
+      "download_gb": 4.7,
+      "ram_required_gb": 7.0,
+      "licence": "Apache-2.0",
+      "licence_commercial_ok": true,
+      "sweet_spot": true,
+      "good_for": ["interview_question_gen", "system_design_prompt_gen", "system_design_grading", "content_validation"],
+      "weak_at": [],
+      "summary": "The sweet spot. Grades system design answers usefully, though a good deal slower than a cloud model.",
+      "download_url": "https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF"
+    },
+    {
+      "id": "mistral-7b-instruct-v03-q4",
+      "label": "Mistral 7B Instruct v0.3 (Q4_K_M)",
+      "parameters_b": 7,
+      "quantisation": "Q4_K_M",
+      "download_gb": 4.4,
+      "ram_required_gb": 6.5,
+      "licence": "Apache-2.0",
+      "licence_commercial_ok": true,
+      "good_for": ["interview_question_gen", "system_design_prompt_gen", "system_design_grading"],
+      "weak_at": [],
+      "summary": "Comparable to Qwen 7B and a little lighter. Worth trying if Qwen feels slow.",
+      "download_url": "https://huggingface.co/MaziyarPanahi/Mistral-7B-Instruct-v0.3-GGUF"
+    },
+    {
+      "id": "qwen2.5-14b-instruct-q4",
+      "label": "Qwen2.5 14B Instruct (Q4_K_M)",
+      "parameters_b": 14,
+      "quantisation": "Q4_K_M",
+      "download_gb": 9.0,
+      "ram_required_gb": 12.0,
+      "licence": "Apache-2.0",
+      "licence_commercial_ok": true,
+      "good_for": ["interview_question_gen", "system_design_prompt_gen", "system_design_grading", "content_validation"],
+      "weak_at": [],
+      "summary": "The closest you will get to cloud-quality feedback locally. Wants a lot of memory and is slow on CPU alone.",
+      "download_url": "https://huggingface.co/Qwen/Qwen2.5-14B-Instruct-GGUF"
+    }
+  ],
+
+  "runners": {
+    "ollama": {
+      "label": "Ollama",
+      "summary": "Easiest option. One installer, and it fetches and manages models for you.",
+      "download_url": "https://ollama.com/download",
+      "default_port": 11434,
+      "pull_style": "ollama",
+      "steps": {
+        "windows": [
+          "Download and run the Ollama installer.",
+          "Open a terminal and pull a model with the command below.",
+          "Ollama runs in the background from then on -- there is nothing else to start."
+        ],
+        "macos": [
+          "Download Ollama and drag it to Applications, then launch it.",
+          "In Terminal, pull a model with the command below.",
+          "Ollama keeps running in the menu bar."
+        ],
+        "linux": [
+          "Install with: curl -fsSL https://ollama.com/install.sh | sh",
+          "Pull a model with the command below.",
+          "Ollama runs as a service from then on."
+        ]
+      }
+    },
+    "llamafile": {
+      "label": "Llamafile",
+      "summary": "A single executable, no installer, and it runs from a USB stick. Best when you cannot install software.",
+      "download_url": "https://github.com/Mozilla-Ocho/llamafile/releases",
+      "default_port": 8080,
+      "pull_style": "manual",
+      "steps": {
+        "windows": [
+          "Download llamafile.exe from the releases page.",
+          "Download a .gguf model file from the model's page.",
+          "Put both in the same folder, then start the server with the command below.",
+          "Leave that window open while you use PrepBench."
+        ],
+        "macos": [
+          "Download the llamafile binary from the releases page.",
+          "Download a .gguf model file from the model's page.",
+          "Make it executable: chmod +x llamafile",
+          "Start the server with the command below and leave it running."
+        ],
+        "linux": [
+          "Download the llamafile binary from the releases page.",
+          "Download a .gguf model file from the model's page.",
+          "Make it executable: chmod +x llamafile",
+          "Start the server with the command below and leave it running."
+        ]
+      }
+    },
+    "lmstudio": {
+      "label": "LM Studio",
+      "summary": "A desktop app with a model browser built in. Good if you would rather click than type.",
+      "download_url": "https://lmstudio.ai",
+      "default_port": 1234,
+      "pull_style": "gui",
+      "steps": {
+        "windows": [
+          "Download and install LM Studio.",
+          "Search for a model in its Discover tab and download it.",
+          "Open the Developer / Local Server tab and press Start Server."
+        ],
+        "macos": [
+          "Download and install LM Studio.",
+          "Search for a model in its Discover tab and download it.",
+          "Open the Developer / Local Server tab and press Start Server."
+        ],
+        "linux": [
+          "Download the LM Studio AppImage and make it executable.",
+          "Search for a model in its Discover tab and download it.",
+          "Open the Developer / Local Server tab and press Start Server."
+        ]
+      }
+    }
+  }
+}

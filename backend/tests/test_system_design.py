@@ -3,16 +3,20 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.services import system_design_service as sds_module
-from app.services import llm_client
+from tests.llm_fakes import (
+    clear_env_provider,
+    fake_gemini_text_response,
+    patch_gateway_transport,
+    set_env_provider,
+)
 
 client = TestClient(app)
 
 
 def _clear_api_key(monkeypatch):
-    """Force SystemDesignService to see no configured API key, regardless of
-    what's in the real .env file (which has a real key for the dev app)."""
-    monkeypatch.setattr(sds_module.settings, "GEMINI_API_KEY", None)
-    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    """Force the gateway to resolve no provider, regardless of what's in the
+    real .env file (which has a real key for the dev app)."""
+    clear_env_provider(monkeypatch)
 
 
 def _create_prompt(**overrides):
@@ -45,7 +49,11 @@ def test_generate_prompt_no_api_key_returns_clear_error(monkeypatch):
     _clear_api_key(monkeypatch)
     res = client.post("/api/v1/system-design/prompts/generate", json={})
     assert res.status_code == 503
-    assert "GEMINI_API_KEY" in res.json()["detail"]
+    # Vendor-neutral and actionable: it points at the setup flow, not at one
+    # vendor's API key, since a local model is an equally valid answer.
+    detail = res.json()["detail"]
+    assert "GEMINI" not in detail.upper()
+    assert "AI Providers" in detail
 
 
 def test_submit_attempt_no_api_key_returns_ungraded_not_fabricated_score(monkeypatch):
@@ -80,21 +88,17 @@ def test_submit_attempt_unknown_prompt_id_404s(monkeypatch):
 
 
 def test_submit_attempt_mocked_gemini_success(monkeypatch):
-    monkeypatch.setattr(sds_module.settings, "GEMINI_API_KEY", "fake-key-for-test")
-
-    def fake_call_gemini(client_, api_key, model, prompt, timeout=15.0):
-        return {
-            "category_scores": [
-                {"category": "Requirements Clarification", "score": 8, "max_score": 10, "feedback": "Good."},
-                {"category": "High-Level Architecture", "score": 6, "max_score": 10, "feedback": "Ok."},
-            ],
-            "overall_score": 70,
-            "strengths": ["Clear structure"],
-            "improvements": ["Discuss scaling more"],
-            "summary": "Solid but could go deeper on scale.",
-        }, None
-
-    monkeypatch.setattr(llm_client, "call_gemini", fake_call_gemini)
+    set_env_provider(monkeypatch)
+    patch_gateway_transport(monkeypatch, fake_gemini_text_response({
+        "category_scores": [
+            {"category": "Requirements Clarification", "score": 8, "max_score": 10, "feedback": "Good."},
+            {"category": "High-Level Architecture", "score": 6, "max_score": 10, "feedback": "Ok."},
+        ],
+        "overall_score": 70,
+        "strengths": ["Clear structure"],
+        "improvements": ["Discuss scaling more"],
+        "summary": "Solid but could go deeper on scale.",
+    }))
 
     prompt_id = _create_prompt()
     res = client.post("/api/v1/system-design/attempts", json={
@@ -112,12 +116,9 @@ def test_submit_attempt_mocked_gemini_success(monkeypatch):
 
 
 def test_submit_attempt_mocked_gemini_malformed_json_falls_back_gracefully(monkeypatch):
-    monkeypatch.setattr(sds_module.settings, "GEMINI_API_KEY", "fake-key-for-test")
-
-    def fake_call_gemini(client_, api_key, model, prompt, timeout=15.0):
-        return None, "LLM returned malformed JSON: Expecting value: line 1 column 1 (char 0)"
-
-    monkeypatch.setattr(llm_client, "call_gemini", fake_call_gemini)
+    set_env_provider(monkeypatch)
+    # Unparseable even after the extraction ladder and the single repair retry.
+    patch_gateway_transport(monkeypatch, fake_gemini_text_response("this is not JSON at all"))
 
     prompt_id = _create_prompt()
     res = client.post("/api/v1/system-design/attempts", json={
@@ -233,17 +234,13 @@ def test_system_design_analytics_computes_correct_average_and_category_means(mon
 
 
 def test_generate_prompt_mocked_gemini_with_save_to_bank(monkeypatch):
-    monkeypatch.setattr(sds_module.settings, "GEMINI_API_KEY", "fake-key-for-test")
-
-    def fake_call_gemini(client_, api_key, model, prompt, timeout=15.0):
-        return {
-            "title": "Design a Rate Limiter Variant",
-            "prompt_text": "Design a token-bucket rate limiter for an API gateway.",
-            "category": "Distributed Systems",
-            "difficulty": "medium",
-        }, None
-
-    monkeypatch.setattr(llm_client, "call_gemini", fake_call_gemini)
+    set_env_provider(monkeypatch)
+    patch_gateway_transport(monkeypatch, fake_gemini_text_response({
+        "title": "Design a Rate Limiter Variant",
+        "prompt_text": "Design a token-bucket rate limiter for an API gateway.",
+        "category": "Distributed Systems",
+        "difficulty": "medium",
+    }))
 
     before = client.get("/api/v1/system-design/prompts?limit=500").json()["total"]
     res = client.post("/api/v1/system-design/prompts/generate", json={

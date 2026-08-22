@@ -2,6 +2,7 @@ from datetime import datetime, UTC, timedelta
 from sqlalchemy.orm import Session
 from app.models.spaced_repetition import SpacedRepetition
 from app.models.exam_answer import ConfidenceLevel
+from app.repositories.spaced_repetition_repository import SpacedRepetitionRepository
 
 
 class SM2Service:
@@ -21,20 +22,11 @@ class SM2Service:
     @staticmethod
     def update_item(db: Session, question_id: int, is_correct: bool, confidence: ConfidenceLevel) -> SpacedRepetition:
         q_quality = SM2Service.calculate_quality_score(is_correct, confidence)
+        repo = SpacedRepetitionRepository(db)
 
-        item = db.query(SpacedRepetition).filter(SpacedRepetition.question_id == question_id).first()
+        item = repo.get_by_question(question_id)
         if not item:
-            # Explicitly provide all defaults — SQLAlchemy Column defaults only
-            # apply after a DB-level flush; arithmetic on None would crash otherwise.
-            item = SpacedRepetition(
-                question_id=question_id,
-                repetition=0,
-                interval_days=1,
-                ease_factor=2.5,
-                next_review_date=datetime.now(UTC).replace(tzinfo=None),
-            )
-            db.add(item)
-            db.flush()  # push to session so item fields are populated
+            item = repo.create_for_question(question_id, datetime.now(UTC).replace(tzinfo=None))
 
         # SM-2 ease-factor formula
         current_ef = item.ease_factor or 2.5
@@ -62,6 +54,6 @@ class SM2Service:
         item.last_reviewed_at = now
         item.next_review_date = now + timedelta(days=new_interval)
 
-        db.commit()
-        db.refresh(item)
+        repo.commit()
+        repo.refresh(item)
         return item

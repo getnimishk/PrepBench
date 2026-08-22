@@ -6,6 +6,7 @@ import {
 import { UploadCloud } from 'lucide-react';
 import { importInterviewQuestions } from '../../services/api';
 import { InterviewRoundType, InterviewQuestionImportResult, RoundTypeInfo } from '../../types/interviewQuestion';
+import { apiErrorMessage } from '../../services/apiError';
 
 interface Props {
   open: boolean;
@@ -54,8 +55,8 @@ export const InterviewQuestionImportModal: React.FC<Props> = ({ open, onClose, o
       if (res.imported_count > 0) {
         onSuccess();
       }
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to import questions. Please check backend connection.');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Failed to import questions. Please check backend connection.'));
     } finally {
       setImporting(false);
     }

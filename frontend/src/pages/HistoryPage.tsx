@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Box, Card, CardContent, Typography, Table, TableBody, TableCell,
+  Box, Card, Typography, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Chip, Button, LinearProgress, Alert
 } from '@mui/material';
 import { Eye, Download, CheckCircle2, XCircle, Clock } from 'lucide-react';

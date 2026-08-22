@@ -3,20 +3,29 @@ Pluggable analysis-provider architecture for practice recordings.
 
 Recording/playback works with zero AI dependency (see api/v1/recordings.py --
 upload, list, stream, delete never touch any provider). Analysis is a
-separate, user-triggered step, and which AI handles it is not hardcoded to
-one vendor: any provider need only implement RecordingAnalysisProvider and
-register itself here. Only GeminiAudioProvider ships working code today --
-the seam is what's being built, not multiple working backends.
+separate, user-triggered step.
+
+This registry now sits *above* the vendor-agnostic LLM layer rather than
+beside it. The built-in provider no longer speaks to any particular vendor --
+it builds the recording-specific prompt and hands the work to the gateway,
+which resolves whichever provider the user configured. The registry remains
+because a future provider may need a fundamentally different pipeline rather
+than a different vendor: transcribe-then-grade for text-only local models is
+the obvious one, and it is not expressible as a swapped base URL.
 """
 import os
 from typing import Dict, Optional, Protocol, Tuple, TypedDict
 
-import httpx
+from sqlalchemy.orm import Session
 
-from app.core.config import settings
-from app.services import llm_client
+from app.llm.gateway import LLMGateway
+from app.llm.types import LLMTask
 
-GRADING_MODEL = "models/gemini-flash-latest"
+# The built-in provider's registry name. Deliberately not a vendor name: which
+# vendor actually answers is resolved per call from user configuration, so
+# labelling this "gemini" would have been inaccurate the moment a second
+# provider became configurable.
+DEFAULT_PROVIDER_NAME = "default"
 
 # Delivery ("how you said it") -- always graded, question or no question.
 COMMUNICATION_CATEGORIES = [
@@ -61,26 +70,34 @@ class RecordingAnalysisProvider(Protocol):
         ...
 
 
-class GeminiAudioProvider:
-    name = "gemini"
+class GatewayAudioProvider:
+    """
+    The built-in provider: recording-specific prompt, vendor-agnostic delivery.
 
-    def __init__(self):
-        self.api_key = settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY")
-        self._client = llm_client.get_shared_client()
+    Availability now means "some configured provider can do audio analysis",
+    not "a particular API key exists" -- so a user running a text-only local
+    model correctly sees this as unavailable rather than getting an obscure
+    failure partway through.
+    """
+
+    name = DEFAULT_PROVIDER_NAME
+
+    def __init__(self, db: Optional[Session] = None):
+        self.gateway = LLMGateway(db)
 
     def is_available(self) -> bool:
-        return bool(self.api_key)
+        return self.gateway.is_available(LLMTask.RECORDING_ANALYSIS)
 
     def analyze(
         self, audio_bytes: bytes, mime_type: str, question_context: Optional[QuestionContext] = None
     ) -> Tuple[Optional[dict], Optional[str]]:
-        if not self.api_key:
-            return None, "Gemini API key not configured"
-
         prompt = self._build_prompt(question_context)
-        return llm_client.call_gemini_multimodal(
-            self._client, self.api_key, GRADING_MODEL, prompt, audio_bytes, mime_type, timeout=45.0
-        )
+        return self.gateway.run(
+            LLMTask.RECORDING_ANALYSIS,
+            prompt,
+            media_bytes=audio_bytes,
+            media_mime=mime_type,
+        ).as_tuple()
 
     def _build_prompt(self, question_context: Optional[QuestionContext]) -> str:
         communication_block = "\n".join(
@@ -142,26 +159,46 @@ _PROVIDERS: Dict[str, RecordingAnalysisProvider] = {}
 
 def _ensure_registered():
     if not _PROVIDERS:
-        register_provider(GeminiAudioProvider())
+        register_provider(GatewayAudioProvider())
 
 
 def register_provider(provider: RecordingAnalysisProvider) -> None:
     _PROVIDERS[provider.name] = provider
 
 
-def get_analysis_provider(name: Optional[str] = None) -> RecordingAnalysisProvider:
+def get_analysis_provider(
+    name: Optional[str] = None, db: Optional[Session] = None
+) -> RecordingAnalysisProvider:
     _ensure_registered()
+
     if name:
         if name not in _PROVIDERS:
             raise ValueError(f"Unknown analysis provider: {name!r}. Available: {list(_PROVIDERS.keys())}")
-        return _PROVIDERS[name]
+        provider = _PROVIDERS[name]
+    else:
+        default_name = os.environ.get("RECORDING_ANALYSIS_PROVIDER", DEFAULT_PROVIDER_NAME)
+        if default_name not in _PROVIDERS:
+            default_name = next(iter(_PROVIDERS))
+        provider = _PROVIDERS[default_name]
 
-    default_name = os.environ.get("RECORDING_ANALYSIS_PROVIDER", "gemini")
-    if default_name not in _PROVIDERS:
-        default_name = next(iter(_PROVIDERS))
-    return _PROVIDERS[default_name]
+    # The registry is process-global and built at import time, so its built-in
+    # entry holds a gateway with no database session and would only ever see
+    # environment configuration. Rebind it to the caller's session so stored
+    # provider settings actually apply. Externally registered providers are
+    # returned untouched -- they own their own configuration.
+    if isinstance(provider, GatewayAudioProvider) and db is not None:
+        return GatewayAudioProvider(db)
+    return provider
 
 
-def list_providers() -> list:
+def list_providers(db: Optional[Session] = None) -> list:
     _ensure_registered()
-    return [{"name": p.name, "is_available": p.is_available()} for p in _PROVIDERS.values()]
+    # Same rebinding as get_analysis_provider: without the caller's session the
+    # built-in provider would report availability based only on environment
+    # configuration, so a provider the user configured in the app would show as
+    # unavailable in the very UI they configured it from.
+    providers = [
+        GatewayAudioProvider(db) if isinstance(p, GatewayAudioProvider) and db is not None else p
+        for p in _PROVIDERS.values()
+    ]
+    return [{"name": p.name, "is_available": p.is_available()} for p in providers]

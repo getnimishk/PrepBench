@@ -3,15 +3,18 @@ import uuid
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services import interview_question_service as iq_module
-from app.services import llm_client
+from tests.llm_fakes import (
+    clear_env_provider,
+    fake_gemini_text_response,
+    patch_gateway_transport,
+    set_env_provider,
+)
 
 client = TestClient(app)
 
 
 def _clear_api_key(monkeypatch):
-    monkeypatch.setattr(iq_module.settings, "GEMINI_API_KEY", None)
-    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    clear_env_provider(monkeypatch)
 
 
 def test_round_types_lists_all_four():
@@ -52,19 +55,17 @@ def test_generate_question_no_api_key_returns_clear_error(monkeypatch):
     _clear_api_key(monkeypatch)
     res = client.post("/api/v1/interview-questions/generate", json={"round_type": "hr_screening"})
     assert res.status_code == 503
-    assert "GEMINI_API_KEY" in res.json()["detail"]
+    detail = res.json()["detail"]
+    assert "GEMINI" not in detail.upper()
+    assert "AI Providers" in detail
 
 
 def test_generate_question_mocked_gemini_with_save_to_bank(monkeypatch):
-    monkeypatch.setattr(iq_module.settings, "GEMINI_API_KEY", "fake-key-for-test")
-
-    def fake_call_gemini(client_, api_key, model, prompt, timeout=15.0):
-        return {
-            "question_text": "Tell me about a time you managed a difficult stakeholder.",
-            "category": "Stakeholder Management",
-        }, None
-
-    monkeypatch.setattr(llm_client, "call_gemini", fake_call_gemini)
+    set_env_provider(monkeypatch)
+    patch_gateway_transport(monkeypatch, fake_gemini_text_response({
+        "question_text": "Tell me about a time you managed a difficult stakeholder.",
+        "category": "Stakeholder Management",
+    }))
 
     before = client.get("/api/v1/interview-questions?round_type=hiring_manager&limit=500").json()["total"]
     res = client.post("/api/v1/interview-questions/generate", json={
@@ -83,12 +84,10 @@ def test_generate_question_mocked_gemini_with_save_to_bank(monkeypatch):
 
 
 def test_generate_question_not_saved_returns_ephemeral_sentinel(monkeypatch):
-    monkeypatch.setattr(iq_module.settings, "GEMINI_API_KEY", "fake-key-for-test")
-
-    def fake_call_gemini(client_, api_key, model, prompt, timeout=15.0):
-        return {"question_text": "Why do you want this job?", "category": "Motivation"}, None
-
-    monkeypatch.setattr(llm_client, "call_gemini", fake_call_gemini)
+    set_env_provider(monkeypatch)
+    patch_gateway_transport(monkeypatch, fake_gemini_text_response(
+        {"question_text": "Why do you want this job?", "category": "Motivation"}
+    ))
 
     before = client.get("/api/v1/interview-questions?round_type=hr_screening&limit=500").json()["total"]
     res = client.post("/api/v1/interview-questions/generate", json={

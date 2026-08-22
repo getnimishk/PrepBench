@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import { UploadCloud, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ShieldCheck, Download, Wrench } from 'lucide-react';
 import { validateImportFile, confirmImportBatch, repairImportFile, QuestionValidationReport } from '../../services/api';
+import { apiErrorMessage } from '../../services/apiError';
 
 interface Props {
   open: boolean;
@@ -85,8 +86,8 @@ export const ImportModal: React.FC<Props> = ({ open, onClose, onSuccess, onOpenA
       try {
         const valReport = await validateImportFile(file);
         setReport(valReport);
-      } catch (err: any) {
-        setError(err?.response?.data?.detail || 'Failed to validate file format.');
+      } catch (err) {
+        setError(apiErrorMessage(err, 'Failed to validate file format.'));
       } finally {
         setValidating(false);
       }
@@ -106,8 +107,8 @@ export const ImportModal: React.FC<Props> = ({ open, onClose, onSuccess, onOpenA
       const valReport = await validateImportFile(repairedFile);
       setReport(valReport);
       setImportSuccessMsg('Auto-repair completed! File updated and re-validated cleanly.');
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to auto-repair file.');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Failed to auto-repair file.'));
     } finally {
       setRepairing(false);
       setValidating(false);
@@ -148,8 +149,8 @@ export const ImportModal: React.FC<Props> = ({ open, onClose, onSuccess, onOpenA
           handleCloseModal();
         }, 1500);
       }
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to commit import to database.');
+    } catch (err) {
+      setError(apiErrorMessage(err, 'Failed to commit import to database.'));
     } finally {
       setImporting(false);
     }

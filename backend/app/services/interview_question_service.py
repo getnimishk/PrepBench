@@ -1,13 +1,12 @@
-import os
 from typing import Optional
 from datetime import datetime, UTC
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
-from app.core.config import settings
 from app.core.exceptions import ResourceNotFoundException
 from app.core.logging_config import logger
-from app.services import llm_client
+from app.llm.gateway import LLMGateway
+from app.llm.types import LLMTask
 from app.repositories.interview_question_repository import InterviewQuestionRepository
 from app.models.interview_question import InterviewRoundType
 from app.schemas.interview_question import (
@@ -18,8 +17,6 @@ from app.schemas.interview_question import (
     GenerateInterviewQuestionRequest,
     RoundTypeInfo,
 )
-
-GENERATION_MODEL = "models/gemini-flash-latest"
 
 ROUND_TYPE_LABELS = {
     InterviewRoundType.HR_SCREENING: "HR Screening",
@@ -33,8 +30,7 @@ class InterviewQuestionService:
     def __init__(self, db: Session):
         self.db = db
         self.repo = InterviewQuestionRepository(db)
-        self.api_key = settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY")
-        self._client = llm_client.get_shared_client()
+        self.gateway = LLMGateway(db)
 
     def list_questions(self, skip: int = 0, limit: int = 100, filter_params: Optional[InterviewQuestionFilter] = None) -> dict:
         items = self.repo.get_all(skip=skip, limit=limit, filter_params=filter_params)
@@ -72,15 +68,16 @@ class InterviewQuestionService:
     def generate_question(self, req: GenerateInterviewQuestionRequest) -> InterviewQuestionResponse:
         """Mirrors SystemDesignService.generate_prompt's no-fabrication contract:
         no API key -> a clear error, never a silently-substituted bank question."""
-        if not self.api_key:
+        if not self.gateway.is_available(LLMTask.INTERVIEW_QUESTION_GEN):
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="AI question generation is unavailable: no GEMINI_API_KEY configured. "
-                       "Browse the built-in question bank instead, or configure an API key to enable generation.",
+                detail="No AI provider is set up yet. Add one in Settings -> AI Providers "
+                       "-- a local model is free and keeps your answers on this machine. "
+                       "Meanwhile, the built-in question bank works without any AI.",
             )
 
         prompt = self._build_generation_prompt(req.round_type, req.topic)
-        parsed, error_msg = llm_client.call_gemini(self._client, self.api_key, GENERATION_MODEL, prompt, timeout=20.0)
+        parsed, error_msg = self.gateway.run(LLMTask.INTERVIEW_QUESTION_GEN, prompt).as_tuple()
 
         if not parsed or error_msg:
             logger.warning(f"Interview question generation failed: {error_msg}")

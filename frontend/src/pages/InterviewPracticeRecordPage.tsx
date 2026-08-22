@@ -8,6 +8,7 @@ import { Mic, Square, Clock } from 'lucide-react';
 import { getInterviewQuestion, uploadRecording } from '../services/api';
 import { InterviewQuestion } from '../types/interviewQuestion';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
+import { apiErrorMessage } from '../services/apiError';
 
 const formatElapsed = (seconds: number): string => {
   const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -54,8 +55,8 @@ export const InterviewPracticeRecordPage: React.FC = () => {
         : `Practice Recording ${new Date().toLocaleString()}`;
       const recording = await uploadRecording(blob, title, elapsedSeconds, isGeneral ? undefined : qid);
       navigate(`/interview-practice/recordings/${recording.id}/results`);
-    } catch (err: any) {
-      setUploadError('Failed to save recording. Please try again.');
+    } catch (err) {
+      setUploadError(apiErrorMessage(err, 'Failed to save recording. Please try again.'));
     } finally {
       setUploading(false);
     }

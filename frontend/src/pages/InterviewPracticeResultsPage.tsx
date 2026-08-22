@@ -9,6 +9,7 @@ import { ArrowLeft, ChevronDown } from 'lucide-react';
 import { getRecording, getRecordingAudioUrl, getRecordingAnalysis, analyzeRecording } from '../services/api';
 import { PracticeRecording, RecordingAnalysis } from '../types/recording';
 import { CategoryScoreList } from '../components/common/CategoryScoreList';
+import { apiErrorMessage } from '../services/apiError';
 
 export const InterviewPracticeResultsPage: React.FC = () => {
   const { recordingId } = useParams<{ recordingId: string }>();
@@ -41,7 +42,7 @@ export const InterviewPracticeResultsPage: React.FC = () => {
           setLoading(false);
           analyzeRecording(rid)
             .then(setAnalysis)
-            .catch((err: any) => setError(err?.response?.data?.detail || 'Failed to analyze recording.'))
+            .catch((err) => setError(apiErrorMessage(err, 'Failed to analyze recording.')))
             .finally(() => setAnalyzing(false));
         }
       })
@@ -88,7 +89,7 @@ export const InterviewPracticeResultsPage: React.FC = () => {
       {analysis && !analyzing && analysis.analysis_status !== 'analyzed' && (
         <Alert severity={analysis.analysis_status === 'unavailable' ? 'info' : 'warning'} sx={{ mb: 3 }}>
           {analysis.analysis_status === 'unavailable'
-            ? 'This answer was saved but not analyzed -- no AI provider is configured. Set GEMINI_API_KEY to enable feedback.'
+            ? 'This answer was saved but not analyzed -- no AI provider is set up yet. Add one in Settings -> AI Providers to enable feedback.'
             : `Analysis failed: ${analysis.analysis_error}`}
         </Alert>
       )}

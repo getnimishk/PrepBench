@@ -8,6 +8,8 @@ import { Save, Settings as SettingsIcon, Moon, Volume2, AlertTriangle, RotateCcw
 import { getSettings, updateSettings, resetApplication } from '../services/api';
 import { useThemeMode } from '../context/ThemeContext';
 import { AppSettings } from '../types/settings';
+import { AIProvidersSection } from '../components/settings/AIProvidersSection';
+import { apiErrorMessage } from '../services/apiError';
 
 export const SettingsPage: React.FC = () => {
   const { setThemeMode } = useThemeMode();
@@ -54,9 +56,9 @@ export const SettingsPage: React.FC = () => {
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to save settings', err);
-      setSaveError(err?.response?.data?.detail || 'Failed to save settings. Please try again.');
+      setSaveError(apiErrorMessage(err, 'Failed to save settings. Please try again.'));
     }
   };
 
@@ -71,9 +73,9 @@ export const SettingsPage: React.FC = () => {
       setConfirmInput('');
       fetchSettings();
       setTimeout(() => setResetSuccess(false), 5000);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to reset application', err);
-      setResetError(err?.response?.data?.detail || 'Failed to reset application state.');
+      setResetError(apiErrorMessage(err, 'Failed to reset application state.'));
     } finally {
       setResetting(false);
     }
@@ -176,7 +178,7 @@ export const SettingsPage: React.FC = () => {
             </Grid>
 
             <Grid item xs={12} sm={6}>
-              <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+              <Typography variant="body2" component="div" sx={{ fontWeight: 600, mb: 1 }}>
                 Default Question Count: <Chip label={settings.default_questions_count} size="small" color="primary" />
               </Typography>
               <Slider
@@ -190,7 +192,7 @@ export const SettingsPage: React.FC = () => {
             </Grid>
 
             <Grid item xs={12} sm={6}>
-              <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+              <Typography variant="body2" component="div" sx={{ fontWeight: 600, mb: 1 }}>
                 Default Passing Score: <Chip label={`${settings.default_passing_percentage}%`} size="small" color="success" />
               </Typography>
               <Slider
@@ -203,7 +205,7 @@ export const SettingsPage: React.FC = () => {
             </Grid>
 
             <Grid item xs={12} sm={6}>
-              <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+              <Typography variant="body2" component="div" sx={{ fontWeight: 600, mb: 1 }}>
                 Daily Practice Goal: <Chip label={`${settings.daily_practice_goal} questions`} size="small" color="warning" />
               </Typography>
               <Slider
@@ -256,6 +258,8 @@ export const SettingsPage: React.FC = () => {
           />
         </CardContent>
       </Card>
+
+      <AIProvidersSection />
 
       {/* Danger Zone: Factory Reset */}
       <Card sx={{

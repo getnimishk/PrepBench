@@ -1,21 +1,23 @@
 from typing import List
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 from app.repositories.analytics_repository import AnalyticsRepository
+from app.repositories.settings_repository import SettingsRepository
+from app.repositories.spaced_repetition_repository import SpacedRepetitionRepository
 from app.schemas.analytics import DashboardOverview, TopicMasteryItem, DomainMasteryItem, ScoreTrendPoint
-from app.models.exam_session import ExamSession, ExamStatus
-from app.models.exam_answer import ExamAnswer
-from app.models.settings import AppSettings
-from app.models.spaced_repetition import SpacedRepetition
-from app.core.timeutils import (
-    utc_now_naive, to_local_date, local_today, local_day_start_as_naive_utc,
-)
+from app.core.timeutils import utc_now_naive, to_local_date, local_today, local_day_start_as_naive_utc
 from datetime import timedelta
+
+# What the dashboard shows if the settings row has not been created yet. Matches
+# the column default on AppSettings, which is the source of truth for it.
+FALLBACK_DAILY_GOAL = 20
+
 
 class AnalyticsService:
     def __init__(self, db: Session):
         self.db = db
         self.repo = AnalyticsRepository(db)
+        self.settings_repo = SettingsRepository(db)
+        self.sr_repo = SpacedRepetitionRepository(db)
 
     # Below this many attempts, an accuracy percentage is mostly noise (e.g. a
     # single miss reads as a permanent "0%") rather than a real pattern worth
@@ -45,11 +47,8 @@ class AnalyticsService:
         strong = [TopicMasteryItem(**g) for g in sorted_groups if g["accuracy_percentage"] >= 70][-5:]
 
         # Recent exams
-        recent_db = self.db.query(ExamSession)\
-            .filter(ExamSession.status == ExamStatus.COMPLETED)\
-            .order_by(ExamSession.end_time.desc())\
-            .limit(5).all()
-        
+        recent_db = self.repo.get_recent_completed_sessions(limit=5)
+
         recent_exams = [
             {
                 "id": s.id,
@@ -62,8 +61,8 @@ class AnalyticsService:
         ]
 
         # Streak calculation & today practice count
-        settings = self.db.query(AppSettings).filter(AppSettings.id == 1).first()
-        daily_goal = settings.daily_practice_goal if settings else 20
+        settings = self.settings_repo.get()
+        daily_goal = settings.daily_practice_goal if settings else FALLBACK_DAILY_GOAL
 
         # Day boundaries come from the machine's local timezone, not UTC.
         # Timestamps are stored as naive UTC (correct), but asking "did I
@@ -72,24 +71,16 @@ class AnalyticsService:
         # studying at 01:00 wouldn't count toward today and a streak would
         # break on a day the user actually practiced.
         today_local = local_today()
-        today_answers = self.db.query(ExamAnswer)\
-            .filter(
-                ExamAnswer.first_answered_at >= local_day_start_as_naive_utc(today_local),
-                # is_correct is NULL exactly when nothing was selected (see
-                # ExamEngine.save_answer), which is how a merely-navigated-past
-                # question is recorded. Those aren't practice.
-                ExamAnswer.is_correct.isnot(None),
-            )\
-            .count()
+        today_answers = self.repo.count_practice_answers_since(
+            local_day_start_as_naive_utc(today_local)
+        )
 
-        # Streak over local calendar dates. Converted in Python rather than via
-        # SQL date() because that would extract the UTC date and reintroduce
-        # the same off-by-one for non-UTC users.
-        completed_end_times = [
-            row[0] for row in self.db.query(ExamSession.end_time)
-            .filter(ExamSession.status == ExamStatus.COMPLETED, ExamSession.end_time.isnot(None))
-            .all()
-        ]
+        # Streak over local calendar dates. The conversion happens in Python
+        # rather than via SQL date(), because that would extract the UTC date
+        # and reintroduce the same off-by-one for non-UTC users -- so the
+        # repository hands back raw timestamps and the calendar logic lives
+        # here, where the timezone rule is stated.
+        completed_end_times = self.repo.get_completed_exam_end_times()
         completed_dates = sorted({to_local_date(t) for t in completed_end_times}, reverse=True)
 
         streak = 0
@@ -107,10 +98,7 @@ class AnalyticsService:
                 elif completed_on < check_date:
                     break
 
-        now = utc_now_naive()
-        sr_due_count = self.db.query(func.count(SpacedRepetition.id))\
-            .filter(SpacedRepetition.next_review_date <= now)\
-            .scalar() or 0
+        sr_due_count = self.sr_repo.count_due(utc_now_naive())
 
         return DashboardOverview(
             total_exams=overall["total_exams"],
@@ -127,14 +115,9 @@ class AnalyticsService:
         )
 
     def get_score_trends(self) -> List[ScoreTrendPoint]:
-        # Newest-first with a cap, then reversed back into chronological order
-        # for plotting -- so the limit keeps the *most recent* N exams rather
-        # than the oldest N.
-        sessions = self.db.query(ExamSession)\
-            .filter(ExamSession.status == ExamStatus.COMPLETED)\
-            .order_by(ExamSession.end_time.desc())\
-            .limit(self.MAX_TREND_POINTS).all()
-        sessions.reverse()
+        sessions = self.repo.get_recent_completed_sessions_chronological(
+            limit=self.MAX_TREND_POINTS
+        )
 
         points = []
         scores = []

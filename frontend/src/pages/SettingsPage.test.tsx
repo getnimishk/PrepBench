@@ -24,6 +24,24 @@ vi.mock('../services/api', () => ({
   getSettings: (...args: any[]) => mockGetSettings(...args),
   updateSettings: (...args: any[]) => mockUpdateSettings(...args),
   resetApplication: (...args: any[]) => mockResetApplication(...args),
+  // SettingsPage now also renders AIProvidersSection, which loads from these.
+  // Without them the mocked module returns undefined and the whole page
+  // crashes on render -- these tests would fail for a reason unrelated to
+  // what they are actually asserting.
+  getLLMProfiles: () => Promise.resolve([]),
+  getLLMProviders: () => Promise.resolve([]),
+  getLLMTasks: () => Promise.resolve([]),
+  createLLMProvider: () => Promise.resolve({}),
+  updateLLMProvider: () => Promise.resolve({}),
+  deleteLLMProvider: () => Promise.resolve({}),
+  verifyLLMProvider: () => Promise.resolve({}),
+  getLLMProviderModels: () => Promise.resolve({ models: [], error: null }),
+  setLLMTaskBinding: () => Promise.resolve({}),
+  detectLocalRunners: () => Promise.resolve([]),
+  getSystemInfo: () => Promise.resolve({ os_family: 'windows', total_ram_gb: 16, available_ram_gb: 8, usable_for_model_gb: 14 }),
+  getLocalModelOptions: () => Promise.resolve([]),
+  getLocalRunners: () => Promise.resolve([]),
+  buildLauncherScript: () => Promise.resolve({ filename: 'x.bat', content: '', command: '', os_family: 'windows', port: 8080 }),
 }));
 
 function makeSettings(overrides: Partial<AppSettings> = {}): AppSettings {

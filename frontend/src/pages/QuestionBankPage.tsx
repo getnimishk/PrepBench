@@ -14,7 +14,8 @@ import { Question } from '../types/question';
 import { QuestionEditorModal } from '../components/question_bank/QuestionEditorModal';
 import { ImportModal } from '../components/question_bank/ImportModal';
 import { QuestionTable } from '../components/question_bank/QuestionTable';
-import { QuestionDetailPanel } from '../components/question_bank/QuestionDetailPanel';
+import { QuestionDetailPanel } from '../components/question_bank/QuestionDetailPanel';
+import { apiErrorMessage } from '../services/apiError';
 
 export const QuestionBankPage: React.FC = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -119,9 +120,9 @@ export const QuestionBankPage: React.FC = () => {
       }
       setEditorOpen(false);
       setSelectedQuestion(null);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to save question:', err);
-      setActionError(err?.response?.data?.detail || 'Failed to save question. Please verify input data.');
+      setActionError(apiErrorMessage(err, 'Failed to save question. Please verify input data.'));
     }
   };
 
@@ -137,9 +138,9 @@ export const QuestionBankPage: React.FC = () => {
       });
       if (detailQuestion?.id === id) setDetailOpen(false);
       fetchQuestions();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to delete question:', err);
-      setActionError(err?.response?.data?.detail || 'Failed to delete question.');
+      setActionError(apiErrorMessage(err, 'Failed to delete question.'));
     }
   };
 
@@ -152,9 +153,9 @@ export const QuestionBankPage: React.FC = () => {
       setSelectedIds(new Set());
       setPage(0);
       fetchQuestions();
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      setActionError(err?.response?.data?.detail || 'Failed to clear Question Bank.');
+      setActionError(apiErrorMessage(err, 'Failed to clear Question Bank.'));
     } finally {
       setClearing(false);
     }
@@ -168,9 +169,9 @@ export const QuestionBankPage: React.FC = () => {
       setSelectedIds(new Set());
       setBulkDeleteConfirmOpen(false);
       fetchQuestions();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to bulk delete questions:', err);
-      setActionError(err?.response?.data?.detail || 'Failed to delete selected questions.');
+      setActionError(apiErrorMessage(err, 'Failed to delete selected questions.'));
     } finally {
       setBulkDeleting(false);
     }
@@ -179,7 +180,8 @@ export const QuestionBankPage: React.FC = () => {
   const toggleSelectOne = (id: number) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
@@ -199,9 +201,9 @@ export const QuestionBankPage: React.FC = () => {
       const updated = await updateQuestion(q.id, { is_reviewed: !q.is_reviewed });
       setQuestions((qs) => qs.map((item) => (item.id === q.id ? updated : item)));
       setDetailQuestion((d) => (d?.id === q.id ? updated : d));
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to update reviewed status:', err);
-      setActionError(err?.response?.data?.detail || 'Failed to update reviewed status.');
+      setActionError(apiErrorMessage(err, 'Failed to update reviewed status.'));
     }
   };
 
@@ -220,9 +222,9 @@ export const QuestionBankPage: React.FC = () => {
     try {
       const refined = await autoRefineBatch(stagedQuestions);
       setStagedQuestions(refined);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to auto-refine batch:', err);
-      setActionError(err?.response?.data?.detail || 'Failed to auto-refine staged questions.');
+      setActionError(apiErrorMessage(err, 'Failed to auto-refine staged questions.'));
     } finally {
       setAutoRefining(false);
     }
@@ -236,9 +238,9 @@ export const QuestionBankPage: React.FC = () => {
       await confirmImportBatch(stagedQuestions);
       setStagedQuestions(null);
       fetchQuestions();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to commit staged batch:', err);
-      setActionError(err?.response?.data?.detail || 'Failed to commit question batch.');
+      setActionError(apiErrorMessage(err, 'Failed to commit question batch.'));
     } finally {
       setCommitting(false);
     }

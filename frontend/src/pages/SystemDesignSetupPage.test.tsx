@@ -56,14 +56,16 @@ describe('SystemDesignSetupPage', () => {
 
   it('shows an inline error and does not navigate when generation fails (e.g. no API key)', async () => {
     const user = userEvent.setup();
-    mockGenerate.mockRejectedValue({ response: { data: { detail: 'AI prompt generation is unavailable: no GEMINI_API_KEY configured.' } } });
+    // Matches what the backend actually returns since the provider layer landed:
+    // vendor-neutral, and pointing at the setup flow rather than one vendor's key.
+    mockGenerate.mockRejectedValue({ response: { data: { detail: 'No AI provider is set up yet. Add one in Settings -> AI Providers to generate prompts.' } } });
     renderPage();
     await waitFor(() => expect(screen.getByText('Design a URL Shortener')).toBeInTheDocument());
 
     await user.click(screen.getByRole('button', { name: /generate/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/GEMINI_API_KEY configured/i)).toBeInTheDocument();
+      expect(screen.getByText(/Settings -> AI Providers/i)).toBeInTheDocument();
     });
     // Still on the setup page -- the "Answer Page" stub never rendered.
     expect(screen.queryByText('Answer Page')).not.toBeInTheDocument();

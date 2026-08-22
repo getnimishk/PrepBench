@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Box, Card, CardContent, Typography, Grid, TextField, MenuItem,
+  Box, Card, CardContent, Typography, Grid, TextField,
   Chip, Button, Alert, CircularProgress, Switch, FormControlLabel, Divider,
   IconButton, Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
@@ -16,6 +16,7 @@ import {
 } from '../services/api';
 import { InterviewQuestion, RoundTypeInfo, InterviewRoundType } from '../types/interviewQuestion';
 import { InterviewQuestionImportModal } from '../components/interview/InterviewQuestionImportModal';
+import { apiErrorMessage } from '../services/apiError';
 
 const ROUND_ICONS: Record<InterviewRoundType, React.ComponentType<any>> = {
   hr_screening: Users,
@@ -100,10 +101,9 @@ export const InterviewPracticeSetupPage: React.FC = () => {
         return;
       }
       navigate(`/interview-practice/${question.id}/record`);
-    } catch (err: any) {
+    } catch (err) {
       setGenerateError(
-        err?.response?.data?.detail ||
-        'AI question generation is unavailable. Configure GEMINI_API_KEY, or pick a question from the bank below.'
+        apiErrorMessage(err, 'AI question generation is unavailable. Set up a provider in Settings -> AI Providers, or pick a question from the bank below.')
       );
     } finally {
       setGenerating(false);
@@ -126,8 +126,8 @@ export const InterviewPracticeSetupPage: React.FC = () => {
       await updateInterviewQuestion(editingQuestion.id, { question_text: editText, category: editCategory || undefined });
       setEditingQuestion(null);
       refetchQuestions();
-    } catch (err: any) {
-      setEditError(err?.response?.data?.detail || 'Failed to save changes.');
+    } catch (err) {
+      setEditError(apiErrorMessage(err, 'Failed to save changes.'));
     } finally {
       setEditSaving(false);
     }

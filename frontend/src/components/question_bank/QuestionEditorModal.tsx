@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import { Plus, Trash2 } from 'lucide-react';
 import { Question, QuestionOption } from '../../types/question';
+import { apiErrorMessage } from '../../services/apiError';
 
 interface Props {
   open: boolean;
@@ -128,8 +129,10 @@ export const QuestionEditorModal: React.FC<Props> = ({ open, question, onClose, 
         options: options.map(({ _tempKey, ...opt }) => opt),
       });
       onClose();
-    } catch (err: any) {
-      setSaveError(err.message || 'Failed to save question');
+    } catch (err) {
+      // Was err.message, which is axios's own "Request failed with status code
+      // 400" -- never the reason the server gave for rejecting it.
+      setSaveError(apiErrorMessage(err, 'Failed to save question'));
     } finally {
       setSaving(false);
     }

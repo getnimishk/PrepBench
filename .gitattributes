@@ -1,0 +1,34 @@
+# Line endings are decided here rather than by whoever cloned the repo.
+#
+# core.autocrlf=true on Windows would check start_app.sh out with CRLF, and a
+# shell script with CRLF fails on Linux and macOS the moment it runs:
+#
+#     /usr/bin/env: 'bash\r': No such file or directory
+#
+# That breaks for everyone except the person who committed it, which is the
+# worst way for it to break.
+
+* text=auto
+
+# Must stay LF wherever they are checked out.
+*.sh   text eol=lf
+
+# Must stay CRLF: cmd.exe is the only thing that reads these, and LF-only batch
+# files mis-parse labels and goto in some cmd versions.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+
+# Leave binaries alone entirely.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.xlsx binary
+*.xlsm binary
+*.db   binary
+*.webm binary
+*.wav  binary
+*.mp3  binary
+*.m4a  binary

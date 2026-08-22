@@ -1,6 +1,6 @@
 from typing import Any, Dict, List
 from sqlalchemy.orm import Session
-from app.models.question import Question
+from app.repositories.question_repository import QuestionRepository
 from app.services.question_validator import QuestionValidator
 
 
@@ -15,12 +15,13 @@ class IntegrityCheckService:
 
     def __init__(self, db: Session):
         self.db = db
+        self.repo = QuestionRepository(db)
 
     def compare_against_source(self, source_questions: List[dict]) -> Dict[str, Any]:
         """source_questions: parsed JSON list, same shape as a question-bank
         import file (each item at minimum has 'text' and 'options' keys, where
         each option has an 'option_text' key)."""
-        db_questions = self.db.query(Question).all()
+        db_questions = self.repo.get_all_unpaginated()
         db_by_norm_text = {
             QuestionValidator._normalize(q.text): q for q in db_questions
         }

@@ -3,10 +3,10 @@ import io
 import re
 import pandas as pd
 from typing import List, Tuple
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.schemas.question import QuestionCreate, QuestionOptionCreate
 from app.services.question_service import QuestionService
+from app.repositories.question_repository import QuestionRepository
 from app.services.question_validator import QuestionValidator
 from app.schemas.question_validation import QuestionValidationReport
 from app.schemas.import_export import ImportResult
@@ -31,6 +31,7 @@ class ImportService:
     def __init__(self, db: Session):
         self.db = db
         self.question_service = QuestionService(db)
+        self.question_repo = QuestionRepository(db)
         self.validator = QuestionValidator(db)
 
     def validate_file(self, filename: str, content_bytes: bytes, validate_content: bool = False) -> QuestionValidationReport:
@@ -75,9 +76,7 @@ class ImportService:
             return
         ids = [qid for qid, _ in ids_and_counts]
         expected_total = sum(count for _, count in ids_and_counts)
-        actual_total = self.db.query(func.count(QuestionOption.id)).filter(
-            QuestionOption.question_id.in_(ids)
-        ).scalar() or 0
+        actual_total = self.question_repo.count_options_for_questions(ids)
         if actual_total != expected_total:
             msg = (
                 f"Aggregate post-commit option count mismatch: expected "
@@ -135,9 +134,7 @@ class ImportService:
                     # that has occurred twice during real imports on this app.
                     if expected_option_count:
                         self.db.flush()
-                        actual_option_count = self.db.query(func.count(QuestionOption.id)).filter(
-                            QuestionOption.question_id == db_obj.id
-                        ).scalar()
+                        actual_option_count = self.question_repo.count_options_for_questions([db_obj.id])
                         if actual_option_count != expected_option_count:
                             msg = (
                                 f"Option count mismatch for question {idx + 1} "

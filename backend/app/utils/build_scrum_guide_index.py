@@ -6,23 +6,24 @@ Utility to build a cached, pre-embedded vector index of the official Scrum Guide
 Features:
 1. Auto-scrapes https://scrumguides.org/scrum-guide.html directly if local file is absent.
 2. Chunks the guide text by paragraph windows of ~700-1000 characters.
-3. Generates vector embeddings via Gemini REST API (gemini-embedding-001).
+3. Generates vector embeddings via whichever AI provider is configured.
 4. Caches the index to backend/data/scrum_guide_index.json for sub-millisecond retrieval.
 """
 
-import os
 import json
 import re
 import time
 from pathlib import Path
 import httpx
-from app.core.config import DATA_DIR, settings
+from app.core.config import DATA_DIR
+from app.core.database import SessionLocal
 from app.core.logging_config import logger
+from app.llm.gateway import LLMGateway
+from app.llm.types import LLMTask
 
 SOURCE_PATH = DATA_DIR / "scrum_guide_2020.txt"
 CACHE_PATH = DATA_DIR / "scrum_guide_index.json"
 SCRUM_GUIDE_URL = "https://scrumguides.org/scrum-guide.html"
-EMBEDDING_MODEL = "models/gemini-embedding-001"
 
 def fetch_scrum_guide_from_web() -> str:
     """Fetches and cleans the Scrum Guide directly from scrumguides.org."""
@@ -67,41 +68,52 @@ def load_and_chunk(path: Path = SOURCE_PATH, target_chunk_chars: int = 800):
     return chunks
 
 def embed_chunks(chunks):
-    api_key = settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        raise EnvironmentError("Set GEMINI_API_KEY in backend/.env or environment variable before running this script.")
+    """
+    Embed every chunk using whichever provider is configured.
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/{EMBEDDING_MODEL}:embedContent?key={api_key}"
-    indexed = []
+    Goes through the gateway rather than calling a vendor directly, so the
+    index is built by the same provider that will later embed queries against
+    it. Vectors from two different embedding models are not comparable, and an
+    index built by one and queried by another silently degrades retrieval --
+    ContentValidator guards against that by dimension, but building it right
+    is better than detecting it later.
+    """
+    db = SessionLocal()
+    try:
+        gateway = LLMGateway(db)
 
-    with httpx.Client(timeout=30.0) as client:
+        if not gateway.is_available(LLMTask.EMBEDDING):
+            raise EnvironmentError(
+                "No AI provider with embedding support is configured. Set GEMINI_API_KEY "
+                "in backend/.env, or configure a provider that offers embeddings."
+            )
+
+        provider_name = gateway.provider_name_for(LLMTask.EMBEDDING)
+        print(f"Embedding {len(chunks)} chunks via {provider_name}")
+
+        indexed = []
         for i, chunk_text in enumerate(chunks):
-            payload = {
-                "model": EMBEDDING_MODEL,
-                "content": {
-                    "parts": [{"text": chunk_text}]
-                }
-            }
-            
             for attempt in range(3):
-                res = client.post(url, json=payload)
-                if res.status_code == 200:
-                    data = res.json()
-                    vec = data["embedding"]["values"]
-                    indexed.append({
-                        "id": i,
-                        "text": chunk_text,
-                        "embedding": vec,
-                    })
+                result = gateway.embed(chunk_text)
+                if result.ok:
+                    indexed.append({"id": i, "text": chunk_text, "embedding": result.vector})
                     print(f"Successfully embedded chunk {i + 1}/{len(chunks)}")
                     break
-                elif res.status_code == 429:
+
+                # Rate limiting is the one failure worth waiting out; the
+                # gateway reports it in the HTTP status text it passes through.
+                if result.error and "429" in result.error:
                     print(f"Rate limited on chunk {i + 1}, waiting 3s before retry...")
                     time.sleep(3)
-                else:
-                    raise RuntimeError(f"Embedding failed (status {res.status_code}): {res.text}")
+                    continue
 
-    return indexed
+                raise RuntimeError(f"Embedding failed: {result.error}")
+            else:
+                raise RuntimeError(f"Embedding chunk {i + 1} failed after 3 attempts (rate limited).")
+
+        return indexed
+    finally:
+        db.close()
 
 def main():
     chunks = load_and_chunk(SOURCE_PATH)
