@@ -32,6 +32,9 @@ set ROOT_DIR=%~dp0
 set BACKEND_DIR=%ROOT_DIR%backend
 set FRONTEND_DIR=%ROOT_DIR%frontend
 set LOG_DIR=%ROOT_DIR%logs
+set VENV_PYTHON=%BACKEND_DIR%\.venv\Scripts\python.exe
+REM uvicorn.exe is no longer launched, but its presence is still the cheapest
+REM proof that the dependencies were installed and not just the venv created.
 set VENV_UVICORN=%BACKEND_DIR%\.venv\Scripts\uvicorn.exe
 set BACKEND_URL=http://127.0.0.1:8000
 set FRONTEND_URL=http://localhost:5173
@@ -58,8 +61,14 @@ call :free_port 5173 Frontend
 REM Both servers run as background children of THIS console -- no /K, no
 REM second window. Their output goes to the log files so this window stays
 REM readable; the tail is printed here if either one fails to come up.
+REM Invoked as `python -m uvicorn`, not via uvicorn.exe. That .exe is a shim
+REM with the interpreter's absolute path compiled into it, and resolving that
+REM path is a second thing that can fail -- it did once here, reporting "did
+REM not find executable at ...python.exe" while the interpreter was present and
+REM working, most likely scanned by antivirus at the moment of launch. Calling
+REM python directly removes the indirection entirely.
 echo [Backend] Starting FastAPI on %BACKEND_URL% ...
-start "" /B /D "%BACKEND_DIR%" cmd /c ""%VENV_UVICORN%" app.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir app --log-level debug > "%BACKEND_LOG%" 2>&1"
+start "" /B /D "%BACKEND_DIR%" cmd /c ""%VENV_PYTHON%" -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir app --log-level debug > "%BACKEND_LOG%" 2>&1"
 
 echo [Frontend] Starting Vite on %FRONTEND_URL% ...
 start "" /B /D "%FRONTEND_DIR%" cmd /c "npm run dev > "%FRONTEND_LOG%" 2>&1"
@@ -192,7 +201,11 @@ if errorlevel 2 (
 REM Kill one level up when the listener's parent is a reloader: uvicorn
 REM --reload puts the socket in a child, so killing only the child gets it
 REM instantly respawned and the port never actually frees.
-powershell -NoProfile -Command "$id = !HOLDER_PID!; $t = $id; $p = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $id) -EA SilentlyContinue; if ($p) { $par = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $p.ParentProcessId) -EA SilentlyContinue; if ($par -and $par.Name -match 'python|uvicorn') { $t = $par.ProcessId } }; Start-Process taskkill -ArgumentList '/PID', $t, '/T', '/F' -WindowStyle Hidden -Wait" >nul 2>&1
+REM Direct taskkill, matching :stop_all. This routine runs before any server
+REM is started, so it cannot hit the handle-inheritance hang that Start-Process
+REM -Wait caused there -- but depending on that ordering staying true is a poor
+REM reason to keep two different spellings of the same operation.
+powershell -NoProfile -Command "$id = !HOLDER_PID!; $t = $id; $p = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $id) -EA SilentlyContinue; if ($p) { $par = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $p.ParentProcessId) -EA SilentlyContinue; if ($par -and $par.Name -match 'python|uvicorn') { $t = $par.ProcessId } }; taskkill /PID $t /T /F | Out-Null" >nul 2>&1
 echo        Stopped PID !HOLDER_PID!.
 goto :eof
 
@@ -210,5 +223,10 @@ REM parent walk as :free_port: uvicorn --reload holds the socket in a child of
 REM another uvicorn process, so killing only the listener leaves a supervisor
 REM alive that puts the port straight back.
 echo   Stopping PrepBench...
-powershell -NoProfile -Command "$ids = @(Get-NetTCPConnection -State Listen -LocalPort 8000,5173 -EA SilentlyContinue | Select-Object -Expand OwningProcess -Unique); foreach ($id in $ids) { $t = $id; $p = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $id) -EA SilentlyContinue; if ($p) { $par = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $p.ParentProcessId) -EA SilentlyContinue; if ($par -and $par.Name -match 'python|uvicorn') { $t = $par.ProcessId } }; Start-Process taskkill -ArgumentList '/PID', $t, '/T', '/F' -WindowStyle Hidden -Wait }" >nul 2>&1
+REM taskkill is invoked directly rather than through Start-Process -Wait. The
+REM servers run as `start /B` children sharing this console with their output
+REM redirected, and Start-Process -Wait inherits those handles -- it then blocks
+REM waiting on pipes the dying process still owns, so "press any key to stop"
+REM never returned.
+powershell -NoProfile -Command "$ids = @(Get-NetTCPConnection -State Listen -LocalPort 8000,5173 -EA SilentlyContinue | Select-Object -Expand OwningProcess -Unique); foreach ($id in $ids) { $t = $id; $p = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $id) -EA SilentlyContinue; if ($p) { $par = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $p.ParentProcessId) -EA SilentlyContinue; if ($par -and $par.Name -match 'python|uvicorn') { $t = $par.ProcessId } }; taskkill /PID $t /T /F | Out-Null }" >nul 2>&1
 goto :eof
