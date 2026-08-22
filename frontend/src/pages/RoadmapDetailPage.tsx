@@ -15,7 +15,8 @@ import {
 import { RoadmapTableView } from '../components/roadmap/RoadmapTableView';
 import { RoadmapJourneyView } from '../components/roadmap/RoadmapJourneyView';
 import { RoadmapGanttView } from '../components/roadmap/RoadmapGanttView';
-import { formatPercentage, progressCaption, hoursCaption } from '../components/roadmap/progressDisplay';
+import { formatPercentage, progressCaption, hoursCaption } from '../components/roadmap/progressDisplay';
+
 import { apiErrorMessage } from '../services/apiError';
 
 type ViewTab = 'table' | 'journey' | 'gantt' | 'resources';
@@ -152,7 +153,11 @@ export const RoadmapDetailPage: React.FC = () => {
       </Box>
 
       <Grid container spacing={2} sx={{ mt: 0.5, mb: 1 }}>
-        <Grid item xs={12} sm={4}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 4
+          }}>
           <Card variant="outlined" sx={{ borderRadius: 3 }}>
             <CardContent>
               <Typography variant="caption" color="text.secondary">Topics complete</Typography>
@@ -167,7 +172,11 @@ export const RoadmapDetailPage: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={4}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 4
+          }}>
           <Card variant="outlined" sx={{ borderRadius: 3 }}>
             <CardContent>
               <Typography variant="caption" color="text.secondary">Hours complete</Typography>
@@ -182,7 +191,11 @@ export const RoadmapDetailPage: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={4}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 4
+          }}>
           <Card variant="outlined" sx={{ borderRadius: 3 }}>
             <CardContent>
               <Typography variant="caption" color="text.secondary">Projected finish</Typography>
@@ -297,15 +310,19 @@ export const RoadmapDetailPage: React.FC = () => {
           </Typography>
           <TextField
             fullWidth type="date" label="Start date" sx={{ mb: 2 }}
-            InputLabelProps={{ shrink: true }}
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
+            slotProps={{
+              inputLabel: { shrink: true }
+            }}
           />
           <TextField
             fullWidth type="number" label="Study hours per week"
             value={weeklyHours}
             onChange={(e) => setWeeklyHours(e.target.value)}
-            inputProps={{ min: 1, step: 1 }}
+            slotProps={{
+              htmlInput: { min: 1, step: 1 }
+            }}
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>

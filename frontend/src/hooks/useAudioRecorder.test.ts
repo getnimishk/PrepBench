@@ -39,8 +39,8 @@ describe('useAudioRecorder', () => {
 
   beforeEach(() => {
     track = { stopped: false, stop: vi.fn(function (this: any) { track.stopped = true; }) };
-    (global as any).MediaRecorder = OrderTrackingMediaRecorder;
-    Object.defineProperty(global.navigator, 'mediaDevices', {
+    (globalThis as any).MediaRecorder = OrderTrackingMediaRecorder;
+    Object.defineProperty(globalThis.navigator, 'mediaDevices', {
       value: {
         getUserMedia: vi.fn().mockImplementation(async () => ({
           track,

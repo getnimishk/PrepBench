@@ -124,7 +124,12 @@ export const ExamReviewPage: React.FC = () => {
               { label: 'Correct', value: `${exam.correct_count} / ${exam.total_questions}`, icon: CheckCircle2, color: '#6366F1' },
               { label: 'Time', value: `${Math.round((exam.time_spent_seconds ?? 0) / 60)} min`, icon: Clock, color: '#FBBF24' },
             ].map((item) => (
-              <Grid item xs={6} sm={3} key={item.label}>
+              <Grid
+                key={item.label}
+                size={{
+                  xs: 6,
+                  sm: 3
+                }}>
                 <Box sx={{ textAlign: 'center', p: 1.5, bgcolor: 'background.paper', borderRadius: '12px', border: '1px solid', borderColor: 'divider' }}>
                   <Typography variant="h6" sx={{ fontWeight: 800, color: item.color }}>{item.value}</Typography>
                   <Typography variant="caption" color="text.secondary">{item.label}</Typography>
@@ -182,7 +187,12 @@ export const ExamReviewPage: React.FC = () => {
       ) : (
         <Grid container spacing={3}>
           {/* Left Pane: Question Palette */}
-          <Grid item xs={12} md={3.5} lg={3}>
+          <Grid
+            size={{
+              xs: 12,
+              md: 3.5,
+              lg: 3
+            }}>
             <Card sx={{ borderRadius: '12px', boxShadow: 'none', border: '1px solid', borderColor: 'divider', position: 'sticky', top: 80 }}>
               <CardContent>
                 <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, fontWeight: 700 }}>
@@ -240,7 +250,12 @@ export const ExamReviewPage: React.FC = () => {
           </Grid>
 
           {/* Right Pane: Focused Question View */}
-          <Grid item xs={12} md={8.5} lg={9}>
+          <Grid
+            size={{
+              xs: 12,
+              md: 8.5,
+              lg: 9
+            }}>
             {currentQData && (
               <Card sx={{ borderRadius: '12px', boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
                 <CardContent sx={{ p: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>

@@ -94,7 +94,7 @@ export const AnalyticsPage: React.FC = () => {
           </Alert>
         ) : (
           <Grid container spacing={3}>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Card sx={{ borderRadius: '12px', boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
                 <CardContent>
                   <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -107,7 +107,7 @@ export const AnalyticsPage: React.FC = () => {
               </Card>
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Card sx={{ borderRadius: '12px', boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
                 <CardContent>
                   <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>Domain Performance Breakdown</Typography>
@@ -155,9 +155,13 @@ export const AnalyticsPage: React.FC = () => {
           </Card>
         ) : sdAnalytics && (
           <Grid container spacing={3}>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={4}>
+                <Grid
+                  size={{
+                    xs: 12,
+                    sm: 4
+                  }}>
                   <Card sx={{ borderRadius: '12px', boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
                     <CardContent sx={{ textAlign: 'center' }}>
                       <Typography variant="h4" sx={{ fontWeight: 800 }}>{sdAnalytics.total_attempts}</Typography>
@@ -165,7 +169,11 @@ export const AnalyticsPage: React.FC = () => {
                     </CardContent>
                   </Card>
                 </Grid>
-                <Grid item xs={12} sm={4}>
+                <Grid
+                  size={{
+                    xs: 12,
+                    sm: 4
+                  }}>
                   <Card sx={{ borderRadius: '12px', boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
                     <CardContent sx={{ textAlign: 'center' }}>
                       <Typography variant="h4" sx={{ fontWeight: 800 }}>{sdAnalytics.graded_count}</Typography>
@@ -173,7 +181,11 @@ export const AnalyticsPage: React.FC = () => {
                     </CardContent>
                   </Card>
                 </Grid>
-                <Grid item xs={12} sm={4}>
+                <Grid
+                  size={{
+                    xs: 12,
+                    sm: 4
+                  }}>
                   <Card sx={{ borderRadius: '12px', boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
                     <CardContent sx={{ textAlign: 'center' }}>
                       <Typography variant="h4" sx={{ fontWeight: 800 }}>
@@ -186,7 +198,11 @@ export const AnalyticsPage: React.FC = () => {
               </Grid>
             </Grid>
 
-            <Grid item xs={12} md={7}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 7
+              }}>
               <Card sx={{ height: '100%', borderRadius: '12px', boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
                 <CardContent>
                   <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>Score Trend</Typography>
@@ -202,7 +218,11 @@ export const AnalyticsPage: React.FC = () => {
               </Card>
             </Grid>
 
-            <Grid item xs={12} md={5}>
+            <Grid
+              size={{
+                xs: 12,
+                md: 5
+              }}>
               <Card sx={{ height: '100%', borderRadius: '12px', boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
                 <CardContent>
                   <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>Category Averages</Typography>
@@ -211,7 +231,7 @@ export const AnalyticsPage: React.FC = () => {
               </Card>
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Card sx={{ borderRadius: '12px', boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
                 <CardContent>
                   <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>Recent Attempts</Typography>
@@ -259,7 +279,7 @@ export const AnalyticsPage: React.FC = () => {
         ) : ipAnalytics && (
           <Grid container spacing={3}>
             {ipAnalytics.weakest_content_category && (
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Alert severity="warning" icon={<Mic size={20} />}>
                   Your weakest area: <strong>{ipAnalytics.weakest_content_category.category}</strong> in{' '}
                   <strong>{ipAnalytics.weakest_content_category.round_label}</strong> rounds, averaging{' '}
@@ -268,12 +288,18 @@ export const AnalyticsPage: React.FC = () => {
               </Grid>
             )}
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Grid container spacing={2}>
                 {ipAnalytics.by_round.map((r) => {
                   const Icon = ROUND_ICONS[r.round_type] || Mic;
                   return (
-                    <Grid item xs={12} sm={6} md={3} key={r.round_type}>
+                    <Grid
+                      key={r.round_type}
+                      size={{
+                        xs: 12,
+                        sm: 6,
+                        md: 3
+                      }}>
                       <Card sx={{ height: '100%', borderRadius: '12px', boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
                         <CardContent>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
@@ -303,7 +329,7 @@ export const AnalyticsPage: React.FC = () => {
               </Grid>
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Card sx={{ borderRadius: '12px', boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
                 <CardContent>
                   <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>Delivery Trend</Typography>

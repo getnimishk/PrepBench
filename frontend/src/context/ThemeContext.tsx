@@ -130,12 +130,10 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
                   boxShadow: 'none',
                 },
               },
-              containedPrimary: {
-                boxShadow: 'none',
-                '&:hover': {
-                  boxShadow: 'none',
-                },
-              },
+              // `containedPrimary` was removed as a style-override key in MUI
+              // v9. Dropped rather than ported to the `variants` API because it
+              // set boxShadow:none on the button and its hover -- exactly what
+              // `root` above already sets for every variant.
             },
           },
           MuiCard: {

@@ -11,6 +11,12 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
+    // vite/client declares the ambient modules for side-effect asset imports
+    // (import './index.css'). TypeScript 7 no longer resolves those implicitly,
+    // and naming the list stops stray @types packages being pulled in silently
+    // -- which is how NodeJS.Timeout and `global` ever type-checked in what is
+    // browser code.
+    "types": ["vite/client"],
     "strict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
