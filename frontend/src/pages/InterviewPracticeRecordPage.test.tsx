@@ -26,8 +26,8 @@ class FakeMediaRecorder {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  (global as any).MediaRecorder = FakeMediaRecorder;
-  Object.defineProperty(global.navigator, 'mediaDevices', {
+  (globalThis as any).MediaRecorder = FakeMediaRecorder;
+  Object.defineProperty(globalThis.navigator, 'mediaDevices', {
     value: { getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [{ stop: vi.fn() }] }) },
     configurable: true,
   });

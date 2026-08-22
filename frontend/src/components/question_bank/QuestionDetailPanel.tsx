@@ -110,7 +110,9 @@ export const QuestionDetailPanel: React.FC<QuestionDetailPanelProps> = ({
       anchor="right"
       open={open}
       onClose={onClose}
-      PaperProps={{ sx: { width: { xs: '100%', md: '75vw' }, maxWidth: 1100, p: 3 } }}
+      slotProps={{
+        paper: { sx: { width: { xs: '100%', md: '75vw' }, maxWidth: 1100, p: 3 } }
+      }}
     >
       {/* Top Bar */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
@@ -131,7 +133,11 @@ export const QuestionDetailPanel: React.FC<QuestionDetailPanelProps> = ({
       {/* Main Review Grid */}
       <Grid container spacing={2}>
         {/* Left Column: Full Question & Answers Inspector */}
-        <Grid item xs={12} md={researchData ? 7 : 12}>
+        <Grid
+          size={{
+            xs: 12,
+            md: researchData ? 7 : 12
+          }}>
           <Card sx={{ height: '100%', borderRadius: 2 }}>
             <CardContent sx={{ p: 3 }}>
               {/* Question Metadata Chips */}
@@ -276,7 +282,11 @@ export const QuestionDetailPanel: React.FC<QuestionDetailPanelProps> = ({
 
         {/* Right Column: LLM Research & Refinement Panel */}
         {researchData && (
-          <Grid item xs={12} md={5}>
+          <Grid
+            size={{
+              xs: 12,
+              md: 5
+            }}>
             <Card sx={{ height: '100%', borderRadius: 2, borderColor: 'secondary.main', border: 2 }}>
               <CardContent sx={{ p: 2.5 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>

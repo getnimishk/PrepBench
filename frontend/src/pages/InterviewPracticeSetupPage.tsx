@@ -163,7 +163,13 @@ export const InterviewPracticeSetupPage: React.FC = () => {
           const Icon = ROUND_ICONS[rt.value];
           const isSelected = selectedRound === rt.value;
           return (
-            <Grid item xs={12} sm={6} md={3} key={rt.value}>
+            <Grid
+              key={rt.value}
+              size={{
+                xs: 12,
+                sm: 6,
+                md: 3
+              }}>
               <Card
                 onClick={() => handleSelectRound(rt.value)}
                 sx={{
@@ -184,7 +190,12 @@ export const InterviewPracticeSetupPage: React.FC = () => {
             </Grid>
           );
         })}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid
+          size={{
+            xs: 12,
+            sm: 6,
+            md: 3
+          }}>
           <Card
             onClick={() => handleSelectRound('general')}
             sx={{
@@ -229,8 +240,12 @@ export const InterviewPracticeSetupPage: React.FC = () => {
                 <Sparkles size={20} /> Generate New Question
               </Typography>
               {generateError && <Alert severity="warning" sx={{ mb: 2 }}>{generateError}</Alert>}
-              <Grid container spacing={2} alignItems="center">
-                <Grid item xs={12} sm={5}>
+              <Grid container spacing={2} sx={{ alignItems: 'center' }}>
+                <Grid
+                  size={{
+                    xs: 12,
+                    sm: 5
+                  }}>
                   <TextField
                     fullWidth
                     label="Topic (optional)"
@@ -239,13 +254,21 @@ export const InterviewPracticeSetupPage: React.FC = () => {
                     onChange={(e) => setGenTopic(e.target.value)}
                   />
                 </Grid>
-                <Grid item xs={12} sm={4}>
+                <Grid
+                  size={{
+                    xs: 12,
+                    sm: 4
+                  }}>
                   <FormControlLabel
                     control={<Switch checked={saveToBank} onChange={(e) => setSaveToBank(e.target.checked)} />}
                     label="Save to bank"
                   />
                 </Grid>
-                <Grid item xs={12} sm={3}>
+                <Grid
+                  size={{
+                    xs: 12,
+                    sm: 3
+                  }}>
                   <Button
                     fullWidth
                     variant="contained"
@@ -301,7 +324,12 @@ export const InterviewPracticeSetupPage: React.FC = () => {
           ) : (
             <Grid container spacing={2}>
               {questions.map((q) => (
-                <Grid item xs={12} sm={6} key={q.id}>
+                <Grid
+                  key={q.id}
+                  size={{
+                    xs: 12,
+                    sm: 6
+                  }}>
                   <Card
                     onClick={() => handleSelectQuestion(q.id)}
                     sx={{

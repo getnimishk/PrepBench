@@ -100,8 +100,12 @@ export const SystemDesignSetupPage: React.FC = () => {
             <Sparkles size={20} /> Generate New Prompt
           </Typography>
           {generateError && <Alert severity="warning" sx={{ mb: 2 }}>{generateError}</Alert>}
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={4}>
+          <Grid container spacing={2} sx={{ alignItems: 'center' }}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 4
+              }}>
               <TextField
                 fullWidth
                 label="Topic (optional)"
@@ -110,7 +114,11 @@ export const SystemDesignSetupPage: React.FC = () => {
                 onChange={(e) => setGenTopic(e.target.value)}
               />
             </Grid>
-            <Grid item xs={12} sm={3}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 3
+              }}>
               <TextField
                 select
                 fullWidth
@@ -124,13 +132,21 @@ export const SystemDesignSetupPage: React.FC = () => {
                 ))}
               </TextField>
             </Grid>
-            <Grid item xs={12} sm={3}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 3
+              }}>
               <FormControlLabel
                 control={<Switch checked={saveToBank} onChange={(e) => setSaveToBank(e.target.checked)} />}
                 label="Save to bank"
               />
             </Grid>
-            <Grid item xs={12} sm={2}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 2
+              }}>
               <Button
                 fullWidth
                 variant="contained"
@@ -195,7 +211,12 @@ export const SystemDesignSetupPage: React.FC = () => {
       ) : (
         <Grid container spacing={2}>
           {prompts.map((p) => (
-            <Grid item xs={12} sm={6} key={p.id}>
+            <Grid
+              key={p.id}
+              size={{
+                xs: 12,
+                sm: 6
+              }}>
               <Card
                 onClick={() => handleSelectPrompt(p.id)}
                 sx={{

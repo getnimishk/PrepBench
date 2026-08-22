@@ -90,7 +90,11 @@ export const Sidebar: React.FC = () => {
               transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
               m: 0,
             }}
-            primaryTypographyProps={{ fontWeight: 500, fontSize: '0.95rem', noWrap: true }}
+            slotProps={{
+              // Typography styling props moved into sx in MUI v9; noWrap is
+              // still a real Typography prop and stays where it is.
+              primary: { noWrap: true, sx: { fontWeight: 500, fontSize: '0.95rem' } }
+            }}
           />
         </ListItemButton>
       );

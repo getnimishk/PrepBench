@@ -14,7 +14,8 @@ import { Question } from '../types/question';
 import { QuestionEditorModal } from '../components/question_bank/QuestionEditorModal';
 import { ImportModal } from '../components/question_bank/ImportModal';
 import { QuestionTable } from '../components/question_bank/QuestionTable';
-import { QuestionDetailPanel } from '../components/question_bank/QuestionDetailPanel';
+import { QuestionDetailPanel } from '../components/question_bank/QuestionDetailPanel';
+
 import { apiErrorMessage } from '../services/apiError';
 
 export const QuestionBankPage: React.FC = () => {
@@ -357,12 +358,14 @@ export const QuestionBankPage: React.FC = () => {
                 onChange={(e) => setKeyword(e.target.value)}
                 size="small"
                 sx={{ flexGrow: 1, minWidth: 240 }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search size={18} />
-                    </InputAdornment>
-                  ),
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search size={18} />
+                      </InputAdornment>
+                    ),
+                  }
                 }}
               />
               <FormControl size="small" sx={{ minWidth: 180 }}>

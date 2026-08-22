@@ -67,7 +67,12 @@ export const QuestionPalette: React.FC<Props> = ({
           const status = getStatusColor(idx);
           const isCurrent = idx === currentIndex;
           return (
-            <Grid item key={idx} xs={3} sm={2.4}>
+            <Grid
+              key={idx}
+              size={{
+                xs: 3,
+                sm: 2.4
+              }}>
               <Button
                 disableElevation
                 onClick={() => onSelectIndex(idx)}

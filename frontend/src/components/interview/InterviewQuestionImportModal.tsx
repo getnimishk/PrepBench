@@ -133,7 +133,9 @@ export const InterviewQuestionImportModal: React.FC<Props> = ({ open, onClose, o
               <List dense sx={{ maxHeight: 200, overflowY: 'auto', mt: 1 }}>
                 {result.errors.map((e, i) => (
                   <ListItem key={i} disablePadding>
-                    <ListItemText primary={e} primaryTypographyProps={{ variant: 'caption', color: 'text.secondary' }} />
+                    <ListItemText primary={e} slotProps={{
+                      primary: { variant: 'caption', color: 'text.secondary' }
+                    }} />
                   </ListItem>
                 ))}
               </List>

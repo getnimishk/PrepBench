@@ -174,7 +174,13 @@ export const ExamSetupPage: React.FC = () => {
           const Icon = m.icon;
           const isSelected = mode === m.value;
           return (
-            <Grid item xs={12} sm={6} md={4} key={m.value}>
+            <Grid
+              key={m.value}
+              size={{
+                xs: 12,
+                sm: 6,
+                md: 4
+              }}>
               <Card
                 onClick={() => handleSelectMode(m.value as ExamMode)}
                 sx={{
@@ -218,7 +224,11 @@ export const ExamSetupPage: React.FC = () => {
           <CardContent>
             <Grid container spacing={4}>
               {/* Dynamic Certification Dropdown */}
-              <Grid item xs={12} sm={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  sm: 6
+                }}>
                 <TextField
                   select
                   fullWidth
@@ -234,7 +244,11 @@ export const ExamSetupPage: React.FC = () => {
                 </TextField>
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  sm: 6
+                }}>
                 <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
                   Number of Questions: <Chip label={totalQuestions} size="small" color="primary" />
                 </Typography>
@@ -249,7 +263,11 @@ export const ExamSetupPage: React.FC = () => {
               </Grid>
 
               {mode === 'timed' && (
-                <Grid item xs={12} sm={6}>
+                <Grid
+                  size={{
+                    xs: 12,
+                    sm: 6
+                  }}>
                   <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
                     Time Limit: <Chip label={`${timeLimitMins} minutes`} size="small" color="warning" />
                   </Typography>
@@ -264,7 +282,11 @@ export const ExamSetupPage: React.FC = () => {
                 </Grid>
               )}
 
-              <Grid item xs={12} sm={6}>
+              <Grid
+                size={{
+                  xs: 12,
+                  sm: 6
+                }}>
                 <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
                   Passing Score: <Chip label={`${passingPct}%`} size="small" color="success" />
                 </Typography>
@@ -279,7 +301,7 @@ export const ExamSetupPage: React.FC = () => {
               </Grid>
 
               {/* Difficulty Filter Chips */}
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Typography variant="body2" sx={{ fontWeight: 600, mb: 1.5 }}>
                   Difficulty Level Filter:
                 </Typography>
@@ -312,7 +334,7 @@ export const ExamSetupPage: React.FC = () => {
 
               {/* Dynamic Topic Filter Chips */}
               {dbTopics.length > 0 && (
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Typography variant="body2" sx={{ fontWeight: 600, mb: 1.5 }}>
                     Filter by Topic ({selectedTopics.length > 0 ? `${selectedTopics.length} selected` : 'All Topics'}):
                   </Typography>
@@ -341,7 +363,7 @@ export const ExamSetupPage: React.FC = () => {
                 </Grid>
               )}
 
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Box sx={{ display: 'flex', gap: 4 }}>
                   <FormControlLabel
                     control={<Switch checked={randomizeQ} onChange={(e) => setRandomizeQ(e.target.checked)} />}

@@ -8,7 +8,8 @@ import { Save, Settings as SettingsIcon, Moon, Volume2, AlertTriangle, RotateCcw
 import { getSettings, updateSettings, resetApplication } from '../services/api';
 import { useThemeMode } from '../context/ThemeContext';
 import { AppSettings } from '../types/settings';
-import { AIProvidersSection } from '../components/settings/AIProvidersSection';
+import { AIProvidersSection } from '../components/settings/AIProvidersSection';
+
 import { apiErrorMessage } from '../services/apiError';
 
 export const SettingsPage: React.FC = () => {
@@ -124,7 +125,11 @@ export const SettingsPage: React.FC = () => {
             <Moon size={20} /> Appearance & Audio
           </Typography>
           <Grid container spacing={3}>
-            <Grid item xs={12} sm={6}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 6
+              }}>
               <TextField
                 select
                 fullWidth
@@ -136,7 +141,12 @@ export const SettingsPage: React.FC = () => {
                 <MenuItem value="light">Light Mode</MenuItem>
               </TextField>
             </Grid>
-            <Grid item xs={12} sm={6} sx={{ display: 'flex', alignItems: 'center' }}>
+            <Grid
+              sx={{ display: 'flex', alignItems: 'center' }}
+              size={{
+                xs: 12,
+                sm: 6
+              }}>
               <FormControlLabel
                 control={
                   <Switch
@@ -161,7 +171,11 @@ export const SettingsPage: React.FC = () => {
             <SettingsIcon size={20} /> Exam Defaults
           </Typography>
           <Grid container spacing={3}>
-            <Grid item xs={12} sm={6}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 6
+              }}>
               <TextField
                 select
                 fullWidth
@@ -177,7 +191,11 @@ export const SettingsPage: React.FC = () => {
               </TextField>
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 6
+              }}>
               <Typography variant="body2" component="div" sx={{ fontWeight: 600, mb: 1 }}>
                 Default Question Count: <Chip label={settings.default_questions_count} size="small" color="primary" />
               </Typography>
@@ -191,7 +209,11 @@ export const SettingsPage: React.FC = () => {
               />
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 6
+              }}>
               <Typography variant="body2" component="div" sx={{ fontWeight: 600, mb: 1 }}>
                 Default Passing Score: <Chip label={`${settings.default_passing_percentage}%`} size="small" color="success" />
               </Typography>
@@ -204,7 +226,11 @@ export const SettingsPage: React.FC = () => {
               />
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid
+              size={{
+                xs: 12,
+                sm: 6
+              }}>
               <Typography variant="body2" component="div" sx={{ fontWeight: 600, mb: 1 }}>
                 Daily Practice Goal: <Chip label={`${settings.daily_practice_goal} questions`} size="small" color="warning" />
               </Typography>
@@ -217,7 +243,7 @@ export const SettingsPage: React.FC = () => {
               />
             </Grid>
 
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Box sx={{ display: 'flex', gap: 4 }}>
                 <FormControlLabel
                   control={
