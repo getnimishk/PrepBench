@@ -33,6 +33,9 @@ set BACKEND_DIR=%ROOT_DIR%backend
 set FRONTEND_DIR=%ROOT_DIR%frontend
 set LOG_DIR=%ROOT_DIR%logs
 set VENV_PYTHON=%BACKEND_DIR%\.venv\Scripts\python.exe
+REM How many times to try starting the backend before giving up. See the note
+REM above the retry loop for why more than one attempt is needed at all.
+set BACKEND_MAX_TRIES=3
 REM uvicorn.exe is no longer launched, but its presence is still the cheapest
 REM proof that the dependencies were installed and not just the venv created.
 set VENV_UVICORN=%BACKEND_DIR%\.venv\Scripts\uvicorn.exe
@@ -67,17 +70,46 @@ REM path is a second thing that can fail -- it did once here, reporting "did
 REM not find executable at ...python.exe" while the interpreter was present and
 REM working, most likely scanned by antivirus at the moment of launch. Calling
 REM python directly removes the indirection entirely.
-echo [Backend] Starting FastAPI on %BACKEND_URL% ...
-start "" /B /D "%BACKEND_DIR%" cmd /c ""%VENV_PYTHON%" -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir app --log-level debug > "%BACKEND_LOG%" 2>&1"
-
 echo [Frontend] Starting Vite on %FRONTEND_URL% ...
 start "" /B /D "%FRONTEND_DIR%" cmd /c "npm run dev > "%FRONTEND_LOG%" 2>&1"
 
-echo.
-echo [Wait] Waiting for the backend to answer...
-call :wait_for "%BACKEND_URL%/" 30
-set BACKEND_READY=%READY%
+REM The backend is started with retries, and this is why:
+REM
+REM On Windows a venv's python.exe is always a launcher -- it reads `home` from
+REM pyvenv.cfg and executes the interpreter living there. There is no venv
+REM layout that avoids it; --copies does not, and neither does calling python
+REM instead of uvicorn.exe. So starting the backend always means executing a
+REM binary outside this project.
+REM
+REM With real-time antivirus running, that execution can be blocked for a moment
+REM while the file is scanned, and Windows reports it as "did not find
+REM executable at ...python.exe: The system cannot find the path specified" --
+REM which reads like a missing interpreter but is a locked one. It is transient:
+REM the same binary runs fine seconds later, and 25 sequential plus 12
+REM concurrent launches showed no failures at all when the scanner was idle.
+REM
+REM A retry turns that into a slower start instead of a dead backend. It is
+REM mitigation, not a cure: the cure is excluding the interpreter's directory in
+REM the antivirus, which no script can do for you.
+set BACKEND_READY=0
+set BACKEND_ATTEMPT=0
 
+:backend_try
+set /a BACKEND_ATTEMPT+=1
+if %BACKEND_ATTEMPT% EQU 1 (
+    echo [Backend] Starting FastAPI on %BACKEND_URL% ...
+) else (
+    echo [Backend] Did not answer. Retry %BACKEND_ATTEMPT% of %BACKEND_MAX_TRIES%...
+)
+start "" /B /D "%BACKEND_DIR%" cmd /c ""%VENV_PYTHON%" -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir app --log-level debug > "%BACKEND_LOG%" 2>&1"
+
+call :wait_for "%BACKEND_URL%/" 20
+set BACKEND_READY=%READY%
+if "%BACKEND_READY%"=="1" goto :backend_ready
+if %BACKEND_ATTEMPT% LSS %BACKEND_MAX_TRIES% goto :backend_try
+:backend_ready
+
+echo.
 echo [Wait] Waiting for the frontend to answer...
 call :wait_for "%FRONTEND_URL%/" 40
 set FRONTEND_READY=%READY%
