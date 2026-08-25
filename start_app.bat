@@ -141,19 +141,34 @@ REM This used to invoke a hardcoded Python 3.13 path that does not exist on
 REM this machine, so the one moment it mattered -- a missing .venv -- it would
 REM have failed with "is not recognized" and no hint of what to do.
 echo [Setup] The backend virtual environment is missing. Building it...
-where uv >nul 2>&1
-if errorlevel 1 (
+REM
+REM The venv is built with the `py` launcher against an installed Python, NOT
+REM with `uv venv --python 3.13`. uv would download and use its own managed
+REM interpreter under AppData\Roaming\uv, and a venv built on that records a
+REM `home` pointing there -- which is only resolvable by whatever process
+REM installed it. This project already lost an evening to exactly that: the
+REM backend reported "did not find executable at ...python.exe" on every launch
+REM while the interpreter was demonstrably present, because it was present for
+REM one process and not the other.
+py -3 -m venv "%BACKEND_DIR%\.venv"
+if not exist "%BACKEND_DIR%\.venv\Scripts\python.exe" (
     echo.
-    echo [Setup] FAILED: uv is not installed, and uv is what built this venv.
-    echo         Install it from https://docs.astral.sh/uv/ and run this again.
+    echo [Setup] FAILED: no usable Python found via the py launcher.
+    echo         Install Python 3.14 from https://www.python.org/downloads/
+    echo         and tick "Add python.exe to PATH", then run this again.
     echo.
     pause
     goto :eof
 )
-REM --system-certs makes uv trust the Windows certificate store. Antivirus that
-REM intercepts TLS otherwise fails every download here with a certificate error.
-uv venv --python 3.13 "%BACKEND_DIR%\.venv"
-uv pip install --system-certs --python "%BACKEND_DIR%\.venv\Scripts\python.exe" -r "%BACKEND_DIR%\requirements.txt"
+REM uv is used only to install, for --system-certs: it makes uv trust the
+REM Windows certificate store, without which antivirus that intercepts TLS
+REM fails every download with a certificate error. pip is the fallback.
+where uv >nul 2>&1
+if errorlevel 1 (
+    "%BACKEND_DIR%\.venv\Scripts\python.exe" -m pip install -r "%BACKEND_DIR%\requirements.lock"
+) else (
+    uv pip install --system-certs --python "%BACKEND_DIR%\.venv\Scripts\python.exe" -r "%BACKEND_DIR%\requirements.lock"
+)
 if not exist "%VENV_UVICORN%" (
     echo.
     echo [Setup] FAILED: the environment did not build. Read the errors above.
