@@ -1,17 +1,21 @@
 # Runtime dependencies only. Anything needed solely to run the tests belongs in
 # requirements-dev.txt, so a production install does not ship a test runner.
 #
+# Versions moved up together for Python 3.14: pydantic-core 2.27.1 has no 3.14
+# wheel and falls back to a Rust source build, which is not a reasonable thing
+# to require of anyone installing this.
+#
 # httpx is deliberately here and not in the dev file: app/llm/transport.py is
 # the LLM layer's only network call and it is built on httpx. It happens to also
 # back FastAPI's TestClient, which is what made it look test-only.
 
-fastapi==0.115.5
-uvicorn[standard]==0.32.1
-sqlalchemy==2.0.36
-pydantic==2.10.3
-pydantic-settings==2.7.0
-pandas==2.2.3
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+sqlalchemy==2.0.52
+pydantic==2.13.4
+pydantic-settings==2.15.0
+pandas==3.0.5
 openpyxl==3.1.5
-reportlab==4.2.5
-python-multipart==0.0.18
-httpx==0.27.2
+reportlab==5.0.1
+python-multipart==0.0.32
+httpx==0.28.1
