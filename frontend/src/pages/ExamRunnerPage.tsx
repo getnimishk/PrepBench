@@ -259,7 +259,17 @@ export const ExamRunnerPage: React.FC = () => {
     } catch (err) {
       console.error(err);
       setSaveError('Failed to submit exam. Please try again.');
-    } finally {
+      // Re-arm only on failure. The user is still on the exam with unsaved
+      // work and has to be able to retry, which needs both the re-entrancy
+      // guard and `finishing` cleared.
+      //
+      // This used to sit in a `finally`, which also ran on success -- and on
+      // success we are navigating away. Clearing `finishing` there re-runs
+      // the unsaved-work effect, and if that state commit wins the race
+      // against the unmount it re-attaches the beforeunload guard for an exam
+      // that was just submitted, warning the user about work they already
+      // saved. It lost that race often enough to fail the suite once the
+      // machine was busy.
       finishingRef.current = false;
       setFinishing(false);
     }
@@ -279,7 +289,11 @@ export const ExamRunnerPage: React.FC = () => {
       setTimeUpDialog(true);
     } catch (err) {
       console.error('Failed to auto-finish exam on time up', err);
-    } finally {
+      // Same rule as handleFinish -- and here it was never a race. The
+      // time-up dialog keeps this component mounted, so clearing `finishing`
+      // on the success path re-attached the beforeunload guard every single
+      // time: the exam auto-submits when the clock runs out, and then closing
+      // the tab warned about losing work the app had already saved.
       finishingRef.current = false;
       setFinishing(false);
     }
