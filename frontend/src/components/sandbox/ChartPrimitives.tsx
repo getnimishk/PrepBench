@@ -76,6 +76,13 @@ function useBaseOptions(payload: ChartPayload, stacked = false) {
   return {
     responsive: true,
     maintainAspectRatio: false,
+    // Off, deliberately. A tween between two slider positions reads as MOTION
+    // when the whole point is to read it as DIFFERENCE -- the eye follows the
+    // travelling line instead of comparing where it started and where it
+    // stopped. Dragging a control is already continuous; animating on top of
+    // that adds lag between hand and chart, which is the one attachment this
+    // sandbox cannot afford to break.
+    animation: false as const,
     interaction: { mode: 'index' as const, intersect: false },
     scales: {
       x: {
@@ -267,6 +274,8 @@ export const ScatterChartView: React.FC<{ payload: ChartPayload }> = ({ payload 
   const options = {
     responsive: true,
     maintainAspectRatio: false,
+    // Same rule as the other three primitives -- see useBaseOptions.
+    animation: false as const,
     scales: {
       x: {
         type: 'linear' as const,

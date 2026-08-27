@@ -120,6 +120,29 @@ describe('ChartSandboxPage', () => {
     expect(within(velocity as HTMLElement).getByText(/Jira Velocity Chart/)).toBeInTheDocument();
   });
 
+  it('shows derived fields as locked readouts, not as controls', async () => {
+    // The design calls for these to be locked and focusable, announcing their
+    // formula. The placement is the lesson: cycle time sits among the sliders
+    // and refuses to be dragged, which teaches "output, not control" far
+    // better than a caption under a chart.
+    renderPage();
+
+    const cycleTime = screen.getByRole('group', { name: /^Cycle time:/ });
+    expect(cycleTime).toBeInTheDocument();
+    // Focusable, so a keyboard or screen-reader user reaches the lesson too.
+    expect(cycleTime).toHaveAttribute('tabindex', '0');
+    // ...and announces the formula rather than just a number.
+    expect(cycleTime).toHaveAccessibleName(/WIP ÷ realised throughput × sprint length/);
+    expect(cycleTime).toHaveAccessibleName(/never a control/i);
+
+    for (const label of ['Realised throughput', 'Flow efficiency', 'Unplanned work carried in']) {
+      expect(screen.getByRole('group', { name: new RegExp(`^${label}:`) })).toBeInTheDocument();
+    }
+
+    // None of them is an input -- there is no slider to reach for.
+    expect(screen.queryByLabelText('Cycle time')).not.toBeInTheDocument();
+  });
+
   it('exposes no calibration coefficient as a slider', async () => {
     // Surfacing them invites reading a teaching constant as a finding.
     renderPage();

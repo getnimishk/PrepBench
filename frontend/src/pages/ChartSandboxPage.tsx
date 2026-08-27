@@ -22,6 +22,7 @@ import { buildChartPayload } from '../services/metrics/chartData';
 import { ChartPrimitiveView } from '../components/sandbox/ChartPrimitives';
 import { AssumptionCallouts } from '../components/sandbox/AssumptionCallouts';
 import { ScenarioControls } from '../components/sandbox/ScenarioControls';
+import { DerivedFields } from '../components/sandbox/DerivedFields';
 
 // The Chart Sandbox.
 //
@@ -88,6 +89,11 @@ export const ChartSandboxPage: React.FC = () => {
         }}
       >
         <ScenarioControls params={params} onChange={setParams} />
+        {/* Below the sliders, not beside them: the reader works down through
+            what they can set and arrives at what that produced. */}
+        {sprints.length > 0 && (
+          <DerivedFields sprint={sprints[sprints.length - 1]} params={params} />
+        )}
       </Paper>
 
       <Box sx={{ flexGrow: 1, minWidth: 0 }}>
