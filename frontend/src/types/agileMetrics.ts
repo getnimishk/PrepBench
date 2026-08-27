@@ -18,6 +18,27 @@
 export type ModelId = 'flow' | 'quality' | 'deployment' | 'reliability' | 'team';
 
 /**
+ * One in-progress state work passes through, in flow order.
+ *
+ * ADDED AFTER REV 8, additively. The original model had no per-state
+ * occupancy: its cumulative-flow middle band was `min(committed, done + wip) -
+ * done`, which is exactly `wip` -- the control drawn as a shape. A band that
+ * cannot widen cannot show accumulation, so no honest bottleneck lesson could
+ * rest on it.
+ *
+ * Nothing may assume this list has three entries. The chart derives its band
+ * count and labels from the array, and the tests sweep other lengths.
+ */
+export interface WorkflowState {
+  id: string;
+  label: string;
+  /** Share of this state's occupancy that moves onward per day. */
+  baseServiceRate: number;
+  /** Whether a scenario may slow this state to create a queue. */
+  constrainable: boolean;
+}
+
+/**
  * How a coupling earns its formula.
  *
  *  - `arithmetic`  follows from definitions; cannot be wrong, only misapplied.
@@ -83,6 +104,17 @@ export interface ScenarioParams {
   avgPointsPerItem: number;
   /** k1 -- WIP pressure to defect injection. Calibration only. */
   wipDefectPressure: number;
+  /**
+   * k5 -- service-rate multiplier on the constrainable workflow state.
+   *
+   * 1 leaves the workflow balanced; lower values slow that one state so work
+   * accumulates in it. A PEDAGOGICAL CALIBRATION PARAMETER, not an empirical
+   * industry constant: it exists so a scenario can produce a legible queue,
+   * and it is kept off the slider panel for the same reason k1..k4 are.
+   *
+   * It moves only WHERE work in progress sits, never how much there is.
+   */
+  constrainedStateCapacity: number;
 
   // ---- Deployment -------------------------------------------------------
   baseChangeFailRate: number;
@@ -146,6 +178,16 @@ export interface FlowResult {
   burnup: number[];
   /** CFD started band. `started[d] - burnup[d]` is WIP while work remains. */
   started: number[];
+  /**
+   * Work in progress distributed across workflow states: day x state, in
+   * WORKFLOW order.
+   *
+   * Partitions the total the model already fixed. The invariant
+   * `sum(stateOccupancy[d]) === started[d] - burnup[d]` is asserted in
+   * invariants.test.ts, which is what keeps every Rev 8 output untouched --
+   * none of them reads this field.
+   */
+  stateOccupancy: number[][];
   committedItems: number;
 }
 
@@ -214,6 +256,9 @@ export type Phase = 'P0' | 'P1' | 'P2';
  * sandbox invented Unplanned Work and Flow Efficiency, which is exactly the
  * false-attribution the provenance table exists to prevent.
  */
+/** The reasoning arc within a family. Ordered: what, then why, then where. */
+export type Stage = 'what' | 'why' | 'where';
+
 export type Provenance =
   | 'jira'
   | 'jira-align'
@@ -248,6 +293,26 @@ export interface ChartViewMeta {
    * not exist as far as they are concerned.
    */
   consumes: string[];
+  /**
+   * Where this view sits in the reasoning arc a family walks the reader
+   * through: what is happening, why it is happening, where the problem is.
+   *
+   * Eight charts of equal visual weight is a list, not an argument -- the
+   * reader arrives and cannot tell which one to read first. Declared per view
+   * rather than by position so re-ordering the inventory cannot silently
+   * reshuffle the argument.
+   */
+  stage: Stage;
+  /**
+   * Asks for a full-width card. Declared here rather than special-cased in
+   * the page, so the layout decision is inventory data like everything else.
+   *
+   * Reserved for views whose lesson IS the picture's geometry -- the
+   * cumulative flow diagram teaches by the thickness of a band and the
+   * horizontal distance between two curves, and neither is legible in a
+   * third of a row.
+   */
+  emphasis?: 'wide';
 }
 
 export interface Coupling {
@@ -267,6 +332,20 @@ export interface Coupling {
   /** Shown on every chart the edge feeds. An assumption that never reaches a
    *  callout is an assumption the learner will read as a fact. */
   uiLabel: string;
+  /**
+   * What the edge DID, in the learner's terms, written as the chain it
+   * actually travels: "Incidents -> less capacity next sprint -> fewer items
+   * delivered".
+   *
+   * Separate from `uiLabel` because the two answer different questions, and
+   * usability testing found the page answering only the second. `uiLabel`
+   * states the modelling claim ("incidents cost capacity in the following
+   * sprint") -- honest, but it reads as timing mechanics. Without the chain,
+   * a reader seeing the same caveat under cycle time, throughput and flow
+   * efficiency concludes that incidents CAUSE cycle time directly, which is
+   * not what the model says. The arrows are the correction.
+   */
+  effect: string;
 }
 
 // The design sketched an `affectedCharts: ChartViewId[]` field here, mirroring

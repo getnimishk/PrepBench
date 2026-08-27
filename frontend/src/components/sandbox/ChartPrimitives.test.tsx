@@ -29,7 +29,10 @@ const payload = (over: Partial<ChartPayload> = {}): ChartPayload => ({
   unit: 'count',
   labels: ['S1', 'S2'],
   series: [{ label: 'Velocity', data: [10, 11] }],
+  lookFor: 'the bars',
   reading: 'x',
+  dependsOn: ['capacity'],
+  action: 'do a thing',
   ...over,
 });
 
@@ -58,5 +61,39 @@ describe('chart primitives', () => {
     for (const options of captured) {
       expect(options.animation, 'a primitive is animating between slider positions').toBe(false);
     }
+  });
+
+  it('stacks a stacked payload instead of painting the bands over each other', () => {
+    // `stacked` was hardcoded off in the renderer while the CFD payload asked
+    // for stacking. Every band then fills to the origin and the largest one
+    // paints over the rest -- so the card tells the reader to look at the
+    // thickness of a band that is not drawn. A CFD's entire meaning is band
+    // thickness, so that is the chart contradicting its own caption.
+    captured.length = 0;
+
+    render(
+      <StackedAreaChartView
+        payload={payload({
+          stacked: true,
+          series: [
+            { label: 'Done', data: [1, 2] },
+            { label: 'In progress', data: [3, 3] },
+            { label: 'To do', data: [5, 4] },
+          ],
+        })}
+      />,
+    );
+
+    const scales = captured[0].scales as { y: { stacked: boolean } };
+    expect(scales.y.stacked, 'the y-axis is not stacking').toBe(true);
+  });
+
+  it('leaves an unstacked payload filling to the origin', () => {
+    // The other conventional form: cumulative boundary curves, where the GAP
+    // between two curves is the band. Stacking those would double-count.
+    captured.length = 0;
+    render(<StackedAreaChartView payload={payload({ stacked: false })} />);
+    const scales = captured[0].scales as { y: { stacked: boolean } };
+    expect(scales.y.stacked).toBe(false);
   });
 });

@@ -15,7 +15,7 @@ import type { Coupling } from '../../types/agileMetrics';
 //   convention  a counting decision local to this sandbox. Not an industry
 //               definition.
 //
-// Frozen composition: 8 arithmetic, 10 assumptions, 1 convention. Four edges
+// Frozen composition: 9 arithmetic, 11 assumptions, 1 convention. Four edges
 // carry lagSprints: 1. Those counts are asserted, so adding an edge without
 // deciding which kind it is fails the suite rather than sliding in as
 // arithmetic by default.
@@ -26,6 +26,50 @@ import type { Coupling } from '../../types/agileMetrics';
 // note on the `Coupling` interface for why the mirrored field was dropped.
 
 export const COUPLINGS: Coupling[] = [
+  // ---- Flow internal ------------------------------------------------------
+  {
+    id: 'littles-law',
+    source: 'flow',
+    target: 'flow',
+    type: 'arithmetic',
+    calibrationParameter: null,
+    lagSprints: 0,
+    formula: 'cycleTime = wip / deliveredItems * sprintLengthDays',
+    description:
+      "Little's Law. Cycle time is WIP over throughput -- an identity, not a " +
+      'behavioural claim, which is why raising the WIP limit raises cycle time in ' +
+      'exact proportion while delivery does not move. It is the single most ' +
+      'misread relationship in this model, and it was absent from this ledger ' +
+      'entirely until the cycle time card was caught explaining a WIP experiment ' +
+      'with an incident assumption -- the only edge it declared.',
+    uiLabel: "Little's Law: cycle time is WIP over throughput.",
+    effect:
+      'More WIP -> the same throughput -> each item waits longer -> a longer cycle time.',
+  },
+
+  {
+    id: 'wip-across-states',
+    source: 'flow',
+    target: 'flow',
+    type: 'assumption',
+    calibrationParameter: 'constrainedStateCapacity',
+    lagSprints: 0,
+    formula:
+      'stateOccupancy[d][s] = wip[d] * share(s), share from service rates and ' +
+      'constrainedStateCapacity',
+    description:
+      'How work in progress DISTRIBUTES across workflow states. A behavioural ' +
+      'claim, not an identity: the total is fixed by the flow model and this ' +
+      'decides only where it sits. Slowing one state makes work pile up in it ' +
+      'day by day, which is what a widening band on a cumulative flow diagram ' +
+      'means. The states themselves are a sandbox convention -- Analysis, ' +
+      'Build, Review is a conventional pipeline, not a claim about any team.',
+    uiLabel: 'Model assumption: work distributes across states by their service rates.',
+    effect:
+      'A slower state -> work arrives faster than it leaves -> that band widens day by ' +
+      'day while the others narrow.',
+  },
+
   // ---- Flow -> Deployment -------------------------------------------------
   {
     id: 'items-to-changes',
@@ -39,6 +83,7 @@ export const COUPLINGS: Coupling[] = [
       'Sandbox counting convention: each delivered item and each corrective ' +
       'rework item is represented as one planned deployment or change event. ' +
       'Not an industry definition.',
+    effect: "Items delivered or reworked -> one change event each -> the deployment count.",
     uiLabel: 'Sandbox counting convention: one item maps to one change event.',
   },
 
@@ -57,6 +102,7 @@ export const COUPLINGS: Coupling[] = [
       'measured against. This is what bounds deploymentReworkRate to 0..1 by ' +
       'construction -- the numerator is a term of its own denominator. No ' +
       'clamp is involved.',
+    effect: "Last sprint's corrective deploys -> counted in this sprint's deployment total.",
     uiLabel: "Deployment rework is a subset of this sprint's deployments.",
   },
   {
@@ -71,6 +117,7 @@ export const COUPLINGS: Coupling[] = [
       "DORA's Deployment Rework Rate. Computed in the consume half of the " +
       'sprint, so its numerator is state produced by n-1 and never this ' +
       "sprint's own output.",
+    effect: "Corrective deploys carried in from last sprint -> divided by this sprint's deploys.",
     uiLabel: 'Share of this sprint’s deployments that were corrective.',
   },
   {
@@ -84,6 +131,7 @@ export const COUPLINGS: Coupling[] = [
     description:
       'A failed change deployment required immediate intervention. It is not ' +
       'yet a production incident -- that crossing is a separate, assumed edge.',
+    effect: "More deployments at the same fail rate -> more failed deployments.",
     uiLabel: 'A failed change deployment is not the same thing as an incident.',
   },
   {
@@ -98,6 +146,7 @@ export const COUPLINGS: Coupling[] = [
       'Larger batches are assumed to fail more often: more change per ' +
       'release, less isolation of the cause. A teaching claim, not a measured ' +
       'relationship.',
+    effect: "Higher WIP -> larger release batches -> a higher share of changes fail.",
     uiLabel: 'Model assumption: larger batches raise the change fail rate.',
   },
   {
@@ -112,6 +161,7 @@ export const COUPLINGS: Coupling[] = [
       'Automation is assumed to shorten recovery from a failed deployment. ' +
       "This is DORA's Failed Deployment Recovery Time, renamed from MTTR in " +
       '2024, and it is a different clock from incident duration.',
+    effect: "More automation -> less manual work to restore -> a shorter recovery clock.",
     uiLabel: 'Model assumption: automation shortens failed deployment recovery.',
   },
 
@@ -128,6 +178,7 @@ export const COUPLINGS: Coupling[] = [
       'Only a proportion of failed change deployments become production ' +
       'incidents in this sandbox. Many are caught by a canary, a health check ' +
       'or a rollback and never impair service.',
+    effect: "Failed deployments -> a proportion of them -> production incidents.",
     uiLabel:
       'Model assumption: only a proportion of failed change deployments become ' +
       'production incidents.',
@@ -146,6 +197,7 @@ export const COUPLINGS: Coupling[] = [
       'Incidents have two sources and only one of them is this team’s ' +
       'deployments. With changeFailRate at zero and external incidents above ' +
       'zero, availability is still below 100%.',
+    effect: "Incidents caused by our deployments -> plus incidents from everywhere else.",
     uiLabel: 'Not every incident comes from a deployment.',
   },
   {
@@ -161,6 +213,7 @@ export const COUPLINGS: Coupling[] = [
       'downtime is the plain sum of incident durations. Real incidents overlap ' +
       'and real downtime is therefore lower than this sum. Sandbox ' +
       'simplification, not a production reliability identity.',
+    effect: "More incidents, or longer ones -> more downtime in the sprint.",
     uiLabel: 'Model assumption: incidents are treated as non-overlapping.',
   },
   {
@@ -172,6 +225,7 @@ export const COUPLINGS: Coupling[] = [
     lagSprints: 0,
     formula: 'availability = 1 - downtime / period',
     description: 'Availability over the sprint, computed in hours throughout.',
+    effect: "Downtime -> measured against the length of the sprint.",
     uiLabel: 'Availability is downtime against the measurement period.',
   },
   {
@@ -185,6 +239,7 @@ export const COUPLINGS: Coupling[] = [
     description:
       'Share of the error budget consumed. Above 1 means the budget is blown, ' +
       'which is meaningful and deliberately not capped.',
+    effect: "Availability below the SLO -> as a share of what the SLO allows you to spend.",
     uiLabel: 'Burn above 1 means the error budget is spent.',
   },
 
@@ -204,6 +259,7 @@ export const COUPLINGS: Coupling[] = [
       'operational work and no deployment at all. reworkPerIncident is the ' +
       'calibrated average across incidents, not a claim that every incident ' +
       'yields a deployment.',
+    effect: "Incidents -> unplanned corrective deploys -> landing in the next sprint.",
     uiLabel:
       'Model assumption: a proportion of production incidents generate unplanned ' +
       'deployments to address user-facing defects.',
@@ -222,6 +278,7 @@ export const COUPLINGS: Coupling[] = [
       'Handling an incident costs capacity, and that cost lands in the next ' +
       "sprint's unplanned work rather than the sprint that was already in " +
       'flight when the incident happened.',
+    effect: "Incidents -> less capacity next sprint -> fewer items delivered -> this chart. The effect is indirect: nothing here is caused by an incident directly.",
     uiLabel: 'Model assumption: incidents cost capacity in the following sprint.',
   },
 
@@ -235,6 +292,7 @@ export const COUPLINGS: Coupling[] = [
     lagSprints: 0,
     formula: 'defectRate = defectsInjected / deliveredItems',
     description: 'Defects per delivered item.',
+    effect: "Defects injected -> divided by items delivered.",
     uiLabel: 'Defects per item delivered.',
   },
   {
@@ -250,6 +308,7 @@ export const COUPLINGS: Coupling[] = [
       'separately from the rate precisely because the denominator is points ' +
       'and not items -- measure both against items and they are the same ' +
       'number twice.',
+    effect: "Defects injected -> divided by POINTS delivered, not items.",
     uiLabel: 'Density is per point of work shipped, not per item.',
   },
 
@@ -265,6 +324,7 @@ export const COUPLINGS: Coupling[] = [
     description:
       'High WIP is assumed to raise defect injection: more context switching, ' +
       'longer feedback delay. A teaching claim, not a measured relationship.',
+    effect: "Higher WIP -> more context switching and slower feedback -> more defects injected.",
     uiLabel: 'Model assumption: high WIP raises defect injection.',
   },
 
@@ -282,6 +342,7 @@ export const COUPLINGS: Coupling[] = [
       'from delivery to give net new items. Computed as a quality output ' +
       'rather than fed back into flow, which would make the two mutually ' +
       'dependent inside a single sprint with no well-founded evaluation order.',
+    effect: "Defects caught inside the sprint -> rework -> delivery that produced nothing new.",
     uiLabel: 'Model assumption: rework occupies capacity that produced no new value.',
   },
 
@@ -297,6 +358,7 @@ export const COUPLINGS: Coupling[] = [
     description:
       'Sustained load is assumed to come from two places: capacity eaten by ' +
       'unplanned work, and WIP held above what the team can flow.',
+    effect: "Unplanned work and WIP above what the team can flow -> sustained load.",
     uiLabel: 'Model assumption: unplanned work and excess WIP both read as overload.',
   },
   {
@@ -311,6 +373,7 @@ export const COUPLINGS: Coupling[] = [
       'Happiness is a survey reading, not a derived work-item metric. ' +
       'Modelling it as a deterministic function of load is a teaching ' +
       'simplification and nothing more.',
+    effect: "More sustained load -> lower modelled happiness.",
     uiLabel: 'Model assumption: happiness is modelled, not surveyed.',
   },
 ];

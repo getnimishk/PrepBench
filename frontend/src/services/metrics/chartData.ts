@@ -4,6 +4,8 @@ import type {
   SprintResult,
 } from '../../types/agileMetrics';
 import { CHART_BY_ID } from './charts';
+import { guidanceFor } from './guidance';
+import { WORKFLOW } from './workflow';
 
 // Model output -> chart-ready data.
 //
@@ -51,10 +53,36 @@ export interface ChartPayload {
   /** Stacked-area bands, listed bottom to top. */
   stacked?: boolean;
   /**
-   * Shown under the chart. Says what to look at -- the sandbox exists to make
-   * a shape mean something, and a shape with no reading is decoration.
+   * One short instruction for the eye: which feature of the picture carries
+   * the lesson. A gap, a thickness, a level, a tail.
+   *
+   * Deliberately separate from `reading`, and deliberately short. Usability
+   * testing found the card asking the learner to process a title, a lineage,
+   * a chart, a legend and three paragraphs at once -- at which point the
+   * chart itself reads as the illustration and the prose reads as the
+   * content, which is backwards for a page about chart literacy.
+   */
+  lookFor: string;
+  /**
+   * What the shape MEANS once it has been seen. Longer, and folded away by
+   * default so it cannot crowd out the picture.
    */
   reading: string;
+  /**
+   * The real-world factors that move this number, and the conditional to act
+   * on. Both come from `guidance.ts`, one entry per view -- because the
+   * ledger-driven callouts answer how the MODEL is wired, and most of the flow
+   * family is wired the same way, so six cards in a row explained themselves
+   * identically.
+   */
+  dependsOn: string[];
+  action: string;
+  /**
+   * A derived status line, shown beside the title when the data warrants one.
+   * Turns a chart from analysis into an errand: "2 items past the 85th
+   * percentile" is a thing to go and do something about.
+   */
+  headline?: string;
 }
 
 const sprintLabels = (sprints: SprintResult[]): string[] =>
@@ -77,7 +105,15 @@ export function buildChartPayload(
   if (!meta) throw new Error(`Unknown chart view "${viewId}"`);
 
   const labels = sprintLabels(sprints);
-  const base = { viewId, title: meta.canonicalName, labels, series: [] as ChartSeries[] };
+  const base = {
+    viewId,
+    title: meta.canonicalName,
+    labels,
+    series: [] as ChartSeries[],
+    // Spread rather than repeated in all 27 cases: it is static per view,
+    // and an exhaustive Record already forces a new view to declare it.
+    ...guidanceFor(viewId),
+  };
   const last = sprints[sprints.length - 1];
 
   switch (viewId) {
@@ -92,6 +128,7 @@ export function buildChartPayload(
           { label: 'Delivered', data: sprints.map((s) => s.flow.deliveredItems) },
           { label: 'Net new (after rework)', data: sprints.map((s) => s.quality.netNewItems) },
         ],
+        lookFor: 'Two lines. Watch the gap between them, not their height.',
         reading:
           'The gap between the two lines is the rework tax -- work the team did that ' +
           'produced nothing new. A velocity chart shows only the upper line.',
@@ -104,6 +141,7 @@ export function buildChartPayload(
         yLabel: 'Days',
         unit: 'days',
         series: [{ label: 'Cycle time', data: sprints.map((s) => s.flow.cycleTimeDays) }],
+        lookFor: 'Cycle time climbing while throughput stays roughly flat.',
         reading:
           'Cycle time is an output, never a control. It is WIP divided by throughput -- ' +
           'raise WIP and this rises in exact proportion while delivery does not move.',
@@ -137,6 +175,7 @@ export function buildChartPayload(
           { label: '50th', value: percentile(ys, 50) },
           { label: '85th', value: percentile(ys, 85) },
         ],
+        lookFor: 'The spread of the dots, not their average. Watch the tail stretch.',
         reading:
           'The 85th percentile is what you can actually promise. Quoting the average ' +
           'instead is how teams end up missing half their commitments.',
@@ -153,6 +192,7 @@ export function buildChartPayload(
           { label: 'Delivery lead time', data: sprints.map((s) => s.flow.deliveryLeadTimeDays) },
           { label: 'Cycle time', data: sprints.map((s) => s.flow.cycleTimeDays) },
         ],
+        lookFor: 'The gap between the two lines. That gap is queue.',
         reading:
           'Lead time starts when the customer asks; cycle time starts when the team ' +
           'begins. The gap is queue -- invisible to the team, and all the customer feels.',
@@ -166,6 +206,7 @@ export function buildChartPayload(
         unit: 'percent',
         yMax: 1,
         series: [{ label: 'Flow efficiency', data: sprints.map((s) => s.flow.flowEfficiency) }],
+        lookFor: 'Where the line sits. Higher WIP pushes it down.',
         reading:
           'At WIP 1 an item is worked on the whole time it is open. Raise WIP and this ' +
           'collapses -- the work is not slower, it is just waiting more.',
@@ -191,21 +232,50 @@ export function buildChartPayload(
         carriedDone += s.flow.deliveredItems;
         carriedCommitted += s.flow.committedItems;
       });
+      // Stacked WORKFLOW STATES, derived from the workflow -- never
+      // hard-coded, and never assumed to be three.
+      //
+      // Rev 8 drew this from three aggregates, and its middle band was
+      // `min(committed, done + wip) - done`, which is exactly `wip`: the
+      // control drawn as a shape, constant for the whole sprint. A band that
+      // cannot widen cannot show accumulation, which is the entire lesson of
+      // a CFD. The model now partitions work in progress across named states,
+      // and this reads that partition.
+      //
+      // Band count and labels both come from WORKFLOW. Add a fourth state and
+      // the chart grows a fourth band with no change here.
+      const perState: number[][] = WORKFLOW.map(() => []);
+      sprints.forEach((s) => {
+        s.flow.burnup.forEach((_, day) => {
+          if (day === 0 && s.sprint > 1) return;
+          WORKFLOW.forEach((_state, i) => {
+            perState[i].push(s.flow.stateOccupancy[day]?.[i] ?? 0);
+          });
+        });
+      });
+
+      const toDo = committed.map((c, i) => Math.max(0, c - started[i]));
+
       return {
         ...base,
         labels: dayLabels,
         xLabel: 'Day',
         yLabel: 'Items (cumulative)',
         unit: 'count',
-        stacked: false,
+        stacked: true,
         series: [
-          { label: 'Committed', data: committed },
-          { label: 'Started', data: started },
           { label: 'Done', data: done },
+          // In flow order, so the band nearest Done is the last state before it.
+          ...WORKFLOW.map((state, i) => ({ label: state.label, data: perState[i] })),
+          { label: 'To do', data: toDo },
         ],
+        lookFor: 'Which band is thickening. That state is where work is piling up.',
         reading:
-          'The vertical gap between Started and Done is WIP; the horizontal gap is ' +
-          'cycle time. Widening bands mean work is entering faster than it leaves.',
+          'Every band between To do and Done is a workflow state, and its thickness is ' +
+          'the work sitting in that state. All of them together are your work in ' +
+          'progress. A band that widens over time is accumulating: work is arriving ' +
+          'there faster than it leaves, which is what a bottleneck looks like from the ' +
+          'outside. Adding effort anywhere else changes nothing.',
       };
     }
 
@@ -219,14 +289,30 @@ export function buildChartPayload(
           points.push({ x: s.sprint, y: age });
         }
       });
+      // Three percentiles, not one. The 85th on its own says where the line
+      // is; the spread between 50th and 95th says whether the system is
+      // predictable at all, which is the operational question.
       const ys = points.map((pt) => pt.y);
+      const p85 = percentile(ys, 85);
+      const atRisk = ys.filter((y) => y > p85).length;
+
       return {
         ...base,
         xLabel: 'Sprint',
         yLabel: 'Age of open items (days)',
         unit: 'days',
         points,
-        percentiles: [{ label: '85th', value: percentile(ys, 85) }],
+        percentiles: [
+          { label: '50th', value: percentile(ys, 50) },
+          { label: '85th', value: p85 },
+          { label: '95th', value: percentile(ys, 95) },
+        ],
+        // The line that turns this from analysis into an errand.
+        headline:
+          atRisk > 0
+            ? `${atRisk} item${atRisk === 1 ? '' : 's'} past the 85th percentile`
+            : undefined,
+        lookFor: 'How high the dots sit against the 85th percentile line.',
         reading:
           'Aging WIP is the only flow chart that tells you about work still in flight. ' +
           'Everything else here is a post-mortem on work already finished.',
@@ -240,6 +326,7 @@ export function buildChartPayload(
         yLabel: 'Items in flight',
         unit: 'count',
         series: [{ label: 'WIP limit', data: sprints.map(() => p.wip), reference: true }],
+        lookFor: 'A flat line. Nothing here moves it except you.',
         reading:
           'A flat line, because WIP is a control here, not an outcome. Every other ' +
           'chart in this family is downstream of where you set it.',
@@ -260,6 +347,7 @@ export function buildChartPayload(
           { label: 'Remaining', data: last.flow.burndown },
           { label: 'Ideal', data: ideal, reference: true },
         ],
+        lookFor: 'The shape of the descent, not where it ends.',
         reading:
           'The shape is set by batch size, not by effort. At WIP 1 this tracks the ideal; ' +
           'at high WIP it stays flat and then falls off a cliff on the last day.',
@@ -281,6 +369,7 @@ export function buildChartPayload(
             reference: true,
           },
         ],
+        lookFor: 'The scope line. Watch whether it moves.',
         reading:
           'Same data as the burndown, but scope is its own line. When a burndown flattens ' +
           'you cannot tell whether work stopped or scope grew; here you can.',
@@ -296,6 +385,7 @@ export function buildChartPayload(
           { label: 'Velocity', data: sprints.map((s) => s.flow.deliveredItems) },
           { label: 'Committed', data: sprints.map((s) => s.flow.committedItems), reference: true },
         ],
+        lookFor: 'Sprint-to-sprint variation, not the average bar height.',
         reading:
           'Velocity is a capacity forecast, not a productivity score. It cannot be ' +
           'compared between teams, and pushing on it directly just changes how items ' +
@@ -316,6 +406,7 @@ export function buildChartPayload(
           },
           { label: '100%', data: sprints.map(() => 1), reference: true },
         ],
+        lookFor: 'How steady the line is. Steadiness beats a high level.',
         reading:
           'A sustained 100% is not a good sign -- it usually means the team is ' +
           'under-committing. Consistency matters more than the level.',
@@ -349,6 +440,7 @@ export function buildChartPayload(
             ),
           },
         ],
+        lookFor: 'How many sprints met the goal, not by how much.',
         reading:
           'Met or not met — never "87% of a goal". Read it against the say/do ratio ' +
           'above: that one tells you by how much, this one tells you whether it ' +
@@ -366,6 +458,7 @@ export function buildChartPayload(
         yLabel: 'Defects per item',
         unit: 'count',
         series: [{ label: 'Defect rate', data: sprints.map((s) => s.quality.defectRate) }],
+        lookFor: 'Where the line sits as WIP changes.',
         reading:
           'Rises with WIP in this model. That coupling is a teaching assumption, not a ' +
           'measured law -- the callout below says so, and it should stay said.',
@@ -381,6 +474,7 @@ export function buildChartPayload(
           { label: 'Escaped', data: sprints.map((s) => s.quality.escapedDefects) },
           { label: 'Caught in sprint', data: sprints.map((s) => s.quality.reworkItems) },
         ],
+        lookFor: 'The height of the bars. These are the ones users felt.',
         reading:
           'The only quality metric your users actually experience. Everything caught ' +
           'inside the sprint cost time; this cost trust.',
@@ -393,6 +487,7 @@ export function buildChartPayload(
         yLabel: 'Defects per story point',
         unit: 'count',
         series: [{ label: 'Defect density', data: sprints.map((s) => s.quality.defectDensity) }],
+        lookFor: 'Whether this tracks the defect rate or pulls away from it.',
         reading:
           'Per POINT, where the rate above is per item — the difference is the whole ' +
           'reason to keep both. At a fixed average item size they move together. ' +
@@ -409,6 +504,7 @@ export function buildChartPayload(
         unit: 'rating',
         yMax: 5,
         series: [{ label: 'Team happiness', data: sprints.map((s) => s.team.happiness) }],
+        lookFor: 'When the line turns, relative to the delivery charts.',
         reading:
           'Modelled here, surveyed in real life. It is the only one of these that ' +
           'moves before the delivery charts do, which is why it is worth asking about.',
@@ -427,6 +523,7 @@ export function buildChartPayload(
             data: sprints.map((s) => s.flow.unplannedWorkDays / p.sprintLengthDays),
           },
         ],
+        lookFor: 'Which sprint the rise lands in -- one after the incidents.',
         reading:
           'Rises a sprint AFTER the incidents that caused it. That lag is why teams ' +
           'blame the wrong sprint for a bad one.',
@@ -445,6 +542,7 @@ export function buildChartPayload(
             data: sprints.map((s) => s.deployment.deploymentFrequencyPerDay),
           },
         ],
+        lookFor: 'Whether a rise here comes with a rise in corrective work.',
         reading:
           'Counts every change event, corrective ones included. A frequency that rises ' +
           'because things keep breaking is not the improvement it looks like.',
@@ -460,6 +558,7 @@ export function buildChartPayload(
           { label: 'Change lead time', data: sprints.map((s) => s.deployment.changeLeadTimeDays) },
           { label: 'Cycle time', data: sprints.map((s) => s.flow.cycleTimeDays), reference: true },
         ],
+        lookFor: 'The gap above the cycle time line. That gap is batch wait.',
         reading:
           'The gap above cycle time is batch wait -- how long a finished change sits ' +
           'before it ships. Larger batches widen it without anyone working slower.',
@@ -475,6 +574,7 @@ export function buildChartPayload(
         series: [
           { label: 'Change fail rate', data: sprints.map((s) => s.deployment.changeFailRate) },
         ],
+        lookFor: 'Where the line sits, not its shape.',
         reading:
           'A failed change deployment is NOT a production incident. Most are caught by a ' +
           'canary or rolled back before anyone notices -- the reliability family picks up ' +
@@ -493,6 +593,7 @@ export function buildChartPayload(
             data: sprints.map((s) => s.deployment.failedDeploymentRecoveryHours),
           },
         ],
+        lookFor: 'How far the automation slider moves the line.',
         reading:
           'DORA renamed this from MTTR in 2024, and the rename matters: it is scoped to ' +
           'recovery from a DEPLOYMENT, not from any production incident. The reliability ' +
@@ -512,6 +613,7 @@ export function buildChartPayload(
             data: sprints.map((s) => s.deployment.deploymentReworkRate),
           },
         ],
+        lookFor: 'Sprint 1 is zero. Watch where it settles after that.',
         reading:
           "DORA's fifth metric, and the one most people cannot name. It is zero in " +
           'sprint 1 because corrective work always arrives from the sprint before.',
@@ -531,6 +633,7 @@ export function buildChartPayload(
           },
           { label: 'External', data: sprints.map((s) => s.reliability.externalIncidents) },
         ],
+        lookFor: 'The split between the two bands, not the total.',
         reading:
           'Two sources, and only one of them is yours. Set change fail rate to zero and ' +
           'availability still falls -- reliability is not purely a function of how you deploy.',
@@ -550,6 +653,7 @@ export function buildChartPayload(
             reference: true,
           },
         ],
+        lookFor: 'Total downtime against the per-incident line.',
         reading:
           'Total downtime assumes incidents do not overlap, so it is an upper bound. ' +
           'Real incidents overlap and real downtime is lower.',
@@ -566,6 +670,7 @@ export function buildChartPayload(
           { label: 'Availability', data: sprints.map((s) => s.reliability.availability) },
           { label: 'SLO', data: sprints.map(() => p.slo), reference: true },
         ],
+        lookFor: 'The distance between the line and the SLO. That distance is the budget.',
         reading:
           'The distance above the SLO line is the error budget. Being far above it is not ' +
           'free -- it usually means you are shipping too slowly.',
@@ -581,6 +686,7 @@ export function buildChartPayload(
           { label: 'Budget burn', data: sprints.map((s) => s.reliability.errorBudgetBurn) },
           { label: 'Budget exhausted', data: sprints.map(() => 1), reference: true },
         ],
+        lookFor: 'Whether the line crosses 1.',
         reading:
           'Above the line means the budget is spent and the next conversation is about ' +
           'slowing down, not shipping harder. Deliberately not capped.',

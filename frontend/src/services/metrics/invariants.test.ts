@@ -306,14 +306,24 @@ describe('the counting convention', () => {
 });
 
 describe('the coupling ledger', () => {
-  it('holds the frozen composition of 8 arithmetic, 10 assumptions, 1 convention', () => {
+  it('holds the frozen composition of 9 arithmetic, 11 assumptions, 1 convention', () => {
     // Pinned so a new edge has to declare which kind it is, instead of
     // sliding in as arithmetic by default -- which is exactly how an
     // assumption gets read as a fact.
+    //
+    // Moved from 8 arithmetic to 9 on purpose: Little's Law was computed in
+    // flowModel and declared nowhere, so the cycle time card explained a WIP
+    // experiment with an incident assumption -- the only edge it had. This
+    // guard is what made that a decision rather than a silent addition.
     const byType = (t: Coupling['type']) => COUPLINGS.filter((c) => c.type === t).length;
-    expect(COUPLINGS).toHaveLength(19);
-    expect(byType('arithmetic')).toBe(8);
-    expect(byType('assumption')).toBe(10);
+    // 20 -> 21 on purpose: the workflow-state partition. The Rev 8 model had
+    // no per-state occupancy, so its cumulative-flow middle band was the WIP
+    // control drawn as a shape -- a band that cannot widen, and therefore no
+    // honest bottleneck lesson. This guard is what made that an explicit
+    // decision rather than a silent addition.
+    expect(COUPLINGS).toHaveLength(21);
+    expect(byType('arithmetic')).toBe(9);
+    expect(byType('assumption')).toBe(11);
     expect(byType('convention')).toBe(1);
   });
 

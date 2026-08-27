@@ -64,6 +64,7 @@ export const PARAM_SPECS: ParamSpec[] = [
   // sizes its work. Density needs it as a denominator distinct from items.
   { key: 'avgPointsPerItem', label: 'Average item size', min: 1, max: 13, step: 1, unit: 'points/item', model: 'quality', calibration: false, exposed: true },
   { key: 'wipDefectPressure', label: 'k1 - WIP pressure to defect injection', min: 0, max: 1, step: 0.05, unit: '', model: 'quality', calibration: true, exposed: false },
+  { key: 'constrainedStateCapacity', label: 'k5 - service rate of the constrained workflow state', min: 0.05, max: 1, step: 0.05, unit: '', model: 'flow', calibration: true, exposed: false },
 
   // ---- Deployment ---------------------------------------------------------
   // baseChangeFailRate max 0.25 and k2 max 0.15 are not independent choices.
@@ -213,6 +214,8 @@ export const DEFAULT_PARAMS: ScenarioParams = {
   escapeRate: 0.25,
   avgPointsPerItem: 3,
   wipDefectPressure: 0.6,
+  // 1 = a balanced workflow. Scenarios lower it to create a genuine queue.
+  constrainedStateCapacity: 1,
 
   baseChangeFailRate: 0.1,
   batchFailPressure: 0.05,
@@ -232,3 +235,16 @@ export const DEFAULT_PARAMS: ScenarioParams = {
 
   sprints: 12,
 };
+
+/**
+ * A parameter value as the UI shows it, without its unit.
+ *
+ * Lives here rather than in a component because four surfaces quote these
+ * numbers -- the sliders, the baseline/current bar, the experiment cards and
+ * the summary -- and a share rendered as "0.5" in one of them and "50%" in
+ * another reads as two different settings.
+ */
+export function formatParamValue(spec: ParamSpec, value: number): string {
+  if (spec.unit === 'share') return `${(value * 100).toFixed(spec.step < 0.01 ? 2 : 0)}%`;
+  return String(value);
+}

@@ -202,23 +202,30 @@ export const BarChartView: React.FC<{ payload: ChartPayload }> = ({ payload }) =
 };
 
 export const StackedAreaChartView: React.FC<{ payload: ChartPayload }> = ({ payload }) => {
-  const options = useBaseOptions(payload, false);
+  // `stacked` is load-bearing, not cosmetic, and it used to be hardcoded off.
+  //
+  // With it off, every band fills to the origin and the largest one paints
+  // over the others -- so a genuinely stacked payload renders as overlapping
+  // silhouettes, and the reader is told to look at the thickness of a band
+  // that is not drawn. A CFD's entire meaning is band thickness, so this is
+  // the difference between the chart teaching the lesson and contradicting it.
+  const stacked = payload.stacked === true;
+  const options = useBaseOptions(payload, stacked);
 
   if (payload.series.length === 0) {
     return <EmptyState message="No bands to plot for this view." />;
   }
 
-  // Bands are drawn largest-first so the smaller ones sit visibly on top.
-  // A CFD's meaning lives entirely in the gaps between bands, so they must
-  // not occlude one another.
   const data = {
     labels: payload.labels,
     datasets: payload.series.map((s, i) => ({
       label: s.label,
       data: s.data,
       borderColor: SERIES_COLORS[i % SERIES_COLORS.length],
-      backgroundColor: `${SERIES_COLORS[i % SERIES_COLORS.length]}55`,
-      fill: 'origin' as const,
+      backgroundColor: `${SERIES_COLORS[i % SERIES_COLORS.length]}${stacked ? 'AA' : '55'}`,
+      // Stacked bands fill to the dataset below them; unstacked cumulative
+      // curves fill to the origin, where the GAP between curves is the band.
+      fill: stacked && i > 0 ? ('-1' as const) : ('origin' as const),
       pointRadius: 0,
       borderWidth: 1.5,
       tension: 0,

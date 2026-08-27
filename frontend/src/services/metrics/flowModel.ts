@@ -1,4 +1,5 @@
-import type { FlowResult, ScenarioParams } from '../../types/agileMetrics';
+import type { FlowResult, ScenarioParams, WorkflowState } from '../../types/agileMetrics';
+import { WORKFLOW, partitionAcrossStates } from './workflow';
 
 // The flow model. Everything else in the sandbox hangs off this one.
 //
@@ -40,6 +41,9 @@ export function flowModel(
   p: ScenarioParams,
   unplannedWorkDays: number,
   capacityFactor = 1,
+  // Injectable so the tests can sweep workflows of other lengths. Nothing in
+  // this model, the chart, or the learning layer may assume three states.
+  workflow: WorkflowState[] = WORKFLOW,
 ): FlowResult {
   const availableCapacityFraction =
     p.sprintLengthDays > 0
@@ -98,6 +102,13 @@ export function flowModel(
     p.wip,
   );
 
+  // Where work in progress SITS. Not how much there is -- that total is
+  // already fixed above, and this partitions it. The invariant
+  // `sum(stateOccupancy[d]) === started[d] - burnup[d]` is what keeps every
+  // other Rev 8 output untouched: none of them reads this.
+  const wipByDay = started.map((s, i) => Math.max(0, s - burnup[i]));
+  const stateOccupancy = partitionAcrossStates(wipByDay, p.constrainedStateCapacity, workflow);
+
   return {
     deliveredItems,
     batchSize,
@@ -112,6 +123,7 @@ export function flowModel(
     burndown,
     burnup,
     started,
+    stateOccupancy,
     committedItems,
   };
 }

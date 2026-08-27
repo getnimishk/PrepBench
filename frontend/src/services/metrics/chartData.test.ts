@@ -29,6 +29,25 @@ describe('chart payloads', () => {
     }
   });
 
+  it('leads with a short instruction for the eye, separate from the meaning', () => {
+    // Two different jobs, and the card used to run them together in one
+    // paragraph under a small chart -- which reads the chart as an
+    // illustration of the prose rather than the other way round.
+    //
+    // `lookFor` points at a feature of the PICTURE: a gap, a thickness, a
+    // level, a tail. `reading` says what that feature means. The length cap
+    // is the load-bearing part: a "look for" that grows into a paragraph has
+    // silently become a second reading.
+    for (const view of CHART_VIEWS) {
+      const p = buildChartPayload(view.id, sprints, scenario());
+      expect(p.lookFor.length, `${view.id} has no lookFor`).toBeGreaterThan(15);
+      expect(p.lookFor.length, `${view.id} lookFor is too long to scan`).toBeLessThanOrEqual(80);
+      expect(p.lookFor, view.id).not.toBe(p.reading);
+      expect(p.reading.length, `${view.id} reading is shorter than its lookFor`)
+        .toBeGreaterThan(p.lookFor.length);
+    }
+  });
+
   it('gives each renderer the shape it needs', () => {
     for (const view of CHART_VIEWS) {
       const p = buildChartPayload(view.id, sprints, scenario());

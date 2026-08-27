@@ -34,6 +34,7 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     phase: 'P0',
     provenance: 'kanban-flow',
     consumes: ['incident-to-capacity', 'rework-consumes-capacity'],
+    stage: 'what',
   },
   {
     id: 'cycleTime',
@@ -44,7 +45,8 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     tier: 'core',
     phase: 'P0',
     provenance: 'kanban-flow',
-    consumes: ['incident-to-capacity'],
+    consumes: ['littles-law', 'incident-to-capacity'],
+    stage: 'what',
   },
   {
     id: 'cycleTimeDistribution',
@@ -55,7 +57,8 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     tier: 'core',
     phase: 'P0',
     provenance: 'jira',
-    consumes: ['incident-to-capacity'],
+    consumes: ['littles-law', 'incident-to-capacity'],
+    stage: 'where',
   },
   {
     id: 'deliveryLeadTime',
@@ -66,7 +69,8 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     tier: 'core',
     phase: 'P0',
     provenance: 'lean-flow',
-    consumes: ['incident-to-capacity'],
+    consumes: ['littles-law', 'incident-to-capacity'],
+    stage: 'why',
   },
   {
     id: 'flowEfficiency',
@@ -77,7 +81,8 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     tier: 'core',
     phase: 'P0',
     provenance: 'lean-flow',
-    consumes: ['incident-to-capacity'],
+    consumes: ['littles-law', 'incident-to-capacity'],
+    stage: 'why',
   },
   {
     id: 'cumulativeFlow',
@@ -88,7 +93,12 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     tier: 'core',
     phase: 'P0',
     provenance: 'jira',
-    consumes: ['incident-to-capacity'],
+    consumes: ['wip-across-states', 'incident-to-capacity'],
+    stage: 'why',
+    // The one chart here whose lesson IS the geometry: WIP is the thickness
+    // of a band and cycle time is the horizontal distance between two
+    // curves. Neither survives being drawn a third of a row wide.
+    emphasis: 'wide',
   },
   {
     id: 'agingWip',
@@ -100,6 +110,7 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     phase: 'P0',
     provenance: 'kanban-flow',
     consumes: ['incident-to-capacity'],
+    stage: 'where',
   },
   {
     id: 'wipOverTime',
@@ -111,6 +122,7 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     phase: 'P0',
     provenance: 'kanban-flow',
     consumes: [],
+    stage: 'what',
   },
 
   // =================== CORE / PREDICTABILITY (P0) ==========================
@@ -124,6 +136,7 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     phase: 'P0',
     provenance: 'jira',
     consumes: ['incident-to-capacity'],
+    stage: 'why',
   },
   {
     id: 'burnup',
@@ -135,6 +148,7 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     phase: 'P0',
     provenance: 'jira',
     consumes: ['incident-to-capacity'],
+    stage: 'why',
   },
   {
     id: 'velocity',
@@ -146,6 +160,7 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     phase: 'P0',
     provenance: 'jira',
     consumes: ['incident-to-capacity', 'rework-consumes-capacity'],
+    stage: 'what',
   },
   {
     id: 'sayDoRatio',
@@ -157,6 +172,7 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     phase: 'P0',
     provenance: 'jira-align',
     consumes: ['incident-to-capacity'],
+    stage: 'where',
   },
   {
     id: 'sprintGoal',
@@ -171,6 +187,7 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     phase: 'P0',
     provenance: 'ours',
     consumes: ['incident-to-capacity'],
+    stage: 'what',
   },
 
   // ====================== CORE / QUALITY (mixed) ===========================
@@ -184,6 +201,7 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     phase: 'P0',
     provenance: 'qa',
     consumes: ['wip-to-defect-injection', 'defect-rate'],
+    stage: 'what',
   },
   {
     id: 'escapedDefects',
@@ -195,6 +213,7 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     phase: 'P0',
     provenance: 'qa',
     consumes: ['wip-to-defect-injection'],
+    stage: 'what',
   },
   {
     id: 'defectDensity',
@@ -206,6 +225,7 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     phase: 'P2',
     provenance: 'qa',
     consumes: ['wip-to-defect-injection', 'defect-density'],
+    stage: 'why',
   },
 
   // ==================== CORE / TEAM HEALTH (P0) ============================
@@ -219,6 +239,7 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     phase: 'P0',
     provenance: 'scrum-practice',
     consumes: ['load-to-overload', 'overload-to-happiness'],
+    stage: 'what',
   },
   {
     id: 'unplannedWorkShare',
@@ -230,6 +251,7 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     phase: 'P0',
     provenance: 'devops-literature',
     consumes: ['incident-to-capacity', 'load-to-overload'],
+    stage: 'why',
   },
 
   // ============= ENGINEERING EXTENSION / DORA (P1, whole family) ===========
@@ -243,6 +265,7 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     phase: 'P1',
     provenance: 'dora',
     consumes: ['items-to-changes', 'deployment-population'],
+    stage: 'what',
   },
   {
     id: 'changeLeadTime',
@@ -254,6 +277,7 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     phase: 'P1',
     provenance: 'dora',
     consumes: ['items-to-changes'],
+    stage: 'why',
   },
   {
     id: 'changeFailRate',
@@ -265,6 +289,7 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     phase: 'P1',
     provenance: 'dora',
     consumes: ['batch-to-change-fail-rate', 'failed-change-deployments', 'items-to-changes'],
+    stage: 'what',
   },
   {
     id: 'failedDeploymentRecoveryTime',
@@ -279,6 +304,7 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     phase: 'P1',
     provenance: 'dora',
     consumes: ['automation-to-recovery'],
+    stage: 'why',
   },
   {
     id: 'deploymentReworkRate',
@@ -294,6 +320,7 @@ export const CHART_VIEWS: ChartViewMeta[] = [
       'deployment-rework-rate',
       'incident-to-rework-deployments',
     ],
+    stage: 'where',
   },
 
   // ============ ENGINEERING EXTENSION / RELIABILITY (P2) ===================
@@ -307,6 +334,7 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     phase: 'P2',
     provenance: 'ops-tooling',
     consumes: ['deployment-to-reliability', 'incident-sources'],
+    stage: 'what',
   },
   {
     id: 'incidentDuration',
@@ -318,6 +346,7 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     phase: 'P2',
     provenance: 'ops-tooling',
     consumes: [],
+    stage: 'why',
   },
   {
     id: 'availabilityVsSlo',
@@ -329,6 +358,7 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     phase: 'P2',
     provenance: 'sre',
     consumes: ['incident-downtime', 'availability', 'deployment-to-reliability', 'incident-sources'],
+    stage: 'what',
   },
   {
     id: 'errorBudgetBurn',
@@ -340,6 +370,7 @@ export const CHART_VIEWS: ChartViewMeta[] = [
     phase: 'P2',
     provenance: 'sre',
     consumes: ['error-budget-burn', 'incident-downtime', 'availability'],
+    stage: 'where',
   },
 ];
 
