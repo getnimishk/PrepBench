@@ -177,7 +177,10 @@ You choose who runs the model. Open **Settings → AI Providers**.
 
 Routing is **per task**, so you can grade system design on a local model and send only audio to a cloud one.
 
-**Keys are stored by reference** — in your OS keyring where one exists, otherwise in an encrypted local file. No endpoint ever returns a key, and the database never holds one.
+**Keys are stored by reference.** The database holds a pointer, never the secret itself, and no endpoint ever returns a key. The pointer resolves one of three ways: `env:` (left in your `.env` where it already was), `keyring:` (Windows Credential Manager, macOS Keychain, or Secret Service — used when the `keyring` package is installed), or `file:` as a fallback.
+
+> [!WARNING]
+> The `file:` fallback is **obfuscation, not encryption**. Its key sits beside the data, so anyone who can read one can read the other. What it genuinely prevents is casual leakage — a key surfacing in a screenshot, a support log, a backup, or a shared `.env`. Install `keyring` if you want a real credential store.
 
 <details>
 <summary><b>Environment variables (all optional)</b></summary>
