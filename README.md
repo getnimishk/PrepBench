@@ -5,7 +5,7 @@
 **Certification exams, system design practice, interview recording analysis, and curriculum tracking — running entirely on your own machine.**
 
 [![CI](https://github.com/getnimishk/PrepBench/actions/workflows/ci.yml/badge.svg)](https://github.com/getnimishk/PrepBench/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-blue.svg)](LICENSE)
 [![Python 3.14](https://img.shields.io/badge/python-3.14-3776AB?logo=python&logoColor=white)](https://python.org)
 [![Node 22](https://img.shields.io/badge/node-22-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![Offline](https://img.shields.io/badge/network-optional-success)](#how-offline-actually-works)
@@ -358,7 +358,7 @@ Interactive Swagger docs live at **http://localhost:8000/docs** once the backend
 <details>
 <summary><b>Is it really free?</b></summary>
 
-Yes. MIT-licensed, no paid tier, no account, no usage limits.
+Yes, for personal and other noncommercial use. No paid tier, no account, no usage limits. Commercial use is not permitted — see [License](#license).
 </details>
 
 <details>
@@ -413,4 +413,11 @@ It is designed as a single-user local app — there is no authentication or mult
 
 ## License
 
-[MIT](LICENSE). Use it, modify it, ship it — personally or commercially.
+[PolyForm Noncommercial License 1.0.0](LICENSE).
+
+**Free for any noncommercial purpose.** Personal study, hobby projects, research and experiment, and use by schools, charities, public research bodies and government institutions are all permitted. You may modify it and share your changes under the same terms.
+
+**Commercial use is not permitted.** If you want to use PrepBench commercially, ask.
+
+> [!NOTE]
+> PrepBench was previously published under the MIT licence. Relicensing applies going forward; it cannot withdraw rights already granted, so copies obtained under MIT keep MIT terms for those versions.

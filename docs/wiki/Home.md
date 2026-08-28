@@ -24,3 +24,7 @@ Most of the design decisions documented here follow from these. They come up oft
 **2. Never present a modelling choice as a fact.** In the Chart Sandbox this is enforced structurally: every relationship between models is typed `arithmetic | assumption | convention`, and assumptions render on-chart as assumptions. *"High WIP raises defect injection"* stated as fact is a claim you cannot defend when someone asks for the evidence.
 
 **3. The machine boundary is real.** No telemetry, no analytics SDK, no account system. The only outbound path is a cloud AI provider you configure yourself, and PrepBench will not download or launch a model on your behalf.
+
+## License
+
+[PolyForm Noncommercial License 1.0.0](https://github.com/getnimishk/PrepBench/blob/main/LICENSE). Free for personal study, hobby projects, research, and use by schools, charities and public institutions. **Commercial use is not permitted** — ask if you want it.
