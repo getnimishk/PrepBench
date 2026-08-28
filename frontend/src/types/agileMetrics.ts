@@ -1,3 +1,7 @@
+// PrepBench - Copyright (c) 2026 Nimish Kanungo
+// Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
+// Commercial use requires a separate licence from the copyright holder.
+
 // Types for the Chart Sandbox model layer.
 //
 // Implements the design frozen at Revision 8. Two properties matter more than

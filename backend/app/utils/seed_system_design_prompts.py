@@ -1,3 +1,7 @@
+# PrepBench - Copyright (c) 2026 Nimish Kanungo
+# Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
+# Commercial use requires a separate licence from the copyright holder.
+
 """
 Seeds the built-in system design prompt bank on first run. A small, fixed,
 curated list -- unlike the large optional PSM question-bank import, this is

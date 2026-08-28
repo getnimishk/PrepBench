@@ -1,3 +1,7 @@
+// PrepBench - Copyright (c) 2026 Nimish Kanungo
+// Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
+// Commercial use requires a separate licence from the copyright holder.
+
 import type { CarriedState, ScenarioParams, SprintResult } from '../../types/agileMetrics';
 import { assertParams } from './params';
 import { flowModel } from './flowModel';

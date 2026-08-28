@@ -1,5 +1,10 @@
 # Development Guide
 
+> [!IMPORTANT]
+> **Read [CONTRIBUTING.md](https://github.com/getnimishk/PrepBench/blob/main/CONTRIBUTING.md) before opening a pull request.** PrepBench is published under a noncommercial licence with commercial rights reserved, and contributions carry licensing terms that differ from a typical open source project. You keep copyright in your work; you grant the right to sublicense it, including commercially.
+>
+> Every source file carries a copyright header. New files need one too — the licence requires the notice to travel with the code.
+
 ## Environment
 
 **Python 3.14** and **Node 22** — what CI pins, and what the dependency set is resolved against.

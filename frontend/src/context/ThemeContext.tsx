@@ -1,3 +1,7 @@
+// PrepBench - Copyright (c) 2026 Nimish Kanungo
+// Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
+// Commercial use requires a separate licence from the copyright holder.
+
 import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
 import { ThemeProvider, createTheme, CssBaseline, Theme } from '@mui/material';
 import { getSettings } from '../services/api';

@@ -1,3 +1,7 @@
+// PrepBench - Copyright (c) 2026 Nimish Kanungo
+// Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
+// Commercial use requires a separate licence from the copyright holder.
+
 import { describe, it, expect, beforeEach } from 'vitest';
 import type { Attempt, ConceptId } from '../../types/learning';
 import { CHALLENGE_BY_ID, CHALLENGES } from './challenges';
