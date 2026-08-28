@@ -5,7 +5,7 @@
 **Certification exams, system design practice, interview recording analysis, and curriculum tracking — running entirely on your own machine.**
 
 [![CI](https://github.com/getnimishk/PrepBench/actions/workflows/ci.yml/badge.svg)](https://github.com/getnimishk/PrepBench/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-blue.svg)](LICENSE)
 [![Python 3.14](https://img.shields.io/badge/python-3.14-3776AB?logo=python&logoColor=white)](https://python.org)
 [![Node 22](https://img.shields.io/badge/node-22-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![Offline](https://img.shields.io/badge/network-optional-success)](#how-offline-actually-works)
@@ -177,7 +177,10 @@ You choose who runs the model. Open **Settings → AI Providers**.
 
 Routing is **per task**, so you can grade system design on a local model and send only audio to a cloud one.
 
-**Keys are stored by reference** — in your OS keyring where one exists, otherwise in an encrypted local file. No endpoint ever returns a key, and the database never holds one.
+**Keys are stored by reference.** The database holds a pointer, never the secret itself, and no endpoint ever returns a key. The pointer resolves one of three ways: `env:` (left in your `.env` where it already was), `keyring:` (Windows Credential Manager, macOS Keychain, or Secret Service — used when the `keyring` package is installed), or `file:` as a fallback.
+
+> [!WARNING]
+> The `file:` fallback is **obfuscation, not encryption**. Its key sits beside the data, so anyone who can read one can read the other. What it genuinely prevents is casual leakage — a key surfacing in a screenshot, a support log, a backup, or a shared `.env`. Install `keyring` if you want a real credential store.
 
 <details>
 <summary><b>Environment variables (all optional)</b></summary>
@@ -355,7 +358,7 @@ Interactive Swagger docs live at **http://localhost:8000/docs** once the backend
 <details>
 <summary><b>Is it really free?</b></summary>
 
-Yes. MIT-licensed, no paid tier, no account, no usage limits.
+Yes, for personal and other noncommercial use. No paid tier, no account, no usage limits. Commercial use is not permitted — see [License](#license).
 </details>
 
 <details>
@@ -410,4 +413,8 @@ It is designed as a single-user local app — there is no authentication or mult
 
 ## License
 
-[MIT](LICENSE). Use it, modify it, ship it — personally or commercially.
+[PolyForm Noncommercial License 1.0.0](LICENSE).
+
+**Free for any noncommercial purpose.** Personal study, hobby projects, research and experiment, and use by schools, charities, public research bodies and government institutions are all permitted. You may modify it and share your changes under the same terms.
+
+**Commercial use is not permitted.** If you want to use PrepBench commercially, ask.
