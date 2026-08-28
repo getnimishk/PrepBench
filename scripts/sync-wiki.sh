@@ -46,6 +46,15 @@ git clone --quiet --depth 1 "$WIKI_URL" "$WORK/wiki"
 cp "$SRC"/*.md "$WORK/wiki/"
 
 cd "$WORK/wiki"
+
+# The wiki is a fresh clone in a temp directory, so it inherits no identity
+# when git is configured per-repo rather than globally. Carry the parent
+# repo's over rather than requiring a --global config just to sync docs.
+for key in user.name user.email; do
+  value="$(git -C "$REPO_ROOT" config "$key" || true)"
+  [ -n "$value" ] && git config "$key" "$value"
+done
+
 if git diff --quiet && git diff --cached --quiet && [ -z "$(git status --porcelain)" ]; then
   echo "Wiki already matches docs/wiki/ -- nothing to push."
   exit 0
