@@ -418,6 +418,3 @@ It is designed as a single-user local app — there is no authentication or mult
 **Free for any noncommercial purpose.** Personal study, hobby projects, research and experiment, and use by schools, charities, public research bodies and government institutions are all permitted. You may modify it and share your changes under the same terms.
 
 **Commercial use is not permitted.** If you want to use PrepBench commercially, ask.
-
-> [!NOTE]
-> PrepBench was previously published under the MIT licence. Relicensing applies going forward; it cannot withdraw rights already granted, so copies obtained under MIT keep MIT terms for those versions.
