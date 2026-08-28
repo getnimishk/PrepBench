@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Box, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Tooltip, IconButton, Typography, useTheme } from '@mui/material';
-import { LayoutDashboard, PlayCircle, BookOpen, BarChart3, History, Settings, ChevronLeft, ChevronRight, Network, Mic, Headphones, Map } from 'lucide-react';
+import { LayoutDashboard, PlayCircle, BookOpen, BarChart3, History, Settings, ChevronLeft, ChevronRight, Network, Mic, Headphones, Map, LineChart } from 'lucide-react';
 import { useSidebar } from '../../App';
 
 const DASHBOARD_ITEM = { label: 'Dashboard', path: '/', icon: LayoutDashboard };
@@ -21,6 +21,7 @@ const PRACTICE_ITEMS = [
 // and reading as the wrong kind of thing. One item for now.
 const LEARN_ITEMS = [
   { label: 'Roadmaps', path: '/roadmaps', icon: Map },
+  { label: 'Chart Sandbox', path: '/chart-sandbox', icon: LineChart },
 ];
 
 const CONTENT_ITEMS = [
