@@ -1,3 +1,7 @@
+// PrepBench - Copyright (c) 2026 Nimish Kanungo
+// Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
+// Commercial use requires a separate licence from the copyright holder.
+
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -173,22 +177,41 @@ describe('ExamRunnerPage finish confirmation', () => {
 });
 
 describe('ExamRunnerPage unsaved-work guard', () => {
+  // Dispatch a fresh beforeunload and report whether the guard cancelled it.
+  //
+  // Fresh every time on purpose: a cancelled event stays cancelled, so reusing
+  // one across polls would make the second attempt pass without the guard
+  // doing anything.
+  const guardCancels = () => {
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+    return event.defaultPrevented;
+  };
+
+  // The guard arms on examDetail.status, which loads separately from the
+  // question text -- so waiting for the question proves the page rendered, not
+  // that the listener is attached. Asserting straight after that wait is a
+  // race, and it lost on a busy CI runner.
+  const expectGuardArmed = () => waitFor(() => expect(guardCancels()).toBe(true));
+
   it('warns before the tab is closed mid-exam', async () => {
     // Answers persist on navigation, so only the question currently on screen
     // is unsaved -- and there is no way to recover it once the tab is gone.
     renderExamRunner();
     await waitFor(() => expect(screen.getByText('Question: Question 1')).toBeInTheDocument());
 
-    const event = new Event('beforeunload', { cancelable: true });
-    window.dispatchEvent(event);
-
-    expect(event.defaultPrevented).toBe(true);
+    await expectGuardArmed();
   });
 
   it('stops warning once the exam has been submitted', async () => {
     const user = userEvent.setup();
     renderExamRunner();
     await waitFor(() => expect(screen.getByText('Question: Question 1')).toBeInTheDocument());
+
+    // Establish that it warns BEFORE submitting. Without this the test passes
+    // on a page whose guard never armed at all -- "stops warning" is only
+    // meaningful once there is a warning to stop.
+    await expectGuardArmed();
 
     await user.click(screen.getByRole('button', { name: /Question 2,/i }));
     await user.click(screen.getByText('Select Option A'));
@@ -199,8 +222,6 @@ describe('ExamRunnerPage unsaved-work guard', () => {
     await waitFor(() => expect(mockFinishExam).toHaveBeenCalled());
 
     // Leaving after submitting is the expected outcome, not lost work.
-    const event = new Event('beforeunload', { cancelable: true });
-    window.dispatchEvent(event);
-    expect(event.defaultPrevented).toBe(false);
+    await waitFor(() => expect(guardCancels()).toBe(false));
   });
 });

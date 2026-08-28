@@ -417,4 +417,6 @@ It is designed as a single-user local app — there is no authentication or mult
 
 **Free for any noncommercial purpose.** Personal study, hobby projects, research and experiment, and use by schools, charities, public research bodies and government institutions are all permitted. You may modify it and share your changes under the same terms.
 
-**Commercial use is not permitted.** If you want to use PrepBench commercially, ask.
+**Commercial use is not permitted** under this licence. Commercial rights are reserved by the copyright holder — if you want to use PrepBench, or any part of it, commercially, open an [issue](https://github.com/getnimishk/PrepBench/issues) and we'll talk about a separate licence.
+
+Contributing? [CONTRIBUTING.md](CONTRIBUTING.md) covers the licence terms that apply to contributions.
