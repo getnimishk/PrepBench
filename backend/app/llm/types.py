@@ -32,6 +32,7 @@ class LLMTask(str, Enum):
     INTERVIEW_QUESTION_GEN = "interview_question_gen"
     SYSTEM_DESIGN_PROMPT_GEN = "system_design_prompt_gen"
     SYSTEM_DESIGN_GRADING = "system_design_grading"
+    DESIGN_REVIEW_GRADING = "design_review_grading"
     RECORDING_ANALYSIS = "recording_analysis"
     EMBEDDING = "embedding"
 
@@ -57,6 +58,9 @@ TASK_SPECS: Dict[LLMTask, TaskSpec] = {
     LLMTask.INTERVIEW_QUESTION_GEN:   TaskSpec(Capability.TEXT_JSON, 20.0, 180.0),
     LLMTask.SYSTEM_DESIGN_PROMPT_GEN: TaskSpec(Capability.TEXT_JSON, 20.0, 180.0),
     LLMTask.SYSTEM_DESIGN_GRADING:    TaskSpec(Capability.TEXT_JSON, 25.0, 300.0),
+    # One narrow question against a short justification, so it needs far less
+    # headroom than grading a whole architecture answer.
+    LLMTask.DESIGN_REVIEW_GRADING:    TaskSpec(Capability.TEXT_JSON, 20.0, 180.0),
     LLMTask.RECORDING_ANALYSIS:       TaskSpec(Capability.AUDIO_JSON, 45.0, 600.0),
     LLMTask.EMBEDDING:                TaskSpec(Capability.EMBEDDING, 10.0, 60.0),
 }

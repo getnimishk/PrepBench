@@ -118,6 +118,24 @@ def apply_lightweight_migrations():
             _log_migration_failure("exam_answers.first_answered_at", exc)
 
         try:
+            # design_reviews.axis_label: the deciding axis as a short name, so
+            # attempts can be grouped by it. Added after the table shipped, so
+            # an install seeded by the first version has the reviews but not
+            # the labels -- seed_design_reviews backfills them by title on the
+            # next startup, which is why this only has to add the column.
+            table_exists = conn.execute(text(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='design_reviews'"
+            )).fetchone()
+            if table_exists:
+                result = conn.execute(text("PRAGMA table_info(design_reviews)")).fetchall()
+                columns = [row[1] for row in result]
+                if "axis_label" not in columns:
+                    conn.execute(text("ALTER TABLE design_reviews ADD COLUMN axis_label VARCHAR(60)"))
+                    conn.commit()
+        except Exception as exc:
+            _log_migration_failure("design_reviews.axis_label", exc)
+
+        try:
             # Check questions columns
             result = conn.execute(text("PRAGMA table_info(questions)")).fetchall()
             columns = [row[1] for row in result]

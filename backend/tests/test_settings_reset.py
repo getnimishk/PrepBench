@@ -40,6 +40,14 @@ RESEEDED_TABLES = {
     "app_settings",
     "system_design_prompts",
     "interview_questions",
+    "design_reviews",
+    "design_options",
+    # Rewritten alongside the built-ins it tracks: reset empties it, the
+    # seeders refill it as they recreate each item. It must not be exempted
+    # from the wipe itself -- a ledger that survived a reset would tell the
+    # seeders every built-in had already been offered, and the user would come
+    # out of a reset with empty practice banks.
+    "seeded_content",
     "llm_provider_config",
 }
 
