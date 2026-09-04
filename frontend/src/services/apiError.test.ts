@@ -62,4 +62,28 @@ describe('apiErrorMessage', () => {
     const err = axiosLike(422, { detail: [{ loc: ['body'], msg: 'Field required' }] });
     expect(apiErrorMessage(err, 'fallback')).toBe('Field required');
   });
+
+  it('strips the Pydantic prefix from a message written for a person to read', () => {
+    // Anything raised by a custom validator arrives as "Value error, ...".
+    // That prefix names the validation library, which the reader did not ask
+    // about and cannot act on.
+    const err = axiosLike(422, {
+      detail: [{ loc: ['body'], msg: 'Value error, Say what you would ask.' }],
+    });
+    expect(apiErrorMessage(err, 'fallback')).toBe('Say what you would ask.');
+
+    const assertion = axiosLike(422, {
+      detail: [{ loc: ['body', 'choice'], msg: 'Assertion failed, pick one of A or B.' }],
+    });
+    expect(apiErrorMessage(assertion, 'fallback')).toBe('choice: pick one of A or B.');
+  });
+
+  it('keeps a message that merely mentions a value error', () => {
+    // The prefix is only stripped at the start; "a value error occurred" mid
+    // sentence is the server's own wording and stays.
+    const err = axiosLike(422, {
+      detail: [{ loc: ['body'], msg: 'Parsing produced a value error, check row 3.' }],
+    });
+    expect(apiErrorMessage(err, 'fallback')).toBe('Parsing produced a value error, check row 3.');
+  });
 });
