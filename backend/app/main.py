@@ -12,6 +12,7 @@ from app.core.logging_config import logger
 from app.utils.seed_system_design_prompts import seed_system_design_prompts
 from app.utils.seed_interview_questions import seed_interview_questions
 from app.utils.seed_design_reviews import seed_design_reviews
+from app.utils.seed_subjects import seed_subjects
 from app.llm.bootstrap import import_env_provider_if_absent
 
 # Create DB Tables
@@ -37,6 +38,10 @@ async def lifespan(app: FastAPI):
         seeded_reviews = seed_design_reviews(db)
         if seeded_reviews:
             logger.info(f"Seeded {seeded_reviews} built-in design reviews.")
+
+        seeded_subjects = seed_subjects(db)
+        if seeded_subjects:
+            logger.info(f"Seeded {seeded_subjects} built-in subjects.")
 
         # Turns a pre-existing GEMINI_API_KEY into a visible provider row, once.
         import_env_provider_if_absent(db)

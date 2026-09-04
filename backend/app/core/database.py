@@ -136,6 +136,30 @@ def apply_lightweight_migrations():
             _log_migration_failure("design_reviews.axis_label", exc)
 
         try:
+            # exam_sessions: which kind of session this was, and which subject
+            # it belongs to. session_kind defaults to "drill" so that every
+            # session recorded before the column existed counts as practice --
+            # readiness must never be built on sessions nobody sat under exam
+            # conditions.
+            table_exists = conn.execute(text(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='exam_sessions'"
+            )).fetchone()
+            if table_exists:
+                result = conn.execute(text("PRAGMA table_info(exam_sessions)")).fetchall()
+                columns = [row[1] for row in result]
+                if "session_kind" not in columns:
+                    conn.execute(text(
+                        "ALTER TABLE exam_sessions ADD COLUMN session_kind VARCHAR(10) "
+                        "NOT NULL DEFAULT 'drill'"
+                    ))
+                    conn.commit()
+                if "subject_id" not in columns:
+                    conn.execute(text("ALTER TABLE exam_sessions ADD COLUMN subject_id INTEGER"))
+                    conn.commit()
+        except Exception as exc:
+            _log_migration_failure("exam_sessions.session_kind / subject_id", exc)
+
+        try:
             # Check questions columns
             result = conn.execute(text("PRAGMA table_info(questions)")).fetchall()
             columns = [row[1] for row in result]

@@ -42,6 +42,7 @@ RESEEDED_TABLES = {
     "interview_questions",
     "design_reviews",
     "design_options",
+    "subjects",
     # Rewritten alongside the built-ins it tracks: reset empties it, the
     # seeders refill it as they recreate each item. It must not be exempted
     # from the wipe itself -- a ledger that survived a reset would tell the

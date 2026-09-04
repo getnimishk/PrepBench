@@ -11,6 +11,7 @@ from app.schemas.settings import AppSettingsSchema
 from app.utils.seed_interview_questions import seed_interview_questions
 from app.utils.seed_system_design_prompts import seed_system_design_prompts
 from app.utils.seed_design_reviews import seed_design_reviews
+from app.utils.seed_subjects import seed_subjects
 
 
 class SettingsService:
@@ -42,6 +43,7 @@ class SettingsService:
         prompts = seed_system_design_prompts(self.db)
         questions = seed_interview_questions(self.db)
         reviews = seed_design_reviews(self.db)
+        seed_subjects(self.db)
         # A pre-existing GEMINI_API_KEY becomes a provider row again, exactly as
         # it would on a first boot. The key itself lives in .env and was never
         # in the database to delete.
