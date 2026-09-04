@@ -441,7 +441,10 @@ def test_home_ranks_nothing_even_with_a_busy_database(db):
     for banned in ("suggested", "next_actions", "recommendations", "next_best_action", "todo"):
         assert banned not in body
 
-    assert set(body) == {"resumable", "unreviewed_total", "due_for_review", "per_subject"}
+    assert set(body) == {
+        "resumable", "unreviewed_total", "due_for_review", "per_subject",
+        "mock_count", "mock_accuracy", "subjects_total", "subjects_ready",
+    }
 
 
 def test_a_fresh_subject_reports_no_score_rather_than_zero(db):

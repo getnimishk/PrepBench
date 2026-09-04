@@ -40,6 +40,12 @@ class HomeResponse(BaseModel):
     """
     resumable: Optional[ResumableResponse] = None
     unreviewed_total: int = 0
+    mock_count: int = 0
+    # None, never 0.0, when no mock has been taken. An absent measurement
+    # is not a failing one.
+    mock_accuracy: Optional[float] = None
+    subjects_total: int = 0
+    subjects_ready: int = 0
     due_for_review: int = 0
     per_subject: List[SubjectCounts] = []
 
@@ -65,8 +71,10 @@ class ActivityItem(BaseModel):
 def get_home(db: Session = Depends(get_db)):
     service = HomeService(db)
     resumable = service.get_resumable()
+    totals = service.mock_totals()
     return HomeResponse(
         resumable=ResumableResponse(**resumable) if resumable else None,
+        **totals,
         unreviewed_total=service.unreviewed_count(),
         due_for_review=service.due_for_review_count(),
         per_subject=[

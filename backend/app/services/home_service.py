@@ -34,6 +34,7 @@ from app.models.subject import Subject
 from app.models.system_design_attempt import SystemDesignAttempt
 from app.models.system_design_prompt import SystemDesignPrompt
 from app.repositories.subject_repository import SubjectRepository, MOCK
+from app.services import readiness as readiness_rules
 
 
 def _now() -> datetime:
@@ -127,6 +128,40 @@ class HomeService:
             .filter(SpacedRepetition.next_review_date <= _now())
             .scalar()
         ) or 0
+
+    def mock_totals(self) -> dict:
+        """Headline numbers that count mocks alone.
+
+        The existing dashboard's `overall_accuracy_percentage` averages
+        ten-question warm-ups with full timed mocks, which is why it cannot
+        answer whether you would pass. These are the honest counterparts, and
+        accuracy is None rather than 0.0 when there is nothing to average --
+        no measurement is not a bad measurement.
+        """
+        rows = (
+            self.db.query(ExamSession.score_percentage)
+            .filter(
+                ExamSession.session_kind == MOCK,
+                ExamSession.status == ExamStatus.COMPLETED,
+                ExamSession.score_percentage.isnot(None),
+            )
+            .all()
+        )
+        scores = [r[0] for r in rows]
+        subjects = self.subjects.get_all()
+        return {
+            "mock_count": len(scores),
+            "mock_accuracy": round(sum(scores) / len(scores), 1) if scores else None,
+            "subjects_total": len(subjects),
+            "subjects_ready": sum(
+                1 for s in subjects
+                if readiness_rules.compute(
+                    self.subjects.get_mock_results(s),
+                    pass_mark=s.pass_mark,
+                    has_exam_profile=s.has_exam_profile,
+                ).state is readiness_rules.ReadinessState.READY
+            ),
+        }
 
     def _session_belongs_to(self, subject: Subject):
         if subject.certification:

@@ -13,9 +13,14 @@ import { Subject } from '../types/subject';
 const mockGetSubjects = vi.fn();
 const mockGetHome = vi.fn();
 
+const mockGetActivity = vi.fn();
+const mockGetOverview = vi.fn();
+
 vi.mock('../services/api', () => ({
   getSubjects: (...a: any[]) => mockGetSubjects(...a),
   getHomeSummary: (...a: any[]) => mockGetHome(...a),
+  getActivity: (...a: any[]) => mockGetActivity(...a),
+  getDashboardOverview: (...a: any[]) => mockGetOverview(...a),
 }));
 
 const CERT: Subject = {
@@ -84,6 +89,24 @@ beforeEach(() => {
     unreviewed_total: 0,
     due_for_review: 0,
     per_subject: [],
+    mock_count: 0,
+    mock_accuracy: null,
+    subjects_total: 2,
+    subjects_ready: 0,
+  });
+  mockGetActivity.mockResolvedValue([]);
+  mockGetOverview.mockResolvedValue({
+    total_exams: 4,
+    total_questions_attempted: 240,
+    overall_accuracy_percentage: 72,
+    average_time_per_question_seconds: 41,
+    weak_topics: [],
+    strong_topics: [],
+    study_streak_days: 3,
+    daily_goal: 20,
+    today_practiced_count: 5,
+    spaced_repetition_due_count: 0,
+    recent_exams: [],
   });
 });
 
@@ -130,6 +153,7 @@ describe('HomePage', () => {
         answered: 22, total: 80, seconds_remaining: 2280, started_at: null,
       },
       unreviewed_total: 0, due_for_review: 0, per_subject: [],
+      mock_count: 0, mock_accuracy: null, subjects_total: 2, subjects_ready: 0,
     });
     const user = userEvent.setup();
     renderHome();
@@ -153,6 +177,7 @@ describe('HomePage', () => {
       unreviewed_total: 18,
       due_for_review: 14,
       per_subject: [{ subject_id: 1, unreviewed: 18 }],
+      mock_count: 3, mock_accuracy: 81.7, subjects_total: 2, subjects_ready: 0,
     });
     renderHome();
 
@@ -172,6 +197,44 @@ describe('HomePage', () => {
     mockGetSubjects.mockResolvedValue([]);
     renderHome();
     expect(await screen.findByText(/no subjects yet/i)).toBeInTheDocument();
+  });
+
+  it('shows headline metrics that count mocks alone', async () => {
+    mockGetHome.mockResolvedValue({
+      resumable: null, unreviewed_total: 0, due_for_review: 0, per_subject: [],
+      mock_count: 3, mock_accuracy: 81.7, subjects_total: 2, subjects_ready: 1,
+    });
+    renderHome();
+
+    expect(await screen.findByText('Mock Accuracy')).toBeInTheDocument();
+    expect(screen.getByText('81.7%')).toBeInTheDocument();
+    expect(screen.getByText('Drills excluded')).toBeInTheDocument();
+    expect(screen.getByText('1 / 2')).toBeInTheDocument();
+  });
+
+  it('says accuracy needs evaluation rather than showing it as zero', async () => {
+    // The old dashboard averaged drills into its accuracy figure, which is
+    // why it could not answer whether you would pass. An absent measurement
+    // must not render as a failing one.
+    renderHome();
+    await screen.findByText('Mock Accuracy');
+
+    // It appears both as the headline value and as a subject's state, which
+    // is correct -- the point is that neither is rendered as a zero.
+    expect(screen.getAllByText('Needs evaluation').length).toBeGreaterThan(0);
+    expect(screen.queryByText('0%')).not.toBeInTheDocument();
+    expect(screen.queryByText('0.0%')).not.toBeInTheDocument();
+  });
+
+  it('lists recent activity across every format', async () => {
+    mockGetActivity.mockResolvedValue([
+      { kind: 'mock', at: '2026-09-01T10:00:00', title: 'PSM I mock 4', detail: '84%', href: '/exam-review/4' },
+      { kind: 'design_review', at: '2026-08-31T10:00:00', title: 'The warehouse that sleeps', detail: 'chose B', href: '/design-reviews/2' },
+    ]);
+    renderHome();
+
+    expect(await screen.findByText('PSM I mock 4')).toBeInTheDocument();
+    expect(screen.getByText('The warehouse that sleeps')).toBeInTheDocument();
   });
 
   it('does not claim you have no subjects when the request failed', async () => {

@@ -74,6 +74,12 @@ export interface HomeSummary {
   unreviewed_total: number;
   due_for_review: number;
   per_subject: { subject_id: number; unreviewed: number }[];
+  /** Full mocks only. The old dashboard's accuracy averaged drills in. */
+  mock_count: number;
+  /** Null, never 0, when no mock has been taken. */
+  mock_accuracy?: number | null;
+  subjects_total: number;
+  subjects_ready: number;
 }
 
 export interface ActivityItem {

@@ -95,7 +95,34 @@ def test_home_carries_no_ranked_recommendation():
     for banned in ("suggested", "next_actions", "recommendations", "do_next", "todo"):
         assert banned not in body, f"Home must not return {banned}"
 
-    assert set(body) == {"resumable", "unreviewed_total", "due_for_review", "per_subject"}
+    # Pinned exactly: a new field here is a design decision, not an
+    # accident. Anything that ranks or orders would have to be added
+    # deliberately and would break this test on the way in.
+    assert set(body) == {
+        "resumable", "unreviewed_total", "due_for_review", "per_subject",
+        "mock_count", "mock_accuracy", "subjects_total", "subjects_ready",
+    }
+
+
+def test_headline_accuracy_counts_mocks_alone():
+    """The existing dashboard averages warm-ups with full timed mocks, which
+    is why it cannot answer whether you would pass. This one does not."""
+    body = client.get("/api/v1/home").json()
+    assert isinstance(body["mock_count"], int)
+    # None, never 0.0, when nothing has been measured.
+    assert body["mock_accuracy"] is None or isinstance(body["mock_accuracy"], (int, float))
+
+
+def test_accuracy_is_absent_rather_than_zero_when_no_mock_exists(db):
+    from app.services.home_service import HomeService
+
+    for s in db.query(ExamSession).filter(ExamSession.session_kind == "mock").all():
+        s.session_kind = "drill"
+    db.commit()
+
+    totals = HomeService(db).mock_totals()
+    assert totals["mock_count"] == 0
+    assert totals["mock_accuracy"] is None, "no measurement is not a zero measurement"
 
 
 def test_home_reports_counts_not_percentages():
