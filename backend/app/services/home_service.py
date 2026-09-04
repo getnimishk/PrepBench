@@ -16,7 +16,7 @@ the application can tell you that Databricks has ten design reviews and
 zero exam questions.
 """
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Dict, List, Optional
 
 from sqlalchemy import func
@@ -34,6 +34,11 @@ from app.models.subject import Subject
 from app.models.system_design_attempt import SystemDesignAttempt
 from app.models.system_design_prompt import SystemDesignPrompt
 from app.repositories.subject_repository import SubjectRepository, MOCK
+
+
+def _now() -> datetime:
+    """Naive UTC, matching how every timestamp in this app is stored."""
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 @dataclass
@@ -119,7 +124,7 @@ class HomeService:
         """
         return (
             self.db.query(func.count(SpacedRepetition.id))
-            .filter(SpacedRepetition.next_review_date <= datetime.utcnow())
+            .filter(SpacedRepetition.next_review_date <= _now())
             .scalar()
         ) or 0
 

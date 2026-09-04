@@ -108,6 +108,11 @@ class ExamEngine:
             exam_mode=req.exam_mode,
             status=ExamStatus.IN_PROGRESS,
             certification=req.certification or "General",
+            # The seam the readiness rule depends on. Without these two the
+            # model's default made every session a drill, and a subject with
+            # no certification string could never own one at all.
+            session_kind=req.session_kind,
+            subject_id=req.subject_id,
             total_questions=len(selected_questions),
             passing_percentage=req.passing_percentage,
             time_allowed_seconds=time_allowed,
