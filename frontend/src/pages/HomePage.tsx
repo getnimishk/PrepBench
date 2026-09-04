@@ -9,7 +9,7 @@ import {
   CircularProgress, LinearProgress, Stack, Divider, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow,
 } from '@mui/material';
-import { Plus, Target, ClipboardCheck, Layers, Sparkles } from 'lucide-react';
+import { Plus, Target, ClipboardCheck, Layers, Sparkles, PlayCircle } from 'lucide-react';
 import {
   getSubjects, getHomeSummary, getActivity, getDashboardOverview, getScoreTrends,
 } from '../services/api';
@@ -19,6 +19,7 @@ import { ScoreTrendChart } from '../components/analytics/ScoreTrendChart';
 import { ScoreTrendPoint } from '../types/analytics';
 import { ActivityItem, HomeSummary, Subject, READINESS_LABELS } from '../types/subject';
 import { readinessColor, readinessProgress } from '../components/common/readinessDisplay';
+import { useTheme } from '@mui/material/styles';
 
 /**
  * Home is the dashboard, rebuilt around what the application now knows.
@@ -43,6 +44,8 @@ import { readinessColor, readinessProgress } from '../components/common/readines
  */
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [summary, setSummary] = useState<HomeSummary | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
@@ -90,9 +93,115 @@ export const HomePage: React.FC = () => {
 
   const outstanding = (summary?.unreviewed_total ?? 0) + (summary?.due_for_review ?? 0);
 
+  // A statement about where things stand, not an instruction about what to do.
+  // The distinction matters: being told what to do next was rejected, but a
+  // page with no voice at all reads as a report rather than as your own study
+  // application.
+  const headline = (): { title: string; line: string } => {
+    if (subjects.length === 0) {
+      return {
+        title: 'Welcome to PrepBench',
+        line: 'Import a question bank or a roadmap and it will start keeping track.',
+      };
+    }
+    const ready = subjects.find((x) => x.readiness.state === 'ready');
+    if (ready) {
+      return {
+        title: `You are ready for ${ready.name}`,
+        line: 'Three consecutive mocks at or above the pass mark, nothing weak, nothing stale.',
+      };
+    }
+    const close = subjects.find((x) => x.readiness.state === 'almost_there' || x.readiness.state === 'plateau');
+    if (close) {
+      const last = close.readiness.recent_scores.slice(-1)[0];
+      return {
+        title: `Close on ${close.name}`,
+        line: `Last mock ${last}% against a ${close.readiness.pass_mark}% pass mark.`,
+      };
+    }
+    if ((summary?.mock_count ?? 0) === 0) {
+      return {
+        title: `${subjects.length} subject${subjects.length === 1 ? '' : 's'} on the go`,
+        line: 'Nothing measured yet — a full mock under exam conditions is what moves readiness.',
+      };
+    }
+    return {
+      title: `${subjects.length} subject${subjects.length === 1 ? '' : 's'} on the go`,
+      line: 'Keep going. Readiness moves on full mocks; drills close the gaps between them.',
+    };
+  };
+
+  // Each branch is a real study technique, not a restated stat -- the live data
+  // only picks which technique is most relevant right now. Carried over from
+  // the old dashboard, with the mock/drill distinction folded in.
+  const adaptiveTip = (): string => {
+    if ((summary?.due_for_review ?? 0) > 0) {
+      const n = summary!.due_for_review;
+      return `${n} question${n === 1 ? ' is' : 's are'} queued in spaced repetition. Review them in short, frequent bursts rather than one long session — retention comes from repeated brief exposure, not duration.`;
+    }
+    if ((summary?.unreviewed_total ?? 0) > 0) {
+      const n = summary!.unreviewed_total;
+      return `${n} wrong answer${n === 1 ? '' : 's'} from a mock ${n === 1 ? 'has' : 'have'} not been looked at. Reading the explanation and restating the rule yourself is what turns a guess into understanding — it moves the score more than another attempt does.`;
+    }
+    const weakest = overview?.weak_topics?.[0];
+    if (weakest) {
+      return `On a weak spot like "${weakest.topic}" (${weakest.accuracy_percentage}%), do not just re-answer the same question until it sticks. Read the full explanation and restate the underlying rule in your own words.`;
+    }
+    if ((summary?.mock_count ?? 0) === 0) {
+      return 'A full mock under exam conditions calibrates everything else — weak-topic detection, the spaced-repetition schedule, and whether you would actually pass. Drills cannot do that job.';
+    }
+    if ((overview?.today_practiced_count ?? 0) === 0) {
+      return 'Short, consistent sessions beat marathon cramming for retention. Even 10-15 questions keeps your spaced-repetition schedule on track.';
+    }
+    return 'Nothing outstanding and no weak areas detected. A full timed mock tests a different skill than untimed practice — pacing under pressure is its own thing.';
+  };
+
+  const hero = headline();
+
   return (
     <Box>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+      {/* ---- hero ---- */}
+      <Card
+        sx={{
+          mb: 3,
+          borderRadius: 3,
+          boxShadow: 'none',
+          // The one sanctioned gradient in the app, kept from the old
+          // dashboard: decorative, non-interactive, both stops real MD3
+          // tokens. Dark mode does not invert it -- that read as generic
+          // navy SaaS -- and instead uses the same raised surface plus
+          // pastel accent as every other card here.
+          background: isDark ? theme.palette.surfaceContainerHigh.main : 'linear-gradient(135deg, #001D35, #0B57D0)',
+          color: isDark ? theme.palette.text.primary : '#FFFFFF',
+        }}
+      >
+        <CardContent
+          sx={{
+            py: 4, px: { xs: 3, md: 4 }, display: 'flex', gap: 2,
+            justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap',
+          }}
+        >
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, color: isDark ? 'primary.main' : 'inherit' }}>
+              {hero.title}
+            </Typography>
+            <Typography variant="body1" sx={{ opacity: isDark ? 1 : 0.9, color: isDark ? 'text.secondary' : 'inherit' }}>
+              {hero.line}
+            </Typography>
+          </Box>
+          <Button
+            variant="contained"
+            size="large"
+            startIcon={<PlayCircle size={20} />}
+            onClick={() => navigate('/practice')}
+            sx={isDark ? undefined : { bgcolor: '#FFFFFF', color: '#0B57D0', '&:hover': { bgcolor: '#E8EEF9' } }}
+          >
+            Start practising
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* ---- headline metrics ---- */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -231,6 +340,18 @@ export const HomePage: React.FC = () => {
                       </Typography>
                     </Box>
                   </Stack>
+
+                  {/* The one bit of the old dashboard with an actual voice.
+                      Each branch is a study technique; the data only chooses
+                      which one is relevant, it is not the tip itself. */}
+                  <Box sx={{ mt: 3, p: 2, borderRadius: 2, bgcolor: 'background.default', border: 1, borderColor: 'divider' }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: 'text.secondary' }}>
+                      Adaptive learning tip
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                      {adaptiveTip()}
+                    </Typography>
+                  </Box>
                 </>
               ) : (
                 <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -338,7 +459,17 @@ export const HomePage: React.FC = () => {
             point of showing them here: they are actionable long before enough
             mocks exist for readiness to say anything. */}
         <Grid size={{ xs: 12, md: 5 }}>
-          <WeakTopicsWidget topics={overview?.weak_topics ?? []} />
+          <Stack spacing={2} sx={{ height: '100%' }}>
+            <WeakTopicsWidget topics={overview?.weak_topics ?? []} />
+            {/* Opening a study page on nothing but your five worst areas is a
+                bleak way to be greeted, and it is only half the picture. */}
+            <WeakTopicsWidget
+              topics={overview?.strong_topics ?? []}
+              title="Strongest Areas"
+              emptyMessage="Answer more questions and your strongest topics will show up here."
+              colorByAccuracy={false}
+            />
+          </Stack>
         </Grid>
       </Grid>
 

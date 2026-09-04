@@ -8,24 +8,38 @@ import { TopicMasteryItem } from '../../types/analytics';
 
 interface Props {
   topics: TopicMasteryItem[];
+  /** Overridable so the same widget can show strong areas too. Showing only
+   *  what someone is worst at is a bleak way to open a page. */
+  title?: string;
+  emptyMessage?: string;
+  /** Strong topics are all above the threshold, so the weak-area colour ramp
+   *  would paint every bar the same green and say nothing. */
+  colorByAccuracy?: boolean;
 }
 
-export const WeakTopicsWidget: React.FC<Props> = ({ topics }) => {
+export const WeakTopicsWidget: React.FC<Props> = ({
+  topics,
+  title = 'Weak Areas Requiring Attention (<70%)',
+  emptyMessage = 'No weak areas detected yet! Complete more practice exams to see targeted recommendations.',
+  colorByAccuracy = true,
+}) => {
   return (
     <Card sx={{ height: '100%', borderRadius: 3, boxShadow: 'none', bgcolor: 'background.paper', border: 1, borderColor: 'divider' }}>
       <CardContent>
         <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
-          Weak Areas Requiring Attention (&lt;70%)
+          {title}
         </Typography>
         {topics.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
-            No weak areas detected yet! Complete more practice exams to see targeted recommendations.
+            {emptyMessage}
           </Typography>
         ) : (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {topics.map((t) => {
               let barColor: 'success' | 'warning' | 'error' = 'success';
-              if (t.accuracy_percentage < 40) {
+              if (!colorByAccuracy) {
+                // Left green: everything here is already above the bar.
+              } else if (t.accuracy_percentage < 40) {
                 barColor = 'error';
               } else if (t.accuracy_percentage < 60) {
                 barColor = 'warning';

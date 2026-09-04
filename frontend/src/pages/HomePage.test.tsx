@@ -258,6 +258,65 @@ describe('HomePage', () => {
     expect(screen.getByText('The warehouse that sleeps')).toBeInTheDocument();
   });
 
+  it('opens with a statement about where you stand, and a way in', async () => {
+    // The hero is the page having a voice. It says what is true and offers a
+    // door -- it is not a ranked instruction, which is the thing that was
+    // rejected.
+    renderHome();
+
+    // The default fixture has a subject at "almost there", so the hero
+    // reports that rather than a generic count.
+    expect(await screen.findByText(/close on scrum/i)).toBeInTheDocument();
+    expect(screen.getByText(/last mock 84% against a 85% pass mark/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /start practising/i })).toBeInTheDocument();
+  });
+
+  it('reports a plain count when no subject is close yet', async () => {
+    mockGetSubjects.mockResolvedValue([
+      { ...CERT, readiness: { ...CERT.readiness, state: 'needs_evaluation', mock_count: 0, recent_scores: [] } },
+      SKILL,
+    ]);
+    renderHome();
+
+    expect(await screen.findByText(/2 subjects on the go/i)).toBeInTheDocument();
+    expect(screen.getByText(/nothing measured yet/i)).toBeInTheDocument();
+  });
+
+  it('says you are ready in the hero once a subject actually is', async () => {
+    mockGetSubjects.mockResolvedValue([
+      { ...CERT, readiness: { ...CERT.readiness, state: 'ready', recent_scores: [86, 87, 88] } },
+    ]);
+    renderHome();
+    expect(await screen.findByText(/you are ready for scrum \/ psm i/i)).toBeInTheDocument();
+  });
+
+  it('gives a study technique, not a restated statistic', async () => {
+    mockGetHome.mockResolvedValue({
+      resumable: null, unreviewed_total: 0, due_for_review: 14, per_subject: [],
+      mock_count: 0, mock_accuracy: null, subjects_total: 2, subjects_ready: 0,
+    });
+    renderHome();
+
+    expect(await screen.findByText('Adaptive learning tip')).toBeInTheDocument();
+    expect(screen.getByText(/short, frequent bursts/i)).toBeInTheDocument();
+  });
+
+  it('shows strongest areas alongside the weak ones', async () => {
+    mockGetOverview.mockResolvedValue({
+      total_exams: 4, total_questions_attempted: 240, overall_accuracy_percentage: 72,
+      average_time_per_question_seconds: 41,
+      weak_topics: [{ topic: 'Timeboxes', domain: 'D1', total_attempted: 18, correct_count: 11, accuracy_percentage: 61 }],
+      strong_topics: [{ topic: 'Scrum Roles', domain: 'D1', total_attempted: 42, correct_count: 39, accuracy_percentage: 93 }],
+      study_streak_days: 3, daily_goal: 20, today_practiced_count: 5,
+      spaced_repetition_due_count: 0, recent_exams: [],
+    });
+    renderHome();
+
+    expect(await screen.findByText('Strongest Areas')).toBeInTheDocument();
+    expect(screen.getByText('Scrum Roles')).toBeInTheDocument();
+    expect(screen.getByText('Timeboxes')).toBeInTheDocument();
+  });
+
   it('does not claim you have no subjects when the request failed', async () => {
     // A connection error is not an empty account. Saying "no subjects yet"
     // here tells the user something false about their own data.
