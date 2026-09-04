@@ -78,6 +78,49 @@ Working as designed when no provider is configured, and the app will not invent 
 
 See [AI Providers](AI-Providers).
 
+## Readiness never leaves "needs evaluation"
+
+Almost always because the sessions being counted are **drills**, and readiness counts full mocks only.
+
+> [!NOTE]
+> **No screen starts a mock yet.** `POST /api/v1/exams` accepts `session_kind` and `subject_id`, but nothing in the UI sends them, so every session the running app creates is a drill. This is pinned by a test rather than left to drift. Until an exam-setup path sets it, browser-driven practice cannot move readiness.
+
+To confirm what is actually stored:
+
+```sql
+SELECT session_kind, status, COUNT(*) FROM exam_sessions GROUP BY 1, 2;
+```
+
+If they are all `drill`, that is the reason. The other causes, in the order worth checking:
+
+| Cause | Check |
+|---|---|
+| The session is not finished | Only `COMPLETED` sessions with a non-null score count |
+| It resolved to no subject | A session matches by `subject_id`, falling back to the certification string. A skill subject has no certification, so a session with no `subject_id` can never belong to one |
+| It is a skill subject | No pass mark means `developing` is the ceiling, by design — see [Readiness](Readiness#subjects) |
+| Fewer than three mocks | `ready` needs three, and the last three consecutive at or above the pass mark |
+| The last mock is older than 14 days | Stale evidence is not evidence; the state drops back |
+
+A domain showing no percentage rather than a low one is also working as intended: below ten answered questions there is no reportable score, and `0%` would read as a failure that has not happened.
+
+## A built-in came back after I deleted it
+
+It should not, and if it did, the [seed ledger](Architecture#seeding-and-the-ledger) is the place to look:
+
+```sql
+SELECT namespace, content_key FROM seeded_content ORDER BY 1, 2;
+```
+
+Every built-in this install has ever been *offered* is listed there, whether or not it is still present. A missing row is why an item was recreated.
+
+The usual cause is that the item's **key changed**. Keys are the readable identity — a prompt or review title, a subject name, `round:question_text` for an interview question — so editing one in the seed file makes the next boot see a new item and create it alongside the old one.
+
+## A new built-in did not arrive after upgrading
+
+Check the ledger the same way. One case creates rows without creating content, deliberately: a database created **before** the ledger existed holds content but no record of it, and nothing can distinguish *"the user deleted this"* from *"this was never shipped"*. On that one boot everything currently in the built-in list is marked as offered and nothing is created. From the next boot on, only genuinely new items arrive.
+
+If you want the full built-in set back, `Settings → Reset` empties every table — the ledger included — and reseeds from scratch. It also deletes your study data.
+
 ## Provider verification fails
 
 | Cause | Check |
@@ -119,8 +162,10 @@ The database is one file:
 backend/data/exam_simulator.db
 ```
 
-Delete it and restart for a clean slate — built-in prompts and interview questions reseed, imported content does not. **There is no other copy.** Nothing was uploaded anywhere; that is the whole point of the project, and it applies to your mistakes as well as your privacy.
+Delete it and restart for a clean slate. Built-in system design prompts, interview questions, design reviews and subjects reseed; imported content does not. **There is no other copy.** Nothing was uploaded anywhere; that is the whole point of the project, and it applies to your mistakes as well as your privacy.
+
+`Settings → Reset` is the same outcome without deleting the file: every table emptied, including the seed ledger, then the identical seeding that startup runs.
 
 ## See also
 
-- [Development Guide](Development-Guide) · [AI Providers](AI-Providers) · [Architecture](Architecture)
+- [Development Guide](Development-Guide) · [Readiness](Readiness) · [AI Providers](AI-Providers) · [Architecture](Architecture)

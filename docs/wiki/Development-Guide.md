@@ -43,7 +43,7 @@ cd backend && python -m pytest -q
 cd frontend && npm test && npm run typecheck && npm run lint
 ```
 
-Roughly 245 backend and 373 frontend tests. Run `pytest --collect-only -q` and `vitest run` for the current figures rather than trusting this line.
+Roughly 342 backend and 411 frontend tests. Run `pytest --collect-only -q` and `vitest run` for the current figures rather than trusting this line.
 
 **Order matters when reproducing CI locally:** lint, then typecheck, then test. Both of the first two fail in seconds and catch breakage the test suite takes minutes to reach.
 
@@ -76,6 +76,14 @@ Register literal paths **before** parameterised siblings. `/analytics` must come
 ### Never fabricate a value
 
 If something cannot be computed, say so. Empty state, `None`, `—`, "Not Graded". Not `0%`, not a heuristic stand-in, not a plausible default. This is enforced by convention across every scoring path in the app, and it is the reason several endpoints return `Optional[float]` where a float would be more convenient.
+
+### Only mocks feed readiness
+
+`session_kind` is `mock` or `drill`, and the exclusion of drills lives in `SubjectRepository.get_mock_results` — at the repository, so no future caller can widen it by forgetting a filter. If you are adding a query that answers *"how is this person doing"*, decide explicitly which of the two it counts, and put the filter where it cannot be dropped. See [Readiness](Readiness#mocks-and-drills).
+
+### Built-in content goes through the ledger
+
+Never seed by checking whether a table is empty. Use `seed_missing_content` from `app/utils/seed_ledger.py`, so new built-ins reach existing installs and deleted ones stay deleted. See [Architecture](Architecture#seeding-and-the-ledger).
 
 ---
 
@@ -118,6 +126,18 @@ The integrity suite will then check your work: **vocabulary leaks** (a challenge
 > [!WARNING]
 > If you add a regex-based guard, **prove it can fail before trusting that it passes.** Two guards here once matched nothing because `` `\b` `` inside a template literal is the JavaScript escape for backspace, not a word boundary — so `` new RegExp(`\b${x}\b`) `` was built from control characters. Write `` `\\b${x}\\b` ``. There is a test asserting those checks can fail; add yours to it.
 
+### A design review
+
+Append to `SEED_DESIGN_REVIEWS` in `app/utils/seed_design_reviews.py`. No code, but a real editorial bar — both options must be defensible, there must be exactly one deciding axis, and `elicit_answer` must name something you could actually go and find out. The checklist is in [Design Review](Design-Review#adding-a-review).
+
+The title is the ledger key. Renaming a seeded review creates a second copy on the next boot.
+
+### A subject
+
+Append to `SEED_SUBJECTS` in `app/utils/seed_subjects.py`. Give a certification subject **all three** exam-profile fields — pass mark, question count, duration — or none. `has_exam_profile` requires all three, so a partial profile silently caps readiness at `developing` with nothing explaining why.
+
+Set `certification` to match `Question.certification` exactly if existing questions should resolve to it.
+
 ### A provider profile
 
 No code needed for anything OpenAI-compatible. Add an entry to `data/llm_profiles.custom.json` — it merges over the built-ins and wins on key collision. See [AI Providers](AI-Providers).
@@ -133,10 +153,12 @@ These are load-bearing. Each has caused or nearly caused a real problem.
 | No endpoint returns an API key | Only `has_api_key` and the last four characters |
 | The credential store stays out of git | `backend/data/.llm_secrets.json`, `.llm_secret_key` |
 | PrepBench never downloads or launches a model | Enforced in `local_setup.py` |
-| `reveal` payload is stripped server-side | For any endpoint serving an unanswered question |
+| `reveal` payload is stripped server-side | For any endpoint serving an unanswered question — and for `deciding_axis`, `reveal` and `elicit_answer` on an unattempted design review |
+| A drill never counts toward readiness | Enforced by the repository query, not by convention |
+| Seeding goes through the ledger | Or deleting a built-in becomes something the app undoes at the next restart |
 | No coefficient is presented as an industry constant | Calibration constants say what they are |
 | PrepBench stays fully offline | No issue-tracker integration, now or later |
 
 ## See also
 
-- [Architecture](Architecture) · [Chart Sandbox](Chart-Sandbox) · [Troubleshooting](Troubleshooting)
+- [Architecture](Architecture) · [Readiness](Readiness) · [Design Review](Design-Review) · [Chart Sandbox](Chart-Sandbox) · [Troubleshooting](Troubleshooting)

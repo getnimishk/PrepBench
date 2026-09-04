@@ -2,7 +2,7 @@
 
 # PrepBench
 
-**Certification exams, system design practice, interview recording analysis, and curriculum tracking — running entirely on your own machine.**
+**Certification exams, architecture decision practice, system design and interview grading, and curriculum tracking — running entirely on your own machine.**
 
 [![CI](https://github.com/getnimishk/PrepBench/actions/workflows/ci.yml/badge.svg)](https://github.com/getnimishk/PrepBench/actions/workflows/ci.yml)
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-blue.svg)](LICENSE)
@@ -12,7 +12,7 @@
 
 </div>
 
-PrepBench is a local-first study platform. You run mock exams, get feedback on written system design answers and spoken interview responses, track any syllabus as a visual roadmap, and explore how agile delivery metrics move — all from a single SQLite file on your laptop.
+PrepBench is a local-first study platform built around one question: **would you pass?** You run mock exams, argue architecture decisions against a graded rubric, get feedback on written system design answers and spoken interview responses, track any syllabus as a visual roadmap, and explore how agile delivery metrics move — all from a single SQLite file on your laptop.
 
 There is no account, no telemetry, and no subscription. A network connection is optional, and only if *you* choose to route AI grading through a cloud provider instead of a model on your own machine.
 
@@ -39,8 +39,10 @@ There is no account, no telemetry, and no subscription. A network connection is 
 
 | | |
 |---|---|
+| **Readiness, not a score** | Every subject reports whether you would actually pass, computed from **full mocks only** — with the evidence beside it. Three mocks minimum, three consecutive at the pass mark, no weak domain, recent. Zero mocks reads *"needs evaluation"*, never `0%` |
 | **Five exam modes** | **Practice** (instant explanations) · **Timed** (real exam conditions) · **Custom** (pick topics, difficulty, count) · **Weak Topic Focus** (auto-targets domains you keep failing) · **Spaced Repetition** (only what is due today) |
 | **Spaced repetition** | The SM-2 algorithm that powers Anki. Every answer updates that question's interval and ease factor, so a question comes back just before you would have forgotten it |
+| **Design Review** | Two defensible architectures for one requirement. Pick one and say why — or refuse to pick and say what you would ask first. What is graded is whether your reasoning found the axis the decision turns on, not which option you chose |
 | **System design practice** | Write answers to real prompts and get graded across a six-category rubric — scores, strengths, and specific improvements, calibrated to your target role |
 | **Interview practice (audio)** | Record spoken answers across four rounds — HR screening, hiring manager, system design, behavioral. Scored on **what you said** (content) and **how you said it** (pacing, filler words, clarity) |
 | **Chart Sandbox** | 27 agile metric views over one executable model. Change a WIP limit and watch cycle time, defect escape, and deployment risk move together — with a guided track that teaches you to read each chart before asking you to explain one |
@@ -52,7 +54,7 @@ There is no account, no telemetry, and no subscription. A network connection is 
 > [!IMPORTANT]
 > **PrepBench never invents a score.** If AI grading is unavailable, you see *"Not Graded"* — not a fabricated number. Percentages that cannot be computed render as `—`, never as a misleading `0%`.
 
-**Built for** certification candidates (PSM I, PSPO I, AWS SA, Kafka, or anything you can supply questions for) · engineers preparing for system design and behavioural rounds · self-directed learners working through a syllabus who want a realistic finish date · anyone who would rather not paste their weak spots into someone else's cloud.
+**Built for** certification candidates (PSM I, PSPO I, AWS SA, Kafka, or anything you can supply questions for) · engineers preparing for system design, architecture-decision and behavioural rounds · self-directed learners working through a syllabus who want a realistic finish date · anyone who would rather not paste their weak spots into someone else's cloud.
 
 ---
 
@@ -99,6 +101,50 @@ flowchart LR
 ```
 
 Exams, the question bank, roadmaps, analytics, the Chart Sandbox, spaced repetition, and PDF/Excel export never make a network call at all. Delete `backend/data/exam_simulator.db` and your study data is gone — nobody else has a copy.
+
+---
+
+## Subjects and readiness
+
+Home is organised by **subject** — the thing you are preparing for — and each one reports the same thing: whether you would pass, and the evidence for saying so.
+
+Two rules make that number worth trusting.
+
+**Only full mocks count.** A drill is untimed, unpressured and usually shorter, so averaging the two produces a figure that cannot answer "would I pass". The exclusion is enforced in the query that fetches the evidence, not by convention somewhere upstream.
+
+**Never claim more than the evidence supports.** Zero mocks reads *"needs evaluation"* — not zero per cent. A subject with no pass mark can never be *"ready"*, because there is nothing to be ready against.
+
+| State | Means |
+|---|---|
+| **Needs evaluation** | No mock taken yet. An absence of measurement, not a bad one |
+| **Developing** | Working, not close |
+| **Almost there** | Last three mocks averaging within 5 points of the pass mark |
+| **Plateau** | Four mocks clustered at the line and not moving — the state that stops you practising forever at 85% |
+| **Ready** | Three consecutive mocks at the pass mark, no weak domain, and recent |
+
+Readiness never appears without what it rests on: the mock count, the recent scores, the weakest domain by name, whether the evidence has gone stale, and — when a trend is computable — roughly how many points a mock you are gaining.
+
+> [!NOTE]
+> **Mocks are an API-level concept today.** `POST /api/v1/exams` accepts `session_kind: "mock"` and a `subject_id`, but no screen sends them yet, so sessions started from the UI are recorded as drills and readiness stays at *"needs evaluation"*. Wiring an exam-setup path to it is the next item on the list below.
+
+Each subject page also shows **coverage** — every practice format, including the ones with nothing in them. An empty row is the only way the app can tell you that a subject has ten design reviews and zero exam questions.
+
+---
+
+## Design Review
+
+Two defensible architectures for one requirement. You pick one and say why.
+
+What is graded is not which option you picked — often either is right — but whether your reasoning named **the axis the decision actually turns on**. That single narrowing is what makes the format work: it turns grading into one answerable question instead of a judgement about your whole design, and the thing being graded is the thing worth learning.
+
+- **Both options are real.** Every option states when it holds and when it breaks. An option with no failure mode is the right answer wearing a disguise, and a review built from one stops teaching the moment you notice the pattern.
+- **"Neither — I would ask first" is a first-class answer.** Refusing to commit until you know something is frequently the correct professional move. It has one condition: you have to say what you would ask.
+- **The reveal is earned.** The deciding axis, what actually separates the two options, and what you should have asked are all stripped server-side until you have committed to an answer.
+- **It tracks which axes you keep missing.** Cost, freshness, governance, late data, schema evolution — named in words, not scored as a percentage. A partial credit is not counted as a hit, because half credit would flatter you on exactly the axes you most need to revisit.
+
+Ten built-in reviews ship, all data-platform scenarios. Without an AI provider the verdict reads *"Not graded"* — the attempt still saves and the reveal still shows.
+
+Open it at **`/design-reviews`**.
 
 ---
 
@@ -164,7 +210,7 @@ Narrow two-to-four column sheets (CLI cheat sheets, glossaries, mental models) a
 
 ## AI setup (optional)
 
-PrepBench works with no AI at all. AI adds exactly three things: system design grading, interview recording analysis, and question generation. Everything else runs without it.
+PrepBench works with no AI at all. AI adds exactly four things: system design grading, design review grading, interview recording analysis, and question generation. Everything else runs without it.
 
 You choose who runs the model. Open **Settings → AI Providers**.
 
@@ -291,7 +337,7 @@ cd backend && pip install -r requirements-dev.txt && python -m pytest -q
 cd frontend && npm test && npm run typecheck && npm run lint
 ```
 
-245 backend tests and 373 frontend tests at time of writing. CI runs all of it, plus `tsc` and ESLint, on every push and pull request.
+342 backend tests and 411 frontend tests at time of writing. CI runs all of it, plus `tsc` and ESLint, on every push and pull request.
 
 ### Project layout
 
@@ -315,6 +361,9 @@ PrepBench/
 │       ├── types/           # TypeScript interfaces
 │       └── context/         # React context
 ├── data/                    # Sample question packs
+├── docs/
+│   ├── wiki/                # Wiki sources — mirrored by scripts/sync-wiki.sh
+│   └── proposals/           # Architecture proposals
 ├── start_app.bat            # Windows launcher
 └── start_app.sh             # macOS / Linux launcher
 ```
@@ -330,9 +379,18 @@ Interactive Swagger docs live at **http://localhost:8000/docs** once the backend
 |---|---|---|
 | `/api/v1/questions` | GET / POST | List, search, or create questions |
 | `/api/v1/questions/{id}` | PUT / DELETE | Edit or delete a question |
-| `/api/v1/exams` | POST | Start a new exam session |
+| `/api/v1/exams` | POST | Start a new session — `session_kind` is `mock` or `drill` |
 | `/api/v1/exams/{id}/answer` | POST | Save an answer (autosave) |
 | `/api/v1/exams/{id}/finish` | POST | Submit and score |
+| `/api/v1/exams/{id}/answers/{qid}/reviewed` | POST | Mark a wrong answer as reviewed |
+| `/api/v1/subjects` | GET | Every subject with its readiness and evidence |
+| `/api/v1/home` | GET | Home summary — resumable session, mock totals, outstanding review |
+| `/api/v1/home/activity` | GET | One timeline across every practice format |
+| `/api/v1/home/subjects/{id}/coverage` | GET | Every format for a subject, including the empty ones |
+| `/api/v1/design-reviews` | GET | List design reviews, filtered by domain, axis, or difficulty |
+| `/api/v1/design-reviews/{id}` | GET | The brief and both options — never the answer |
+| `/api/v1/design-reviews/attempts` | POST | Commit an answer and unlock the reveal |
+| `/api/v1/design-reviews/analytics` | GET | Which deciding axes get named and which get missed |
 | `/api/v1/analytics/dashboard` | GET | Dashboard KPIs |
 | `/api/v1/analytics/score-trends` | GET | Score history |
 | `/api/v1/analytics/domain-performance` | GET | Domain accuracy breakdown |
@@ -350,6 +408,23 @@ Interactive Swagger docs live at **http://localhost:8000/docs** once the backend
 | `/api/v1/recordings` | GET | Interview recordings and analyses |
 
 </details>
+
+### Documentation
+
+The [wiki](https://github.com/getnimishk/PrepBench/wiki) holds what would bloat this README — how the layers fit together, why certain things are built the way they are, and how to extend them.
+
+| Page | Covers |
+|---|---|
+| [Architecture](https://github.com/getnimishk/PrepBench/wiki/Architecture) | Backend layering, the 24 tables, the seed ledger, why there is no Alembic |
+| [Readiness](https://github.com/getnimishk/PrepBench/wiki/Readiness) | Subjects, why a drill never counts as a mock, the five states and their thresholds |
+| [Design Review](https://github.com/getnimishk/PrepBench/wiki/Design-Review) | The deciding axis, the grading contract, and how to write a review |
+| [Chart Sandbox](https://github.com/getnimishk/PrepBench/wiki/Chart-Sandbox) | The executable delivery model, the coupling ledger, the guided track |
+| [AI Providers](https://github.com/getnimishk/PrepBench/wiki/AI-Providers) | Task-level routing, local model setup, how keys are stored |
+| [Importing Content](https://github.com/getnimishk/PrepBench/wiki/Importing-Content) | Question formats, roadmap column detection, the pre-import audit |
+| [Development Guide](https://github.com/getnimishk/PrepBench/wiki/Development-Guide) | Setup, test suites, conventions, how to add an endpoint or chart |
+| [Troubleshooting](https://github.com/getnimishk/PrepBench/wiki/Troubleshooting) | The failures people actually hit |
+
+Sources live in [`docs/wiki/`](docs/wiki) and are mirrored to the wiki by [`scripts/sync-wiki.sh`](scripts/sync-wiki.sh), so documentation changes go through pull requests the way code does.
 
 ---
 
@@ -401,6 +476,8 @@ It is designed as a single-user local app — there is no authentication or mult
 
 ## What's next
 
+- [ ] Start a full mock from the UI, so readiness moves without going through the API
+- [ ] Design reviews carrying a `subject_id` of their own, rather than being mapped onto a subject by domain
 - [ ] Spoken explanation practice in the Chart Sandbox — reason aloud about a chart and get feedback on the argument, not just the answer
 - [ ] Flow Efficiency and Aging WIP as guided sandbox concepts
 - [ ] AI-generated explanations for imported questions that arrive without one

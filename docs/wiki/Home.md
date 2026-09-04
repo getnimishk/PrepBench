@@ -8,22 +8,26 @@ If you just want to run it, the [README](https://github.com/getnimishk/PrepBench
 
 | Page | What it covers |
 |---|---|
-| **[Architecture](Architecture)** | Backend layering, the request path, the 19 tables, why there is no Alembic, and what CI actually enforces |
+| **[Architecture](Architecture)** | Backend layering, the request path, the 24 tables, the seed ledger, why there is no Alembic, and what CI actually enforces |
+| **[Readiness](Readiness)** | Subjects, why a drill never counts as a mock, the five states and the thresholds behind them |
+| **[Design Review](Design-Review)** | Two defensible architectures, the deciding axis, and why grading assesses the reasoning rather than the choice |
 | **[Chart Sandbox](Chart-Sandbox)** | The executable delivery model, the coupling ledger, the 27 views, and the guided learning layer |
 | **[AI Providers](AI-Providers)** | The provider gateway, task-level routing, local model setup, and how keys are stored |
 | **[Importing Content](Importing-Content)** | Question formats, roadmap column detection, and the pre-import audit |
 | **[Development Guide](Development-Guide)** | Environment setup, the test suites, conventions, and how to add a chart, endpoint, or provider |
 | **[Troubleshooting](Troubleshooting)** | The failures people actually hit |
 
-## The three rules this codebase holds to
+## The four rules this codebase holds to
 
 Most of the design decisions documented here follow from these. They come up often enough to state once, up front.
 
 **1. Never fabricate a number.** If a score cannot be computed, the UI says so. Grading with no provider configured returns *"Not Graded"*, not `0%`. A percentage with no denominator renders as `—`. An invented grade is worse than a missing one, because the learner cannot tell the difference.
 
-**2. Never present a modelling choice as a fact.** In the Chart Sandbox this is enforced structurally: every relationship between models is typed `arithmetic | assumption | convention`, and assumptions render on-chart as assumptions. *"High WIP raises defect injection"* stated as fact is a claim you cannot defend when someone asks for the evidence.
+**2. Never claim more than the evidence supports.** Readiness is computed from full mocks alone — a drill is not a weaker measurement of whether you would pass, it is not a measurement of it. Zero mocks is *"needs evaluation"*, not zero per cent, and a subject with no pass mark can never be *"ready"* because there is nothing to be ready against. An encouraging app that leads to a failed exam costs the fee and the confidence; it is worse than no app. See [Readiness](Readiness).
 
-**3. The machine boundary is real.** No telemetry, no analytics SDK, no account system. The only outbound path is a cloud AI provider you configure yourself, and PrepBench will not download or launch a model on your behalf.
+**3. Never present a modelling choice as a fact.** In the Chart Sandbox this is enforced structurally: every relationship between models is typed `arithmetic | assumption | convention`, and assumptions render on-chart as assumptions. *"High WIP raises defect injection"* stated as fact is a claim you cannot defend when someone asks for the evidence.
+
+**4. The machine boundary is real.** No telemetry, no analytics SDK, no account system. The only outbound path is a cloud AI provider you configure yourself, and PrepBench will not download or launch a model on your behalf.
 
 ## License
 
