@@ -15,12 +15,24 @@ const mockGetHome = vi.fn();
 
 const mockGetActivity = vi.fn();
 const mockGetOverview = vi.fn();
+const mockGetTrends = vi.fn();
 
 vi.mock('../services/api', () => ({
   getSubjects: (...a: any[]) => mockGetSubjects(...a),
   getHomeSummary: (...a: any[]) => mockGetHome(...a),
   getActivity: (...a: any[]) => mockGetActivity(...a),
   getDashboardOverview: (...a: any[]) => mockGetOverview(...a),
+  getScoreTrends: (...a: any[]) => mockGetTrends(...a),
+}));
+
+// jsdom has no real canvas context, so Chart.js throws on any non-empty
+// dataset. Mocked as an opaque leaf, exactly as AnalyticsPage.test.tsx does,
+// so this file tests HomePage's own logic rather than fighting an
+// environment limitation unrelated to it.
+vi.mock('../components/analytics/ScoreTrendChart', () => ({
+  ScoreTrendChart: ({ trends }: { trends: any[] }) => (
+    <div data-testid="score-trend-chart">{trends.length} points</div>
+  ),
 }));
 
 const CERT: Subject = {
@@ -95,6 +107,7 @@ beforeEach(() => {
     subjects_ready: 0,
   });
   mockGetActivity.mockResolvedValue([]);
+  mockGetTrends.mockResolvedValue([]);
   mockGetOverview.mockResolvedValue({
     total_exams: 4,
     total_questions_attempted: 240,
@@ -146,7 +159,10 @@ describe('HomePage', () => {
     expect(screen.getByText(/pass mark 85%/)).toBeInTheDocument();
   });
 
-  it('surfaces an unfinished session above everything', async () => {
+  it('does not put a resume card on the dashboard', async () => {
+    // Removed by request. An unfinished session is still reachable, but the
+    // dashboard is for where you stand, not for pushing you back into a
+    // session you chose to leave.
     mockGetHome.mockResolvedValue({
       resumable: {
         session_id: 42, title: 'PSM I mock 5', session_kind: 'mock',
@@ -155,20 +171,25 @@ describe('HomePage', () => {
       unreviewed_total: 0, due_for_review: 0, per_subject: [],
       mock_count: 0, mock_accuracy: null, subjects_total: 2, subjects_ready: 0,
     });
-    const user = userEvent.setup();
     renderHome();
+    await screen.findByText('Where you stand');
 
-    expect(await screen.findByText('PSM I mock 5')).toBeInTheDocument();
-    expect(screen.getByText(/22 of 80 answered/)).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: /resume/i }));
-    expect(await screen.findByText('Exam Runner')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /resume/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('PSM I mock 5')).not.toBeInTheDocument();
   });
 
-  it('shows no resume card when nothing is unfinished', async () => {
+  it('plots the score history that already exists', async () => {
+    // Ten sessions of real data were being ignored. The chart is history,
+    // not readiness, and the caption has to say so.
+    mockGetTrends.mockResolvedValue([
+      { date: 'Aug 21', score: 82, rolling_avg: 82, exam_title: 'Timed Exam' },
+      { date: 'Aug 31', score: 88, rolling_avg: 85, exam_title: 'Timed Exam' },
+    ]);
     renderHome();
-    await screen.findByText('Scrum / PSM I');
-    expect(screen.queryByRole('button', { name: /resume/i })).not.toBeInTheDocument();
+
+    expect(await screen.findByText('Score history')).toBeInTheDocument();
+    expect(screen.getByTestId('score-trend-chart')).toHaveTextContent('2 points');
+    expect(screen.getByText(/mocks and drills together/i)).toBeInTheDocument();
   });
 
   it('reports unreviewed answers as a count, not an instruction', async () => {

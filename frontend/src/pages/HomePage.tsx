@@ -9,36 +9,37 @@ import {
   CircularProgress, LinearProgress, Stack, Divider, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow,
 } from '@mui/material';
+import { Plus, Target, ClipboardCheck, Layers, Sparkles } from 'lucide-react';
 import {
-  PlayCircle, Plus, Target, ClipboardCheck, Layers, Sparkles,
-} from 'lucide-react';
-import {
-  getSubjects, getHomeSummary, getActivity, getDashboardOverview,
+  getSubjects, getHomeSummary, getActivity, getDashboardOverview, getScoreTrends,
 } from '../services/api';
 import { MetricCard } from '../components/dashboard/MetricCard';
+import { WeakTopicsWidget } from '../components/dashboard/WeakTopicsWidget';
+import { ScoreTrendChart } from '../components/analytics/ScoreTrendChart';
+import { ScoreTrendPoint } from '../types/analytics';
 import { ActivityItem, HomeSummary, Subject, READINESS_LABELS } from '../types/subject';
 import { readinessColor, readinessProgress } from '../components/common/readinessDisplay';
-
-const formatMinutes = (seconds?: number | null) =>
-  seconds == null ? null : `${Math.round(seconds / 60)} min left`;
 
 /**
  * Home is the dashboard, rebuilt around what the application now knows.
  *
- * The shape is the old dashboard's -- headline metrics, a wide panel, a
- * sidebar panel, a recent-activity table -- because that shape was right.
- * What changed is the content, in three ways:
+ * The shape is the old dashboard's -- headline metrics, a score chart, a
+ * sidebar panel, a weak-topics widget, a recent-activity table -- because
+ * that shape was right, and because the data behind it already existed and
+ * was going unused. What changed is the honesty of the numbers:
  *
  *   1. The headline accuracy counts full mocks alone. The old figure averaged
  *      ten-question warm-ups with timed mocks, which is exactly why it could
  *      not answer whether you would pass.
- *   2. Subject readiness replaces topic mastery as the main panel, because
- *      "would I pass" is the question and "which topics am I good at" is not.
- *   3. Recent activity spans every format, not exams alone.
+ *   2. The score chart still plots every session, mocks and drills together,
+ *      and says so -- it is history, not readiness, and the caption makes the
+ *      difference explicit rather than leaving it to be inferred.
+ *   3. Subject readiness replaces topic mastery as the main panel, because
+ *      "would I pass" is the question a candidate has.
  *
- * What it still does not do is tell you what to do next. A ranked list was
- * built, put to the user, and rejected as nagging -- so every number here is
- * a statement of what is true with a link to the thing it describes.
+ * What it does not do is tell you what to do next. A ranked list was built,
+ * put to the user, and rejected as nagging -- so every number here is a
+ * statement of what is true with a link to the thing it describes.
  */
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
@@ -46,6 +47,7 @@ export const HomePage: React.FC = () => {
   const [summary, setSummary] = useState<HomeSummary | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [overview, setOverview] = useState<any | null>(null);
+  const [trends, setTrends] = useState<ScoreTrendPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,16 +56,22 @@ export const HomePage: React.FC = () => {
       getSubjects(),
       getHomeSummary(),
       getActivity(8),
-      // The existing overview still owns questions-attempted and the daily
-      // goal. Reused rather than recomputed -- but its accuracy figure is
-      // deliberately not shown, because it mixes mocks with drills.
+      // The existing overview still owns questions-attempted, the streak and
+      // the daily goal. Reused rather than recomputed -- but its accuracy
+      // field is deliberately not displayed, because it mixes mocks with
+      // drills and that is the figure this dashboard exists to replace.
       getDashboardOverview().catch(() => null),
+      // Ten sessions and hundreds of answered questions already exist. There
+      // is no reason for the dashboard to ignore them just because readiness
+      // cannot count them.
+      getScoreTrends().catch(() => [] as ScoreTrendPoint[]),
     ])
-      .then(([s, h, a, o]) => {
+      .then(([s, h, a, o, t]) => {
         setSubjects(s);
         setSummary(h);
         setActivity(a);
         setOverview(o);
+        setTrends(t);
       })
       .catch(() => setError('Failed to load. Please check the backend connection.'))
       .finally(() => setLoading(false));
@@ -85,35 +93,6 @@ export const HomePage: React.FC = () => {
   return (
     <Box>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-
-      {/* Resume sits above everything. An abandoned session used to be
-          invisible the next day, which made stopping a decision you had to
-          make again from scratch. */}
-      {summary?.resumable && (
-        <Card sx={{ mb: 3, borderLeft: '4px solid', borderLeftColor: 'primary.main' }}>
-          <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-            <PlayCircle size={22} />
-            <Box sx={{ flexGrow: 1, minWidth: 220 }}>
-              <Typography variant="overline" sx={{ color: 'text.secondary' }}>Continue</Typography>
-              <Typography variant="h6" sx={{ fontWeight: 600, lineHeight: 1.3 }}>
-                {summary.resumable.title}
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                {summary.resumable.answered} of {summary.resumable.total} answered
-                {formatMinutes(summary.resumable.seconds_remaining)
-                  ? ` · about ${formatMinutes(summary.resumable.seconds_remaining)}`
-                  : ''}
-              </Typography>
-            </Box>
-            <Button
-              variant="contained"
-              onClick={() => navigate(`/exam/${summary.resumable!.session_id}`)}
-            >
-              Resume
-            </Button>
-          </CardContent>
-        </Card>
-      )}
 
       {/* ---- headline metrics ---- */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -158,8 +137,113 @@ export const HomePage: React.FC = () => {
         </Grid>
       </Grid>
 
+      {/* ---- score history and today's practice ---- */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        {/* ---- subject readiness: the main panel ---- */}
+        <Grid size={{ xs: 12, md: 8 }}>
+          <Card sx={{ height: '100%', border: 1, borderColor: 'divider', boxShadow: 'none' }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+                Score history
+              </Typography>
+              {/* Says what it is rather than leaving it to be inferred. This
+                  line counts every session, mocks and drills alike, which is
+                  why it is history and not readiness. */}
+              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
+                Every completed session — mocks and drills together. Readiness counts mocks alone.
+              </Typography>
+              {/* ScoreTrendChart sets maintainAspectRatio:false, so Chart.js
+                  sizes the canvas from its parent. Without an explicit height
+                  the canvas collapses to zero width and nothing is drawn --
+                  the same fixed box AnalyticsPage gives it. */}
+              <Box sx={{ height: 300 }}>
+                <ScoreTrendChart
+                  trends={trends}
+                  label="Session Score %"
+                  rollingLabel="5-Session Rolling Avg %"
+                  emptyMessage="Complete a session to see your score history here."
+                />
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Card sx={{ height: '100%', border: 1, borderColor: 'divider', boxShadow: 'none' }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+                Today
+              </Typography>
+
+              {overview ? (
+                <>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 3 }}>
+                    {(() => {
+                      const goal = Math.max(1, overview.daily_goal ?? 1);
+                      const pct = Math.min(100, Math.round((overview.today_practiced_count / goal) * 100));
+                      return (
+                        <>
+                          <Box sx={{ position: 'relative', display: 'inline-flex', width: 76, height: 76, flexShrink: 0 }}>
+                            <CircularProgress variant="determinate" value={100} size={76} thickness={6}
+                              sx={{ color: 'divider', position: 'absolute', left: 0 }} />
+                            <CircularProgress variant="determinate" value={pct} size={76} thickness={6}
+                              sx={{ color: 'primary.main', position: 'absolute', left: 0 }} />
+                            <Box sx={{
+                              top: 0, left: 0, bottom: 0, right: 0, position: 'absolute',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                              <Typography variant="h6" sx={{ fontWeight: 800 }}>{pct}%</Typography>
+                            </Box>
+                          </Box>
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>Practice goal</Typography>
+                            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                              {overview.today_practiced_count} / {goal} questions
+                            </Typography>
+                          </Box>
+                        </>
+                      );
+                    })()}
+                  </Box>
+
+                  <Divider sx={{ mb: 2 }} />
+
+                  <Stack spacing={1.25}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>Questions attempted</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {overview.total_questions_attempted}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>Study streak</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {overview.study_streak_days} day{overview.study_streak_days === 1 ? '' : 's'}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>Sessions completed</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{overview.total_exams}</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>Avg time / question</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {Math.round(overview.average_time_per_question_seconds)}s
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </>
+              ) : (
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  Practice statistics are unavailable.
+                </Typography>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* ---- readiness and weak topics ---- */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid size={{ xs: 12, md: 7 }}>
           <Card sx={{ height: '100%', border: 1, borderColor: 'divider', boxShadow: 'none' }}>
             <CardContent>
@@ -250,81 +334,11 @@ export const HomePage: React.FC = () => {
           </Card>
         </Grid>
 
-        {/* ---- daily goal, kept from the old dashboard ---- */}
+        {/* Weak topics come from every answered question, which is the whole
+            point of showing them here: they are actionable long before enough
+            mocks exist for readiness to say anything. */}
         <Grid size={{ xs: 12, md: 5 }}>
-          <Card sx={{ height: '100%', border: 1, borderColor: 'divider', boxShadow: 'none' }}>
-            <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-                Today
-              </Typography>
-
-              {overview ? (
-                <>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 3 }}>
-                    {(() => {
-                      const goal = Math.max(1, overview.daily_goal ?? 1);
-                      const pct = Math.min(100, Math.round((overview.today_practiced_count / goal) * 100));
-                      return (
-                        <>
-                          <Box sx={{ position: 'relative', display: 'inline-flex', width: 76, height: 76, flexShrink: 0 }}>
-                            <CircularProgress variant="determinate" value={100} size={76} thickness={6}
-                              sx={{ color: 'divider', position: 'absolute', left: 0 }} />
-                            <CircularProgress variant="determinate" value={pct} size={76} thickness={6}
-                              sx={{ color: 'primary.main', position: 'absolute', left: 0 }} />
-                            <Box sx={{
-                              top: 0, left: 0, bottom: 0, right: 0, position: 'absolute',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            }}>
-                              <Typography variant="h6" sx={{ fontWeight: 800 }}>{pct}%</Typography>
-                            </Box>
-                          </Box>
-                          <Box>
-                            <Typography variant="body2" sx={{ fontWeight: 600 }}>Practice goal</Typography>
-                            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                              {overview.today_practiced_count} / {goal} questions
-                            </Typography>
-                          </Box>
-                        </>
-                      );
-                    })()}
-                  </Box>
-
-                  <Divider sx={{ mb: 2 }} />
-
-                  <Stack spacing={1.25}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                        Questions attempted
-                      </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {overview.total_questions_attempted}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                        Study streak
-                      </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {overview.study_streak_days} day{overview.study_streak_days === 1 ? '' : 's'}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                        Sessions completed
-                      </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {overview.total_exams}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </>
-              ) : (
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  Practice statistics are unavailable.
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
+          <WeakTopicsWidget topics={overview?.weak_topics ?? []} />
         </Grid>
       </Grid>
 
