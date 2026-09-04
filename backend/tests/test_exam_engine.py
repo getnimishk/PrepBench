@@ -9,22 +9,38 @@ from app.main import app
 client = TestClient(app)
 
 def test_start_and_finish_exam():
-    # 0. Ensure at least one question exists in DB
+    # 0. One question, under a certification nothing else uses.
+    #
+    # The certification is what makes this test deterministic. It previously
+    # created a question and then started an exam across the WHOLE question
+    # bank -- "question_count" is not a field on the request, so the exam
+    # silently drew the default 25 questions at random from every question any
+    # other test had ever created. It then asserted that questions[0] had
+    # options, which was true only by luck. CI drew a different sample and the
+    # test failed with an IndexError on an empty options list.
+    #
+    # Scoping the exam to this question's own certification means the sample is
+    # exactly the row created here, so the assertions below describe this test's
+    # data rather than whatever happened to be in the bank.
+    certification = f"ExamEngineCert-{uuid.uuid4().hex[:12]}"
     q_payload = {
         "text": f"Exam Engine Test Question-{uuid.uuid4().hex}",
         "question_type": "single_choice",
+        "certification": certification,
         "options": [
             {"option_text": "Option A", "is_correct": True, "order_index": 0},
             {"option_text": "Option B", "is_correct": False, "order_index": 1}
         ]
     }
-    client.post("/api/v1/questions", json=q_payload)
+    created = client.post("/api/v1/questions", json=q_payload)
+    assert created.status_code == 201, created.text
 
     # 1. Start exam
     start_payload = {
         "title": "Unit Test Exam Session",
         "exam_mode": "practice",
-        "question_count": 1
+        "certification": certification,
+        "total_questions": 1,
     }
     res = client.post("/api/v1/exams", json=start_payload)
     assert res.status_code == 201
