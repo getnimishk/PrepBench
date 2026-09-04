@@ -29,6 +29,9 @@ import { RoadmapDetailPage } from './pages/RoadmapDetailPage';
 import { ChartSandboxPage } from './pages/ChartSandboxPage';
 import { DesignReviewListPage } from './pages/DesignReviewListPage';
 import { DesignReviewPage } from './pages/DesignReviewPage';
+import { HomePage } from './pages/HomePage';
+import { SubjectPage } from './pages/SubjectPage';
+import { PracticeHubPage, LearnHubPage, ReviewHubPage } from './pages/HubPages';
 
 export const SidebarContext = createContext({ collapsed: false, toggleCollapsed: () => {} });
 export const useSidebar = () => useContext(SidebarContext);
@@ -86,7 +89,15 @@ const App: React.FC = () => {
             <Route path="/interview-practice/:questionId/record" element={<FocusLayout><InterviewPracticeRecordPage /></FocusLayout>} />
 
             {/* Standard layout with sidebar */}
-            <Route path="/" element={<AppLayout><DashboardPage /></AppLayout>} />
+            {/* Home replaces the old dashboard: resume plus subject state,
+                and deliberately no ranked "do this next" list. The old
+                metric dashboard stays reachable at /dashboard. */}
+            <Route path="/" element={<AppLayout><HomePage /></AppLayout>} />
+            <Route path="/dashboard" element={<AppLayout><DashboardPage /></AppLayout>} />
+            <Route path="/subjects/:subjectId" element={<AppLayout><SubjectPage /></AppLayout>} />
+            <Route path="/practice" element={<AppLayout><PracticeHubPage /></AppLayout>} />
+            <Route path="/learn" element={<AppLayout><LearnHubPage /></AppLayout>} />
+            <Route path="/review" element={<AppLayout><ReviewHubPage /></AppLayout>} />
             <Route path="/exam-setup" element={<AppLayout><ExamSetupPage /></AppLayout>} />
             <Route path="/exam-review/:sessionId" element={<AppLayout><ExamReviewPage /></AppLayout>} />
             <Route path="/question-bank" element={<AppLayout><QuestionBankPage /></AppLayout>} />

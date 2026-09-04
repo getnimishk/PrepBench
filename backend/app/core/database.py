@@ -160,6 +160,20 @@ def apply_lightweight_migrations():
             _log_migration_failure("exam_sessions.session_kind / subject_id", exc)
 
         try:
+            # exam_answers.reviewed_at: when the learner actually looked at
+            # this answer after a mock. Nullable and unbackfilled -- an answer
+            # from before the column existed is genuinely unknown, and
+            # pretending it was reviewed would hide exactly the work this
+            # column exists to surface.
+            result = conn.execute(text("PRAGMA table_info(exam_answers)")).fetchall()
+            columns = [row[1] for row in result]
+            if "reviewed_at" not in columns and len(columns) > 0:
+                conn.execute(text("ALTER TABLE exam_answers ADD COLUMN reviewed_at DATETIME"))
+                conn.commit()
+        except Exception as exc:
+            _log_migration_failure("exam_answers.reviewed_at", exc)
+
+        try:
             # Check questions columns
             result = conn.execute(text("PRAGMA table_info(questions)")).fetchall()
             columns = [row[1] for row in result]

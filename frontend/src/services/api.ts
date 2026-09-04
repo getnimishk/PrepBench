@@ -36,6 +36,12 @@ import {
   DesignReviewAnalytics,
   SubmitDesignReviewAttemptRequest,
 } from '../types/designReview';
+import {
+  Subject,
+  HomeSummary,
+  ActivityItem,
+  FormatCoverage,
+} from '../types/subject';
 import { PracticeRecording, RecordingAnalysis, ProviderInfo, RecordingAnalytics } from '../types/recording';
 import {
   InterviewQuestion,
@@ -652,5 +658,44 @@ export const getLatestDesignReviewAttempt = async (reviewId: number) => {
   const res = await api.get<DesignReviewAttempt | null>(
     `/design-reviews/${reviewId}/latest-attempt`
   );
+  return res.data;
+};
+
+// ==================== Subjects, Home, Readiness ====================
+
+export const getSubjects = async () => {
+  const res = await api.get<Subject[]>('/subjects');
+  return res.data;
+};
+
+export const getSubject = async (subjectId: number) => {
+  const res = await api.get<Subject>(`/subjects/${subjectId}`);
+  return res.data;
+};
+
+export const getHomeSummary = async () => {
+  const res = await api.get<HomeSummary>('/home');
+  return res.data;
+};
+
+export const getActivity = async (limit = 40) => {
+  const res = await api.get<ActivityItem[]>('/home/activity', { params: { limit } });
+  return res.data;
+};
+
+export const getSubjectCoverage = async (subjectId: number) => {
+  const res = await api.get<FormatCoverage[]>(`/home/subjects/${subjectId}/coverage`);
+  return res.data;
+};
+
+export const getUnreviewedAnswers = async (sessionId: number) => {
+  const res = await api.get<{ session_id: number; count: number; question_ids: number[] }>(
+    `/exams/${sessionId}/unreviewed`
+  );
+  return res.data;
+};
+
+export const markAnswerReviewed = async (sessionId: number, questionId: number) => {
+  const res = await api.post(`/exams/${sessionId}/answers/${questionId}/reviewed`);
   return res.data;
 };
