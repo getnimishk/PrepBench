@@ -2,6 +2,8 @@
 
 **Understanding it**
 - [Architecture](Architecture)
+- [Readiness](Readiness)
+- [Design Review](Design-Review)
 - [Chart Sandbox](Chart-Sandbox)
 
 **Using it**

@@ -2,15 +2,16 @@
 
 PrepBench runs fine with no AI at all. Exams, the question bank, roadmaps, analytics, the Chart Sandbox, spaced repetition and export never touch a model.
 
-AI backs six named tasks, and you decide who runs each one. Configure it at **Settings → AI Providers**.
+AI backs seven named tasks, and you decide who runs each one. Configure it at **Settings → AI Providers**.
 
-## The six tasks
+## The seven tasks
 
 `LLMTask` in `app/llm/types.py` names every AI-backed operation in the app, once:
 
 | Task | Used by |
 |---|---|
 | `system_design_grading` | Grading written system design answers |
+| `design_review_grading` | Judging whether a design review justification named the deciding axis |
 | `recording_analysis` | Scoring interview recordings on content and delivery |
 | `interview_question_gen` | Generating interview questions |
 | `system_design_prompt_gen` | Generating system design prompts |
@@ -18,6 +19,8 @@ AI backs six named tasks, and you decide who runs each one. Configure it at **Se
 | `embedding` | Vector operations |
 
 **Routing is per task.** `llm_task_binding` maps each task to a provider independently, so you can grade system design on a local model and send only audio to a cloud one. Nothing forces a single choice across the app.
+
+`design_review_grading` is a good candidate for a local model: it answers one narrow, closed question — *did this reasoning name the axis?* — rather than judging a whole design, which is exactly the kind of task a small model does reliably. See [Design Review](Design-Review#grading).
 
 ## Running a model yourself
 
@@ -98,11 +101,19 @@ All under `/api/v1/llm`:
 
 ## When nothing is configured
 
-The three AI-backed features report themselves **unavailable**. They do not fall back to a heuristic, and they do not return a zero.
+Every AI-backed feature reports itself **unavailable**. None falls back to a heuristic, and none returns a zero.
 
-This is the first of the project's three rules (see [Home](Home)): an invented grade is worse than a missing one, because the learner cannot tell the difference. A `0%` on a system design answer reads as *"you scored nothing"*, not *"nothing scored you"*.
+| Feature | Without a provider |
+|---|---|
+| System design grading | *"Not Graded"* — the answer still saves |
+| Design review grading | `grading_status: not_graded`, **no verdict** — the attempt still saves and the reveal still shows |
+| Interview recording analysis | Unavailable — the recording is still kept |
+| Question generation and the import audit | Unavailable; import itself is unaffected |
+
+This is the first of the project's four rules (see [Home](Home)): an invented grade is worse than a missing one, because the learner cannot tell the difference. A `0%` on a system design answer reads as *"you scored nothing"*, not *"nothing scored you"* — and on a design review, a fabricated `missed` verdict would blame the learner for a missing API key.
 
 ## See also
 
 - [Architecture](Architecture) — where the LLM module sits
+- [Design Review](Design-Review) — what `design_review_grading` is asked to judge
 - [Troubleshooting](Troubleshooting) — provider verification failures

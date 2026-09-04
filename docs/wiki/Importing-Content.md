@@ -71,7 +71,7 @@ See [`data/template_import.csv`](https://github.com/getnimishk/PrepBench/blob/ma
 
 Optional, and off by default. `validate_content=True` runs the batch through `content_validator.py` before import — checking the questions themselves, not just their structure. `refine_question_batch` can then apply suggested corrections.
 
-This is one of the six AI-backed tasks (`content_validation`), so it needs a provider configured. Without one it is simply unavailable — see [AI Providers](AI-Providers).
+This is one of the seven AI-backed tasks (`content_validation`), so it needs a provider configured. Without one it is simply unavailable — see [AI Providers](AI-Providers).
 
 ---
 

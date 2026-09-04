@@ -32,12 +32,15 @@ Things most likely to be declined:
 
 - **Anything that sends data off the machine.** PrepBench is offline by design. There is no telemetry, no analytics, no account system, and no issue-tracker integration — now or later.
 - **Anything that fabricates a number.** If a score cannot be computed, the UI must say so. Never `0%` standing in for "not graded".
+- **Anything that lets a drill count toward readiness.** Readiness answers "would I pass", and only full mocks are evidence for that. The exclusion lives in the repository query so it cannot be widened by forgetting a filter — see [Readiness](https://github.com/getnimishk/PrepBench/wiki/Readiness).
+- **Anything that tells the user what to do next.** A ranked list of suggested actions was put to the user and rejected as nagging. The app reports state; the person decides. The one exception is a count of unreviewed wrong answers, and it stays a count rather than becoming an instruction.
 - **Anything that presents a modelling choice as a fact.** In the Chart Sandbox every relationship is typed `arithmetic | assumption | convention` and rendered as what it is.
 - **Anything that makes PrepBench download or launch a model.** It tells you the command; you run it.
+- **Anything that seeds built-in content without going through the ledger.** `app/utils/seed_ledger.py` is what makes deleting a built-in stick and lets new ones reach an existing install.
 
 ## Working on it
 
-Setup, tests, conventions, and how to add an endpoint, chart, concept or provider are in the [Development Guide](https://github.com/getnimishk/PrepBench/wiki/Development-Guide).
+Setup, tests, conventions, and how to add an endpoint, chart, concept, design review, subject or provider are in the [Development Guide](https://github.com/getnimishk/PrepBench/wiki/Development-Guide). Documentation sources live in `docs/wiki/` and are mirrored to the wiki by `scripts/sync-wiki.sh`, so a docs change is a pull request like any other.
 
 The short version:
 

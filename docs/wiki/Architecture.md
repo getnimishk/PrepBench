@@ -14,7 +14,7 @@ flowchart TB
         PAGES --> SVC
     end
     subgraph be["Backend — Uvicorn, :8000"]
-        API["api/v1/ — 11 routers"]
+        API["api/v1/ — 14 routers"]
         SERVICES["services/ — business logic"]
         REPOS["repositories/ — data access"]
         MODELS["models/ — SQLAlchemy ORM"]
@@ -44,30 +44,37 @@ Four layers, each with one job. The rule is that a layer only talks to the one d
 
 **Why the repository layer exists at all**, given SQLAlchemy already abstracts the database: it keeps query construction out of the services, so a service reads as a sequence of decisions rather than a sequence of queries. It also makes the analytics code testable without a fixture-heavy database — `AnalyticsService` can be reasoned about separately from `AnalyticsRepository`.
 
-### The 11 routers
+### The 14 routers
 
-`questions` · `exams` · `analytics` · `imports` · `export` · `settings` · `system_design` · `recordings` · `interview_questions` · `roadmaps` · `llm`
+`questions` · `exams` · `analytics` · `imports` · `export` · `settings` · `system_design` · `design_review` · `subjects` · `home` · `recordings` · `interview_questions` · `roadmaps` · `llm`
 
 All registered in `app/api/v1/router.py` and mounted under `/api/v1`.
+
+Three of them are newer than the rest and worth placing: `subjects` and `home` are the readiness spine — what a person is preparing for, and where each one stands. `design_review` is a practice format. See [Readiness](Readiness) and [Design Review](Design-Review).
 
 > [!NOTE]
 > Route ordering matters in several routers. A literal path such as `/analytics` must be registered **before** a parameterised sibling such as `/{prompt_id}`, or FastAPI matches the literal as an ID. Follow the existing order when adding routes.
 
 ## Data model
 
-Nineteen tables, grouped by the feature that owns them:
+Twenty-four tables, grouped by the feature that owns them:
 
 | Area | Tables |
 |---|---|
+| Subjects | `subjects` |
 | Questions | `questions` · `question_options` |
 | Exams | `exam_sessions` · `exam_answers` |
 | Spaced repetition | `spaced_repetition` |
 | System design | `system_design_prompts` · `system_design_attempts` |
+| Design review | `design_reviews` · `design_options` · `design_review_attempts` |
 | Interview practice | `interview_questions` · `practice_recordings` · `recording_analyses` |
 | Roadmaps | `roadmaps` · `roadmap_phases` · `roadmap_topics` · `roadmap_resources` |
 | AI providers | `llm_provider_config` · `llm_task_binding` |
 | User content | `user_notes` · `bookmarks` |
+| Seeding | `seeded_content` |
 | Settings | `app_settings` |
+
+`subjects` is the one table other features hang off. `exam_sessions` gained a nullable `subject_id` and a `session_kind` rather than being split, so historical sessions keep working — see [Readiness](Readiness#mocks-and-drills).
 
 ### Schema changes without Alembic
 
@@ -80,17 +87,69 @@ This is a deliberate trade for a single-user local app. Alembic's value is coord
 
 **The constraint this puts on you:** schema changes must be *additive*. Adding a nullable column or an index is supported. Renaming a column, changing its type, or dropping one is not — that needs a hand-written migration path, and the existing helper will not do it for you.
 
-## Seeding
+## Seeding and the ledger
 
-Startup also seeds built-in content, but only into an empty table — `seed_system_design_prompts_if_empty` and `seed_interview_questions_if_empty`. Both are no-ops once you have your own content, so a restart never overwrites what you imported.
+Startup seeds four built-in content sets: system design prompts, interview questions, design reviews, and subjects. Seeding runs on **every** boot, so it needs an answer to *"should this item be created?"* that is right in all four situations that actually occur.
 
-`import_env_provider_if_absent` runs in the same block: if `GEMINI_API_KEY` is set in the environment and no provider is configured yet, it becomes a visible provider row named *"Gemini (from environment)"*. It runs once and never overwrites an existing configuration.
+| Situation | Correct behaviour |
+|---|---|
+| Fresh install | Create everything |
+| Restart, nothing changed | Create nothing |
+| Upgrade adds new built-ins | Create only the new ones |
+| User deleted a built-in | **Leave it deleted** |
+
+The obvious implementations each get one of these wrong. *Seed only when the table is empty* freezes the bank at whatever shipped the day the database was created, so content added by a later version never arrives. *Match against the bank's current contents* recreates anything the user deleted, which makes deleting a built-in something the app quietly undoes.
+
+Both are answered by recording what has been **offered**, separately from what is currently **present**. That record is the `seeded_content` table, and `app/utils/seed_ledger.py` is the one place the rule is written:
+
+```
+seed_missing_content(db, namespace=..., keys=[...], bank_is_empty=..., create=fn)
+```
+
+| Seeder | Namespace | Ledger key |
+|---|---|---|
+| `seed_system_design_prompts` | `system_design_prompt` | Prompt title |
+| `seed_interview_questions` | `interview_question` | `round:question_text` |
+| `seed_design_reviews` | `design_review` | Review title |
+| `seed_subjects` | `subject` | Subject name |
+
+The key is the readable value rather than a hash, deliberately, so the ledger can be inspected directly when a built-in is missing and nobody can work out why.
+
+> [!IMPORTANT]
+> **The key is the item's identity.** Renaming a seeded item in its seed file makes the next boot treat it as new and create a second copy. Change the body freely; treat the key as fixed.
+
+Two details in the implementation are load-bearing:
+
+- **A database that predates the ledger** holds content but no record of it, and there is no way to tell *"the user deleted this"* from *"this was never shipped"*. The safer reading is assumed: everything in the current built-in list is marked as already offered, nothing is created on that one boot, and from then on only genuinely new items arrive.
+- **Keys are recorded one at a time**, not batched at the end. A crash part-way through leaves the ledger agreeing with the bank; batched, the next boot would find an empty ledger beside a non-empty bank, take the branch above, and permanently skip whatever had not been created yet.
+
+`Settings → Reset` runs the same seeding that startup does, after emptying every table — including the ledger, which is what makes a reset genuinely equivalent to a first install rather than an empty app.
+
+`import_env_provider_if_absent` runs in the same startup block: if `GEMINI_API_KEY` is set in the environment and no provider is configured yet, it becomes a visible provider row named *"Gemini (from environment)"*. It runs once and never overwrites an existing configuration.
 
 ## Frontend
 
 Standard React 19 + TypeScript, with one structural note worth knowing: `src/services/` holds more than the API client. `services/metrics/` and `services/learning/` are the Chart Sandbox's executable model and learning engine — pure TypeScript with no network calls and no React. See [Chart Sandbox](Chart-Sandbox).
 
 That separation is why the sandbox works offline and why its behaviour is testable without rendering anything: the model is a library, and the page is a view over it.
+
+### The navigation is four items, and it stays four
+
+`Sidebar.tsx` holds **Home** plus three verb groups — **Practice**, **Learn**, **Review** — with Settings below the divider.
+
+The structure exists because the app grows along two axes at very different rates. **Formats** are a closed set: exams, design review, system design, interview practice, sandboxes. **Subjects** are not — Scrum, Databricks and AI keep arriving. So formats nest under the verb they belong to, and subjects live on Home instead of in the sidebar. Adding a subject changes no navigation at all.
+
+Verbs rather than nouns because a person arrives wanting to *do* something. Settings is not one of those things, which is why it sits outside the groups rather than being filed under "progress".
+
+Route-level pages worth knowing:
+
+| Route | Page |
+|---|---|
+| `/` | Home — resumable session, headline mock numbers, per-subject readiness, activity |
+| `/subjects/:id` | One subject: readiness with its evidence, and coverage across every format |
+| `/practice` · `/learn` · `/review` | The three hubs — a list of doors, not a dashboard |
+| `/design-reviews` · `/design-reviews/:id` | The design review bank and one review |
+| `/dashboard` | The original analytics-style dashboard, still routed |
 
 ## What CI enforces
 
@@ -110,5 +169,7 @@ Concurrency is set to `cancel-in-progress`, so a new push to a branch abandons t
 
 ## See also
 
+- [Readiness](Readiness) — subjects, mocks vs drills, and the rule the whole app feeds
+- [Design Review](Design-Review) — the newest practice format
 - [Development Guide](Development-Guide) — setup, tests, and how to add things
 - [AI Providers](AI-Providers) — the one part of the system that can reach the network
