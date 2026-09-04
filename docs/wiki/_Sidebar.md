@@ -1,6 +1,7 @@
 ### [PrepBench Wiki](Home)
 
 **Understanding it**
+- [Philosophy](Philosophy)
 - [Architecture](Architecture)
 - [Readiness](Readiness)
 - [Design Review](Design-Review)
@@ -11,6 +12,7 @@
 - [Importing Content](Importing-Content)
 
 **Working on it**
+- [Product Review](Product-Review)
 - [Development Guide](Development-Guide)
 - [Troubleshooting](Troubleshooting)
 
