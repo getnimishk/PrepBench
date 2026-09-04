@@ -5,7 +5,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Box, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Tooltip, IconButton, Typography, useTheme } from '@mui/material';
-import { LayoutDashboard, PlayCircle, BookOpen, BarChart3, History, Settings, ChevronLeft, ChevronRight, Network, Mic, Headphones, Map, LineChart } from 'lucide-react';
+import { LayoutDashboard, PlayCircle, BookOpen, BarChart3, History, Settings, ChevronLeft, ChevronRight, Network, Mic, Headphones, Map, LineChart, Scale } from 'lucide-react';
 import { useSidebar } from '../../App';
 
 const DASHBOARD_ITEM = { label: 'Dashboard', path: '/', icon: LayoutDashboard };
@@ -16,6 +16,7 @@ const DASHBOARD_ITEM = { label: 'Dashboard', path: '/', icon: LayoutDashboard };
 // not left as a flat list of unrelated-looking links.
 const PRACTICE_ITEMS = [
   { label: 'Exam Practice', path: '/exam-setup', icon: PlayCircle },
+  { label: 'Design Review', path: '/design-reviews', icon: Scale },
   { label: 'System Design Practice', path: '/system-design', icon: Network },
   { label: 'Interview Practice', path: '/interview-practice', icon: Mic },
 ];

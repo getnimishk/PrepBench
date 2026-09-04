@@ -27,6 +27,8 @@ import { InterviewPracticeResultsPage } from './pages/InterviewPracticeResultsPa
 import { RoadmapListPage } from './pages/RoadmapListPage';
 import { RoadmapDetailPage } from './pages/RoadmapDetailPage';
 import { ChartSandboxPage } from './pages/ChartSandboxPage';
+import { DesignReviewListPage } from './pages/DesignReviewListPage';
+import { DesignReviewPage } from './pages/DesignReviewPage';
 
 export const SidebarContext = createContext({ collapsed: false, toggleCollapsed: () => {} });
 export const useSidebar = () => useContext(SidebarContext);
@@ -96,6 +98,8 @@ const App: React.FC = () => {
             <Route path="/system-design/history" element={<AppLayout><SystemDesignHistoryPage /></AppLayout>} />
             <Route path="/roadmaps" element={<AppLayout><RoadmapListPage /></AppLayout>} />
             <Route path="/chart-sandbox" element={<AppLayout><ChartSandboxPage /></AppLayout>} />
+            <Route path="/design-reviews" element={<AppLayout><DesignReviewListPage /></AppLayout>} />
+            <Route path="/design-reviews/:reviewId" element={<AppLayout><DesignReviewPage /></AppLayout>} />
             <Route path="/roadmaps/:roadmapId" element={<AppLayout><RoadmapDetailPage /></AppLayout>} />
             <Route path="/recordings" element={<AppLayout><RecordingsPage /></AppLayout>} />
             <Route path="/interview-practice" element={<AppLayout><InterviewPracticeSetupPage /></AppLayout>} />
