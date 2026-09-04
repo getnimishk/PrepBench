@@ -4,8 +4,9 @@
 
 from typing import List, Optional
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from app.models.exam_session import ExamMode, ExamStatus
+from app.repositories.subject_repository import MOCK, DRILL
 from app.models.exam_answer import ConfidenceLevel
 from app.schemas.question import QuestionResponse
 
@@ -20,6 +21,35 @@ class ExamCreateRequest(BaseModel):
     passing_percentage: float = 70.0
     randomize_questions: bool = True
     randomize_options: bool = True
+
+    # A mock measures readiness; a drill closes gaps. The model and the
+    # readiness rule have distinguished them since they were added, but the
+    # request did not carry the field -- so every session the app created fell
+    # back to the "drill" default and readiness could never leave
+    # needs_evaluation through normal use.
+    #
+    # Defaults to drill deliberately: a caller that has not thought about it
+    # is not taking an exam under exam conditions, and readiness must only
+    # ever rise on evidence someone meant to produce.
+    session_kind: str = DRILL
+
+    # Which subject this session belongs to. Without it a session resolved to
+    # a subject by certification string alone, so a skill subject -- which has
+    # no certification -- could never own one.
+    subject_id: Optional[int] = None
+
+    @field_validator("session_kind")
+    @classmethod
+    def known_session_kind(cls, v):
+        """Only the two words the rest of the app knows.
+
+        An unrecognised value would be stored verbatim and then silently fail
+        every mock filter, which reads as "the exam did not count" with
+        nothing anywhere explaining why.
+        """
+        if v not in (MOCK, DRILL):
+            raise ValueError(f"session_kind must be '{MOCK}' or '{DRILL}'")
+        return v
 
 class SaveAnswerRequest(BaseModel):
     question_id: int

@@ -118,6 +118,62 @@ def apply_lightweight_migrations():
             _log_migration_failure("exam_answers.first_answered_at", exc)
 
         try:
+            # design_reviews.axis_label: the deciding axis as a short name, so
+            # attempts can be grouped by it. Added after the table shipped, so
+            # an install seeded by the first version has the reviews but not
+            # the labels -- seed_design_reviews backfills them by title on the
+            # next startup, which is why this only has to add the column.
+            table_exists = conn.execute(text(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='design_reviews'"
+            )).fetchone()
+            if table_exists:
+                result = conn.execute(text("PRAGMA table_info(design_reviews)")).fetchall()
+                columns = [row[1] for row in result]
+                if "axis_label" not in columns:
+                    conn.execute(text("ALTER TABLE design_reviews ADD COLUMN axis_label VARCHAR(60)"))
+                    conn.commit()
+        except Exception as exc:
+            _log_migration_failure("design_reviews.axis_label", exc)
+
+        try:
+            # exam_sessions: which kind of session this was, and which subject
+            # it belongs to. session_kind defaults to "drill" so that every
+            # session recorded before the column existed counts as practice --
+            # readiness must never be built on sessions nobody sat under exam
+            # conditions.
+            table_exists = conn.execute(text(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='exam_sessions'"
+            )).fetchone()
+            if table_exists:
+                result = conn.execute(text("PRAGMA table_info(exam_sessions)")).fetchall()
+                columns = [row[1] for row in result]
+                if "session_kind" not in columns:
+                    conn.execute(text(
+                        "ALTER TABLE exam_sessions ADD COLUMN session_kind VARCHAR(10) "
+                        "NOT NULL DEFAULT 'drill'"
+                    ))
+                    conn.commit()
+                if "subject_id" not in columns:
+                    conn.execute(text("ALTER TABLE exam_sessions ADD COLUMN subject_id INTEGER"))
+                    conn.commit()
+        except Exception as exc:
+            _log_migration_failure("exam_sessions.session_kind / subject_id", exc)
+
+        try:
+            # exam_answers.reviewed_at: when the learner actually looked at
+            # this answer after a mock. Nullable and unbackfilled -- an answer
+            # from before the column existed is genuinely unknown, and
+            # pretending it was reviewed would hide exactly the work this
+            # column exists to surface.
+            result = conn.execute(text("PRAGMA table_info(exam_answers)")).fetchall()
+            columns = [row[1] for row in result]
+            if "reviewed_at" not in columns and len(columns) > 0:
+                conn.execute(text("ALTER TABLE exam_answers ADD COLUMN reviewed_at DATETIME"))
+                conn.commit()
+        except Exception as exc:
+            _log_migration_failure("exam_answers.reviewed_at", exc)
+
+        try:
             # Check questions columns
             result = conn.execute(text("PRAGMA table_info(questions)")).fetchall()
             columns = [row[1] for row in result]

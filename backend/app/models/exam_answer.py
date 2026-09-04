@@ -33,6 +33,15 @@ class ExamAnswer(Base):
     time_spent_seconds = Column(Integer, default=0)
     
     confidence_level = Column(Enum(ConfidenceLevel), default=ConfidenceLevel.NOT_SET)
+    # When the learner actually looked at this answer after the mock.
+    #
+    # Review is where the score moves, and until now it was optional and
+    # unmeasured -- an exam review page existed but nothing recorded whether
+    # anyone opened it. Unreviewed wrong answers are surfaced until cleared,
+    # which is the only nudge the product makes, and it is a count rather
+    # than an instruction.
+    reviewed_at = Column(DateTime, nullable=True)
+
     is_flagged = Column(Boolean, default=False)
     is_bookmarked = Column(Boolean, default=False)
     user_notes = Column(Text, nullable=True)

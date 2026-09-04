@@ -3,9 +3,10 @@
 # Commercial use requires a separate licence from the copyright holder.
 
 """
-Seeds the built-in interview-round question bank on first run. A small,
-fixed, curated list per round -- safe to seed unconditionally-if-empty at
-every startup, same pattern as seed_system_design_prompts.py.
+Keeps the built-in interview-round question bank in sync with this list. A
+small, fixed, curated list per round -- safe to reconcile at every startup,
+same pattern as seed_system_design_prompts.py. What "in sync" means, and why
+it is not simply "seed when empty", is in app/utils/seed_ledger.py.
 
 Content grounded in research on standard interview loop structure (recruiter
 screen -> technical/coding -> system design -> behavioral -> hiring manager)
@@ -13,8 +14,11 @@ and common questions per round.
 """
 from sqlalchemy.orm import Session
 from app.repositories.interview_question_repository import InterviewQuestionRepository
-from app.schemas.interview_question import InterviewQuestionCreate, InterviewQuestionFilter
+from app.schemas.interview_question import InterviewQuestionCreate
 from app.models.interview_question import InterviewRoundType
+from app.utils.seed_ledger import seed_missing_content
+
+SEED_NAMESPACE = "interview_question"
 
 SEED_INTERVIEW_QUESTIONS = [
     # HR Screening -- motivation, fit, logistics; not technical depth.
@@ -59,26 +63,44 @@ SEED_INTERVIEW_QUESTIONS = [
 ]
 
 
-def seed_interview_questions_if_empty(db: Session) -> int:
-    """Seeds per round_type independently, not gated on whether the table has
-    *any* row at all -- a global emptiness check would skip seeding entirely
-    (leaving other rounds with zero questions) the moment even one row exists
-    for any single round, e.g. a user-generated-and-saved question."""
+def _seed_key(round_type, question_text: str) -> str:
+    """Round plus text.
+
+    The text alone would be ambiguous the first time the same question is
+    listed under two rounds, and leading with the round is what makes the
+    ledger scannable when a built-in is missing and nobody can see why.
+    """
+    value = round_type.value if isinstance(round_type, InterviewRoundType) else str(round_type)
+    return f"{value}:{question_text}"
+
+
+def seed_interview_questions(db: Session) -> int:
+    """Add every built-in question this install has not been offered before.
+
+    Note what this deliberately no longer does: the previous version reseeded
+    any round whose question count had fallen to zero, so emptying a round and
+    restarting silently refilled it. Deleting built-ins is now permanent, and
+    Settings -> Reset is the way back to a full bank.
+    """
     repo = InterviewQuestionRepository(db)
-    seeded_round_types = {
-        rt for rt in InterviewRoundType
-        if repo.count(InterviewQuestionFilter(round_type=rt)) == 0
+    by_key = {
+        _seed_key(q["round_type"], q["question_text"]): q
+        for q in SEED_INTERVIEW_QUESTIONS
     }
 
-    created = 0
-    for q in SEED_INTERVIEW_QUESTIONS:
-        if q["round_type"] not in seeded_round_types:
-            continue
+    def create(key: str) -> None:
+        q = by_key[key]
         repo.create(InterviewQuestionCreate(
             round_type=q["round_type"],
             question_text=q["question_text"],
             category=q["category"],
             is_ai_generated=False,
         ))
-        created += 1
-    return created
+
+    return seed_missing_content(
+        db,
+        namespace=SEED_NAMESPACE,
+        keys=list(by_key.keys()),
+        bank_is_empty=repo.count() == 0,
+        create=create,
+    )

@@ -9,7 +9,10 @@ from app.models.exam_answer import ExamAnswer, ConfidenceLevel
 from app.models.note_bookmark import UserNote, Bookmark
 from app.models.spaced_repetition import SpacedRepetition
 from app.models.settings import AppSettings
+from app.models.subject import Subject, SubjectKind
+from app.models.seeded_content import SeededContent
 from app.models.system_design_prompt import SystemDesignPrompt
+from app.models.design_review import DesignReview, DesignOption, DesignReviewAttempt
 from app.models.system_design_attempt import SystemDesignAttempt
 from app.models.practice_recording import PracticeRecording
 from app.models.recording_analysis import RecordingAnalysis
@@ -37,7 +40,13 @@ __all__ = [
     "Bookmark",
     "SpacedRepetition",
     "AppSettings",
+    "Subject",
+    "SubjectKind",
+    "SeededContent",
     "SystemDesignPrompt",
+    "DesignReview",
+    "DesignOption",
+    "DesignReviewAttempt",
     "SystemDesignAttempt",
     "PracticeRecording",
     "RecordingAnalysis",

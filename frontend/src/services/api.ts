@@ -29,6 +29,19 @@ import {
   SystemDesignAttempt,
   SystemDesignAnalytics,
 } from '../types/systemDesign';
+import {
+  DesignReviewSummary,
+  DesignReviewDetail,
+  DesignReviewAttempt,
+  DesignReviewAnalytics,
+  SubmitDesignReviewAttemptRequest,
+} from '../types/designReview';
+import {
+  Subject,
+  HomeSummary,
+  ActivityItem,
+  FormatCoverage,
+} from '../types/subject';
 import { PracticeRecording, RecordingAnalysis, ProviderInfo, RecordingAnalytics } from '../types/recording';
 import {
   InterviewQuestion,
@@ -594,5 +607,95 @@ export const confirmRoadmapImport = async (data: RoadmapImportConfirm) => {
   const res = await api.post<RoadmapImportResult>(`/roadmaps/import/confirm`, data, {
     timeout: 30000,
   });
+  return res.data;
+};
+
+// ==================== Design Review ====================
+
+export const getDesignReviews = async (params?: {
+  skip?: number;
+  limit?: number;
+  domain?: string;
+  axis_label?: string;
+  difficulty?: QuestionDifficulty;
+  keyword?: string;
+}) => {
+  const res = await api.get<{ items: DesignReviewSummary[]; total: number }>(
+    '/design-reviews',
+    { params }
+  );
+  return res.data;
+};
+
+export const getDesignReview = async (reviewId: number) => {
+  const res = await api.get<DesignReviewDetail>(`/design-reviews/${reviewId}`);
+  return res.data;
+};
+
+export const getDesignReviewDomains = async () => {
+  const res = await api.get<string[]>('/design-reviews/domains');
+  return res.data;
+};
+
+export const getDesignReviewAxes = async () => {
+  const res = await api.get<string[]>('/design-reviews/axes');
+  return res.data;
+};
+
+export const getDesignReviewAnalytics = async () => {
+  const res = await api.get<DesignReviewAnalytics>('/design-reviews/analytics');
+  return res.data;
+};
+
+export const submitDesignReviewAttempt = async (
+  req: SubmitDesignReviewAttemptRequest
+) => {
+  const res = await api.post<DesignReviewAttempt>('/design-reviews/attempts', req);
+  return res.data;
+};
+
+export const getLatestDesignReviewAttempt = async (reviewId: number) => {
+  const res = await api.get<DesignReviewAttempt | null>(
+    `/design-reviews/${reviewId}/latest-attempt`
+  );
+  return res.data;
+};
+
+// ==================== Subjects, Home, Readiness ====================
+
+export const getSubjects = async () => {
+  const res = await api.get<Subject[]>('/subjects');
+  return res.data;
+};
+
+export const getSubject = async (subjectId: number) => {
+  const res = await api.get<Subject>(`/subjects/${subjectId}`);
+  return res.data;
+};
+
+export const getHomeSummary = async () => {
+  const res = await api.get<HomeSummary>('/home');
+  return res.data;
+};
+
+export const getActivity = async (limit = 40) => {
+  const res = await api.get<ActivityItem[]>('/home/activity', { params: { limit } });
+  return res.data;
+};
+
+export const getSubjectCoverage = async (subjectId: number) => {
+  const res = await api.get<FormatCoverage[]>(`/home/subjects/${subjectId}/coverage`);
+  return res.data;
+};
+
+export const getUnreviewedAnswers = async (sessionId: number) => {
+  const res = await api.get<{ session_id: number; count: number; question_ids: number[] }>(
+    `/exams/${sessionId}/unreviewed`
+  );
+  return res.data;
+};
+
+export const markAnswerReviewed = async (sessionId: number, questionId: number) => {
+  const res = await api.post(`/exams/${sessionId}/answers/${questionId}/reviewed`);
   return res.data;
 };

@@ -35,13 +35,13 @@ def test_seed_function_creates_questions_for_every_round():
     TestClient(app) pattern, don't do), so this is the reliable way to verify
     the seed data itself rather than depending on ambient startup wiring."""
     from tests.conftest import TestingSessionLocal
-    from app.utils.seed_interview_questions import seed_interview_questions_if_empty
+    from app.utils.seed_interview_questions import seed_interview_questions
     from app.repositories.interview_question_repository import InterviewQuestionRepository
     from app.schemas.interview_question import InterviewQuestionFilter
 
     db = TestingSessionLocal()
     try:
-        seed_interview_questions_if_empty(db)  # no-ops if already seeded by an earlier test
+        seed_interview_questions(db)  # no-ops if already seeded by an earlier test
         repo = InterviewQuestionRepository(db)
         for round_type in ["hr_screening", "hiring_manager", "system_design", "behavioral"]:
             count = repo.count(InterviewQuestionFilter(round_type=round_type))
@@ -107,11 +107,11 @@ def test_generate_question_not_saved_returns_ephemeral_sentinel(monkeypatch):
 
 def test_category_filter_scoped_to_round_type():
     from tests.conftest import TestingSessionLocal
-    from app.utils.seed_interview_questions import seed_interview_questions_if_empty
+    from app.utils.seed_interview_questions import seed_interview_questions
 
     db = TestingSessionLocal()
     try:
-        seed_interview_questions_if_empty(db)
+        seed_interview_questions(db)
     finally:
         db.close()
 

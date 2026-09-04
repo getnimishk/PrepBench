@@ -3,14 +3,19 @@
 # Commercial use requires a separate licence from the copyright holder.
 
 """
-Seeds the built-in system design prompt bank on first run. A small, fixed,
-curated list -- unlike the large optional PSM question-bank import, this is
-safe to seed unconditionally-if-empty at every startup.
+Keeps the built-in system design prompt bank in sync with this list.
+
+A small, fixed, curated list -- unlike the large optional PSM question-bank
+import, it is safe to reconcile at every startup. What "in sync" means, and
+why it is not simply "seed when empty", is in app/utils/seed_ledger.py.
 """
 from sqlalchemy.orm import Session
 from app.repositories.system_design_repository import SystemDesignPromptRepository
 from app.schemas.system_design import SystemDesignPromptCreate
 from app.models.question import QuestionDifficulty
+from app.utils.seed_ledger import seed_missing_content
+
+SEED_NAMESPACE = "system_design_prompt"
 
 SEED_SYSTEM_DESIGN_PROMPTS = [
     {
@@ -106,12 +111,17 @@ SEED_SYSTEM_DESIGN_PROMPTS = [
 ]
 
 
-def seed_system_design_prompts_if_empty(db: Session) -> int:
-    repo = SystemDesignPromptRepository(db)
-    if repo.count() > 0:
-        return 0
+def seed_system_design_prompts(db: Session) -> int:
+    """Add every built-in prompt this install has not been offered before.
 
-    for p in SEED_SYSTEM_DESIGN_PROMPTS:
+    Identity is the title: what a person recognises a prompt by, and stable
+    across two installs in a way row ids are not.
+    """
+    repo = SystemDesignPromptRepository(db)
+    by_title = {p["title"]: p for p in SEED_SYSTEM_DESIGN_PROMPTS}
+
+    def create(title: str) -> None:
+        p = by_title[title]
         repo.create(SystemDesignPromptCreate(
             title=p["title"],
             prompt_text=p["prompt_text"],
@@ -119,4 +129,11 @@ def seed_system_design_prompts_if_empty(db: Session) -> int:
             difficulty=QuestionDifficulty(p["difficulty"]),
             is_ai_generated=False,
         ))
-    return len(SEED_SYSTEM_DESIGN_PROMPTS)
+
+    return seed_missing_content(
+        db,
+        namespace=SEED_NAMESPACE,
+        keys=list(by_title.keys()),
+        bank_is_empty=repo.count() == 0,
+        create=create,
+    )

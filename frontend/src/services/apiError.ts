@@ -46,6 +46,14 @@ function isRequestFailure(error: ErrorShape | undefined): boolean {
   return error.isAxiosError === true || Boolean(error.code) || 'request' in error;
 }
 
+/**
+ * Pydantic prefixes anything raised from a custom validator, so a message
+ * written to be read by a person arrives as "Value error, Say what you would
+ * ask." The prefix is an implementation detail of the validation library and
+ * means nothing to the user, so it is dropped.
+ */
+const PYDANTIC_PREFIX = /^(value error|assertion failed|type error),\s*/i;
+
 /** Turn one FastAPI validation entry into "field: message". */
 function formatValidationItem(item: ValidationItem): string | null {
   if (typeof item?.msg !== 'string') return null;
@@ -55,7 +63,10 @@ function formatValidationItem(item: ValidationItem): string | null {
   const location = Array.isArray(item.loc) ? item.loc.filter((p) => typeof p === 'string') : [];
   const field = location.length > 1 ? String(location[location.length - 1]) : null;
 
-  return field ? `${field}: ${item.msg}` : item.msg;
+  const message = item.msg.replace(PYDANTIC_PREFIX, '');
+  if (!message.trim()) return null;
+
+  return field ? `${field}: ${message}` : message;
 }
 
 /**

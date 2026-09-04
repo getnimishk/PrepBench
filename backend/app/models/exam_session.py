@@ -4,7 +4,7 @@
 
 import enum
 from datetime import datetime, UTC
-from sqlalchemy import Column, Integer, String, Float, DateTime, Enum, JSON
+from sqlalchemy import Column, Integer, String, Float, DateTime, Enum, JSON, ForeignKey
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -29,6 +29,23 @@ class ExamSession(Base):
     status = Column(Enum(ExamStatus), nullable=False, default=ExamStatus.IN_PROGRESS)
     
     certification = Column(String(150), nullable=True)
+
+    # Mock or drill, and the most consequential column in the schema.
+    #
+    # A mock is the full paper under exam conditions: fixed length, timed,
+    # drawn in exam proportions, no configuration. A drill is targeted
+    # practice: any length, untimed, instant feedback.
+    #
+    # Only mocks may move a readiness signal. Averaging the two is what made
+    # "Overall Accuracy 72%" unable to answer whether you would pass, because
+    # it mixed ten-question warm-ups with full papers.
+    #
+    # Defaults to "drill" so that every session recorded before this column
+    # existed is treated as practice. Historical data cannot inflate readiness.
+    session_kind = Column(String(10), nullable=False, default="drill", server_default="drill", index=True)
+
+    subject_id = Column(Integer, ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True, index=True)
+
     total_questions = Column(Integer, nullable=False, default=0)
     answered_questions = Column(Integer, nullable=False, default=0)
     correct_count = Column(Integer, nullable=False, default=0)
