@@ -122,6 +122,30 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
               }),
             },
           },
+          // Where the keyboard is.
+          //
+          // Every control in the product is a real button or link with a
+          // real accessible name, and focus moved through them correctly --
+          // it was simply invisible. The theme sets boxShadow: none on
+          // buttons and nothing replaced MUI's own focus affordance, so
+          // :focus-visible computed to no outline, no shadow and no
+          // background change on the sidebar, the theme toggle, the primary
+          // action, the tabs and the chips alike.
+          //
+          // ButtonBase is the one place worth saying it: Button, IconButton,
+          // Tab, clickable Chip, ListItemButton, MenuItem and ToggleButton
+          // all render through it. :focus-visible rather than :focus, so a
+          // mouse click does not leave a ring behind it.
+          MuiButtonBase: {
+            styleOverrides: {
+              root: ({ theme }: { theme: Theme }) => ({
+                '&:focus-visible': {
+                  outline: `2px solid ${theme.palette.primary.main}`,
+                  outlineOffset: 2,
+                },
+              }),
+            },
+          },
           MuiButton: {
             styleOverrides: {
               root: {

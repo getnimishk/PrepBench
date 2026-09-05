@@ -70,12 +70,12 @@ export const InterviewPracticeResultsPage: React.FC = () => {
   const isGraded = analysis && analysis.analysis_status === 'analyzed';
 
   return (
-    <Box sx={{ maxWidth: 800, mx: 'auto', pb: 8 }}>
+    <Box sx={{ maxWidth: 800, pb: 8 }}>
       <Button startIcon={<ArrowLeft size={18} />} onClick={() => navigate('/interview-practice')} sx={{ mb: 2 }}>
         Back to Interview Practice
       </Button>
 
-      <Typography variant="h4" sx={{ fontWeight: 800, mb: 2 }}>{recording?.title || 'Results'}</Typography>
+      <Typography variant="h4" sx={{ fontWeight: 600, mb: 2 }}>{recording?.title || 'Results'}</Typography>
 
       {recording && (
         <audio controls src={getRecordingAudioUrl(recording.id)} style={{ width: '100%', marginBottom: 24 }} />

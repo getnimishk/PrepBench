@@ -142,10 +142,27 @@ That reframe matters because it changes the remedy from a design pass to a subtr
 > [!NOTE]
 > Steps 1–3 are roughly an hour of work and constitute the cheapest available test of the entire review: open Home populated and see whether what remains is a design problem or was a data problem all along.
 
+## What happened next
+
+Recorded here rather than in a rewrite: this page is a record, and the value of a record is that it still says what was believed at the time.
+
+Steps 1-6 were all carried out, and the note above turned out to be the most useful sentence on the page. Opening Home populated *was* the cheapest available test, and it answered the question: most of the layout complaint did not survive seeing real numbers in the fields. What was deleted afterwards was deleted for being **false** -- `Subjects Ready 0 / 3`, `Outstanding 405`, a shuffle switch the engine never read -- rather than for being sophisticated.
+
+Two defects were found that neither this review nor the philosophy page had caught, and both were the same shape: a number that was technically what the database held, presented as though it were the truth.
+
+- `SUM(is_correct)` over a Boolean column came back through SQLAlchemy's Boolean result processor, so every domain in the product reported exactly one correct answer. Real accuracies of 92.5% / 84.9% / 86.6% displayed as 5.7% / 5.7% / 2.2%, and because the figure fell as a domain grew, the *"weakest area"* Home sent people to was simply the domain with the most questions in it.
+- The unreviewed-answer count had no way down. The endpoint, the column and the number on Home all existed; nothing in the browser ever called the endpoint. A count that can only rise is the guilt mechanic this product refuses everywhere else -- arrived at by omission rather than design, which is exactly why nothing in the review found it.
+
+The open question below about **rule 5** is now settled: Home states one evidence-backed continuation, always naming what it came from. The other two remain open.
+
+Two claims on this page have since stopped being true, and are left standing because a record you go back and correct is not a record. For the current state, read [Readiness](Readiness) and [Architecture](Architecture) instead:
+
+- *"Every session is a drill"* and the note about `test_every_session_the_api_creates_is_a_drill`. Exam setup starts mocks now, and six historical full papers were recognised as mocks from the shape of the rows — see [Readiness](Readiness#historical-sessions-can-be-promoted) for why that is not the same thing as inventing evidence.
+- *"`/dashboard` duplicates Home"*. `DashboardPage` was deleted; the route is a redirect.
+
 ## Open questions
 
 - **Is PrepBench being used, or built?** The usage pattern reads as builder, not learner. If PSM I is a real near-term goal, the order above holds. If PrepBench is the project and PSM I the occasion, the honest move is to pick the one surface with sustained usage and let the others sit.
-- **Should rule 5 permit a single guided sentence?** The distinction between guidance and task management is agreed. Whether Home should state one evidence-backed recommendation remains undecided, and is now blocked behind steps 1–3 regardless.
 - **Which outcomes deserve modelling beyond certification readiness?** See [Philosophy](Philosophy#what-the-product-is-for).
 
 ## See also

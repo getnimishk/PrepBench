@@ -4,22 +4,21 @@
 
 import React, { useEffect, useState } from 'react';
 import {
-  Box, Card, CardContent, Typography, Button, Chip, Alert, IconButton, Dialog,
+  Box, Typography, Button, Chip, Alert, IconButton, Dialog,
   DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Switch,
-  CircularProgress, Tooltip, Accordion,
-  AccordionSummary, AccordionDetails,
+  CircularProgress, Tooltip,
 } from '@mui/material';
 import {
-  Cpu, Plus, Trash2, RefreshCw, Search, CheckCircle2, AlertTriangle,
+  Plus, Trash2, RefreshCw, Search, CheckCircle2, AlertTriangle,
   XCircle, Cloud, HardDrive, ChevronDown, KeyRound,
 } from 'lucide-react';
 import {
   getLLMProfiles, getLLMProviders, createLLMProvider, updateLLMProvider,
-  deleteLLMProvider, verifyLLMProvider, getLLMTasks, setLLMTaskBinding,
+  deleteLLMProvider, verifyLLMProvider,
   detectLocalRunners,
 } from '../../services/api';
 import {
-  LLMProfile, LLMProvider, LLMTaskBinding, DetectedRunner, LLMVerifyResult,
+  LLMProfile, LLMProvider, DetectedRunner, LLMVerifyResult,
   CAPABILITY_LABELS,
 } from '../../types/llm';
 import { LocalSetupWizard } from './LocalSetupWizard';
@@ -35,7 +34,6 @@ const readinessStyles: Record<string, { color: 'success' | 'warning' | 'error'; 
 export const AIProvidersSection: React.FC = () => {
   const [profiles, setProfiles] = useState<LLMProfile[]>([]);
   const [providers, setProviders] = useState<LLMProvider[]>([]);
-  const [tasks, setTasks] = useState<LLMTaskBinding[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,10 +54,9 @@ export const AIProvidersSection: React.FC = () => {
   const load = async () => {
     setError(null);
     try {
-      const [p, pr, t] = await Promise.all([getLLMProfiles(), getLLMProviders(), getLLMTasks()]);
+      const [p, pr] = await Promise.all([getLLMProfiles(), getLLMProviders()]);
       setProfiles(p);
       setProviders(pr);
-      setTasks(t);
     } catch (err) {
       setError(apiErrorMessage(err, 'Could not load AI provider settings.'));
     } finally {
@@ -128,35 +125,27 @@ export const AIProvidersSection: React.FC = () => {
     }
   };
 
-  const handleBind = async (task: string, providerId: number | null) => {
-    try {
-      await setLLMTaskBinding(task, { provider_id: providerId });
-      await load();
-    } catch (err) {
-      setError(apiErrorMessage(err, 'Could not change which provider handles this.'));
-    }
-  };
-
   if (loading) {
     return (
-      <Card sx={{ mb: 3, borderRadius: '12px', boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
-        <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <CircularProgress size={20} />
-          <Typography variant="body2" color="text.secondary">Loading AI providers…</Typography>
-        </CardContent>
-      </Card>
+      <Box sx={{ mb: 5, display: 'flex', alignItems: 'center', gap: 2 }}>
+        <CircularProgress size={20} />
+        <Typography variant="body2" color="text.secondary">Loading AI providers…</Typography>
+      </Box>
     );
   }
 
   return (
-    <Card sx={{ mb: 3, borderRadius: '12px', boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
-      <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, mb: 1 }}>
+    <Box sx={{ mb: 5 }}>
+      {/* Same rhythm as the sections above it. This used to be a bordered
+          card between two borderless sections, which made the optional part
+          of Settings the loudest thing on the page. */}
+      <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+        AI providers
+      </Typography>
+      <Box sx={{ mt: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, mb: 1, flexWrap: 'wrap' }}>
           <Box>
-            <Typography variant="h6" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Cpu size={20} /> AI Providers
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 560 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 560 }}>
               PrepBench grades answers and generates questions using an AI model. Run one locally
               to keep everything on this machine, or connect a cloud API for sharper feedback.
               Everything else in PrepBench works without any of this.
@@ -336,54 +325,22 @@ export const AIProvidersSection: React.FC = () => {
           </Box>
         )}
 
-        <Accordion
-          sx={{ mt: 2, boxShadow: 'none', border: '1px solid', borderColor: 'divider', borderRadius: '10px', '&:before': { display: 'none' } }}
-        >
-          <AccordionSummary expandIcon={<ChevronDown size={18} />}>
-            <Typography sx={{ fontWeight: 600, fontSize: '0.9rem' }}>
-              Which provider handles what
-            </Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              By default each feature uses the first provider that can handle it. Override any of
-              them here — for example, grade in the cloud but generate questions locally.
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {tasks.map((t) => {
-                const eligible = providers.filter((p) => p.capabilities.includes(t.capability));
-                return (
-                  <Box key={t.task} sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                    <Box sx={{ minWidth: 220 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{t.label}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {t.is_available
-                          ? `Using ${t.resolved_provider_name}`
-                          : 'No provider available'}
-                      </Typography>
-                    </Box>
-                    <TextField
-                      select
-                      size="small"
-                      sx={{ minWidth: 220 }}
-                      value={t.bound_provider_id ?? ''}
-                      onChange={(e) =>
-                        handleBind(t.task, e.target.value === '' ? null : Number(e.target.value))
-                      }
-                      label="Provider"
-                    >
-                      <MenuItem value="">Automatic</MenuItem>
-                      {eligible.map((p) => (
-                        <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
-                      ))}
-                    </TextField>
-                  </Box>
-                );
-              })}
-            </Box>
-          </AccordionDetails>
-        </Accordion>
-      </CardContent>
+        {/* "Which provider handles what" -- a per-task provider override --
+            used to sit here behind an accordion. It has been removed rather
+            than demoted.
+
+            The table backing it held zero rows across the product's whole
+            life, and the gateway already resolves each task to the first
+            enabled provider that can do it. So the control administered a
+            subsystem: "task", "capability" and "binding" are implementation
+            vocabulary, and AI is a capability of PrepBench rather than a
+            platform the learner operates.
+
+            Hiding it under "Advanced" would have kept the maintenance and
+            test surface while removing the only feedback that might ever
+            have justified it. If a real need for per-task routing appears,
+            it can come back with a reason. */}
+      </Box>
 
       <LocalSetupWizard
         open={wizardOpen}
@@ -444,7 +401,7 @@ export const AIProvidersSection: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Card>
+    </Box>
   );
 };
 

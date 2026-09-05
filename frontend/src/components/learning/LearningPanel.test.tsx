@@ -44,38 +44,58 @@ function panelFor(challengeId: string, over: Partial<Parameters<typeof LearningP
 beforeEach(() => clearAttempts());
 
 describe('the guided loop', () => {
-  it('shows the referent card first when the concept is new', () => {
+  it('leads with the question, and keeps the referent within reach', async () => {
     // A learner cannot generate a meaningful wrong prediction about a thing
-    // whose referent they do not have. Without this we would be measuring
-    // ignorance and reporting it as reasoning.
+    // whose referent they do not have -- so the referent stays available.
+    //
+    // It is no longer a gate. It used to be a full-width card between the
+    // learner and the question, explaining what a sprint is and that the
+    // charts are plotted per sprint: framing for reading the charts, not for
+    // answering the question, and the first thing a first-time visitor was
+    // made to read.
+    const user = userEvent.setup();
     const { challenge } = panelFor('wip-first-prediction', { conceptSeen: false });
     const concept = CONCEPTS[challenge.conceptId];
 
-    expect(screen.getByText(concept.canonicalName)).toBeInTheDocument();
+    expect(screen.getByText(challenge.prompt)).toBeInTheDocument();
+    expect(screen.queryByText(concept.referentDefinition)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /What the sandbox is showing/ }));
     expect(screen.getByText(concept.referentDefinition)).toBeInTheDocument();
-    // ...and the question is not on screen yet.
-    expect(screen.queryByText(challenge.prompt)).not.toBeInTheDocument();
   });
 
-  it('never shows the relationship on the referent card', () => {
-    // The rule the orientation layer exists for. The card names the object;
-    // the challenge is where the relationship is discovered.
+  it('drops the referent offer once the learner has met the concept by doing', () => {
+    panelFor('wip-first-prediction', { conceptSeen: true });
+
+    expect(
+      screen.queryByRole('button', { name: /What the sandbox is showing/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('never shows the relationship on the referent card', async () => {
+    // The rule the orientation layer exists for, and it survives the card
+    // moving: naming the object is legitimate, giving away the relationship
+    // turns the prediction into reading comprehension.
+    const user = userEvent.setup();
     const { challenge } = panelFor('wip-first-prediction', { conceptSeen: false });
     const concept = CONCEPTS[challenge.conceptId];
     expect(concept.targetRelationship).not.toBeNull();
+
+    await user.click(screen.getByRole('button', { name: /What the sandbox is showing/ }));
     expect(screen.queryByText(concept.targetRelationship!)).not.toBeInTheDocument();
   });
 
-  it('applies the challenge scenario to the sandbox when the learner starts', async () => {
+  it('has the sandbox running the challenge scenario before the question is answered', () => {
     // The ACT step: the learner watches the real model respond, not a picture
-    // of one.
-    const user = userEvent.setup();
+    // of one. It used to be tied to dismissing the orientation card, which
+    // made the sandbox's state depend on a button whose only job was to get
+    // out of the way.
     const { challenge, props } = panelFor('wip-first-prediction', { conceptSeen: false });
-
-    await user.click(screen.getByRole('button', { name: /Got it/ }));
 
     expect(props.onApplyScenario).toHaveBeenCalledWith(challenge.scenario);
     expect(screen.getByText(challenge.prompt)).toBeInTheDocument();
+    // Named in the learner's terms rather than as a taxonomy chip.
+    expect(screen.getByText(/The sandbox is running:/)).toBeInTheDocument();
   });
 
   it('hides the answer and the explanation until a prediction is committed', () => {

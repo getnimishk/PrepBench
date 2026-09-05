@@ -2,56 +2,35 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import React, { useState } from 'react';
+import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Box, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Tooltip, IconButton, Collapse, Typography, useTheme } from '@mui/material';
-import { LayoutDashboard, PlayCircle, BookOpen, BarChart3, History, Settings, ChevronLeft, ChevronRight, ChevronDown, Network, Mic, Headphones, Map, LineChart, Scale } from 'lucide-react';
+import {
+  Box, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Tooltip,
+  IconButton, useMediaQuery, useTheme,
+} from '@mui/material';
+import { LayoutDashboard, PlayCircle, BookOpen, History, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSidebar } from '../../App';
 
-// Four groups, and it stays four.
+// Five destinations, and nothing nested inside them.
 //
-// The navigation grows with SUBJECTS, not with formats. Subjects live on
-// Home rather than in this list, so adding Databricks or AI changes nothing
-// here. Formats are a closed set -- exams, design review, system design,
-// interviews, sandboxes -- and they nest under the verb they belong to.
+// This list used to be four groups containing ten formats, all expanded by
+// default -- fourteen rows, in which "Chart Sandbox", "Question Bank" and
+// "Audio Recordings" sat at the same weight as Practice itself. That is a
+// feature inventory, not navigation: it grows every time the product gains a
+// capability, and it asks a first-time reader to learn PrepBench's internal
+// vocabulary before they can find anything.
 //
-// Verbs rather than nouns because a person arrives wanting to do something.
-// Settings is not one of those things, so it sits below the divider instead
-// of being filed under "progress", which is where it used to be.
-const HOME_ITEM = { label: 'Home', path: '/', icon: LayoutDashboard };
-
-const NAV_GROUPS = [
-  {
-    label: 'Practice',
-    path: '/practice',
-    icon: PlayCircle,
-    children: [
-      { label: 'Exams', path: '/exam-setup', icon: PlayCircle },
-      { label: 'Design Review', path: '/design-reviews', icon: Scale },
-      { label: 'System Design', path: '/system-design', icon: Network },
-      { label: 'Interview Practice', path: '/interview-practice', icon: Mic },
-      { label: 'Chart Sandbox', path: '/chart-sandbox', icon: LineChart },
-    ],
-  },
-  {
-    label: 'Learn',
-    path: '/learn',
-    icon: BookOpen,
-    children: [
-      { label: 'Roadmaps', path: '/roadmaps', icon: Map },
-      { label: 'Question Bank', path: '/question-bank', icon: BookOpen },
-    ],
-  },
-  {
-    label: 'Review',
-    path: '/review',
-    icon: History,
-    children: [
-      { label: 'Activity', path: '/review', icon: History },
-      { label: 'Analytics', path: '/analytics', icon: BarChart3 },
-      { label: 'Audio Recordings', path: '/recordings', icon: Headphones },
-    ],
-  },
+// Verbs, because a person arrives wanting to do something. Formats are
+// reached from inside the verb they belong to, where the page can say what
+// each one is for. Subjects are reached from Home, which is what keeps this
+// list the same length however many subjects arrive.
+//
+// Settings is not an activity, so it sits below the divider.
+const NAV_ITEMS = [
+  { label: 'Home', path: '/', icon: LayoutDashboard },
+  { label: 'Practice', path: '/practice', icon: PlayCircle },
+  { label: 'Learn', path: '/learn', icon: BookOpen },
+  { label: 'Review', path: '/review', icon: History },
 ];
 
 const SETTINGS_ITEM = { label: 'Settings', path: '/settings', icon: Settings };
@@ -59,17 +38,20 @@ const SETTINGS_ITEM = { label: 'Settings', path: '/settings', icon: Settings };
 type NavEntry = { label: string; path: string; icon: typeof LayoutDashboard };
 
 export const Sidebar: React.FC = () => {
-  const { collapsed, toggleCollapsed } = useSidebar();
-  // Everything open by default: the formats are the point of the list, and
-  // hiding them behind a click would make them harder to find than the flat
-  // list this replaced.
-  const [open, setOpen] = useState<Record<string, boolean>>(
-    () => Object.fromEntries(NAV_GROUPS.map((g) => [g.label, true]))
-  );
+  const { collapsed: chosen, toggleCollapsed } = useSidebar();
   const theme = useTheme();
   const dark = theme.palette.mode === 'dark';
 
-  const renderItems = (items: NavEntry[], nested = false) => {
+  // Collapsed on its own below md.
+  //
+  // 260px of a 375px phone is seventy per cent of the screen given to four
+  // links, which squeezed the readiness verdict into two lines and wrapped
+  // the score sequence onto three. The rail keeps its icons at 76px, and the
+  // manual toggle is hidden there rather than offering to make it worse.
+  const narrow = useMediaQuery(theme.breakpoints.down('md'));
+  const collapsed = chosen || narrow;
+
+  const renderItems = (items: NavEntry[]) => {
     return items.map((item) => {
       const Icon = item.icon;
       const buttonContent = (
@@ -81,7 +63,6 @@ export const Sidebar: React.FC = () => {
             position: 'relative',
             minHeight: 48,
             px: 2,
-            pl: nested && !collapsed ? 5 : 2,
             mx: 1.5,
             mb: 0.5,
             borderRadius: '100px',
@@ -109,7 +90,7 @@ export const Sidebar: React.FC = () => {
           }}
         >
           <ListItemIcon sx={{ minWidth: 0, mr: collapsed ? 0 : 2, justifyContent: 'center', color: 'inherit' }}>
-            <Icon size={nested ? 20 : 24} />
+            <Icon size={24} />
           </ListItemIcon>
           <ListItemText
             primary={item.label}
@@ -125,7 +106,7 @@ export const Sidebar: React.FC = () => {
               // still a real Typography prop and stays where it is.
               primary: {
                 noWrap: true,
-                sx: { fontWeight: nested ? 400 : 500, fontSize: nested ? '0.88rem' : '0.95rem' },
+                sx: { fontWeight: 500, fontSize: '0.95rem' },
               }
             }}
           />
@@ -159,42 +140,7 @@ export const Sidebar: React.FC = () => {
       }}
     >
       <Box sx={{ flexGrow: 1, overflowY: 'auto', py: 2, overflowX: 'hidden' }}>
-        <List disablePadding>
-          {renderItems([HOME_ITEM])}
-
-          {NAV_GROUPS.map((group) => (
-            <React.Fragment key={group.label}>
-              {/* The group header is both a destination and a toggle: clicking
-                  the label opens the hub overview, clicking the chevron just
-                  expands. Collapsing the whole sidebar hides the children,
-                  since there is no room to indent them. */}
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                  {renderItems([group])}
-                </Box>
-                {!collapsed && (
-                  <IconButton
-                    size="small"
-                    aria-label={`${open[group.label] ? 'Collapse' : 'Expand'} ${group.label}`}
-                    onClick={() => setOpen((o) => ({ ...o, [group.label]: !o[group.label] }))}
-                    sx={{
-                      mr: 1.5,
-                      mb: 0.5,
-                      color: 'text.secondary',
-                      transform: open[group.label] ? 'rotate(0deg)' : 'rotate(-90deg)',
-                      transition: 'transform 0.2s ease',
-                    }}
-                  >
-                    <ChevronDown size={16} />
-                  </IconButton>
-                )}
-              </Box>
-              <Collapse in={!collapsed && open[group.label]} timeout="auto" unmountOnExit>
-                <List disablePadding>{renderItems(group.children, true)}</List>
-              </Collapse>
-            </React.Fragment>
-          ))}
-        </List>
+        <List disablePadding>{renderItems(NAV_ITEMS)}</List>
       </Box>
       {/* Configuration is not an activity, so it sits below the divider
           rather than inside the list of things you came here to do. */}
@@ -205,12 +151,13 @@ export const Sidebar: React.FC = () => {
         sx={{
           p: 2,
           borderTop: `1px solid ${dark ? '#1E1F22' : '#E2E8F0'}`,
-          display: 'flex',
+          display: narrow ? 'none' : 'flex',
           justifyContent: collapsed ? 'center' : 'flex-end',
         }}
       >
         <IconButton
           onClick={toggleCollapsed}
+          aria-label={collapsed ? 'Expand the sidebar' : 'Collapse the sidebar'}
           size="small"
           sx={{
             color: dark ? '#E2E8F0' : '#475569',

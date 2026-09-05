@@ -3,23 +3,20 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React, { createContext, useContext, useState } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Box } from '@mui/material';
 import { CustomThemeProvider } from './context/ThemeContext';
 import { Navbar } from './components/common/Navbar';
 import { Sidebar } from './components/common/Sidebar';
-import { DashboardPage } from './pages/DashboardPage';
 import { ExamSetupPage } from './pages/ExamSetupPage';
 import { ExamRunnerPage } from './pages/ExamRunnerPage';
 import { ExamReviewPage } from './pages/ExamReviewPage';
 import { QuestionBankPage } from './pages/QuestionBankPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
-import { HistoryPage } from './pages/HistoryPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SystemDesignSetupPage } from './pages/SystemDesignSetupPage';
 import { SystemDesignAnswerPage } from './pages/SystemDesignAnswerPage';
 import { SystemDesignResultsPage } from './pages/SystemDesignResultsPage';
-import { SystemDesignHistoryPage } from './pages/SystemDesignHistoryPage';
 import { RecordingsPage } from './pages/RecordingsPage';
 import { InterviewPracticeSetupPage } from './pages/InterviewPracticeSetupPage';
 import { InterviewPracticeRecordPage } from './pages/InterviewPracticeRecordPage';
@@ -31,7 +28,8 @@ import { DesignReviewListPage } from './pages/DesignReviewListPage';
 import { DesignReviewPage } from './pages/DesignReviewPage';
 import { HomePage } from './pages/HomePage';
 import { SubjectPage } from './pages/SubjectPage';
-import { PracticeHubPage, LearnHubPage, ReviewHubPage } from './pages/HubPages';
+import { PracticeHubPage, LearnHubPage } from './pages/HubPages';
+import { ReviewPage } from './pages/ReviewPage';
 
 export const SidebarContext = createContext({ collapsed: false, toggleCollapsed: () => {} });
 export const useSidebar = () => useContext(SidebarContext);
@@ -47,7 +45,9 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           className="fade-in"
           sx={{
             flexGrow: 1,
-            p: 3,
+            // Tighter gutters on a phone: 24px each side of a 300px column
+            // is a sixth of the screen spent on margin.
+            p: { xs: 2, sm: 3 },
             overflow: 'auto',
             bgcolor: 'background.default',
             minHeight: 'calc(100vh - 64px)',
@@ -89,24 +89,30 @@ const App: React.FC = () => {
             <Route path="/interview-practice/:questionId/record" element={<FocusLayout><InterviewPracticeRecordPage /></FocusLayout>} />
 
             {/* Standard layout with sidebar */}
-            {/* Home replaces the old dashboard: resume plus subject state,
-                and deliberately no ranked "do this next" list. The old
-                metric dashboard stays reachable at /dashboard. */}
+            {/* There is one Home, and this is it. /dashboard used to serve a
+                near-identical second page -- same hero, same metric cards,
+                same weak-topic widget, same activity table -- so whichever
+                one a person landed on, the other was quietly disagreeing with
+                it. It redirects rather than 404s, because the path is in
+                people's history and bookmarks. */}
             <Route path="/" element={<AppLayout><HomePage /></AppLayout>} />
-            <Route path="/dashboard" element={<AppLayout><DashboardPage /></AppLayout>} />
+            <Route path="/dashboard" element={<Navigate to="/" replace />} />
             <Route path="/subjects/:subjectId" element={<AppLayout><SubjectPage /></AppLayout>} />
             <Route path="/practice" element={<AppLayout><PracticeHubPage /></AppLayout>} />
             <Route path="/learn" element={<AppLayout><LearnHubPage /></AppLayout>} />
-            <Route path="/review" element={<AppLayout><ReviewHubPage /></AppLayout>} />
+            <Route path="/review" element={<AppLayout><ReviewPage /></AppLayout>} />
             <Route path="/exam-setup" element={<AppLayout><ExamSetupPage /></AppLayout>} />
             <Route path="/exam-review/:sessionId" element={<AppLayout><ExamReviewPage /></AppLayout>} />
             <Route path="/question-bank" element={<AppLayout><QuestionBankPage /></AppLayout>} />
             <Route path="/analytics" element={<AppLayout><AnalyticsPage /></AppLayout>} />
-            <Route path="/history" element={<AppLayout><HistoryPage /></AppLayout>} />
+            {/* /history and /system-design/history are both folded into
+                Review, which is the only page that answers "what have I been
+                doing" across every format rather than one. */}
+            <Route path="/history" element={<Navigate to="/review" replace />} />
+            <Route path="/system-design/history" element={<Navigate to="/review" replace />} />
             <Route path="/settings" element={<AppLayout><SettingsPage /></AppLayout>} />
             <Route path="/system-design" element={<AppLayout><SystemDesignSetupPage /></AppLayout>} />
             <Route path="/system-design/attempts/:attemptId" element={<AppLayout><SystemDesignResultsPage /></AppLayout>} />
-            <Route path="/system-design/history" element={<AppLayout><SystemDesignHistoryPage /></AppLayout>} />
             <Route path="/roadmaps" element={<AppLayout><RoadmapListPage /></AppLayout>} />
             <Route path="/chart-sandbox" element={<AppLayout><ChartSandboxPage /></AppLayout>} />
             <Route path="/design-reviews" element={<AppLayout><DesignReviewListPage /></AppLayout>} />

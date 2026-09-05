@@ -7,6 +7,8 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { ChartSandboxPage } from './ChartSandboxPage';
+import { CHALLENGES } from '../services/learning/challenges';
+import { clearAttempts } from '../services/learning/attempts';
 import { chartsInFamily } from '../services/metrics/charts';
 import { DEFAULT_PARAMS, formatParamValue, paramSpec } from '../services/metrics/params';
 import { FIRST_EXPERIMENT, chooseTarget } from '../services/metrics/experiments';
@@ -59,7 +61,21 @@ const lastPayloadFor = (viewId: string) =>
  * product deliberately changed.
  */
 async function useExplore(user: ReturnType<typeof userEvent.setup>) {
+  // Mode, blind mode and the concept map moved below the prediction, behind
+  // one disclosure: the page used to open on five rows of apparatus before
+  // the question it exists to ask.
+  await user.click(screen.getByRole('button', { name: /How you are getting on/ }));
   await user.click(screen.getByRole('button', { name: 'Explore' }));
+}
+
+/**
+ * Open the scenario controls.
+ *
+ * They start closed: seventeen sliders sat between the prediction and the
+ * charts that answer it. Every test that drives a slider says so explicitly.
+ */
+async function openControls(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: 'Adjust assumptions' }));
 }
 
 function renderPage() {
@@ -102,6 +118,7 @@ describe('ChartSandboxPage', () => {
     renderPage();
     await useExplore(user);
 
+    await openControls(user);
     screen.getByLabelText('Capacity').focus();
     await user.keyboard('{ArrowRight}');
     const movedThroughput = lastPayloadFor('throughput');
@@ -114,8 +131,8 @@ describe('ChartSandboxPage', () => {
     expect(lastPayloadFor('throughput')!.series).toEqual(movedThroughput!.series);
 
     // ...and across a TIER switch, which rebuilds the tab set entirely.
-    await user.click(screen.getByRole('button', { name: /Engineering extension/ }));
-    await user.click(screen.getByRole('button', { name: /^Core/ }));
+    await user.click(screen.getByRole('button', { name: /After the code/ }));
+    await user.click(screen.getByRole('button', { name: /^The work/ }));
     expect(lastPayloadFor('throughput')!.series).toEqual(movedThroughput!.series);
   });
 
@@ -154,7 +171,7 @@ describe('ChartSandboxPage', () => {
     // DORA is not reachable from the core tier's tabs at all.
     expect(screen.queryByRole('tab', { name: /DORA/ })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /Engineering extension/ }));
+    await user.click(screen.getByRole('button', { name: /After the code/ }));
 
     expect(screen.getByRole('tab', { name: /DORA \(5\)/ })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /Flow/ })).not.toBeInTheDocument();
@@ -232,7 +249,10 @@ describe('ChartSandboxPage', () => {
 
   it('exposes no calibration coefficient as a slider', async () => {
     // Surfacing them invites reading a teaching constant as a finding.
+    const user = userEvent.setup();
     renderPage();
+    await openControls(user);
+
     for (const banned of [
       'k1 - WIP pressure to defect injection',
       'k2 - batch size to change fail rate',
@@ -256,6 +276,8 @@ describe('ChartSandboxPage', () => {
     await user.click(screen.getByRole('tab', { name: /Predictability/ }));
     const before = lastPayloadFor('velocity');
     expect(before).toBeDefined();
+
+    await openControls(user);
     expect(screen.getByText('12 items/sprint')).toBeInTheDocument();
 
     screen.getByLabelText('Capacity').focus();
@@ -266,7 +288,7 @@ describe('ChartSandboxPage', () => {
 
     // The band hands the viewport over to the charts on the first committed
     // change, so the slider is gone -- reopen it to read the value back.
-    await user.click(screen.getByRole('button', { name: 'Show controls' }));
+    await openControls(user);
     expect(screen.getByText('13 items/sprint')).toBeInTheDocument();
   });
 
@@ -280,6 +302,7 @@ describe('ChartSandboxPage', () => {
     scrollIntoView.mockClear();
     renderPage();
 
+    await openControls(user);
     expect(screen.getByLabelText('WIP limit')).toBeInTheDocument();
 
     screen.getByLabelText('Capacity').focus();
@@ -293,7 +316,7 @@ describe('ChartSandboxPage', () => {
       expect(screen.queryByLabelText('WIP limit')).not.toBeInTheDocument(),
     );
 
-    await user.click(screen.getByRole('button', { name: 'Show controls' }));
+    await openControls(user);
     screen.getByLabelText('Capacity').focus();
     await user.keyboard('{ArrowRight}');
 
@@ -315,6 +338,7 @@ describe('ChartSandboxPage', () => {
     scrollIntoView.mockClear();
     renderPage();
 
+    await openControls(user);
     screen.getByLabelText('WIP limit').focus();
     await user.keyboard('{ArrowRight}');
 
@@ -386,6 +410,16 @@ describe('ChartSandboxPage', () => {
     expect(screen.getByText('Try another experiment')).toBeInTheDocument();
   });
 
+  it('opens on the question, not on seventeen sliders', async () => {
+    // The prediction is what the page exists to ask. The assumptions are
+    // summarised in a line and one click away.
+    renderPage();
+
+    expect(screen.queryByLabelText('WIP limit')).not.toBeInTheDocument();
+    expect(screen.getByText('Every assumption at its declared default')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Adjust assumptions' })).toBeInTheDocument();
+  });
+
   it('states the baseline and the current scenario side by side', async () => {
     // Every delta is measured against the baseline, and the only evidence of
     // that used to be the words "vs baseline" under five numbers.
@@ -393,7 +427,10 @@ describe('ChartSandboxPage', () => {
     renderPage();
     await useExplore(user);
 
-    expect(screen.getByText(/The declared default scenario/)).toBeInTheDocument();
+    // At the baseline there is nothing to compare, so the strip stays out of
+    // the way: it used to announce that the baseline was the baseline and
+    // offer a reset with nothing to reset.
+    expect(screen.queryByText('CURRENT')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Run experiment' }));
 
@@ -587,15 +624,68 @@ describe('ChartSandboxPage', () => {
     renderPage();
 
     await user.click(screen.getByRole('tab', { name: /Predictability/ }));
+    await openControls(user);
     const variation = screen.getByLabelText('Capacity variation');
     variation.focus();
     // Home jumps a MUI slider to its minimum in one keystroke.
     await user.keyboard('{Home}');
 
-    await user.click(screen.getByRole('button', { name: 'Show controls' }));
+    await openControls(user);
     expect(screen.getByText('0%')).toBeInTheDocument();
     const flat = lastPayloadFor('velocity');
     const tail = flat!.series.slice(4).filter((v): v is number => v !== null);
     expect(new Set(tail.map((v) => v.toFixed(4))).size).toBe(1);
+  });
+
+  // ---- the loop closes ------------------------------------------------
+  //
+  // These belong on the page rather than on LearningPanel. The panel's own
+  // tests pass it a fixed challenge, so the failure they could not see was
+  // the page swapping the challenge out underneath the panel the instant an
+  // attempt was saved -- the recommender moved, the key changed, and React
+  // unmounted the result step in the tick that produced it.
+
+  it('shows what the model does after a prediction, and holds it there', async () => {
+    clearAttempts();
+    const user = userEvent.setup();
+    renderPage();
+
+    const shown = CHALLENGES.find((c) => screen.queryByText(c.prompt));
+    expect(shown).toBeDefined();
+
+    // Nothing about the answer before a prediction is committed.
+    expect(screen.queryByText('You said')).not.toBeInTheDocument();
+    expect(screen.queryByText('Why')).not.toBeInTheDocument();
+
+    const wrong = shown!.options.find((o) => o.id !== shown!.correctOptionId)!;
+    await user.click(screen.getByRole('button', { name: wrong.text }));
+
+    // The comparison, the correction and the explanation -- and they stay,
+    // rather than being replaced by the next question in the same tick.
+    expect(screen.getByText('You said')).toBeInTheDocument();
+    expect(screen.getByText('The model does this')).toBeInTheDocument();
+    expect(screen.getByText('Why')).toBeInTheDocument();
+    expect(screen.getByText(shown!.explanation)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Next/ })).toBeInTheDocument();
+  });
+
+  it('moves on only when the learner says so', async () => {
+    clearAttempts();
+    const user = userEvent.setup();
+    renderPage();
+
+    const shown = CHALLENGES.find((c) => screen.queryByText(c.prompt));
+    // A right answer earns the explanation too -- the panel just has no
+    // correction to show alongside it.
+    const correct = shown!.options.find((o) => o.id === shown!.correctOptionId)!;
+    await user.click(screen.getByRole('button', { name: correct.text }));
+    expect(screen.getByText('You said')).toBeInTheDocument();
+    expect(screen.getByText(shown!.explanation)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Next/ }));
+
+    await waitFor(() => expect(screen.queryByText('You said')).not.toBeInTheDocument());
+    // Onward to another question, not to a dead end.
+    expect(screen.getByText(/The sandbox is running:/)).toBeInTheDocument();
   });
 });

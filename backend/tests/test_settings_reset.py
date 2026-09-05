@@ -20,6 +20,7 @@ import datetime
 
 import pytest
 from sqlalchemy import (
+    Enum as SAEnum,
     Boolean,
     Date,
     DateTime,
@@ -68,6 +69,12 @@ def _dummy_value(column):
         return datetime.date(2026, 1, 1)
     if isinstance(type_, JSON):
         return {}
+    # An Enum column rejects "probe", which made this test pass or fail
+    # depending on whether an earlier file had happened to seed the table
+    # first. Any member is fine -- the row exists to be deleted.
+    if isinstance(type_, SAEnum):
+        members = list(type_.enums or [])
+        return members[0] if members else "probe"
     return "probe"
 
 
@@ -207,12 +214,6 @@ def test_reset_restores_default_settings(client):
         json={
             "theme": "dark",
             "timer_sound_enabled": False,
-            "default_exam_mode": "practice",
-            "default_questions_count": 10,
-            "default_passing_percentage": 50,
-            "shuffle_questions": False,
-            "shuffle_options": False,
-            "daily_practice_goal": 1,
             "initial_seed_completed": True,
             "default_target_role": "Staff SRE",
         },
@@ -222,8 +223,5 @@ def test_reset_restores_default_settings(client):
 
     settings = client.get("/api/v1/settings").json()
     assert settings["theme"] == "light"
-    assert settings["default_exam_mode"] == "timed"
-    assert settings["default_questions_count"] == 80
-    assert settings["default_passing_percentage"] == 95.0
-    assert settings["daily_practice_goal"] == 20
+    assert settings["timer_sound_enabled"] is True
     assert settings["default_target_role"] is None

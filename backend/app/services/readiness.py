@@ -88,6 +88,52 @@ class DomainReadiness:
     score_pct: Optional[float]  # None below MIN_QUESTIONS_PER_DOMAIN
 
 
+@dataclass(frozen=True)
+class Blocker:
+    """One unmet condition of READY.
+
+    The product has always been able to say *what* state someone is in and
+    never *why*, so every surface invented its own explanation -- Home said
+    "weakest area" and named the lowest-scoring domain even when that domain
+    was comfortably above the floor, which reads as a problem where there is
+    none.
+
+    A blocker is structural, not prose: the rule names the condition and the
+    numbers, and the surface phrases it. That keeps one rule and one
+    vocabulary, and makes the explanation testable.
+    """
+    kind: str                       # see BLOCKER_* below
+    domain: Optional[str] = None    # WEAK_DOMAIN only
+    value: Optional[float] = None   # what was measured
+    target: Optional[float] = None  # what it has to reach
+    count: Optional[int] = None     # how many, where a count is the point
+
+
+BLOCKER_NO_EXAM_PROFILE = "no_exam_profile"  # nothing to be ready against
+BLOCKER_MORE_MOCKS = "more_mocks"            # not enough evidence yet
+BLOCKER_WEAK_DOMAIN = "weak_domain"          # one area below the floor
+BLOCKER_BELOW_PASS = "below_pass"            # recent mocks under the line
+BLOCKER_STALE = "stale"                      # evidence has aged out
+
+
+@dataclass(frozen=True)
+class Movement:
+    """A domain that moved between the last mock and the one before it.
+
+    Home is otherwise a list of things not yet good enough, and a product
+    that only ever reports deficits teaches people to stop opening it. This
+    is the same evidence read the other way round: what the last session of
+    work actually bought.
+    """
+    domain: str
+    before_pct: float
+    after_pct: float
+
+    @property
+    def points(self) -> float:
+        return round(self.after_pct - self.before_pct, 1)
+
+
 @dataclass
 class Readiness:
     state: ReadinessState
@@ -102,6 +148,10 @@ class Readiness:
     # Populated only when a trend is computable; None is not zero.
     points_per_mock: Optional[float] = None
     mocks_to_pass_estimate: Optional[int] = None
+    # Why the state is not READY, most actionable first. Empty when it is.
+    blockers: List[Blocker] = field(default_factory=list)
+    # The clearest gain between the last two mocks, if there was one.
+    most_improved: Optional[Movement] = None
 
     @property
     def is_stale(self) -> bool:
@@ -141,6 +191,44 @@ def _domain_readiness(mocks: List[MockResult]) -> List[DomainReadiness]:
     return out
 
 
+# A domain has to move by more than this before it is worth reporting. Below
+# it, the difference is the sample rather than the learner: a domain sampled
+# twenty times a mock moves five points on one question.
+MIN_MOVEMENT_PCT = 5.0
+
+
+def _most_improved(mocks: List[MockResult]) -> Optional[Movement]:
+    """The biggest genuine gain between the last mock and the one before.
+
+    Compares like with like -- the same domain, one mock apart -- and reports
+    nothing at all unless both mocks sampled the domain enough times for the
+    comparison to mean something.
+    """
+    if len(mocks) < 2:
+        return None
+    before, after = mocks[-2], mocks[-1]
+
+    best: Optional[Movement] = None
+    for domain, (a_correct, a_answered) in after.domain_counts.items():
+        prior = before.domain_counts.get(domain)
+        if prior is None:
+            continue
+        b_correct, b_answered = prior
+        # Half the reporting threshold, because this is one mock rather than
+        # the three the domain readiness pools.
+        floor = MIN_QUESTIONS_PER_DOMAIN // 2
+        if a_answered < floor or b_answered < floor:
+            continue
+        b_pct = (b_correct / b_answered) * 100.0
+        a_pct = (a_correct / a_answered) * 100.0
+        if a_pct - b_pct < MIN_MOVEMENT_PCT:
+            continue
+        move = Movement(domain, round(b_pct, 1), round(a_pct, 1))
+        if best is None or move.points > best.points:
+            best = move
+    return best
+
+
 def _trend(scores: List[float]) -> Optional[float]:
     """Average points gained per mock across the scores given, or None.
 
@@ -152,6 +240,75 @@ def _trend(scores: List[float]) -> Optional[float]:
     if len(scores) < 2:
         return None
     return (scores[-1] - scores[0]) / (len(scores) - 1)
+
+
+def _blockers(
+    ordered: List[MockResult],
+    scores: List[float],
+    domains: List[DomainReadiness],
+    pass_mark: Optional[float],
+    has_exam_profile: bool,
+    latest: Optional[datetime],
+) -> List[Blocker]:
+    """Every unmet condition of READY, most actionable first.
+
+    "Most actionable" is the ordering, not severity: a named domain below the
+    floor tells someone what to open tonight, where "your scores are not high
+    enough yet" tells them only to try harder.
+    """
+    if not has_exam_profile or pass_mark is None:
+        return [Blocker(kind=BLOCKER_NO_EXAM_PROFILE)]
+
+    out: List[Blocker] = []
+
+    if len(ordered) < MIN_MOCKS_FOR_READY:
+        out.append(
+            Blocker(
+                kind=BLOCKER_MORE_MOCKS,
+                value=float(len(ordered)),
+                target=float(MIN_MOCKS_FOR_READY),
+                count=MIN_MOCKS_FOR_READY - len(ordered),
+            )
+        )
+
+    # Only a domain actually below the floor is a blocker. The lowest-scoring
+    # domain is not automatically a weakness -- calling 92% "your weakest
+    # area" invents a problem, and the learner cannot tell the invented ones
+    # from the real ones.
+    below = [d for d in domains if d.score_pct is not None and d.score_pct < DOMAIN_FLOOR_PCT]
+    if below:
+        worst = min(below, key=lambda d: d.score_pct)
+        out.append(
+            Blocker(
+                kind=BLOCKER_WEAK_DOMAIN,
+                domain=worst.domain,
+                value=worst.score_pct,
+                target=DOMAIN_FLOOR_PCT,
+                count=worst.answered,
+            )
+        )
+
+    under = [s for s in scores[-CONSECUTIVE_MOCKS_AT_PASS:] if s < pass_mark]
+    if under:
+        out.append(
+            Blocker(
+                kind=BLOCKER_BELOW_PASS,
+                value=min(under),
+                target=pass_mark,
+                count=len(under),
+            )
+        )
+
+    if latest is not None and _now() - latest > timedelta(days=RECENCY_DAYS):
+        out.append(
+            Blocker(
+                kind=BLOCKER_STALE,
+                value=float((_now() - latest).days),
+                target=float(RECENCY_DAYS),
+            )
+        )
+
+    return out
 
 
 def compute(
@@ -183,6 +340,8 @@ def compute(
         latest_taken_at=latest,
         domains=domains,
         weakest_domain=weakest,
+        blockers=_blockers(ordered, scores, domains, pass_mark, has_exam_profile, latest),
+        most_improved=_most_improved(ordered),
     )
 
     # 1. Nothing to judge. Drills, however many, do not reach this function.

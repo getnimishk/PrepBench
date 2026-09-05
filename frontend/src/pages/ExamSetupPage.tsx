@@ -2,409 +2,356 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Box, Card, CardContent, Typography, Grid, TextField, MenuItem,
-  Slider, Switch, FormControlLabel, Button, Chip, Alert,
-  CircularProgress
+  Box, Typography, TextField, MenuItem, Slider, Button, Chip, Alert,
+  CircularProgress, Collapse, Stack,
 } from '@mui/material';
-import { PlayCircle, Clock, Zap, BookOpen, Brain, Target } from 'lucide-react';
-import { startExam, getQuestionFilters, getSettings } from '../services/api';
-import { ExamMode } from '../types/exam';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+import { startExam, getQuestionFilters, getSubjects } from '../services/api';
+import { ExamMode, SessionKind } from '../types/exam';
+import { Subject } from '../types/subject';
 import { apiErrorMessage } from '../services/apiError';
 
-const EXAM_MODES = [
-  { value: 'practice', label: 'Practice Mode', description: 'Unlimited time. Instant explanations after each question.', icon: BookOpen, color: '#34D399' },
-  { value: 'timed', label: 'Timed Exam', description: 'Official exam conditions. Timer running. No hints.', icon: Clock, color: '#FB7185' },
-  { value: 'custom', label: 'Custom Exam', description: 'Choose topics, difficulty, question count, randomization.', icon: Target, color: '#6366F1' },
-  { value: 'weak_topic', label: 'Weak Topic Focus', description: 'Auto-selects your weakest domains for targeted practice.', icon: Brain, color: '#FBBF24' },
-  { value: 'spaced_repetition', label: 'Spaced Repetition (SM-2)', description: 'AI-scheduled review of questions due for revision today.', icon: Zap, color: '#D946EF' },
+/**
+ * "I want to practise", not "I am configuring an exam engine".
+ *
+ * A MOCK is the full paper under exam conditions. It is the only thing that
+ * moves readiness, and it takes its shape from the subject's exam profile --
+ * the learner does not choose its length, its timer or its pass mark, because
+ * the real exam does not let them either.
+ *
+ * A DRILL is targeted practice: untimed, and as narrow as you like.
+ *
+ * Two corrections landed here. The first replaced five "exam modes" at equal
+ * weight above seven controls, and started sending session_kind at all -- so
+ * every session the browser could create had been a drill, and readiness
+ * could never leave "needs evaluation" however many full papers were sat.
+ *
+ * The second removed the last piece of configuration-first thinking: the
+ * page opened on a subject dropdown and a mode toggle even when the link
+ * that brought you here had already said both. Arriving from "Practise
+ * Managing Products with Agility" now starts on that domain, filtered, one
+ * button from beginning -- it used to land on generic practice with the
+ * domain silently dropped, which made the sentence on the previous screen
+ * false.
+ */
+
+/** What a drill can be narrowed to. A mock has no equivalent list by design. */
+const DRILL_MODES: { value: ExamMode; label: string; detail: string }[] = [
+  { value: 'practice', label: 'Practice', detail: 'The explanation after each question' },
+  { value: 'weak_topic', label: 'Weak topics', detail: 'Drawn from what you are getting wrong' },
+  { value: 'spaced_repetition', label: 'Due for review', detail: 'What the schedule has brought round' },
 ];
 
 export const ExamSetupPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const configSectionRef = useRef<HTMLDivElement>(null);
+  const kindParam = searchParams.get('kind');
+  const domainParam = searchParams.get('domain');
 
-  const rawParamMode = searchParams.get('mode');
-  const initialMode: ExamMode = EXAM_MODES.some((m) => m.value === rawParamMode)
-    ? (rawParamMode as ExamMode)
-    : 'timed';
+  const [kind, setKind] = useState<SessionKind>(kindParam === 'mock' ? 'mock' : 'drill');
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [subjectId, setSubjectId] = useState<number | ''>('');
 
-  const [mode, setMode] = useState<ExamMode>(initialMode);
-  const [certification, setCertification] = useState('');
+  const [drillMode, setDrillMode] = useState<ExamMode>('practice');
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [selectedDifficulties, setSelectedDifficulties] = useState<string[]>([]);
-  const [totalQuestions, setTotalQuestions] = useState(80);
-  const [timeLimitMins, setTimeLimitMins] = useState(60);
-  const [passingPct, setPassingPct] = useState(95);
-  const [randomizeQ, setRandomizeQ] = useState(true);
-  const [randomizeOpts, setRandomizeOpts] = useState(true);
+  const [totalQuestions, setTotalQuestions] = useState(20);
+  const [moreOpen, setMoreOpen] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Dynamic filter options fetched from database
-  const [dbCertifications, setDbCertifications] = useState<string[]>([]);
   const [dbTopics, setDbTopics] = useState<string[]>([]);
   const [dbDifficulties, setDbDifficulties] = useState<string[]>([]);
 
   useEffect(() => {
+    getSubjects()
+      .then((all) => {
+        setSubjects(all);
+        const requested = Number(searchParams.get('subject'));
+        const wanted =
+          all.find((s) => s.id === requested)
+          ?? all.find((s) => s.has_exam_profile)
+          ?? all[0];
+        if (wanted) setSubjectId(wanted.id);
+      })
+      .catch(() => setError('Could not load your subjects.'));
+
     getQuestionFilters()
       .then((filters) => {
-        setDbCertifications(filters.certifications || []);
         setDbTopics(filters.topics || []);
         setDbDifficulties(filters.difficulties || ['easy', 'medium', 'hard']);
       })
-      .catch(console.error);
-
-    getSettings()
-      .then((s) => {
-        if (s) {
-          if (!searchParams.get('mode') && s.default_exam_mode) {
-            setMode(s.default_exam_mode as ExamMode);
-          }
-          if (s.default_questions_count) setTotalQuestions(s.default_questions_count);
-          if (s.default_passing_percentage) setPassingPct(s.default_passing_percentage);
-          if (s.shuffle_questions !== undefined) setRandomizeQ(s.shuffle_questions);
-          if (s.shuffle_options !== undefined) setRandomizeOpts(s.shuffle_options);
-        }
-      })
-      .catch(console.error);
+      .catch(() => { /* narrowing is optional; the page works without it */ });
+    // Runs once. searchParams is read for its initial value only -- reacting
+    // to it would reset a choice the learner had since made by hand.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSelectMode = (newMode: ExamMode) => {
-    setMode(newMode);
-    // Smooth scroll down to Configure Settings section
-    setTimeout(() => {
-      configSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 50);
-  };
+  const subject = subjects.find((s) => s.id === subjectId) ?? null;
+  const canMock = !!subject?.has_exam_profile;
+  const toggle = (list: string[], value: string) =>
+    list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 
-  const handleToggleTopic = (topic: string) => {
-    setSelectedTopics((prev) =>
-      prev.includes(topic) ? prev.filter((t) => t !== topic) : [...prev, topic]
-    );
-  };
-
-  const handleToggleDifficulty = (diff: string) => {
-    setSelectedDifficulties((prev) =>
-      prev.includes(diff) ? prev.filter((d) => d !== diff) : [...prev, diff]
-    );
-  };
-
-  const handleStart = async () => {
+  const start = async (chosen: SessionKind) => {
     setError(null);
-    if (totalQuestions < 1 || totalQuestions > 100) {
-      setError('Question count must be between 1 and 100.');
-      return;
-    }
-    if (passingPct < 1 || passingPct > 100) {
-      setError('Passing percentage must be between 1% and 100%.');
-      return;
-    }
-    if (mode === 'timed' && timeLimitMins < 1) {
-      setError('Time limit must be at least 1 minute.');
-      return;
-    }
-
+    if (!subject) { setError('Choose a subject first.'); return; }
+    setKind(chosen);
     setLoading(true);
     try {
-      const session = await startExam({
-        title: `${EXAM_MODES.find(m => m.value === mode)?.label || 'Exam'} — ${certification || 'All Topics'}`,
-        exam_mode: mode,
-        certification: certification || undefined,
-        topics: selectedTopics.length > 0 ? selectedTopics : undefined,
-        difficulties: selectedDifficulties.length > 0 ? selectedDifficulties : undefined,
-        total_questions: totalQuestions,
-        time_allowed_minutes: mode === 'timed' ? timeLimitMins : undefined,
-        passing_percentage: passingPct,
-        randomize_questions: randomizeQ,
-        randomize_options: randomizeOpts,
-      });
+      // The mock takes every parameter from the exam profile; the drill takes
+      // them from the learner. Neither reads a default the other one set,
+      // which is what stops a 20-question warm-up being recorded against an
+      // 80-question pass mark.
+      const req = chosen === 'mock'
+        ? {
+          title: `${subject.name} — full mock`,
+          exam_mode: 'timed' as ExamMode,
+          total_questions: subject.exam_question_count ?? 80,
+          time_allowed_minutes: subject.exam_minutes ?? 60,
+          passing_percentage: subject.pass_mark ?? 85,
+          randomize_questions: true,
+          session_kind: 'mock' as SessionKind,
+          subject_id: subject.id,
+        }
+        : {
+          title: domainParam ? `${domainParam} — drill` : `${subject.name} — drill`,
+          exam_mode: drillMode,
+          domains: domainParam ? [domainParam] : undefined,
+          topics: selectedTopics.length ? selectedTopics : undefined,
+          difficulties: selectedDifficulties.length ? selectedDifficulties : undefined,
+          total_questions: totalQuestions,
+          // A drill is untimed. Timing is what makes a mock a measurement.
+          time_allowed_minutes: undefined,
+          passing_percentage: subject.pass_mark ?? 70,
+          randomize_questions: true,
+          session_kind: 'drill' as SessionKind,
+          subject_id: subject.id,
+        };
+
+      const session = await startExam(req);
       navigate(`/exam/${session.id}`);
     } catch (err) {
-      setError(apiErrorMessage(err, 'Failed to start exam. Please check your filter criteria.'));
+      // The server refuses to widen a selection that matches nothing and says
+      // which selection it was, so its message beats anything generic here.
+      setError(apiErrorMessage(err, 'Could not start this exam.'));
     } finally {
       setLoading(false);
     }
   };
 
+  if (subjects.length === 0 && !error) {
+    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}><CircularProgress /></Box>;
+  }
+
   return (
-    <Box sx={{ maxWidth: 900, mx: 'auto', pb: 8 }}>
-      <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>Start New Exam</Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-        Configure your exam mode and settings, then click Launch to begin.
+    <Box sx={{ maxWidth: 640 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: 'text.secondary', letterSpacing: '0.08em',
+          textTransform: 'uppercase', fontSize: 12, fontWeight: 500,
+        }}
+      >
+        {subject?.name ?? 'Practice'}
+      </Typography>
+      <Typography variant="h4" sx={{ fontWeight: 600, mt: 0.5, mb: 4 }}>
+        {domainParam ? domainParam : 'What do you want to do?'}
       </Typography>
 
-      {/* Step Indicator */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 6, position: 'relative' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', zIndex: 1, gap: 1 }}>
-          {['Choose Mode', 'Configure', 'Launch'].map((step, idx) => {
-            const isActive = idx === 0 || (idx === 1 && !!mode) || (idx === 2 && !!mode);
-            return (
-              <React.Fragment key={step}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                  <Box sx={{
-                    width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    bgcolor: isActive ? 'primary.main' : 'background.paper',
-                    color: isActive ? '#fff' : 'text.secondary',
-                    border: isActive ? 'none' : '1px solid',
-                    borderColor: 'divider',
-                    fontWeight: 700,
-                    boxShadow: 'none'
-                  }}>
-                    {idx + 1}
-                  </Box>
-                  <Typography variant="caption" sx={{ fontWeight: isActive ? 700 : 500, color: isActive ? 'text.primary' : 'text.secondary' }}>
-                    {step}
-                  </Typography>
-                </Box>
-                {idx < 2 && (
-                  <Box sx={{ width: 60, height: 2, bgcolor: isActive ? 'primary.main' : 'divider', mb: 3 }} />
-                )}
-              </React.Fragment>
-            );
-          })}
-        </Box>
-      </Box>
+      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
-      {error && <Alert severity="error" sx={{ mb: 4 }}>{error}</Alert>}
+      {/* The one you were sent here to do comes first. Arriving from
+          "Practise Managing Products with Agility" and finding "Take a
+          mock" at the top is the screen disagreeing with the button that
+          opened it. */}
+      <Stack spacing={2.5} sx={{ mb: 4 }}>
+        {[
+          ...(canMock ? [{
+            key: 'mock' as SessionKind,
+            title: 'Take a mock',
+            detail: `${subject?.exam_question_count} questions, ${subject?.exam_minutes} minutes, `
+              + 'timed. The only thing that moves your readiness.',
+            primary: !domainParam,
+          }] : []),
+          {
+            key: 'drill' as SessionKind,
+            title: domainParam ? `Drill ${domainParam}` : 'Practise',
+            detail: domainParam
+              ? `${totalQuestions} questions from this area alone, untimed, `
+                + 'with the explanation as you go.'
+              : `${totalQuestions} questions, untimed, with the explanation after each one. `
+                + 'Drills close gaps; they do not measure.',
+            primary: !!domainParam || !canMock,
+          },
+        ]
+          .sort((a, b) => Number(b.primary) - Number(a.primary))
+          .map((c) => (
+            <Choice
+              key={c.key}
+              title={c.title}
+              detail={c.detail}
+              primary={c.primary}
+              disabled={loading}
+              onClick={() => start(c.key)}
+            />
+          ))}
+      </Stack>
 
-      {/* Mode Selector */}
-      <Grid container spacing={2} sx={{ mb: 6 }}>
-        {EXAM_MODES.map((m) => {
-          const Icon = m.icon;
-          const isSelected = mode === m.value;
-          return (
-            <Grid
-              key={m.value}
-              size={{
-                xs: 12,
-                sm: 6,
-                md: 4
-              }}>
-              <Card
-                onClick={() => handleSelectMode(m.value as ExamMode)}
+      {/* Advanced configuration is available and secondary. Seven controls at
+          equal weight above a start button is what made this an admin form. */}
+      <Button
+        size="small"
+        onClick={() => setMoreOpen((o) => !o)}
+        endIcon={moreOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        aria-expanded={moreOpen}
+        sx={{ textTransform: 'none' }}
+      >
+        More options
+      </Button>
+
+      <Collapse in={moreOpen} unmountOnExit>
+        <Box sx={{ mt: 3 }}>
+          {subjects.length > 1 && (
+            <TextField
+              select
+              fullWidth
+              size="small"
+              label="Subject"
+              value={subjectId}
+              onChange={(e) => setSubjectId(Number(e.target.value))}
+              sx={{ mb: 3 }}
+            >
+              {subjects.map((s) => (
+                <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
+              ))}
+            </TextField>
+          )}
+
+          <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>Where the questions come from</Typography>
+          <Stack spacing={1} sx={{ mb: 3 }}>
+            {DRILL_MODES.map((m) => (
+              <Box
+                key={m.value}
+                component="button"
+                type="button"
+                onClick={() => setDrillMode(m.value)}
+                aria-pressed={drillMode === m.value}
                 sx={{
-                  cursor: 'pointer',
-                  border: '1px solid',
-                  borderColor: isSelected ? m.color : 'divider',
-                  bgcolor: isSelected ? 'action.selected' : 'background.paper',
-                  transform: 'none',
-                  transition: 'none',
-                  boxShadow: 'none',
-                  borderRadius: 3,
-                  '&:hover': {
-                    borderColor: m.color,
-                    bgcolor: 'action.hover'
-                  }
+                  textAlign: 'left', cursor: 'pointer', font: 'inherit', width: '100%',
+                  px: 2, py: 1.1, borderRadius: 2, bgcolor: 'transparent', border: 1,
+                  borderColor: drillMode === m.value ? 'primary.main' : 'divider',
+                  color: 'text.primary',
+                  '&:hover': { bgcolor: 'action.hover' },
+                  '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main' },
                 }}
               >
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-                    <Box sx={{
-                      p: 1, borderRadius: 1.5,
-                      background: isSelected ? m.color : 'transparent',
-                      color: isSelected ? '#fff' : m.color
-                    }}>
-                      <Icon size={20} />
-                    </Box>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{m.label}</Typography>
-                  </Box>
-                  <Typography variant="body2" color="text.secondary">{m.description}</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          );
-        })}
-      </Grid>
-
-      {/* Configuration Panel Target */}
-      <Box ref={configSectionRef} sx={{ scrollMarginTop: 80, mb: 4 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700, mb: 3 }}>Configuration Settings</Typography>
-        <Card sx={{ p: 1 }}>
-          <CardContent>
-            <Grid container spacing={4}>
-              {/* Dynamic Certification Dropdown */}
-              <Grid
-                size={{
-                  xs: 12,
-                  sm: 6
-                }}>
-                <TextField
-                  select
-                  fullWidth
-                  label="Certification / Exam Pack"
-                  value={certification}
-                  onChange={(e) => setCertification(e.target.value)}
-                  helperText="Populated dynamically from imported question packs"
-                >
-                  <MenuItem value="">All Certifications & Domains</MenuItem>
-                  {dbCertifications.map((c) => (
-                    <MenuItem key={c} value={c}>{c}</MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-
-              <Grid
-                size={{
-                  xs: 12,
-                  sm: 6
-                }}>
-                <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
-                  Number of Questions: <Chip label={totalQuestions} size="small" color="primary" />
+                <Typography variant="body2" sx={{ fontWeight: drillMode === m.value ? 600 : 400 }}>
+                  {m.label}
                 </Typography>
-                <Slider
-                  value={totalQuestions}
-                  onChange={(_, val) => setTotalQuestions(val as number)}
-                  min={5}
-                  max={100}
-                  step={5}
-                  marks={[{ value: 25, label: '25' }, { value: 50, label: '50' }, { value: 75, label: '75' }, { value: 100, label: '100' }]}
-                />
-              </Grid>
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>{m.detail}</Typography>
+              </Box>
+            ))}
+          </Stack>
 
-              {mode === 'timed' && (
-                <Grid
-                  size={{
-                    xs: 12,
-                    sm: 6
-                  }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
-                    Time Limit: <Chip label={`${timeLimitMins} minutes`} size="small" color="warning" />
-                  </Typography>
-                  <Slider
-                    value={timeLimitMins}
-                    onChange={(_, val) => setTimeLimitMins(val as number)}
-                    min={10}
-                    max={180}
-                    step={10}
-                    marks={[{ value: 30, label: '30m' }, { value: 60, label: '1h' }, { value: 120, label: '2h' }]}
+          <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
+            Questions: <Chip label={totalQuestions} size="small" />
+          </Typography>
+          <Slider
+            value={totalQuestions}
+            onChange={(_, v) => setTotalQuestions(v as number)}
+            min={5}
+            max={100}
+            step={5}
+            aria-label="Number of questions"
+            sx={{ mb: 3 }}
+          />
+
+          <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>Difficulty</Typography>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 3 }}>
+            {(dbDifficulties.length ? dbDifficulties : ['easy', 'medium', 'hard']).map((d) => (
+              <Chip
+                key={d}
+                label={d}
+                clickable
+                variant={selectedDifficulties.includes(d) ? 'filled' : 'outlined'}
+                color={selectedDifficulties.includes(d) ? 'primary' : 'default'}
+                onClick={() => setSelectedDifficulties((prev) => toggle(prev, d))}
+              />
+            ))}
+          </Box>
+
+          {dbTopics.length > 0 && (
+            <>
+              <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
+                Topics {selectedTopics.length > 0 && `(${selectedTopics.length} selected)`}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', maxHeight: 170, overflowY: 'auto' }}>
+                {dbTopics.map((t) => (
+                  <Chip
+                    key={t}
+                    label={t}
+                    size="small"
+                    clickable
+                    variant={selectedTopics.includes(t) ? 'filled' : 'outlined'}
+                    color={selectedTopics.includes(t) ? 'primary' : 'default'}
+                    onClick={() => setSelectedTopics((prev) => toggle(prev, t))}
                   />
-                </Grid>
-              )}
+                ))}
+              </Box>
+            </>
+          )}
+        </Box>
+      </Collapse>
 
-              <Grid
-                size={{
-                  xs: 12,
-                  sm: 6
-                }}>
-                <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
-                  Passing Score: <Chip label={`${passingPct}%`} size="small" color="success" />
-                </Typography>
-                <Slider
-                  value={passingPct}
-                  onChange={(_, val) => setPassingPct(val as number)}
-                  min={50}
-                  max={95}
-                  step={5}
-                  marks={[{ value: 70, label: '70%' }, { value: 80, label: '80%' }]}
-                />
-              </Grid>
-
-              {/* Difficulty Filter Chips */}
-              <Grid size={12}>
-                <Typography variant="body2" sx={{ fontWeight: 600, mb: 1.5 }}>
-                  Difficulty Level Filter:
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  {(dbDifficulties.length > 0 ? dbDifficulties : ['easy', 'medium', 'hard']).map((diff) => {
-                    const isSelected = selectedDifficulties.includes(diff);
-                    return (
-                      <Chip
-                        key={diff}
-                        label={diff.toUpperCase()}
-                        clickable
-                        sx={{
-                          bgcolor: isSelected ? (diff === 'easy' ? 'success.main' : diff === 'medium' ? 'warning.main' : 'error.main') : 'background.paper',
-                          color: isSelected ? '#fff' : 'text.primary',
-                          border: '1px solid',
-                          borderColor: isSelected ? 'transparent' : 'divider',
-                          borderRadius: 2
-                        }}
-                        color={isSelected ? (diff === 'easy' ? 'success' : diff === 'medium' ? 'warning' : 'error') : 'default'}
-                        variant={isSelected ? 'filled' : 'outlined'}
-                        onClick={() => handleToggleDifficulty(diff)}
-                      />
-                    );
-                  })}
-                  {selectedDifficulties.length > 0 && (
-                    <Button size="small" onClick={() => setSelectedDifficulties([])}>Clear</Button>
-                  )}
-                </Box>
-              </Grid>
-
-              {/* Dynamic Topic Filter Chips */}
-              {dbTopics.length > 0 && (
-                <Grid size={12}>
-                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 1.5 }}>
-                    Filter by Topic ({selectedTopics.length > 0 ? `${selectedTopics.length} selected` : 'All Topics'}):
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', maxHeight: 200, overflowY: 'auto', p: 2, border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'background.default' }}>
-                    {dbTopics.map((t) => {
-                      const isSelected = selectedTopics.includes(t);
-                      return (
-                        <Chip
-                          key={t}
-                          label={t}
-                          size="small"
-                          clickable
-                          color={isSelected ? 'primary' : 'default'}
-                          sx={{
-                            border: '1px solid',
-                            borderColor: isSelected ? 'primary.main' : 'divider',
-                            bgcolor: isSelected ? 'primary.main' : 'background.paper',
-                            color: isSelected ? 'primary.contrastText' : 'text.primary',
-                            borderRadius: 2
-                          }}
-                          onClick={() => handleToggleTopic(t)}
-                        />
-                      );
-                    })}
-                  </Box>
-                </Grid>
-              )}
-
-              <Grid size={12}>
-                <Box sx={{ display: 'flex', gap: 4 }}>
-                  <FormControlLabel
-                    control={<Switch checked={randomizeQ} onChange={(e) => setRandomizeQ(e.target.checked)} />}
-                    label="Randomize Question Order"
-                  />
-                  <FormControlLabel
-                    control={<Switch checked={randomizeOpts} onChange={(e) => setRandomizeOpts(e.target.checked)} />}
-                    label="Randomize Answer Choices"
-                  />
-                </Box>
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
-      </Box>
-
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 4 }}>
-        <Button
-          variant="contained"
-          size="large"
-          startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <PlayCircle size={22} />}
-          onClick={handleStart}
-          disabled={loading}
-          sx={{
-            px: 4, py: 1.5, fontSize: '1.1rem', fontWeight: 700,
-            borderRadius: '100px',
-            boxShadow: 'none',
-            bgcolor: 'primary.main',
-            '&:hover': {
-              bgcolor: 'primary.dark',
-              boxShadow: 'none'
-            }
-          }}
-        >
-          {loading ? 'Generating Exam…' : 'Launch Exam'}
-        </Button>
-      </Box>
+      {loading && (
+        <Stack direction="row" spacing={1.5} sx={{ mt: 3, alignItems: 'center' }}>
+          <CircularProgress size={16} />
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            Assembling {kind === 'mock' ? 'the paper' : 'the drill'}…
+          </Typography>
+        </Stack>
+      )}
     </Box>
   );
 };
+
+/**
+ * One intent, stated as what happens rather than as a setting.
+ *
+ * A bordered row rather than a card: it needs an edge to be a target, and
+ * nothing more than an edge.
+ */
+const Choice: React.FC<{
+  title: string;
+  detail: string;
+  primary: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}> = ({ title, detail, primary, disabled, onClick }) => (
+  <Box
+    component="button"
+    type="button"
+    onClick={onClick}
+    disabled={disabled}
+    sx={{
+      display: 'block', width: '100%', textAlign: 'left', font: 'inherit', cursor: 'pointer',
+      px: 2.5, py: 2, borderRadius: 2,
+      border: 1,
+      borderColor: primary ? 'primary.main' : 'divider',
+      bgcolor: primary ? 'action.hover' : 'transparent',
+      color: 'text.primary',
+      '&:hover': { borderColor: 'primary.main' },
+      '&:disabled': { opacity: 0.5, cursor: 'default' },
+      '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
+    }}
+  >
+    <Typography variant="body1" sx={{ fontWeight: 600 }}>{title}</Typography>
+    <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.25, lineHeight: 1.55 }}>
+      {detail}
+    </Typography>
+  </Box>
+);

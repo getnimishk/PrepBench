@@ -65,39 +65,61 @@ beforeEach(() => {
 });
 
 describe('InterviewPracticeSetupPage', () => {
-  it('renders all four round types plus General Practice', async () => {
+  it('opens on a question rather than on a choice of round', async () => {
+    // Five icon tiles, then a blind "give me a question" button, then a wall
+    // of category chips: two decisions and a content surface before anyone
+    // said a word out loud.
     renderPage();
-    await waitFor(() => expect(screen.getByText('HR Screening')).toBeInTheDocument());
-    expect(screen.getByText('Hiring Manager')).toBeInTheDocument();
-    expect(screen.getByText('System Design')).toBeInTheDocument();
-    expect(screen.getByText('Behavioral')).toBeInTheDocument();
-    expect(screen.getByText('General Practice')).toBeInTheDocument();
+
+    expect(await screen.findByText(/Tell me about a mistake\./)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Record' })).toBeInTheDocument();
   });
 
-  it('selecting a round loads its question bank, and clicking a question navigates to record', async () => {
+  it('offers every round, quietly', async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'HR Screening' })).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Hiring Manager' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'System Design' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Behavioral' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Just talk' })).toBeInTheDocument();
+  });
+
+  it('records the question it is showing', async () => {
     const user = userEvent.setup({ delay: null });
     renderPage();
-    await waitFor(() => expect(screen.getByText('Behavioral')).toBeInTheDocument());
+    await screen.findByText(/Tell me about a mistake\./);
 
-    await user.click(screen.getByText('Behavioral'));
-    await waitFor(() => expect(mockGetQuestions).toHaveBeenCalledWith(expect.objectContaining({ round_type: 'behavioral' })));
-    await waitFor(() => expect(screen.getByText('Tell me about a mistake.')).toBeInTheDocument());
-
-    await user.click(screen.getByText('Tell me about a mistake.'));
+    await user.click(screen.getByRole('button', { name: 'Record' }));
     await waitFor(() => expect(screen.getByText('Record Page')).toBeInTheDocument());
   });
 
-  it('General Practice navigates straight to the general record route, no question fetch', async () => {
+  it('going in without a question needs no question fetched', async () => {
     const user = userEvent.setup({ delay: null });
     renderPage();
-    await waitFor(() => expect(screen.getByText('General Practice')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Just talk' })).toBeInTheDocument());
 
-    await user.click(screen.getByText('General Practice'));
-    await waitFor(() => expect(screen.getByRole('button', { name: /start recording/i })).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /start recording/i }));
+    await user.click(screen.getByRole('button', { name: 'Just talk' }));
+    await waitFor(() =>
+      expect(screen.getByText(/record whatever you want to practise saying/i)).toBeInTheDocument()
+    );
+    await user.click(screen.getByRole('button', { name: 'Record' }));
 
     await waitFor(() => expect(screen.getByText('Record Page')).toBeInTheDocument());
-    expect(mockGetQuestions).not.toHaveBeenCalled();
+  });
+
+  it('keeps editing and deleting out of the practice flow', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderPage();
+    await screen.findByText(/Tell me about a mistake\./);
+
+    // CRUD on every card is content maintenance, and it does not belong in
+    // front of somebody about to speak.
+    expect(screen.queryByRole('button', { name: /^edit /i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^delete /i })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /browse questions/i }));
+    expect(await screen.findByRole('button', { name: /^edit tell me about a mistake\.$/i }))
+      .toBeInTheDocument();
   });
 
   it('shows an inline error and does not navigate when generation fails', async () => {
@@ -106,11 +128,12 @@ describe('InterviewPracticeSetupPage', () => {
     // vendor-neutral, and pointing at the setup flow rather than one vendor's key.
     mockGenerate.mockRejectedValue({ response: { data: { detail: 'No AI provider is set up yet. Add one in Settings -> AI Providers to generate questions.' } } });
     renderPage();
-    await waitFor(() => expect(screen.getByText('Behavioral')).toBeInTheDocument());
-    await user.click(screen.getByText('Behavioral'));
-    await waitFor(() => expect(screen.getByRole('button', { name: /generate/i })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('button', { name: /write me a new one/i })).toBeInTheDocument());
 
-    await user.click(screen.getByRole('button', { name: /generate/i }));
+    // Generation lives behind a disclosure now: writing a question is content
+    // work, and the page leads with the question you came to answer.
+    await user.click(screen.getByRole('button', { name: /write me a new one/i }));
+    await user.click(screen.getByRole('button', { name: /write it/i }));
     await waitFor(() => expect(screen.getByText(/Settings -> AI Providers/i)).toBeInTheDocument());
     expect(screen.queryByText('Record Page')).not.toBeInTheDocument();
   });
@@ -118,8 +141,8 @@ describe('InterviewPracticeSetupPage', () => {
   it('links to the existing recordings library', async () => {
     const user = userEvent.setup({ delay: null });
     renderPage();
-    await waitFor(() => expect(screen.getByRole('button', { name: /view all recordings/i })).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /view all recordings/i }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /past recordings/i })).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /past recordings/i }));
     await waitFor(() => expect(screen.getByText('Recordings Library')).toBeInTheDocument());
   });
 
@@ -127,11 +150,10 @@ describe('InterviewPracticeSetupPage', () => {
     const user = userEvent.setup({ delay: null });
     mockUpdate.mockResolvedValue({ id: 1, round_type: 'behavioral', question_text: 'Tell me about a big mistake.', category: 'Accountability', is_ai_generated: false, created_at: '' });
     renderPage();
-    await waitFor(() => expect(screen.getByText('Behavioral')).toBeInTheDocument());
-    await user.click(screen.getByText('Behavioral'));
-    await waitFor(() => expect(screen.getByText('Tell me about a mistake.')).toBeInTheDocument());
+    await screen.findByText(/Tell me about a mistake\./);
+    await user.click(screen.getByRole('button', { name: /browse questions/i }));
 
-    await user.click(screen.getByRole('button', { name: /^edit tell me about a mistake\.$/i }));
+    await user.click(await screen.findByRole('button', { name: /^edit tell me about a mistake\.$/i }));
     const textbox = screen.getByLabelText(/question text/i);
     await user.clear(textbox);
     await user.type(textbox, 'Tell me about a big mistake.');
@@ -145,7 +167,7 @@ describe('InterviewPracticeSetupPage', () => {
     await user.click(screen.getByRole('button', { name: /^save$/i }));
 
     await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith(1, expect.objectContaining({ question_text: 'Tell me about a big mistake.' })));
-    await waitFor(() => expect(screen.getByText('Tell me about a big mistake.')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText(/Tell me about a big mistake\./).length).toBeGreaterThan(0));
     expect(screen.queryByText('Record Page')).not.toBeInTheDocument();
   });
 
@@ -153,14 +175,13 @@ describe('InterviewPracticeSetupPage', () => {
     const user = userEvent.setup({ delay: null });
     mockDelete.mockResolvedValue({ status: 'success', deleted_id: 1 });
     renderPage();
-    await waitFor(() => expect(screen.getByText('Behavioral')).toBeInTheDocument());
-    await user.click(screen.getByText('Behavioral'));
-    await waitFor(() => expect(screen.getByText('Tell me about a mistake.')).toBeInTheDocument());
+    await screen.findByText(/Tell me about a mistake\./);
+    await user.click(screen.getByRole('button', { name: /browse questions/i }));
 
-    await user.click(screen.getByRole('button', { name: /^delete tell me about a mistake\.$/i }));
+    await user.click(await screen.findByRole('button', { name: /^delete tell me about a mistake\.$/i }));
 
     await waitFor(() => expect(mockDelete).toHaveBeenCalledWith(1));
-    await waitFor(() => expect(screen.queryByText('Tell me about a mistake.')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText(/Tell me about a mistake\./)).not.toBeInTheDocument());
     expect(screen.queryByText('Record Page')).not.toBeInTheDocument();
   });
 
@@ -168,8 +189,8 @@ describe('InterviewPracticeSetupPage', () => {
     const user = userEvent.setup({ delay: null });
     mockImport.mockResolvedValue({ imported_count: 1, skipped_count: 0, errors: [] });
     renderPage();
-    await waitFor(() => expect(screen.getByText('Behavioral')).toBeInTheDocument());
-    await user.click(screen.getByText('Behavioral'));
+    await screen.findByText(/Tell me about a mistake\./);
+    await user.click(screen.getByRole('button', { name: /browse questions/i }));
     await waitFor(() => expect(screen.getByRole('button', { name: /import questions/i })).toBeInTheDocument());
 
     await user.click(screen.getByRole('button', { name: /import questions/i }));

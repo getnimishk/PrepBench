@@ -3,7 +3,7 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React, { useMemo } from 'react';
-import { Box, Button, Chip, Paper, Stack, Typography } from '@mui/material';
+import { Box, Button, Paper, Stack, Typography } from '@mui/material';
 import { BookOpen, Eye, Lightbulb } from 'lucide-react';
 import type { Concept } from '../../types/learning';
 import { paramsFor } from '../../services/learning/scenarios';
@@ -29,7 +29,9 @@ import { Sparkline } from '../sandbox/Sparkline';
 
 interface Props {
   concept: Concept;
-  onContinue: () => void;
+  /** Omitted when the card is opened by choice rather than met on the way in:
+   *  there is nothing to continue to, because nothing was interrupted. */
+  onContinue?: () => void;
   continueLabel?: string;
 }
 
@@ -72,12 +74,10 @@ export const ConceptCard: React.FC<Props> = ({ concept, onContinue, continueLabe
             >
               New idea
             </Typography>
-            <Chip
-              size="small"
-              variant="outlined"
-              label={concept.depth}
-              sx={{ height: 18, fontSize: '0.6rem' }}
-            />
+            {/* concept.depth -- "vocabulary", "mechanism", "judgement" --
+                described the card to the curriculum, not to the reader. It
+                sat on the first thing anyone sees in the sandbox, which is
+                exactly where the internal vocabulary should not be. */}
           </Stack>
 
           <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>

@@ -4,523 +4,401 @@
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Box, Typography, Button, Alert, CircularProgress, Stack } from '@mui/material';
+import { getSubjects, getHomeSummary, getOtherPreparation } from '../services/api';
 import {
-  Box, Card, CardContent, Typography, Button, Chip, Alert, Grid,
-  CircularProgress, LinearProgress, Stack, Divider, Table, TableBody,
-  TableCell, TableContainer, TableHead, TableRow,
-} from '@mui/material';
-import { Plus, Target, ClipboardCheck, Layers, Sparkles, PlayCircle } from 'lucide-react';
-import {
-  getSubjects, getHomeSummary, getActivity, getDashboardOverview, getScoreTrends,
-} from '../services/api';
-import { MetricCard } from '../components/dashboard/MetricCard';
-import { WeakTopicsWidget } from '../components/dashboard/WeakTopicsWidget';
-import { ScoreTrendChart } from '../components/analytics/ScoreTrendChart';
-import { ScoreTrendPoint } from '../types/analytics';
-import { ActivityItem, HomeSummary, Subject, READINESS_LABELS } from '../types/subject';
-import { readinessColor, readinessProgress } from '../components/common/readinessDisplay';
-import { useTheme } from '@mui/material/styles';
+  HomeSummary, OtherPreparation, Readiness, Subject, READINESS_LABELS,
+} from '../types/subject';
+import { blockerSentence, pct, readySentence } from '../services/readinessText';
 
 /**
- * Home is the dashboard, rebuilt around what the application now knows.
+ * Where you stand, why, and the one thing worth doing about it.
  *
- * The shape is the old dashboard's -- headline metrics, a score chart, a
- * sidebar panel, a weak-topics widget, a recent-activity table -- because
- * that shape was right, and because the data behind it already existed and
- * was going unused. What changed is the honesty of the numbers:
+ * Two rounds of correction landed here. The first removed a metric wall --
+ * four KPI cards, a chart of every session, a streak, a daily goal ring, an
+ * "adaptive tip", two topic widgets and an activity table. The second removed
+ * what was left over from being a status page:
  *
- *   1. The headline accuracy counts full mocks alone. The old figure averaged
- *      ten-question warm-ups with timed mocks, which is exactly why it could
- *      not answer whether you would pass.
- *   2. The score chart still plots every session, mocks and drills together,
- *      and says so -- it is history, not readiness, and the caption makes the
- *      difference explicit rather than leaving it to be inferred.
- *   3. Subject readiness replaces topic mastery as the main panel, because
- *      "would I pass" is the question a candidate has.
+ *   The subject name was the largest thing on the screen. It is the one fact
+ *   the learner already knows. The verdict is the headline now.
  *
- * What it does not do is tell you what to do next. A ranked list was built,
- * put to the user, and rejected as nagging -- so every number here is a
- * statement of what is true with a link to the thing it describes.
+ *   "Weakest area: Managing Products with Agility" named the lowest-scoring
+ *   domain whether or not it was actually weak -- that domain sits five
+ *   points above the floor. It read as an accusation and explained nothing.
+ *   The rule now reports which condition of READY is unmet, and the page
+ *   states it in a sentence.
+ *
+ *   A six-row "Recently" table repeated the three mocks whose scores are
+ *   already in the trend, and Review owns history anyway.
+ *
+ *   A sparkline sat above the same four numbers written out. Four points do
+ *   not need a chart; the numbers carry more and cost less.
+ *
+ * What is here is the verdict, the evidence for it, the reason it is not
+ * better, one continuation, and -- because a page that only lists deficits
+ * teaches people to stop opening it -- what the last stretch of work bought.
  */
+
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
-  const theme = useTheme();
-  const isDark = theme.palette.mode === 'dark';
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [summary, setSummary] = useState<HomeSummary | null>(null);
-  const [activity, setActivity] = useState<ActivityItem[]>([]);
-  const [overview, setOverview] = useState<any | null>(null);
-  const [trends, setTrends] = useState<ScoreTrendPoint[]>([]);
+  const [other, setOther] = useState<OtherPreparation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    Promise.all([
-      getSubjects(),
-      getHomeSummary(),
-      getActivity(8),
-      // The existing overview still owns questions-attempted, the streak and
-      // the daily goal. Reused rather than recomputed -- but its accuracy
-      // field is deliberately not displayed, because it mixes mocks with
-      // drills and that is the figure this dashboard exists to replace.
-      getDashboardOverview().catch(() => null),
-      // Ten sessions and hundreds of answered questions already exist. There
-      // is no reason for the dashboard to ignore them just because readiness
-      // cannot count them.
-      getScoreTrends().catch(() => [] as ScoreTrendPoint[]),
-    ])
-      .then(([s, h, a, o, t]) => {
-        setSubjects(s);
-        setSummary(h);
-        setActivity(a);
-        setOverview(o);
-        setTrends(t);
-      })
-      .catch(() => setError('Failed to load. Please check the backend connection.'))
+  const load = () => {
+    setLoading(true);
+    setError(null);
+    Promise.all([getSubjects(), getHomeSummary(), getOtherPreparation().catch(() => [])])
+      .then(([s, h, o]) => { setSubjects(s); setSummary(h); setOther(o); })
+      .catch(() => setError('Could not reach PrepBench’s backend, so this page has nothing '
+        + 'to show yet. Nothing has been lost — your history is in the database on this machine.'))
       .finally(() => setLoading(false));
-  }, []);
+  };
 
-  const unreviewedFor = (id: number) =>
-    summary?.per_subject.find((p) => p.subject_id === id)?.unreviewed ?? 0;
+  useEffect(load, []);
 
   if (loading) {
+    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}><CircularProgress /></Box>;
+  }
+  // Actionable rather than merely truthful: an error the reader can only
+  // look at is a dead end, and this is the first screen of the product.
+  if (error) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-        <CircularProgress />
+      <Alert
+        severity="error"
+        action={<Button color="inherit" size="small" onClick={load}>Retry</Button>}
+      >
+        {error}
+      </Alert>
+    );
+  }
+
+  if (subjects.length === 0) {
+    return (
+      <Box sx={{ maxWidth: 520, py: 8 }}>
+        <Typography variant="h4" sx={{ fontWeight: 600, mb: 1.5 }}>Nothing to measure yet</Typography>
+        <Typography variant="body1" sx={{ color: 'text.secondary', mb: 3 }}>
+          Import a question bank and PrepBench will start keeping track of where you stand.
+        </Typography>
+        <Button
+          variant="contained"
+          disableElevation
+          onClick={() => navigate('/question-bank')}
+          sx={{ borderRadius: '100px', textTransform: 'none' }}
+        >
+          Import questions
+        </Button>
       </Box>
     );
   }
 
-  const outstanding = (summary?.unreviewed_total ?? 0) + (summary?.due_for_review ?? 0);
+  // The subject being prepared for: the one with an exam profile and the most
+  // evidence behind it. A second one appears only if it has evidence too.
+  const primary =
+    [...subjects]
+      .filter((s) => s.has_exam_profile)
+      .sort((a, b) => b.readiness.mock_count - a.readiness.mock_count)[0]
+    ?? subjects[0];
+  const alsoMeasured = subjects.filter(
+    (s) => s.id !== primary.id && s.has_exam_profile && s.readiness.mock_count > 0
+  );
 
-  // A statement about where things stand, not an instruction about what to do.
-  // The distinction matters: being told what to do next was rejected, but a
-  // page with no voice at all reads as a report rather than as your own study
-  // application.
-  const headline = (): { title: string; line: string } => {
-    if (subjects.length === 0) {
-      return {
-        title: 'Welcome to PrepBench',
-        line: 'Import a question bank or a roadmap and it will start keeping track.',
-      };
-    }
-    const ready = subjects.find((x) => x.readiness.state === 'ready');
-    if (ready) {
-      return {
-        title: `You are ready for ${ready.name}`,
-        line: 'Three consecutive mocks at or above the pass mark, nothing weak, nothing stale.',
-      };
-    }
-    const close = subjects.find((x) => x.readiness.state === 'almost_there' || x.readiness.state === 'plateau');
-    if (close) {
-      const last = close.readiness.recent_scores.slice(-1)[0];
-      return {
-        title: `Close on ${close.name}`,
-        line: `Last mock ${last}% against a ${close.readiness.pass_mark}% pass mark.`,
-      };
-    }
-    if ((summary?.mock_count ?? 0) === 0) {
-      return {
-        title: `${subjects.length} subject${subjects.length === 1 ? '' : 's'} on the go`,
-        line: 'Nothing measured yet — a full mock under exam conditions is what moves readiness.',
-      };
-    }
-    return {
-      title: `${subjects.length} subject${subjects.length === 1 ? '' : 's'} on the go`,
-      line: 'Keep going. Readiness moves on full mocks; drills close the gaps between them.',
-    };
-  };
+  const unreviewed = summary?.per_subject.find((p) => p.subject_id === primary.id)?.unreviewed ?? 0;
 
-  // Each branch is a real study technique, not a restated stat -- the live data
-  // only picks which technique is most relevant right now. Carried over from
-  // the old dashboard, with the mock/drill distinction folded in.
-  const adaptiveTip = (): string => {
-    if ((summary?.due_for_review ?? 0) > 0) {
-      const n = summary!.due_for_review;
-      return `${n} question${n === 1 ? ' is' : 's are'} queued in spaced repetition. Review them in short, frequent bursts rather than one long session — retention comes from repeated brief exposure, not duration.`;
-    }
-    if ((summary?.unreviewed_total ?? 0) > 0) {
-      const n = summary!.unreviewed_total;
-      return `${n} wrong answer${n === 1 ? '' : 's'} from a mock ${n === 1 ? 'has' : 'have'} not been looked at. Reading the explanation and restating the rule yourself is what turns a guess into understanding — it moves the score more than another attempt does.`;
-    }
-    const weakest = overview?.weak_topics?.[0];
-    if (weakest) {
-      return `On a weak spot like "${weakest.topic}" (${weakest.accuracy_percentage}%), do not just re-answer the same question until it sticks. Read the full explanation and restate the underlying rule in your own words.`;
-    }
-    if ((summary?.mock_count ?? 0) === 0) {
-      return 'A full mock under exam conditions calibrates everything else — weak-topic detection, the spaced-repetition schedule, and whether you would actually pass. Drills cannot do that job.';
-    }
-    if ((overview?.today_practiced_count ?? 0) === 0) {
-      return 'Short, consistent sessions beat marathon cramming for retention. Even 10-15 questions keeps your spaced-repetition schedule on track.';
-    }
-    return 'Nothing outstanding and no weak areas detected. A full timed mock tests a different skill than untimed practice — pacing under pressure is its own thing.';
-  };
+  return (
+    <Box
+      sx={{
+        display: 'grid',
+        gap: { xs: 5, lg: 8 },
+        gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 620px) minmax(220px, 280px)' },
+        alignItems: 'start',
+        maxWidth: 1000,
+        pt: 1,
+      }}
+    >
+      <Box>
+        <Verdict subject={primary} also={alsoMeasured} />
+        <Why readiness={primary.readiness} />
+        <Continuation subject={primary} unreviewed={unreviewed} summary={summary} />
+      </Box>
 
-  const hero = headline();
+      <Box sx={{ display: 'grid', gap: 5 }}>
+        <RecentLearning readiness={primary.readiness} />
+        <OtherPreparationList items={other} />
+      </Box>
+    </Box>
+  );
+};
+
+/**
+ * The verdict, with the evidence directly under it.
+ *
+ * The state is the headline because it answers the only question someone
+ * opens this page with. The subject name sits above it in small type: it
+ * identifies the numbers, it is not news.
+ */
+const Verdict: React.FC<{ subject: Subject; also: Subject[] }> = ({ subject, also }) => {
+  const r = subject.readiness;
+  const passMark = r.pass_mark ?? null;
 
   return (
     <Box>
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-
-      {/* ---- hero ---- */}
-      <Card
+      <Typography
+        variant="body2"
         sx={{
-          mb: 3,
-          borderRadius: 3,
-          boxShadow: 'none',
-          // The one sanctioned gradient in the app, kept from the old
-          // dashboard: decorative, non-interactive, both stops real MD3
-          // tokens. Dark mode does not invert it -- that read as generic
-          // navy SaaS -- and instead uses the same raised surface plus
-          // pastel accent as every other card here.
-          background: isDark ? theme.palette.surfaceContainerHigh.main : 'linear-gradient(135deg, #001D35, #0B57D0)',
-          color: isDark ? theme.palette.text.primary : '#FFFFFF',
+          color: 'text.secondary', letterSpacing: '0.08em',
+          textTransform: 'uppercase', fontSize: 12, fontWeight: 500,
         }}
       >
-        <CardContent
-          sx={{
-            py: 4, px: { xs: 3, md: 4 }, display: 'flex', gap: 2,
-            justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap',
-          }}
-        >
-          <Box>
-            <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, color: isDark ? 'primary.main' : 'inherit' }}>
-              {hero.title}
-            </Typography>
-            <Typography variant="body1" sx={{ opacity: isDark ? 1 : 0.9, color: isDark ? 'text.secondary' : 'inherit' }}>
-              {hero.line}
-            </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            size="large"
-            startIcon={<PlayCircle size={20} />}
-            onClick={() => navigate('/practice')}
-            sx={isDark ? undefined : { bgcolor: '#FFFFFF', color: '#0B57D0', '&:hover': { bgcolor: '#E8EEF9' } }}
-          >
-            Start practising
-          </Button>
-        </CardContent>
-      </Card>
+        {subject.name}
+      </Typography>
 
-      {/* ---- headline metrics ---- */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <MetricCard
-            title="Subjects Ready"
-            value={`${summary?.subjects_ready ?? 0} / ${summary?.subjects_total ?? 0}`}
-            subtitle="Ready to book the exam"
-            icon={Target}
-            color="#146C2E"
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <MetricCard
-            title="Full Mocks Taken"
-            value={`${summary?.mock_count ?? 0}`}
-            subtitle="Timed, under exam conditions"
-            icon={ClipboardCheck}
-            color="#0B57D0"
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <MetricCard
-            title="Mock Accuracy"
-            /* Never 0% for an absent measurement. Too few mocks to judge is
-               not a failing score, and the old dashboard's accuracy figure
-               averaged drills in, which is why it meant nothing. */
-            value={summary?.mock_accuracy != null ? `${summary.mock_accuracy}%` : 'Needs evaluation'}
-            subtitle="Drills excluded"
-            icon={Layers}
-            color="#00639B"
-          />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-          <MetricCard
-            title="Outstanding"
-            value={`${outstanding}`}
-            subtitle={`${summary?.unreviewed_total ?? 0} unreviewed · ${summary?.due_for_review ?? 0} due`}
-            icon={Sparkles}
-            color="#8F4C38"
-          />
-        </Grid>
-      </Grid>
+      <Typography variant="h3" sx={{ fontWeight: 600, mt: 0.5, letterSpacing: '-0.02em' }}>
+        {r.mock_count === 0 && r.state === 'needs_evaluation'
+          ? 'Not measured yet'
+          : READINESS_LABELS[r.state]}
+      </Typography>
 
-      {/* ---- score history and today's practice ---- */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 12, md: 8 }}>
-          <Card sx={{ height: '100%', border: 1, borderColor: 'divider', boxShadow: 'none' }}>
-            <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
-                Score history
-              </Typography>
-              {/* Says what it is rather than leaving it to be inferred. This
-                  line counts every session, mocks and drills alike, which is
-                  why it is history and not readiness. */}
-              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
-                Every completed session — mocks and drills together. Readiness counts mocks alone.
-              </Typography>
-              {/* ScoreTrendChart sets maintainAspectRatio:false, so Chart.js
-                  sizes the canvas from its parent. Without an explicit height
-                  the canvas collapses to zero width and nothing is drawn --
-                  the same fixed box AnalyticsPage gives it. */}
-              <Box sx={{ height: 300 }}>
-                <ScoreTrendChart
-                  trends={trends}
-                  label="Session Score %"
-                  rollingLabel="5-Session Rolling Avg %"
-                  emptyMessage="Complete a session to see your score history here."
-                />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Card sx={{ height: '100%', border: 1, borderColor: 'divider', boxShadow: 'none' }}>
-            <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-                Today
-              </Typography>
-
-              {overview ? (
-                <>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 3 }}>
-                    {(() => {
-                      const goal = Math.max(1, overview.daily_goal ?? 1);
-                      const pct = Math.min(100, Math.round((overview.today_practiced_count / goal) * 100));
-                      return (
-                        <>
-                          <Box sx={{ position: 'relative', display: 'inline-flex', width: 76, height: 76, flexShrink: 0 }}>
-                            <CircularProgress variant="determinate" value={100} size={76} thickness={6}
-                              sx={{ color: 'divider', position: 'absolute', left: 0 }} />
-                            <CircularProgress variant="determinate" value={pct} size={76} thickness={6}
-                              sx={{ color: 'primary.main', position: 'absolute', left: 0 }} />
-                            <Box sx={{
-                              top: 0, left: 0, bottom: 0, right: 0, position: 'absolute',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            }}>
-                              <Typography variant="h6" sx={{ fontWeight: 800 }}>{pct}%</Typography>
-                            </Box>
-                          </Box>
-                          <Box>
-                            <Typography variant="body2" sx={{ fontWeight: 600 }}>Practice goal</Typography>
-                            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                              {overview.today_practiced_count} / {goal} questions
-                            </Typography>
-                          </Box>
-                        </>
-                      );
-                    })()}
-                  </Box>
-
-                  <Divider sx={{ mb: 2 }} />
-
-                  <Stack spacing={1.25}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>Questions attempted</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {overview.total_questions_attempted}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>Study streak</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {overview.study_streak_days} day{overview.study_streak_days === 1 ? '' : 's'}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>Sessions completed</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{overview.total_exams}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>Avg time / question</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {Math.round(overview.average_time_per_question_seconds)}s
-                      </Typography>
-                    </Box>
-                  </Stack>
-
-                  {/* The one bit of the old dashboard with an actual voice.
-                      Each branch is a study technique; the data only chooses
-                      which one is relevant, it is not the tip itself. */}
-                  <Box sx={{ mt: 3, p: 2, borderRadius: 2, bgcolor: 'background.default', border: 1, borderColor: 'divider' }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: 'text.secondary' }}>
-                      Adaptive learning tip
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                      {adaptiveTip()}
-                    </Typography>
-                  </Box>
-                </>
-              ) : (
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  Practice statistics are unavailable.
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* ---- readiness and weak topics ---- */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 12, md: 7 }}>
-          <Card sx={{ height: '100%', border: 1, borderColor: 'divider', boxShadow: 'none' }}>
-            <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
-                Where you stand
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                Readiness comes only from full mocks. Drills close gaps; they do not measure.
-              </Typography>
-
-              <Stack spacing={2} sx={{ mt: 2 }}>
-                {subjects.map((subject) => {
-                  const r = subject.readiness;
-                  const unreviewed = unreviewedFor(subject.id);
-                  return (
-                    <Box
-                      key={subject.id}
-                      onClick={() => navigate(`/subjects/${subject.id}`)}
-                      sx={{
-                        cursor: 'pointer',
-                        p: 1.5,
-                        mx: -1.5,
-                        borderRadius: 1,
-                        '&:hover': { bgcolor: 'action.hover' },
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5, mb: 0.75 }}>
-                        <Typography variant="body1" sx={{ fontWeight: 600, flexGrow: 1 }}>
-                          {subject.name}
-                        </Typography>
-                        <Chip
-                          size="small"
-                          label={READINESS_LABELS[r.state]}
-                          color={readinessColor(r.state)}
-                          variant={r.state === 'needs_evaluation' ? 'outlined' : 'filled'}
-                        />
-                      </Box>
-
-                      <LinearProgress
-                        variant="determinate"
-                        value={readinessProgress(r)}
-                        color={readinessColor(r.state)}
-                        sx={{ height: 6, borderRadius: 3, mb: 0.75 }}
-                      />
-
-                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                        {r.mock_count === 0
-                          ? subject.has_exam_profile
-                            ? 'No full mock taken yet.'
-                            : 'No exam profile — practised, not certified.'
-                          : `${r.mock_count} mock${r.mock_count === 1 ? '' : 's'}` +
-                            (r.recent_scores.length
-                              ? ` · last ${r.recent_scores.map((s) => `${s}%`).join('  ')}`
-                              : '') +
-                            (r.pass_mark != null ? ` · pass mark ${r.pass_mark}%` : '')}
-                      </Typography>
-
-                      {(unreviewed > 0 || r.weakest_domain || r.is_stale) && (
-                        <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', gap: 1 }}>
-                          {/* Facts, not instructions. A count with no verb. */}
-                          {unreviewed > 0 && (
-                            <Chip size="small" variant="outlined" label={`${unreviewed} unreviewed`} />
-                          )}
-                          {r.weakest_domain && (
-                            <Chip size="small" variant="outlined" label={`weakest: ${r.weakest_domain}`} />
-                          )}
-                          {r.is_stale && (
-                            <Chip size="small" variant="outlined" color="warning" label="evidence is stale" />
-                          )}
-                        </Stack>
-                      )}
-                    </Box>
-                  );
-                })}
-
-                {/* Only when the request actually succeeded. A failed fetch is
-                    not an empty account. */}
-                {subjects.length === 0 && !error && (
-                  <Box sx={{ textAlign: 'center', py: 5 }}>
-                    <Plus size={28} style={{ opacity: 0.4 }} />
-                    <Typography variant="body2" sx={{ mt: 1.5, color: 'text.secondary' }}>
-                      No subjects yet. Import a question bank or a roadmap to get started.
-                    </Typography>
-                  </Box>
+      {r.mock_count > 0 && (
+        <>
+          <Stack direction="row" sx={{ mt: 2.5, alignItems: 'baseline', gap: 1.5, flexWrap: 'wrap' }}>
+            {r.recent_scores.map((s, i) => (
+              <React.Fragment key={i}>
+                {i > 0 && (
+                  <Typography component="span" aria-hidden sx={{ color: 'text.disabled', fontSize: 18 }}>
+                    &rarr;
+                  </Typography>
                 )}
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Weak topics come from every answered question, which is the whole
-            point of showing them here: they are actionable long before enough
-            mocks exist for readiness to say anything. */}
-        <Grid size={{ xs: 12, md: 5 }}>
-          <Stack spacing={2} sx={{ height: '100%' }}>
-            <WeakTopicsWidget topics={overview?.weak_topics ?? []} />
-            {/* Opening a study page on nothing but your five worst areas is a
-                bleak way to be greeted, and it is only half the picture. */}
-            <WeakTopicsWidget
-              topics={overview?.strong_topics ?? []}
-              title="Strongest Areas"
-              emptyMessage="Answer more questions and your strongest topics will show up here."
-              colorByAccuracy={false}
-            />
+                {/* A score under the pass mark is marked as well as muted:
+                    colour alone would leave the distinction invisible to a
+                    reader who cannot see it. */}
+                <Typography
+                  component="span"
+                  title={passMark != null && s < passMark ? 'below the pass mark' : undefined}
+                  sx={{
+                    fontSize: 26,
+                    fontWeight: 500,
+                    fontVariantNumeric: 'tabular-nums',
+                    color: passMark != null && s < passMark ? 'text.secondary' : 'text.primary',
+                    textDecoration: passMark != null && s < passMark ? 'underline dotted' : 'none',
+                    textUnderlineOffset: '5px',
+                  }}
+                >
+                  {pct(s)}
+                </Typography>
+              </React.Fragment>
+            ))}
+            {passMark != null && (
+              <Typography variant="body2" sx={{ color: 'text.secondary', ml: 1 }}>
+                {pct(passMark)} to pass
+              </Typography>
+            )}
           </Stack>
-        </Grid>
-      </Grid>
 
-      {/* ---- recent activity, every format ---- */}
-      <Card sx={{ border: 1, borderColor: 'divider', boxShadow: 'none' }}>
-        <CardContent>
-          <Box sx={{ display: 'flex', alignItems: 'baseline', mb: 1.5 }}>
-            <Typography variant="h6" sx={{ fontWeight: 700, flexGrow: 1 }}>
-              Recent activity
+          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1.5 }}>
+            {r.mock_count} full mock{r.mock_count === 1 ? '' : 's'}
+            {r.points_per_mock != null && r.points_per_mock > 0
+              && ` · rising about ${r.points_per_mock} points a mock`}
+            {r.points_per_mock != null && r.points_per_mock < 0
+              && ` · falling about ${Math.abs(r.points_per_mock)} points a mock`}
+          </Typography>
+        </>
+      )}
+
+      {also.length > 0 && (
+        <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1.5 }}>
+          Also measured:{' '}
+          {also
+            .map((s) => `${s.name} — ${READINESS_LABELS[s.readiness.state].toLowerCase()}`)
+            .join(', ')}
+        </Typography>
+      )}
+    </Box>
+  );
+};
+
+/** Why the verdict is what it is. Explanation only: it carries no button. */
+const Why: React.FC<{ readiness: Readiness }> = ({ readiness }) => {
+  const blocker = readiness.blockers[0] ?? null;
+
+  return (
+    <Box sx={{ mt: 5 }}>
+      <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+        {blocker ? 'Why not ready' : 'Why'}
+      </Typography>
+      <Typography variant="body1" sx={{ mt: 0.5, lineHeight: 1.65 }}>
+        {blocker ? blockerSentence(blocker) : readySentence(readiness.pass_mark)}
+      </Typography>
+    </Box>
+  );
+};
+
+/**
+ * One continuation, and only one.
+ *
+ * Ordered by what the evidence most supports, stopping at the first match.
+ * Finishing something already open beats starting something new; reviewing a
+ * known miss beats a fresh question, because that is where the score moves.
+ *
+ * There is no second CTA, no count of what was skipped, and nothing here
+ * that punishes being ignored for a week.
+ */
+const Continuation: React.FC<{
+  subject: Subject;
+  unreviewed: number;
+  summary: HomeSummary | null;
+}> = ({ subject, unreviewed, summary }) => {
+  const navigate = useNavigate();
+  const r = subject.readiness;
+  const resumable = summary?.resumable ?? null;
+  const weak = r.blockers.find((b) => b.kind === 'weak_domain');
+
+  const next = (() => {
+    if (resumable) {
+      return {
+        label: 'Unfinished session',
+        why: `You stopped at question ${resumable.answered + 1} of ${resumable.total}.`,
+        cta: 'Pick it up',
+        go: () => navigate(`/exam/${resumable.session_id}`),
+      };
+    }
+    if (unreviewed > 0) {
+      return {
+        label: 'Unreviewed misses',
+        why: `${unreviewed} wrong answer${unreviewed === 1 ? '' : 's'} you have not read `
+          + 'the explanation for. Understanding a miss is what changes the next score; '
+          + 'answering another new question is not.',
+        cta: 'Review them',
+        go: () => navigate('/review'),
+      };
+    }
+    if (weak) {
+      return {
+        label: 'Weak area',
+        why: `${weak.domain} is the one area under the floor, at ${pct(weak.value ?? 0)}.`,
+        cta: 'Practise it',
+        go: () => navigate(
+          `/exam-setup?kind=drill&subject=${subject.id}`
+          + `&domain=${encodeURIComponent(weak.domain ?? '')}`
+        ),
+      };
+    }
+    // A fresh install has subjects and no questions. Offering a mock that
+    // the engine will refuse to assemble makes the only action on a new
+    // user's Home an error message.
+    if (subject.question_count === 0) {
+      return {
+        label: 'Next',
+        why: `There are no ${subject.name} questions yet. Import a bank and `
+          + 'PrepBench can start measuring where you stand.',
+        cta: 'Import questions',
+        go: () => navigate('/question-bank'),
+      };
+    }
+    if (!subject.has_exam_profile) {
+      return {
+        label: 'Next',
+        why: 'There is no exam to sit for this one, so practice is the whole of it.',
+        cta: 'Practise',
+        go: () => navigate('/practice'),
+      };
+    }
+    if (r.mock_count === 0) {
+      return {
+        label: 'Next',
+        why: 'A full paper under exam conditions calibrates everything else — the '
+          + 'weak-area detection, the review schedule, and whether you would actually pass.',
+        cta: 'Take your first mock',
+        go: () => navigate(`/exam-setup?kind=mock&subject=${subject.id}`),
+      };
+    }
+    if (r.state === 'ready') {
+      return { label: 'Next', why: 'Book the exam.', cta: null, go: null };
+    }
+    return {
+      label: 'Next',
+      why: 'Another full paper is the only thing that moves the verdict.',
+      cta: 'Take a mock',
+      go: () => navigate(`/exam-setup?kind=mock&subject=${subject.id}`),
+    };
+  })();
+
+  return (
+    <Box
+      sx={{
+        mt: 5,
+        // The one surface on the page. The reason and the button have to read
+        // as a single thing, which is the only job containment does here.
+        bgcolor: 'action.hover',
+        borderRadius: 2,
+        px: 3,
+        py: 2.5,
+      }}
+    >
+      <Typography variant="overline" sx={{ color: 'text.secondary' }}>{next.label}</Typography>
+      <Typography variant="body1" sx={{ mt: 0.5, lineHeight: 1.65 }}>{next.why}</Typography>
+      {next.cta && next.go && (
+        <Button
+          variant="contained"
+          disableElevation
+          onClick={next.go}
+          sx={{ mt: 2, borderRadius: '100px', fontWeight: 600, textTransform: 'none' }}
+        >
+          {next.cta}
+        </Button>
+      )}
+    </Box>
+  );
+};
+
+/** What the last stretch of work actually bought. Absent when nothing moved. */
+const RecentLearning: React.FC<{ readiness: Readiness }> = ({ readiness }) => {
+  const m = readiness.most_improved;
+  if (!m) return null;
+  return (
+    <Box>
+      <Typography variant="overline" sx={{ color: 'text.secondary' }}>Recent learning</Typography>
+      <Typography variant="body2" sx={{ mt: 0.5, lineHeight: 1.6 }}>
+        {m.domain} went from {pct(m.before_pct)} to {pct(m.after_pct)} between your last two mocks.
+      </Typography>
+    </Box>
+  );
+};
+
+/** The formats that are not the exam. Only the ones actually used. */
+const OtherPreparationList: React.FC<{ items: OtherPreparation[] }> = ({ items }) => {
+  const navigate = useNavigate();
+  if (items.length === 0) return null;
+  return (
+    <Box>
+      <Typography variant="overline" sx={{ color: 'text.secondary' }}>Other preparation</Typography>
+      <Stack sx={{ mt: 0.5 }}>
+        {items.map((it) => (
+          <Box
+            key={it.key}
+            component="button"
+            type="button"
+            // Named explicitly: a row assembled from two Typography children
+            // reads as an unnamed button to anything not looking at it.
+            aria-label={`${it.label} — ${it.detail}`}
+            onClick={() => navigate(it.href)}
+            sx={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 2,
+              py: 0.85, width: '100%', textAlign: 'left', font: 'inherit', border: 0,
+              bgcolor: 'transparent', color: 'text.primary', cursor: 'pointer',
+              '&:hover': { color: 'primary.main' },
+              '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
+            }}
+          >
+            <Typography variant="body2">{it.label}</Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'right' }}>
+              {it.detail}
             </Typography>
-            <Button size="small" onClick={() => navigate('/review')}>See all</Button>
           </Box>
-
-          {activity.length === 0 ? (
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              Nothing yet. Anything you complete in any format will appear here.
-            </Typography>
-          ) : (
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    {['When', 'What', 'Detail', ''].map((h) => (
-                      <TableCell key={h} sx={{ fontWeight: 700, color: 'text.secondary' }}>{h}</TableCell>
-                    ))}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {activity.map((item, i) => (
-                    <TableRow key={`${item.kind}-${i}`} hover>
-                      <TableCell sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
-                        {item.at
-                          ? new Date(item.at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
-                          : ''}
-                      </TableCell>
-                      <TableCell>
-                        <Chip size="small" variant="outlined" label={item.kind.replace(/_/g, ' ')} sx={{ mr: 1 }} />
-                        {item.title}
-                      </TableCell>
-                      <TableCell sx={{ color: 'text.secondary' }}>{item.detail}</TableCell>
-                      <TableCell>
-                        <Button size="small" onClick={() => navigate(item.href)}>Open</Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </CardContent>
-      </Card>
+        ))}
+      </Stack>
     </Box>
   );
 };

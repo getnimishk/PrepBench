@@ -20,6 +20,37 @@ export interface DomainReadiness {
   score_pct?: number | null;
 }
 
+/**
+ * One unmet condition of READY.
+ *
+ * The rule names the condition and the numbers; the surface writes the
+ * sentence. Home used to invent its own explanation -- it called the
+ * lowest-scoring domain "your weakest area" even when that domain was
+ * comfortably above the floor, which reads as a problem where there is none.
+ */
+export type BlockerKind =
+  | 'no_exam_profile'
+  | 'more_mocks'
+  | 'weak_domain'
+  | 'below_pass'
+  | 'stale';
+
+export interface Blocker {
+  kind: BlockerKind;
+  domain?: string | null;
+  value?: number | null;
+  target?: number | null;
+  count?: number | null;
+}
+
+/** A domain that improved between the last two mocks. */
+export interface Movement {
+  domain: string;
+  before_pct: number;
+  after_pct: number;
+  points: number;
+}
+
 export interface Readiness {
   state: ReadinessState;
   /** Drills are excluded. Only full mocks under exam conditions count. */
@@ -33,6 +64,10 @@ export interface Readiness {
   points_per_mock?: number | null;
   /** The forecast that replaces a countdown. Null when no trend is honest. */
   mocks_to_pass_estimate?: number | null;
+  /** Why this is not READY, most actionable first. Empty when it is. */
+  blockers: Blocker[];
+  /** The clearest gain between the last two mocks, if there was one. */
+  most_improved?: Movement | null;
 }
 
 export interface Subject {
@@ -46,6 +81,9 @@ export interface Subject {
   /** False means no mock can be assembled, so readiness can never be reached. */
   has_exam_profile: boolean;
   readiness: Readiness;
+  /** How many questions this subject actually has. Zero means no exam of any
+   *  kind can be assembled, however complete the exam profile looks. */
+  question_count: number;
 }
 
 export interface FormatCoverage {
@@ -80,6 +118,15 @@ export interface HomeSummary {
   mock_accuracy?: number | null;
   subjects_total: number;
   subjects_ready: number;
+}
+
+/** A practice format that has actually been used. Empty ones are omitted
+ *  by the server rather than shown as zero. */
+export interface OtherPreparation {
+  key: string;
+  label: string;
+  detail: string;
+  href: string;
 }
 
 export interface ActivityItem {

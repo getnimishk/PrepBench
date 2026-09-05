@@ -2,8 +2,8 @@
 # Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 # Commercial use requires a separate licence from the copyright holder.
 
-from typing import List, Optional, Tuple
-from sqlalchemy.orm import Session
+from typing import Optional
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from app.models.exam_session import ExamSession, ExamStatus
 from app.models.exam_answer import ExamAnswer
@@ -14,25 +14,22 @@ class ExamRepository:
         self.db = db
 
     def get_session_by_id(self, session_id: int) -> Optional[ExamSession]:
-        return self.db.query(ExamSession).filter(ExamSession.id == session_id).first()
+        """One session with its answers.
 
-    def get_all_sessions(self, skip: int = 0, limit: int = 500) -> List[ExamSession]:
-        """
-        Return sessions ordered newest-first.
-        Default limit raised to 500 — enough for years of daily practice without
-        silently truncating.  The companion count_sessions() returns the true
-        total so the UI can show pagination or a warning if needed.
+        The answers are eager-loaded HERE rather than on the relationship,
+        because this is the one read that always needs them -- scoring,
+        saving and finishing all walk them. Every other query of ExamSession
+        wants a title and a score: the activity timeline, the score trend,
+        the resume card and the evidence reconciliation all used to drag
+        every answer row along behind them because the relationship carried
+        lazy="joined".
         """
         return (
             self.db.query(ExamSession)
-            .order_by(ExamSession.start_time.desc())
-            .offset(skip)
-            .limit(limit)
-            .all()
+            .options(joinedload(ExamSession.answers))
+            .filter(ExamSession.id == session_id)
+            .first()
         )
-
-    def count_sessions(self) -> int:
-        return self.db.query(func.count(ExamSession.id)).scalar() or 0
 
     def create_session(self, session: ExamSession) -> ExamSession:
         self.db.add(session)

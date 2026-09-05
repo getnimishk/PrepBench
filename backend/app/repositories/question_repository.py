@@ -146,7 +146,6 @@ class QuestionRepository:
 
     def bulk_delete(self, ids: List[int]) -> int:
         from app.models.exam_answer import ExamAnswer
-        from app.models.note_bookmark import UserNote, Bookmark
         from app.models.spaced_repetition import SpacedRepetition
 
         if not ids:
@@ -154,8 +153,6 @@ class QuestionRepository:
 
         self.db.query(QuestionOption).filter(QuestionOption.question_id.in_(ids)).delete(synchronize_session=False)
         self.db.query(ExamAnswer).filter(ExamAnswer.question_id.in_(ids)).delete(synchronize_session=False)
-        self.db.query(UserNote).filter(UserNote.question_id.in_(ids)).delete(synchronize_session=False)
-        self.db.query(Bookmark).filter(Bookmark.question_id.in_(ids)).delete(synchronize_session=False)
         self.db.query(SpacedRepetition).filter(SpacedRepetition.question_id.in_(ids)).delete(synchronize_session=False)
         count = self.db.query(Question).filter(Question.id.in_(ids)).delete(synchronize_session=False)
         self.db.commit()
@@ -163,13 +160,10 @@ class QuestionRepository:
 
     def clear_all(self) -> int:
         from app.models.exam_answer import ExamAnswer
-        from app.models.note_bookmark import UserNote, Bookmark
         from app.models.spaced_repetition import SpacedRepetition
 
         self.db.query(QuestionOption).delete(synchronize_session=False)
         self.db.query(ExamAnswer).delete(synchronize_session=False)
-        self.db.query(UserNote).delete(synchronize_session=False)
-        self.db.query(Bookmark).delete(synchronize_session=False)
         self.db.query(SpacedRepetition).delete(synchronize_session=False)
         count = self.db.query(Question).delete(synchronize_session=False)
         self.db.commit()
@@ -182,7 +176,12 @@ class QuestionRepository:
     # -- stay in the service; only the query lives here.
 
     def get_all_unpaginated(self) -> List[Question]:
-        """Every question. Used as the fallback when a filter matches nothing."""
+        """Every question, for the integrity check that compares the bank
+        against its source file.
+
+        No longer the fallback for an exam whose filter matched nothing --
+        create_exam refuses that outright rather than quietly widening it.
+        """
         return self.db.query(Question).all()
 
     def get_by_ids(self, ids: List[int]) -> List[Question]:
@@ -194,6 +193,7 @@ class QuestionRepository:
         self,
         certification_conditions: Optional[list] = None,
         topics: Optional[List[str]] = None,
+        domains: Optional[List[str]] = None,
         difficulties: Optional[List[str]] = None,
         restrict_to_ids: Optional[List[int]] = None,
         restrict_to_topics: Optional[List[str]] = None,
@@ -211,6 +211,13 @@ class QuestionRepository:
             query = query.filter(or_(*certification_conditions))
         if topics:
             query = query.filter(Question.topic.in_(topics))
+        # Domain, not topic, is the unit the exam blueprint and readiness both
+        # use. The topic column holds several hundred near-duplicate strings
+        # ("SM facilitating", "SM as facilitator", "Scrum Master facilitation
+        # ...") averaging three questions each, so it can identify a question
+        # but cannot select a meaningful set of them.
+        if domains:
+            query = query.filter(Question.domain.in_(domains))
         if difficulties:
             query = query.filter(Question.difficulty.in_(difficulties))
         if restrict_to_topics:

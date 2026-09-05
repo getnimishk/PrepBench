@@ -10,6 +10,7 @@ from app.repositories.exam_repository import ExamRepository
 from app.repositories.question_repository import QuestionRepository
 from app.repositories.analytics_repository import AnalyticsRepository
 from app.repositories.spaced_repetition_repository import SpacedRepetitionRepository
+from app.repositories.subject_repository import SubjectRepository, MOCK
 from app.models.exam_session import ExamSession, ExamMode, ExamStatus
 from app.models.exam_answer import ExamAnswer
 from app.models.question import Question
@@ -27,6 +28,29 @@ class ExamEngine:
         self.analytics_repo = AnalyticsRepository(db)
         self.sr_repo = SpacedRepetitionRepository(db)
 
+    @staticmethod
+    def _describe_filters(req: ExamCreateRequest, certification=None) -> str:
+        """The selection, in the learner's own words, for the no-match error.
+
+        Says what was actually asked for rather than "no results", so the
+        person can see which part of the selection was too narrow without
+        opening the request in a network tab.
+        """
+        parts = []
+        if certification and certification.strip():
+            parts.append(certification.strip())
+        if req.domains:
+            parts.append(", ".join(req.domains))
+        if req.topics:
+            parts.append("topics " + ", ".join(req.topics))
+        if req.difficulties:
+            parts.append("difficulty " + ", ".join(req.difficulties))
+        if req.exam_mode == ExamMode.WEAK_TOPIC:
+            parts.append("your weakest topics, of which there are none yet")
+        elif req.exam_mode == ExamMode.SPACED_REPETITION:
+            parts.append("questions due for review, of which there are none")
+        return "; ".join(parts) if parts else "the current selection"
+
     def create_exam(self, req: ExamCreateRequest) -> ExamSessionResponse:
         # Filter pieces are assembled here -- what a certification token means,
         # what counts as a weak topic -- and handed to the repository to run.
@@ -34,8 +58,23 @@ class ExamEngine:
         restrict_to_topics = None
         restrict_to_ids = None
 
-        if req.certification and req.certification.strip():
-            cert_val = req.certification.strip()
+        subject = None
+        if req.subject_id is not None:
+            subject = SubjectRepository(self.db).get_by_id(req.subject_id)
+            if subject is None:
+                raise ResourceNotFoundException("Subject", req.subject_id)
+
+        # A subject that was named is the scope. The client sends the subject
+        # and the server resolves what that means, rather than the client
+        # restating a certification string it would have had to look up --
+        # which is how a session ends up filed under a subject whose questions
+        # it was not actually drawn from.
+        certification = req.certification
+        if not (certification and certification.strip()) and subject is not None:
+            certification = subject.certification
+
+        if certification and certification.strip():
+            cert_val = certification.strip()
             # Smart token extraction (e.g. "PSM I - Professional Scrum Master" -> tokens: PSM, Scrum, Master)
             tokens = [t for t in re.split(r'[\s\-\—™:\(\)]+', cert_val) if len(t) > 1 and t.lower() not in ['and', 'the', 'for', 'prep', 'exam', 'practice', 'hard', 'easy', 'medium']]
             
@@ -53,50 +92,105 @@ class ExamEngine:
 
             certification_conditions = conditions
 
+        # Both of these modes are defined entirely by what they restrict to.
+        # An empty restriction used to be dropped, which turned "practise my
+        # weakest topics" into "eighty questions from anywhere" without a
+        # word -- the same silent broadening as an over-narrow filter, and
+        # harder to notice because the exam looks perfectly normal.
         if req.exam_mode == ExamMode.WEAK_TOPIC:
-            weak_topic_names = self.analytics_repo.get_weak_topic_names(below_percent=70.0)
-            if weak_topic_names:
-                restrict_to_topics = weak_topic_names
+            restrict_to_topics = self.analytics_repo.get_weak_topic_names(below_percent=70.0)
+            if not restrict_to_topics:
+                raise InvalidExamStateException(
+                    "No weak topics yet — nothing is below 70%. Answer more questions "
+                    "first, or start a different kind of exam."
+                )
 
         elif req.exam_mode == ExamMode.SPACED_REPETITION:
             now = datetime.now(UTC).replace(tzinfo=None)
-            due_ids = self.sr_repo.due_question_ids(now)
-            if due_ids:
-                restrict_to_ids = due_ids
+            restrict_to_ids = self.sr_repo.due_question_ids(now)
+            if not restrict_to_ids:
+                raise InvalidExamStateException(
+                    "Nothing is due for review right now. Come back when the schedule "
+                    "brings questions round again."
+                )
 
         available_questions = self.question_repo.find_for_exam(
             certification_conditions=certification_conditions,
             topics=list(req.topics) if req.topics else None,
+            domains=list(req.domains) if req.domains else None,
             difficulties=list(req.difficulties) if req.difficulties else None,
             restrict_to_ids=restrict_to_ids,
             restrict_to_topics=restrict_to_topics,
         )
 
-        # Fallback to all questions if specific filter produces no result
+        # A filter that matches nothing fails here. It used to fall back to the
+        # whole question bank, which is the worst available behaviour: the
+        # learner asked for Sprint Planning at hard difficulty, got eighty
+        # questions from every domain in the bank, and nothing anywhere said
+        # so. Every number downstream -- the score, the weak-topic list, the
+        # domain breakdown -- then describes an exam nobody chose to sit.
+        #
+        # Silently widening scope is worse than failing, because the learner
+        # cannot tell it happened.
         if not available_questions:
-            available_questions = self.question_repo.get_all_unpaginated()
-            if not available_questions:
-                raise InvalidExamStateException("Question bank is empty. Please import questions first.")
+            if self.question_repo.count() == 0:
+                raise InvalidExamStateException(
+                    "The question bank is empty. Import some questions first."
+                )
+            raise InvalidExamStateException(
+                "No questions match those filters: "
+                + self._describe_filters(req, certification)
+                + ". Widen the selection and try again."
+            )
 
         if req.randomize_questions:
             random.shuffle(available_questions)
 
         selected_questions = available_questions[:req.total_questions]
 
-        # NOTE: req.randomize_options is intentionally not applied here. It used to
-        # call random.shuffle(q.options) directly on the SQLAlchemy relationship
-        # collection, which is destructive: Question.options has
+        # A mock is only worth what it claims if it is actually the full paper.
+        #
+        # Nothing else in the system checks this. session_kind is a string on
+        # the request, so without this a five-question warm-up could be filed
+        # as a mock and would then be averaged into readiness with the same
+        # weight as an eighty-question sitting -- and a short mock is worse
+        # than a drill, because it is a drill wearing a measurement's label.
+        #
+        # Checked after selection rather than before, so that a bank too small
+        # to fill the paper fails here too instead of quietly producing a
+        # short one.
+        if req.session_kind == MOCK:
+            if subject is None or not subject.has_exam_profile:
+                raise InvalidExamStateException(
+                    "A mock needs a subject with an exam profile -- a question count, "
+                    "a time limit and a pass mark. This session would have nothing to "
+                    "measure against."
+                )
+            required = subject.exam_question_count or 0
+            if len(selected_questions) < required:
+                raise InvalidExamStateException(
+                    f"A {subject.name} mock is {required} questions and only "
+                    f"{len(selected_questions)} are available. Import more questions, "
+                    f"or run a drill instead."
+                )
+
+        # There is deliberately no option-shuffling step, and no setting that
+        # claims there is one.
+        #
+        # It used to call random.shuffle(q.options) on the SQLAlchemy
+        # relationship collection, which is destructive: Question.options has
         # cascade="all, delete-orphan", and shuffle's in-place swaps are
-        # instrumented __setitem__ calls that SQLAlchemy can interpret as items
-        # being removed from the collection -- silently DELETING those options
-        # from the database on the next commit. This was confirmed by direct
-        # reproduction (a 4-option question dropped to 3 after exactly this
-        # shuffle+commit sequence) and was the actual cause of options
-        # intermittently going missing from questions across this app's lifetime.
-        # It was also functionally a no-op even before being destructive: the
-        # shuffled in-memory order was never read back anywhere -- get_exam_details()
-        # re-queries questions fresh in a separate request/session, so the shuffle
-        # never had any observable effect besides the data loss.
+        # instrumented __setitem__ calls that SQLAlchemy can read as items
+        # leaving the collection -- silently DELETING those options on the
+        # next commit. Confirmed by direct reproduction: a 4-option question
+        # dropped to 3 after exactly this shuffle+commit sequence.
+        #
+        # It was a no-op even before it was destructive -- get_exam_details()
+        # re-queries the questions in a separate session, so the shuffled
+        # in-memory order was never read back. The switch that offered it has
+        # been removed rather than left inert: a control that provably does
+        # nothing is a false statement about the product, and the learner has
+        # no way to catch it.
         question_ids = [q.id for q in selected_questions]
 
         time_allowed = None
@@ -107,7 +201,7 @@ class ExamEngine:
             title=req.title or f"{req.exam_mode.capitalize()} Exam",
             exam_mode=req.exam_mode,
             status=ExamStatus.IN_PROGRESS,
-            certification=req.certification or "General",
+            certification=certification or "General",
             # The seam the readiness rule depends on. Without these two the
             # model's default made every session a drill, and a subject with
             # no certification string could never own one at all.

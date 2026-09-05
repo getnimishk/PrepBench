@@ -151,31 +151,17 @@ def test_local_day_start_differs_from_utc_midnight_off_utc():
 
 # ========================================= today's practice count correctness
 
-def test_navigating_past_a_question_does_not_count_as_practice(cleanup):
-    """
-    The client saves an answer on every navigation/flag/bookmark, including for
-    questions never actually answered -- those carry an empty selection and
-    is_correct NULL. Counting them inflated the daily goal.
-    """
-    cert = uuid.uuid4().hex
-    question = _question(cleanup, cert)
-    session_id = _start_exam(cleanup, cert)
-
-    before = client.get("/api/v1/analytics/dashboard").json()["today_practiced_count"]
-
-    client.post(f"/api/v1/exams/{session_id}/answer", json={
-        "question_id": question["id"], "selected_option_ids": [],
-    })
-
-    after = client.get("/api/v1/analytics/dashboard").json()["today_practiced_count"]
-    assert after == before
-
-
-def test_re_saving_an_old_answer_does_not_move_it_into_today(cleanup):
+def test_re_saving_an_answer_does_not_move_its_first_answered_timestamp(cleanup):
     """
     answered_at carries onupdate=, so paging back through a week-old exam
-    re-stamps its rows to now. first_answered_at is set once and is what the
-    daily count reads.
+    re-stamps its rows to now. first_answered_at is set once, which is what
+    makes it usable as the moment a question was genuinely first attempted.
+
+    The daily-practice count that this column was added for has been removed
+    along with the streak and the goal ring it fed. The column is still
+    written on every answer, so the immutability it promises still has to
+    hold -- but it is now asserted directly rather than through a projection
+    that no longer exists.
     """
     cert = uuid.uuid4().hex
     question = _question(cleanup, cert)
@@ -187,52 +173,33 @@ def test_re_saving_an_old_answer_does_not_move_it_into_today(cleanup):
     })
 
     # Age the answer by a week, as if it had been answered then.
+    week_ago = utc_now_naive() - timedelta(days=7)
     db = TestingSessionLocal()
     try:
         answer = db.query(ExamAnswer).filter(ExamAnswer.session_id == session_id).first()
-        week_ago = utc_now_naive() - timedelta(days=7)
         answer.first_answered_at = week_ago
         answer.answered_at = week_ago
         db.commit()
     finally:
         db.close()
 
-    baseline = client.get("/api/v1/analytics/dashboard").json()["today_practiced_count"]
-
-    # Re-save it, exactly as navigating back to it would -- with a *different*
+    # Re-save it exactly as navigating back to it would -- with a *different*
     # time_spent_seconds, because that is what really happens (the client
     # measures a fresh duration on each visit). Re-sending byte-identical
     # values would leave SQLAlchemy with no net change, emit no UPDATE, and
-    # never fire onupdate -- so the bug wouldn't reproduce.
+    # never fire onupdate, so the bug would not reproduce.
     client.post(f"/api/v1/exams/{session_id}/answer", json={
         "question_id": question["id"], "selected_option_ids": [correct_id], "time_spent_seconds": 11,
     })
-
-    after = client.get("/api/v1/analytics/dashboard").json()["today_practiced_count"]
-    assert after == baseline
 
     db = TestingSessionLocal()
     try:
         answer = db.query(ExamAnswer).filter(ExamAnswer.session_id == session_id).first()
         # answered_at moved (it tracks last touch); first_answered_at did not.
+        assert to_local_date(answer.first_answered_at) == to_local_date(week_ago)
         assert to_local_date(answer.first_answered_at) != local_today()
     finally:
         db.close()
-
-
-def test_answering_a_question_does_count_toward_today(cleanup):
-    cert = uuid.uuid4().hex
-    question = _question(cleanup, cert)
-    session_id = _start_exam(cleanup, cert)
-    correct_id = next(o["id"] for o in question["options"] if o["is_correct"])
-
-    before = client.get("/api/v1/analytics/dashboard").json()["today_practiced_count"]
-    client.post(f"/api/v1/exams/{session_id}/answer", json={
-        "question_id": question["id"], "selected_option_ids": [correct_id], "time_spent_seconds": 5,
-    })
-    after = client.get("/api/v1/analytics/dashboard").json()["today_practiced_count"]
-
-    assert after == before + 1
 
 
 # ============================================================ upload guards
@@ -264,13 +231,43 @@ def test_recording_upload_accepts_codec_qualified_audio_types():
 
 def test_migration_failures_are_logged_not_swallowed(caplog):
     """
-    Every step is allowed to fail without stopping startup, but silently
-    swallowing turns a schema problem into a confusing 'no such column' far
-    from its cause.
+    A failed step must be visible. Silently swallowing turns a schema problem
+    into a confusing 'no such column' far from its cause.
     """
-    from app.core.database import _log_migration_failure
+    from app.core import database
 
-    with caplog.at_level("ERROR"):
-        _log_migration_failure("some_step", RuntimeError("boom"))
+    try:
+        with caplog.at_level("ERROR"):
+            database._log_migration_failure("some_step", RuntimeError("boom"))
+        assert any("some_step" in r.message and "boom" in r.message for r in caplog.records)
+    finally:
+        database._migration_failures.clear()
 
-    assert any("some_step" in r.message and "boom" in r.message for r in caplog.records)
+
+def test_a_failed_migration_stops_startup():
+    """
+    Logging alone was not enough. The remaining steps still ran and the app
+    still served requests against a half-upgraded database, so the schema
+    problem reappeared later as a baffling error a long way from its cause.
+
+    A product whose whole argument is that its numbers are trustworthy should
+    not serve numbers it cannot compute.
+    """
+    from app.core import database
+
+    try:
+        database._log_migration_failure("some_step", RuntimeError("boom"))
+        with pytest.raises(database.MigrationFailedError) as raised:
+            database._raise_if_migrations_failed()
+        assert "some_step" in str(raised.value)
+        assert "partially upgraded" in str(raised.value)
+    finally:
+        database._migration_failures.clear()
+
+
+def test_a_clean_migration_run_does_not_raise():
+    """The guard must not turn a normal startup into a failure."""
+    from app.core import database
+
+    database._migration_failures.clear()
+    database._raise_if_migrations_failed()

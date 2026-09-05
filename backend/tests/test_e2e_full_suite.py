@@ -81,11 +81,12 @@ def test_regression_settings_api():
     current_settings = get_res.json()
     assert "theme" in current_settings
 
-    update_payload = {"theme": "dark", "daily_practice_goal": 25}
+    update_payload = {"theme": "dark", "default_target_role": "Staff SRE"}
     put_res = client.put("/api/v1/settings", json=update_payload)
     assert put_res.status_code == 200
     updated_data = put_res.json()
-    assert updated_data["daily_practice_goal"] == 25
+    assert updated_data["theme"] == "dark"
+    assert updated_data["default_target_role"] == "Staff SRE"
 
 
 def test_regression_file_cleanup_utility(tmp_path: Path):
@@ -303,8 +304,10 @@ def test_regression_reset_application_data():
     # 4. Verify settings are restored to default (must match AppSettings model defaults)
     settings_data = client.get("/api/v1/settings").json()
     assert settings_data["theme"] == "light"
-    assert settings_data["default_exam_mode"] == "timed"
-    assert settings_data["default_questions_count"] == 80
-    assert settings_data["default_passing_percentage"] == 95.0
-    assert settings_data["daily_practice_goal"] == 20
+    assert settings_data["timer_sound_enabled"] is True
+    assert settings_data["default_target_role"] is None
+    # The "Exam Defaults" block -- exam mode, question count, passing score,
+    # shuffle -- is gone from the surface. Nothing ever read it.
+    assert "default_exam_mode" not in settings_data
+    assert "default_passing_percentage" not in settings_data
 

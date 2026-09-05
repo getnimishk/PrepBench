@@ -83,7 +83,7 @@ See [AI Providers](AI-Providers).
 Almost always because the sessions being counted are **drills**, and readiness counts full mocks only.
 
 > [!NOTE]
-> **No screen starts a mock yet.** `POST /api/v1/exams` accepts `session_kind` and `subject_id`, but nothing in the UI sends them, so every session the running app creates is a drill. This is pinned by a test rather than left to drift. Until an exam-setup path sets it, browser-driven practice cannot move readiness.
+> **Drills never move readiness, and that is not a bug.** Exam setup does start mocks — it sends `session_kind: mock` and `subject_id`. But it refuses to when the subject has no exam profile or the bank cannot fill the paper, and it says which of the two is missing. If readiness is stuck at `needs_evaluation`, check that the sessions in Review are labelled *mock* rather than *drill*; a drill is not a weaker measurement of readiness, it is not a measurement of it.
 
 To confirm what is actually stored:
 

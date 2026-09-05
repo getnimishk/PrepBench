@@ -76,7 +76,14 @@ def _cert() -> str:
     return "E2EReg" + uuid.uuid4().hex[:10]
 
 
-def _subject(db, cert=None, kind=SubjectKind.CERTIFICATION) -> Subject:
+def _subject(db, cert=None, kind=SubjectKind.CERTIFICATION, exam_question_count=80) -> Subject:
+    """A subject whose exam profile matches the paper the test intends to sit.
+
+    exam_question_count is a parameter because a mock must BE the full paper:
+    the engine refuses to file a short session as one. A fixture that claims
+    an eighty-question exam and then sits four is not a smaller version of
+    the real thing, it is the defect the rule exists to stop.
+    """
     tag = uuid.uuid4().hex[:8]
     is_cert = kind is SubjectKind.CERTIFICATION
     subject = Subject(
@@ -85,7 +92,7 @@ def _subject(db, cert=None, kind=SubjectKind.CERTIFICATION) -> Subject:
         kind=kind,
         certification=cert,
         pass_mark=85.0 if is_cert else None,
-        exam_question_count=80 if is_cert else None,
+        exam_question_count=exam_question_count if is_cert else None,
         exam_minutes=60 if is_cert else None,
     )
     db.add(subject)
@@ -191,13 +198,13 @@ def test_answering_wrongly_is_scored_as_wrong():
     assert result["score_percentage"] == 0.0
 
 
-def test_every_session_the_api_creates_is_a_drill(db):
-    """Current behaviour, pinned deliberately.
+def test_a_session_that_does_not_say_what_it_is_is_a_drill(db):
+    """The safe default, pinned deliberately.
 
-    The model defaults session_kind to "drill" so that data recorded before
-    the column existed cannot inflate a readiness signal. Nothing in the
-    creation path ever overrides that default, which makes the default also
-    the only value the running app can produce.
+    A caller that has not thought about session_kind is not sitting an exam,
+    so it gets a drill. Readiness may only ever rise on evidence someone
+    meant to produce -- which is also why data recorded before the column
+    existed cannot inflate it.
     """
     cert = _cert()
     _make_questions(cert, n=3)
@@ -211,9 +218,10 @@ def test_every_session_the_api_creates_is_a_drill(db):
 
 def test_the_api_can_record_a_mock(db):
     cert = _cert()
+    subject = _subject(db, cert=cert, exam_question_count=3)
     _make_questions(cert, n=3)
 
-    result = _run_exam(cert, count=3, session_kind="mock")
+    result = _run_exam(cert, count=3, session_kind="mock", subject_id=subject.id)
 
     session = db.query(ExamSession).filter(ExamSession.id == result["id"]).one()
     assert session.session_kind == "mock"
@@ -259,7 +267,7 @@ def test_a_mock_through_the_api_moves_readiness(db):
     """The seam that was missing. A mock taken through the app -- not built
     from a database session -- must reach the readiness rule."""
     cert = _cert()
-    subject = _subject(db, cert=cert)
+    subject = _subject(db, cert=cert, exam_question_count=4)
     _make_questions(cert, n=4)
 
     _run_exam(cert, count=4, answer_correctly=True, session_kind="mock", subject_id=subject.id)
@@ -277,7 +285,7 @@ def test_a_wrong_answer_in_a_mock_reaches_the_home_review_queue(db):
     before = _home()["unreviewed_total"]
 
     cert = _cert()
-    subject = _subject(db, cert=cert)
+    subject = _subject(db, cert=cert, exam_question_count=4)
     _make_questions(cert, n=4)
     _run_exam(cert, count=4, answer_correctly=False, session_kind="mock", subject_id=subject.id)
 

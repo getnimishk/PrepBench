@@ -46,22 +46,58 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
+class MigrationFailedError(RuntimeError):
+    """Raised at startup when the database is left partially upgraded."""
+
+
+# Collected rather than raised at the point of failure, so that one broken
+# step does not hide the state of the others: the operator gets the whole
+# list in a single message instead of fixing them one restart at a time.
+_migration_failures: list = []
+
+
 def _log_migration_failure(step: str, exc: Exception) -> None:
     """
-    A migration step is allowed to fail without stopping startup (a fresh
-    database has nothing to alter, and create_all covers it), but it must not
-    fail *silently*. Swallowing these turns a schema problem into a confusing
-    "no such column" at first query, far from its cause.
+    Record a failed migration step and keep going.
+
+    Continuing is deliberate -- the remaining steps are independent, and
+    running them turns "the schema is broken somewhere" into a complete list.
+    What must NOT happen is the application then serving requests against a
+    half-upgraded database, which is how a schema problem reappears later as
+    a baffling "no such column" a long way from its cause.
+    _raise_if_migrations_failed() closes that gap at the end of the run.
     """
     # Imported lazily: logging_config configures handlers at import time, and
     # this module is imported early enough that a module-level import would
     # risk an import cycle through app.core.config.
     from app.core.logging_config import logger
     logger.error(f"Lightweight migration step '{step}' failed: {exc}")
+    _migration_failures.append((step, exc))
+
+
+def _raise_if_migrations_failed() -> None:
+    """Refuse to start on a partially upgraded database.
+
+    A migration that fails halfway leaves some columns present and others
+    missing. Starting anyway means the first learner action hits the gap, and
+    a product whose whole argument is that its numbers are trustworthy should
+    not serve numbers it cannot compute.
+    """
+    if not _migration_failures:
+        return
+    steps = _migration_failures[:]
+    _migration_failures.clear()
+    detail = "; ".join(f"{step}: {exc}" for step, exc in steps)
+    raise MigrationFailedError(
+        f"{len(steps)} database migration step(s) failed, so the schema is only "
+        f"partially upgraded and PrepBench will not start on it. "
+        f"Restore your last backup of exam_simulator.db and try again. Details -- {detail}"
+    )
 
 
 def apply_lightweight_migrations():
     """Auto-add missing columns/indexes to existing SQLite database tables safely."""
+    _migration_failures.clear()
     with engine.connect() as conn:
         try:
             # Check app_settings columns
@@ -116,6 +152,35 @@ def apply_lightweight_migrations():
                 conn.commit()
         except Exception as exc:
             _log_migration_failure("exam_answers.first_answered_at", exc)
+
+        try:
+            # app_settings: drop the controls that never did anything.
+            #
+            # Skipped rather than failed on SQLite older than 3.35, which has
+            # no DROP COLUMN. Refusing to boot over six unread columns would
+            # be a worse outcome than carrying them.
+            import sqlite3 as _sqlite3
+
+            dead_settings = [
+                "shuffle_options", "daily_practice_goal", "default_exam_mode",
+                "default_questions_count", "default_passing_percentage",
+                "shuffle_questions",
+            ]
+            supports_drop = tuple(
+                int(part) for part in _sqlite3.sqlite_version.split(".")[:2]
+            ) >= (3, 35)
+            table_exists = conn.execute(text(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='app_settings'"
+            )).fetchone()
+            if table_exists and supports_drop:
+                result = conn.execute(text("PRAGMA table_info(app_settings)")).fetchall()
+                columns = [row[1] for row in result]
+                for dead in dead_settings:
+                    if dead in columns:
+                        conn.execute(text(f"ALTER TABLE app_settings DROP COLUMN {dead}"))
+                conn.commit()
+        except Exception as exc:
+            _log_migration_failure("app_settings dead columns", exc)
 
         try:
             # design_reviews.axis_label: the deciding axis as a short name, so
@@ -248,6 +313,135 @@ def apply_lightweight_migrations():
                 conn.commit()
         except Exception as exc:
             _log_migration_failure('recording_analyses content columns', exc)
+
+        try:
+            # questions.tags: NULL where the model means an empty list.
+            #
+            # Same 25 rows, same cause -- inserted without going through the
+            # ORM, so the column default never applied. Backfilled rather
+            # than tolerated everywhere downstream: "no tags" and "tags
+            # unknown" are not different states for this column, and one NULL
+            # is enough to fail a whole page of results.
+            result = conn.execute(text("PRAGMA table_info(questions)")).fetchall()
+            if any(row[1] == "tags" for row in result):
+                conn.execute(text("UPDATE questions SET tags = '[]' WHERE tags IS NULL"))
+                conn.commit()
+        except Exception as exc:
+            _log_migration_failure("questions.tags nulls", exc)
+
+        try:
+            # Enum columns hold the member NAME, and a row holding the member
+            # VALUE instead cannot be read back at all.
+            #
+            # SQLAlchemy's Enum() stores `QuestionDifficulty.MEDIUM` as the
+            # string "MEDIUM". A row carrying "medium" -- the same member's
+            # value -- raises LookupError while the result row is being
+            # built, before any application code runs. One such question
+            # therefore 500s the entire Question Bank listing, and the page
+            # reports "check backend connection" over a backend that is
+            # fine.
+            #
+            # This machine's database holds 25 of them, all imported on the
+            # same second, all PSM I. Nothing in the application writes a
+            # value in that form, so they arrived from outside it -- but they
+            # are the learner's own questions, and "medium" and "MEDIUM" are
+            # the same difficulty. So they are repaired, not removed, and
+            # only where the mapping is exact: a string that matches no
+            # member either way is left alone and logged, because guessing
+            # what a corrupt row meant is the one thing worse than failing on
+            # it.
+            from app.models.design_review import DesignReview  # noqa: F401
+            from app.models.exam_answer import ConfidenceLevel
+            from app.models.exam_session import ExamMode, ExamStatus
+            from app.models.interview_question import InterviewRoundType
+            from app.models.question import QuestionDifficulty, QuestionType
+            from app.models.subject import SubjectKind
+
+            enum_columns = [
+                ("questions", "question_type", QuestionType),
+                ("questions", "difficulty", QuestionDifficulty),
+                ("design_reviews", "difficulty", QuestionDifficulty),
+                ("system_design_prompts", "difficulty", QuestionDifficulty),
+                ("exam_sessions", "exam_mode", ExamMode),
+                ("exam_sessions", "status", ExamStatus),
+                ("exam_answers", "confidence_level", ConfidenceLevel),
+                ("interview_questions", "round_type", InterviewRoundType),
+                ("subjects", "kind", SubjectKind),
+            ]
+            for table, column, enum_cls in enum_columns:
+                exists = conn.execute(text(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name=:t"
+                ), {"t": table}).fetchone()
+                if not exists:
+                    continue
+                names = {m.name for m in enum_cls}
+                lookup = {m.name.lower(): m.name for m in enum_cls}
+                lookup.update({str(m.value).lower(): m.name for m in enum_cls})
+                rows = conn.execute(text(
+                    f"SELECT DISTINCT {column} FROM {table} WHERE {column} IS NOT NULL"
+                )).fetchall()
+                for (raw,) in rows:
+                    if raw in names:
+                        continue
+                    target = lookup.get(str(raw).lower())
+                    if target is None:
+                        from app.core.logging_config import logger
+                        logger.warning(
+                            "%s.%s holds %r, which is not a %s. Left as it is -- "
+                            "reading those rows will fail until it is corrected by hand.",
+                            table, column, raw, enum_cls.__name__,
+                        )
+                        continue
+                    conn.execute(
+                        text(f"UPDATE {table} SET {column} = :target WHERE {column} = :raw"),
+                        {"target": target, "raw": raw},
+                    )
+            conn.commit()
+        except Exception as exc:
+            _log_migration_failure("enum column values", exc)
+
+        try:
+            # exam_sessions.source: where the row came from. Defaults to
+            # 'learner' so that ordinary history keeps counting -- a row whose
+            # provenance is unknown belongs to the learner until something
+            # proves otherwise.
+            table_exists = conn.execute(text(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='exam_sessions'"
+            )).fetchone()
+            if table_exists:
+                result = conn.execute(text("PRAGMA table_info(exam_sessions)")).fetchall()
+                columns = [row[1] for row in result]
+                if "source" not in columns:
+                    conn.execute(text(
+                        "ALTER TABLE exam_sessions ADD COLUMN source VARCHAR(10) "
+                        "NOT NULL DEFAULT 'learner'"
+                    ))
+                    # The one quarantine this migration performs, and the only
+                    # rows it can perform it on honestly.
+                    #
+                    # "UnitTestCert-" is generated by tests/test_analytics.py
+                    # and by nothing else in the product -- no import path, no
+                    # seed, no UI can produce it. A session carrying that
+                    # certification is provably a regression test that was run
+                    # against a working database, so marking it is a
+                    # statement of fact rather than a guess.
+                    #
+                    # Abandoned and low-scoring sessions are deliberately NOT
+                    # touched. A paper someone walked away from is still
+                    # something they did, and reclassifying it to make the
+                    # averages look better would be fabricating provenance --
+                    # the same failure as fabricating a score. Those sessions
+                    # are drills, so they never reach readiness anyway.
+                    conn.execute(text(
+                        "UPDATE exam_sessions SET source = 'test' "
+                        "WHERE certification LIKE 'UnitTestCert-%'"
+                    ))
+                    conn.commit()
+        except Exception as exc:
+            _log_migration_failure("exam_sessions.source", exc)
+
+    _raise_if_migrations_failed()
+
 
 def get_db():
     db = SessionLocal()

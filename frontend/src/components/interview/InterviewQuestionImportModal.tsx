@@ -17,11 +17,12 @@ interface Props {
   onClose: () => void;
   onSuccess: () => void;
   roundTypes: RoundTypeInfo[];
-  defaultRoundType: InterviewRoundType;
+  /** Undefined when no round is selected -- the modal picks its own. */
+  defaultRoundType?: InterviewRoundType;
 }
 
 export const InterviewQuestionImportModal: React.FC<Props> = ({ open, onClose, onSuccess, roundTypes, defaultRoundType }) => {
-  const [roundType, setRoundType] = useState<InterviewRoundType>(defaultRoundType);
+  const [roundType, setRoundType] = useState<InterviewRoundType>(defaultRoundType ?? 'behavioral');
   const [category, setCategory] = useState('');
   const [mode, setMode] = useState<'paste' | 'file'>('paste');
   const [pastedText, setPastedText] = useState('');

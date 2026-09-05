@@ -268,10 +268,18 @@ export const QuestionBankPage: React.FC = () => {
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 800 }}>Question Bank</Typography>
-          <Typography variant="body2" color="text.secondary">{total} questions total</Typography>
+          <Typography variant="h4" sx={{ fontWeight: 600 }}>Question Bank</Typography>
+          {/* Not "0 questions total" when the count could not be fetched --
+              that is a fake zero over a bank of several hundred. */}
+          <Typography variant="body2" color="text.secondary">
+            {fetchError ? 'Question count unavailable' : `${total} questions total`}
+          </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+        {/* Wraps. Three buttons is 325px of row, which on a 390px phone put
+            "Clear All" past the right edge of the screen -- reachable only by
+            scrolling the main region sideways, which nothing invited you to
+            do. */}
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
           <Button
             variant="contained"
             color="primary"

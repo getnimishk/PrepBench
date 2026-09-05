@@ -46,6 +46,26 @@ class ExamSession(Base):
 
     subject_id = Column(Integer, ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True, index=True)
 
+    # Where this row came from, and the only thing that can say "that was not
+    # me studying".
+    #
+    # A product built on the principle that evidence must be honest had no way
+    # to distinguish a regression test from a study session: three sessions
+    # named "Repro", "Randomize Options Regression Test" and "Skipped Answer
+    # Regression Test" sat in the working database and were averaged into
+    # every headline number alongside six real 80-question papers.
+    #
+    # Two values, because there are only two producers. The app creates
+    # LEARNER rows and nothing else; TEST is set by the quarantine migration
+    # for rows that are provably not learner activity. A third "system" value
+    # was considered and dropped -- nothing in PrepBench generates a session
+    # on its own, so it would have been an empty category.
+    #
+    # Defaults to LEARNER: a row whose provenance is unknown is the learner's
+    # until something proves otherwise. Quarantining by guesswork would be
+    # fabricating provenance, which is the same sin as fabricating a score.
+    source = Column(String(10), nullable=False, default="learner", server_default="learner", index=True)
+
     total_questions = Column(Integer, nullable=False, default=0)
     answered_questions = Column(Integer, nullable=False, default=0)
     correct_count = Column(Integer, nullable=False, default=0)
@@ -64,4 +84,7 @@ class ExamSession(Base):
     end_time = Column(DateTime, nullable=True)
 
     # Relationships
-    answers = relationship("ExamAnswer", back_populates="session", cascade="all, delete-orphan", lazy="joined")
+    # Loaded on demand, not on every query. ExamRepository.get_session_by_id
+    # eager-loads them explicitly because it is the read that needs them;
+    # listing sessions for a timeline or a trend does not.
+    answers = relationship("ExamAnswer", back_populates="session", cascade="all, delete-orphan")

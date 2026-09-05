@@ -7,28 +7,24 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AIProvidersSection } from './AIProvidersSection';
-import { LLMProfile, LLMProvider, LLMTaskBinding } from '../../types/llm';
+import { LLMProfile, LLMProvider } from '../../types/llm';
 
 const mockGetProfiles = vi.fn();
 const mockGetProviders = vi.fn();
-const mockGetTasks = vi.fn();
 const mockCreate = vi.fn();
 const mockUpdate = vi.fn();
 const mockDelete = vi.fn();
 const mockVerify = vi.fn();
 const mockDetect = vi.fn();
-const mockSetBinding = vi.fn();
 
 vi.mock('../../services/api', () => ({
   getLLMProfiles: (...a: any[]) => mockGetProfiles(...a),
   getLLMProviders: (...a: any[]) => mockGetProviders(...a),
-  getLLMTasks: (...a: any[]) => mockGetTasks(...a),
   createLLMProvider: (...a: any[]) => mockCreate(...a),
   updateLLMProvider: (...a: any[]) => mockUpdate(...a),
   deleteLLMProvider: (...a: any[]) => mockDelete(...a),
   verifyLLMProvider: (...a: any[]) => mockVerify(...a),
   getLLMProviderModels: () => Promise.resolve({ models: [], error: null }),
-  setLLMTaskBinding: (...a: any[]) => mockSetBinding(...a),
   detectLocalRunners: (...a: any[]) => mockDetect(...a),
   // LocalSetupWizard renders inside this component (closed), and pulls from
   // the same module -- without these the mocked module returns undefined.
@@ -78,29 +74,11 @@ function makeProvider(overrides: Partial<LLMProvider> = {}): LLMProvider {
   };
 }
 
-function makeTask(overrides: Partial<LLMTaskBinding> = {}): LLMTaskBinding {
-  return {
-    task: 'system_design_grading',
-    label: 'System Design grading',
-    capability: 'text_json',
-    bound_provider_id: null,
-    bound_model: null,
-    resolved_provider_id: 1,
-    resolved_provider_name: 'My Llamafile',
-    resolved_model: 'qwen3-4b',
-    is_available: true,
-    unavailable_reason: null,
-    cloud_timeout_seconds: 25,
-    local_timeout_seconds: 300,
-    ...overrides,
-  };
-}
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetProfiles.mockResolvedValue([makeProfile()]);
   mockGetProviders.mockResolvedValue([]);
-  mockGetTasks.mockResolvedValue([]);
 });
 
 describe('AIProvidersSection', () => {
@@ -221,31 +199,6 @@ describe('AIProvidersSection', () => {
 
     await user.click(within(dialog).getByRole('button', { name: /^remove$/i }));
     await waitFor(() => expect(mockDelete).toHaveBeenCalledWith(1));
-  });
-
-  it('only offers providers that can actually do a task', async () => {
-    // A text-only provider must not appear as an option for audio analysis --
-    // the backend refuses such a binding, so offering it would be a dead end.
-    mockGetProviders.mockResolvedValue([
-      makeProvider({ id: 1, name: 'Local Text', capabilities: ['text_json'] }),
-      makeProvider({ id: 2, name: 'Cloud Multimodal', capabilities: ['text_json', 'audio_json'], is_local: false }),
-    ]);
-    mockGetTasks.mockResolvedValue([
-      makeTask({ task: 'recording_analysis', label: 'Interview recording analysis', capability: 'audio_json' }),
-    ]);
-
-    const user = userEvent.setup();
-    render(<AIProvidersSection />);
-    await waitFor(() => expect(screen.getByText('Local Text')).toBeInTheDocument());
-
-    await user.click(screen.getByText(/which provider handles what/i));
-    const select = await screen.findByLabelText('Provider');
-    await user.click(select);
-
-    const options = await screen.findAllByRole('option');
-    const labels = options.map((o) => o.textContent);
-    expect(labels).toContain('Cloud Multimodal');
-    expect(labels).not.toContain('Local Text');
   });
 
   it('offers local providers before cloud ones when adding', async () => {

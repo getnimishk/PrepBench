@@ -5,11 +5,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Box, Typography, Tabs, Tab, LinearProgress, Alert, Button, Chip, Grid,
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField, Card, CardContent,
+  Box, Typography, Tabs, Tab, LinearProgress, Alert, Button,
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
 } from '@mui/material';
-import { ArrowLeft, Clock, CalendarDays } from 'lucide-react';
+import { ArrowLeft, CalendarDays } from 'lucide-react';
 import {
   getRoadmap, getRoadmapSchedule, updateRoadmapTopic, updateRoadmap,
 } from '../services/api';
@@ -123,7 +123,7 @@ export const RoadmapDetailPage: React.FC = () => {
 
   if (fetchError) {
     return (
-      <Box sx={{ maxWidth: 800, mx: 'auto', mt: 4 }}>
+      <Box sx={{ maxWidth: 800, mt: 4 }}>
         <Alert severity="error" action={<Button color="inherit" size="small" onClick={load}>Retry</Button>}>
           {fetchError}
         </Alert>
@@ -146,7 +146,7 @@ export const RoadmapDetailPage: React.FC = () => {
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 800 }}>{roadmap.title}</Typography>
+          <Typography variant="h4" sx={{ fontWeight: 600 }}>{roadmap.title}</Typography>
           <Typography variant="body2" color="text.secondary">
             {progressCaption(roadmap.progress)}
           </Typography>
@@ -156,65 +156,45 @@ export const RoadmapDetailPage: React.FC = () => {
         </Button>
       </Box>
 
-      <Grid container spacing={2} sx={{ mt: 0.5, mb: 1 }}>
-        <Grid
-          size={{
-            xs: 12,
-            sm: 4
-          }}>
-          <Card variant="outlined" sx={{ borderRadius: 3 }}>
-            <CardContent>
-              <Typography variant="caption" color="text.secondary">Topics complete</Typography>
-              <Typography variant="h4" sx={{ fontWeight: 800 }}>{formatPercentage(pct)}</Typography>
-              {pct !== null && (
-                <LinearProgress
-                  variant="determinate" value={pct}
-                  color={pct >= 100 ? 'success' : 'primary'}
-                  sx={{ mt: 1, height: 6, borderRadius: 5 }}
-                />
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid
-          size={{
-            xs: 12,
-            sm: 4
-          }}>
-          <Card variant="outlined" sx={{ borderRadius: 3 }}>
-            <CardContent>
-              <Typography variant="caption" color="text.secondary">Hours complete</Typography>
-              <Typography variant="h4" sx={{ fontWeight: 800 }}>
-                {formatPercentage(roadmap.progress.hours_percentage)}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {/* Null means at least one topic has no estimate, so an hours
-                    figure would be measuring only part of the roadmap. */}
-                {hours ?? 'Some topics have no hours estimate'}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid
-          size={{
-            xs: 12,
-            sm: 4
-          }}>
-          <Card variant="outlined" sx={{ borderRadius: 3 }}>
-            <CardContent>
-              <Typography variant="caption" color="text.secondary">Projected finish</Typography>
-              <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5 }}>
-                {schedule?.projected_end_date ?? '—'}
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
-                {roadmap.weekly_hours_budget && (
-                  <Chip size="small" variant="outlined" icon={<Clock size={13} />} label={`${roadmap.weekly_hours_budget}h / wk`} />
-                )}
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+      {/* One line and one bar.
+          Three bordered KPI cards stood here -- Topics complete, Hours
+          complete, Projected finish -- and on a roadmap nobody has started
+          two of them read 0% and the third read an em dash. It was the last
+          KPI gallery in the product, on the page that least needed one: this
+          screen already has a 45-row table with a status control and a notes
+          field on every line, and it does not need a summary of a table the
+          reader is about to scroll through.
+
+          Nothing is lost. The percentage is the bar, the hours and the
+          projection are the sentence, and a projection that cannot be
+          computed is left out rather than rendered as a dash -- but an
+          hours figure that cannot be computed still says why, because
+          "nothing to measure" is information. */}
+      <Box sx={{ mt: 2, mb: 3, maxWidth: 520 }}>
+        {pct !== null && (
+          <LinearProgress
+            variant="determinate"
+            value={pct}
+            color={pct >= 100 ? 'success' : 'primary'}
+            sx={{ height: 6, borderRadius: 5 }}
+          />
+        )}
+        <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
+          {[
+            pct !== null ? `${formatPercentage(pct)} of the topics` : null,
+            // Null means at least one topic has no estimate, so an hours
+            // figure would be measuring only part of the roadmap. Said, not
+            // omitted: "nothing to measure" is information, and dropping the
+            // clause would leave a reader assuming the hours simply were not
+            // interesting.
+            hours ?? 'Some topics have no hours estimate',
+            schedule?.projected_end_date
+              ? `on track to finish ${schedule.projected_end_date}`
+              : null,
+            roadmap.weekly_hours_budget ? `${roadmap.weekly_hours_budget}h a week` : null,
+          ].filter(Boolean).join(' · ')}
+        </Typography>
+      </Box>
 
       <Tabs value={tab} onChange={(_, value) => setTab(value)} sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tab label="Table" value="table" />

@@ -57,8 +57,10 @@ describe('AxisPerformancePanel', () => {
     expect(screen.queryByText(/you miss/i)).not.toBeInTheDocument();
   });
 
-  it('invites a first attempt when nothing has been done at all', () => {
-    render(
+  it('says nothing at all when nothing has been done at all', () => {
+    // A panel explaining what it would say if you had done something is a
+    // row of furniture on a page whose job is to get you into an exercise.
+    const { container } = render(
       <AxisPerformancePanel
         analytics={{
           total_attempts: 0,
@@ -70,6 +72,6 @@ describe('AxisPerformancePanel', () => {
         }}
       />
     );
-    expect(screen.getByText(/complete a design review to see/i)).toBeInTheDocument();
+    expect(container).toBeEmptyDOMElement();
   });
 });

@@ -4,7 +4,7 @@
 
 from typing import Dict, List, Optional, Set
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import case, func
 
 from app.models.subject import Subject
 from app.models.exam_session import ExamSession, ExamStatus
@@ -15,6 +15,10 @@ from app.services.readiness import MockResult
 # The one place the word is written. A session is a mock only if it says so.
 MOCK = "mock"
 DRILL = "drill"
+
+# Provenance. Only LEARNER rows may reach a learner-facing number.
+LEARNER = "learner"
+TEST = "test"
 
 
 class SubjectRepository:
@@ -59,9 +63,14 @@ class SubjectRepository:
         Sessions are matched by subject_id where set, falling back to the
         certification string, so mocks recorded before subjects existed still
         resolve to the right subject.
+
+        The provenance filter sits beside the drill filter for the same
+        reason: a regression test that happened to be a mock would otherwise
+        be indistinguishable from a paper someone sat.
         """
         query = self.db.query(ExamSession).filter(
             ExamSession.session_kind == MOCK,
+            ExamSession.source == LEARNER,
             ExamSession.status == ExamStatus.COMPLETED,
             ExamSession.score_percentage.isnot(None),
         )
@@ -102,7 +111,12 @@ class SubjectRepository:
                 ExamAnswer.session_id,
                 Question.domain,
                 func.count(ExamAnswer.id),
-                func.sum(func.coalesce(ExamAnswer.is_correct, 0)),
+                # Counted with CASE rather than SUM(is_correct), because
+                # is_correct is a Boolean column and SQLAlchemy coerces the
+                # sum back through the Boolean result processor -- every
+                # domain came back with exactly one correct answer, which
+                # silently made the largest domain the "weakest" one.
+                func.sum(case((ExamAnswer.is_correct.is_(True), 1), else_=0)),
             )
             .join(Question, Question.id == ExamAnswer.question_id)
             .filter(ExamAnswer.session_id.in_(session_ids))

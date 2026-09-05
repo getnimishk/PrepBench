@@ -136,7 +136,11 @@ describe('RoadmapDetailPage', () => {
     await waitFor(() => {
       expect(mockUpdateRoadmapTopic).toHaveBeenCalledWith(1, 2, { status: 'completed' });
     });
-    await waitFor(() => expect(screen.getByText('100%')).toBeInTheDocument());
+    // The progress line, not a KPI card: three bordered tiles used to sit
+    // above the table and two of them said the same thing. What matters here
+    // is unchanged -- the figure moves without a page reload.
+    await waitFor(() => expect(screen.getByText(/100% of the topics/)).toBeInTheDocument());
+    expect(screen.getByText(/2 of 2 done/)).toBeInTheDocument();
   });
 
   it('switches to the journey view and marks the current phase', async () => {

@@ -2,12 +2,13 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Box,
   Button,
   Chip,
+  Collapse,
   Divider,
   Paper,
   Stack,
@@ -16,6 +17,8 @@ import {
 import {
   ArrowRight,
   Check,
+  ChevronDown,
+  ChevronRight,
   HelpCircle,
   Lightbulb,
   Target,
@@ -58,7 +61,12 @@ import { ConceptCard } from './ConceptCard';
 // PHASE 1: there is no articulation step. Turning this reasoning into a spoken
 // answer is Phase 2, and the recorder is deliberately untouched.
 
-export type LoopStep = 'orient' | 'commit' | 'result';
+// ORIENT is no longer a step. It was a full-width card between the learner
+// and the question, and its content -- what a sprint is, that the charts are
+// per-sprint, that the run is deterministic -- is framing for reading the
+// charts, not for answering the question. It opens under the prediction now,
+// for anyone who wants it.
+export type LoopStep = 'commit' | 'result';
 
 interface Props {
   recommendation: Recommendation;
@@ -80,24 +88,44 @@ export const LearningPanel: React.FC<Props> = ({
   const challenge = CHALLENGE_BY_ID.get(recommendation.challengeId)!;
   const concept = CONCEPTS[recommendation.conceptId];
 
-  const [step, setStep] = useState<LoopStep>(conceptSeen ? 'commit' : 'orient');
+  const [step, setStep] = useState<LoopStep>('commit');
+  // Whether the framing note is open. Closed by default even on a first
+  // visit: it is available, not compulsory.
+  const [conceptOpen, setConceptOpen] = useState(false);
   const [attempt, setAttempt] = useState<Attempt>(() => startAttempt(challenge));
   const [hintsShown, setHintsShown] = useState(0);
 
   // A fresh challenge means a fresh attempt: an id from a previous challenge
   // would attach this evidence to the wrong concept.
-  const challengeId = challenge.id;
-  useMemo(() => {
+  //
+  // This used to be a useMemo called purely for the three setState calls
+  // inside it. It happened to work, because React runs a memo during render
+  // and treats the updates as a render-phase change -- but a memo is allowed
+  // to be discarded and recomputed, and nothing about "cache this value"
+  // promises "run this side effect exactly once per id". It is the documented
+  // reset-on-prop-change pattern instead: compare the id against the one this
+  // state was built for, and adjust during render, which React does support.
+  const [builtFor, setBuiltFor] = useState(challenge.id);
+  if (builtFor !== challenge.id) {
+    setBuiltFor(challenge.id);
     setAttempt(startAttempt(challenge));
     setHintsShown(0);
-    setStep(conceptSeen ? 'commit' : 'orient');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [challengeId]);
-
-  const beginChallenge = () => {
-    onApplyScenario(challenge.scenario);
     setStep('commit');
-  };
+    setConceptOpen(false);
+  }
+
+  // The ACT step, which used to be tied to dismissing the orientation card.
+  // The sandbox has to be showing the scenario the question is about before
+  // the question can be answered, so it is applied when the challenge
+  // arrives rather than when a card is clicked. An effect rather than a
+  // render-phase call, because it moves state that belongs to the page.
+  useEffect(() => {
+    onApplyScenario(challenge.scenario);
+    // Keyed on the challenge alone: onApplyScenario is redefined every render
+    // by the page, and depending on it would re-apply the scenario over any
+    // slider the learner had since moved.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [challenge.id]);
 
   const commit = (optionId: string) => {
     // One click commits. Recorded before anything about the result is on
@@ -118,17 +146,6 @@ export const LearningPanel: React.FC<Props> = ({
   const chosen = challenge.options.find((o) => o.id === attempt.prediction);
   const answer = challenge.options.find((o) => o.id === challenge.correctOptionId)!;
   const wasRight = attempt.correct === true;
-
-  // -------------------------------------------------------------- ORIENT
-  if (step === 'orient') {
-    return (
-      <ConceptCard
-        concept={concept}
-        onContinue={beginChallenge}
-        continueLabel="Got it — try it"
-      />
-    );
-  }
 
   return (
     <Paper
@@ -157,22 +174,19 @@ export const LearningPanel: React.FC<Props> = ({
             >
               {concept.canonicalName}
             </Typography>
-            <Chip
-              size="small"
-              variant="outlined"
-              label={challenge.type}
-              sx={{ height: 18, fontSize: '0.6rem' }}
-            />
-            <Chip
-              size="small"
-              variant="outlined"
-              label={SCENARIOS[challenge.scenario].label}
-              sx={{ height: 18, fontSize: '0.6rem' }}
-            />
+            {/* challenge.type -- "recognition", "prediction", "reading" --
+                described the question to the curriculum, not to the person
+                answering it. The scenario was a chip beside it; it is the
+                one piece of context the question genuinely needs, so it is
+                a sentence instead. */}
           </Stack>
 
-          <Typography variant="body1" sx={{ fontWeight: 600, mb: 1.5 }}>
+          <Typography variant="body1" sx={{ fontWeight: 600, mb: 0.5 }}>
             {challenge.prompt}
+          </Typography>
+
+          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1.5 }}>
+            The sandbox is running: {SCENARIOS[challenge.scenario].label.toLowerCase()}.
           </Typography>
 
           {/* ------------------------------------------------------ COMMIT */}
@@ -230,6 +244,28 @@ export const LearningPanel: React.FC<Props> = ({
                   Skip
                 </Button>
               </Stack>
+
+              {/* Available, never in the way. Shown only until the learner has
+                  an attempt against this concept, after which they have met
+                  it by doing rather than by reading. */}
+              {!conceptSeen && (
+                <Box sx={{ mt: 1.5 }}>
+                  <Button
+                    size="small"
+                    onClick={() => setConceptOpen((open) => !open)}
+                    endIcon={conceptOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    aria-expanded={conceptOpen}
+                    sx={{ textTransform: 'none' }}
+                  >
+                    New to this? What the sandbox is showing
+                  </Button>
+                  <Collapse in={conceptOpen} unmountOnExit>
+                    <Box sx={{ mt: 1 }}>
+                      <ConceptCard concept={concept} />
+                    </Box>
+                  </Collapse>
+                </Box>
+              )}
             </>
           )}
 

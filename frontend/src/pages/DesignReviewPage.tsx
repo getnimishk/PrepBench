@@ -54,7 +54,9 @@ export const DesignReviewPage: React.FC = () => {
   const [justification, setJustification] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [startedAt] = useState(() => Date.now());
+  // Reset on a retry, so the second attempt is timed from when it started
+  // rather than from when the page was opened.
+  const [startedAt, setStartedAt] = useState(() => Date.now());
 
   useEffect(() => {
     let cancelled = false;
@@ -120,6 +122,28 @@ export const DesignReviewPage: React.FC = () => {
   }
 
   const revealed = attempt !== null;
+
+  /**
+   * Go again, having seen the reveal.
+   *
+   * The reveal was earned and then the exercise ended: there was no way to
+   * restate the decision now that you know what the deciding axis was, which
+   * is the moment the learning is actually available. Naming the axis in your
+   * own words after seeing it is a different act from recognising it in a
+   * list, and it is the one that sticks.
+   *
+   * The previous attempt is not deleted -- submitDesignReviewAttempt records
+   * a new one, and getLatestDesignReviewAttempt returns the most recent, so
+   * the history of how the reasoning changed stays intact.
+   */
+  const retry = () => {
+    setAttempt(null);
+    setChoice(null);
+    setJustification('');
+    setSubmitError(null);
+    setStartedAt(Date.now());
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const renderOption = (option: DesignOption) => {
     const selected = choice === option.label;
@@ -332,7 +356,7 @@ export const DesignReviewPage: React.FC = () => {
           </Card>
 
           {review.concepts.length > 0 && (
-            <Card>
+            <Card sx={{ mb: 2 }}>
               <CardContent>
                 <Typography variant="overline" sx={{ color: 'text.secondary' }}>
                   Vocabulary this review used
@@ -345,6 +369,15 @@ export const DesignReviewPage: React.FC = () => {
               </CardContent>
             </Card>
           )}
+
+          <Stack direction="row" spacing={1} sx={{ mt: 3, flexWrap: 'wrap', rowGap: 1 }}>
+            <Button variant="contained" onClick={retry} sx={{ borderRadius: '100px', boxShadow: 'none' }}>
+              Try again
+            </Button>
+            <Button variant="outlined" onClick={() => navigate('/design-reviews')} sx={{ borderRadius: '100px' }}>
+              Another review
+            </Button>
+          </Stack>
         </>
       )}
     </Box>

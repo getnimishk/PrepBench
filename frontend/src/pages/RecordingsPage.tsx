@@ -106,8 +106,8 @@ export const RecordingsPage: React.FC = () => {
   };
 
   return (
-    <Box sx={{ maxWidth: 900, mx: 'auto', pb: 8 }}>
-      <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>Practice Recordings</Typography>
+    <Box sx={{ maxWidth: 900, pb: 8 }}>
+      <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>Practice Recordings</Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
         Record yourself answering a practice question out loud, listen back, and optionally get AI feedback on your delivery.
       </Typography>

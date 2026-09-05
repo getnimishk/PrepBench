@@ -354,13 +354,27 @@ export const ExamRunnerPage: React.FC = () => {
         borderRadius: 0
       }}>
         <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 3 }}>
-            <Box sx={{ flexGrow: 1 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          {/* Wraps, and the title takes a whole line of its own when it
+              does. Unwrapped, a 375px phone gave the title about seventy
+              pixels and pushed Finish Exam off the right edge of a sticky
+              bar -- the control that ends the paper, unreachable, on every
+              screen of the exam. */}
+          <Box sx={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            gap: 2, flexWrap: 'wrap', rowGap: 1.5,
+          }}>
+            <Box sx={{ flexGrow: 1, flexBasis: { xs: '100%', sm: 0 }, minWidth: 0 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, mb: 1 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 600, minWidth: 0,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}
+                >
                   {examDetail.title} — Question {currentIdx + 1} / {totalQ}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>
                   {answeredCount} answered
                 </Typography>
               </Box>
@@ -419,7 +433,6 @@ export const ExamRunnerPage: React.FC = () => {
                     question={currentQuestion}
                     selectedOptionIds={selectedOptionIds}
                     onSelectOption={handleSelectOption}
-                    examMode={examDetail.exam_mode}
                     isFlagged={flaggedSet.has(currentQuestion.id)}
                     isBookmarked={bookmarkedSet.has(currentQuestion.id)}
                     onToggleFlag={handleToggleFlag}
