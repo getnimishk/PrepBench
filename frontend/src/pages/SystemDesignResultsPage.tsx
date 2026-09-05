@@ -45,12 +45,12 @@ export const SystemDesignResultsPage: React.FC = () => {
   const notGraded = attempt.grading_status !== 'graded';
 
   return (
-    <Box sx={{ maxWidth: 900, mx: 'auto', pb: 8 }}>
+    <Box sx={{ maxWidth: 900, pb: 8 }}>
       <Button startIcon={<ArrowLeft size={18} />} onClick={() => navigate('/system-design')} sx={{ mb: 2 }}>
         Back to System Design
       </Button>
 
-      <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>
+      <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
         {attempt.prompt?.title || 'System Design Feedback'}
       </Typography>
       {attempt.target_role && (

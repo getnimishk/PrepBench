@@ -19,7 +19,16 @@ export interface ExamAnswer {
   is_flagged: boolean;
   is_bookmarked: boolean;
   user_notes?: string;
+  /** When this answer was looked at after the mock. Absent means it was not. */
+  reviewed_at?: string | null;
 }
+
+/**
+ * A mock measures whether you would pass; a drill closes gaps. Only a mock
+ * moves readiness, which is why the distinction is carried explicitly rather
+ * than inferred from the exam mode.
+ */
+export type SessionKind = 'mock' | 'drill';
 
 export interface ExamSession {
   id: number;
@@ -27,6 +36,8 @@ export interface ExamSession {
   exam_mode: ExamMode;
   status: ExamStatus;
   certification?: string;
+  session_kind: SessionKind;
+  subject_id?: number;
   total_questions: number;
   answered_questions: number;
   correct_count: number;
@@ -51,12 +62,24 @@ export interface ExamCreateRequest {
   exam_mode: ExamMode;
   certification?: string;
   topics?: string[];
+  /** Exam-blueprint areas, e.g. "Managing Products with Agility". This is
+   *  what "practise your weak area" actually restricts to -- the topic
+   *  column holds hundreds of near-duplicate strings and cannot select a
+   *  meaningful set. */
+  domains?: string[];
   difficulties?: string[];
   total_questions: number;
   time_allowed_minutes?: number;
   passing_percentage: number;
   randomize_questions: boolean;
-  randomize_options: boolean;
+  /**
+   * Which kind of evidence this session produces. Omitting it means "drill":
+   * a caller that has not thought about it is not sitting an exam, and
+   * readiness must only ever rise on evidence someone meant to produce.
+   */
+  session_kind?: SessionKind;
+  /** Which subject this session belongs to, so readiness can find it. */
+  subject_id?: number;
 }
 
 export interface SaveAnswerRequest {

@@ -33,19 +33,25 @@ export const AxisPerformancePanel: React.FC<AxisPerformancePanelProps> = ({
   // Nothing graded is not the same as scoring zero, so this says what is
   // missing rather than drawing an empty chart at 0%.
   if (graded === 0) {
+    // A learner who has not asked about AI does not need to be told the
+    // product has providers. The absence is stated as what it is -- nothing
+    // graded yet -- and the setup route is a link for someone who wants it,
+    // not the substance of the message.
+    if (analytics.total_attempts === 0) return null;
     return (
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-            Which decisions you spot
-          </Typography>
-          <Typography variant="body2" sx={{ mt: 0.5, color: 'text.secondary' }}>
-            {analytics.total_attempts > 0
-              ? 'Your answers are saved but none have been graded yet. Add an AI provider in Settings → AI Providers to find out which axes you are missing.'
-              : 'Complete a design review to see which decisions you consistently spot and which you miss.'}
-          </Typography>
-        </CardContent>
-      </Card>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+          Which decisions you spot
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 0.5, color: 'text.secondary' }}>
+          Your answers are saved. None have been graded yet, so there is
+          nothing to report on which factors you tend to miss.{' '}
+          <Box component="a" href="/settings" sx={{ color: 'primary.main' }}>
+            Set up grading
+          </Box>
+          .
+        </Typography>
+      </Box>
     );
   }
 

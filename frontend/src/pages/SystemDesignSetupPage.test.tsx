@@ -12,11 +12,13 @@ import { SystemDesignSetupPage } from './SystemDesignSetupPage';
 const mockGetPrompts = vi.fn();
 const mockGetCategories = vi.fn();
 const mockGenerate = vi.fn();
+const mockGetAttempts = vi.fn();
 
 vi.mock('../services/api', () => ({
   getSystemDesignPrompts: (...args: any[]) => mockGetPrompts(...args),
   getSystemDesignPromptCategories: (...args: any[]) => mockGetCategories(...args),
   generateSystemDesignPrompt: (...args: any[]) => mockGenerate(...args),
+  getSystemDesignAttempts: (...args: any[]) => mockGetAttempts(...args),
 }));
 
 function renderPage() {
@@ -41,21 +43,53 @@ beforeEach(() => {
     limit: 100,
   });
   mockGetCategories.mockResolvedValue(['Distributed Systems']);
+  mockGetAttempts.mockResolvedValue({ items: [], total: 0, skip: 0, limit: 200 });
 });
 
 describe('SystemDesignSetupPage', () => {
-  it('renders the prompt bank list', async () => {
-    renderPage();
-    await waitFor(() => expect(screen.getByText('Design a URL Shortener')).toBeInTheDocument());
-  });
-
-  it('navigates to the answer page when a prompt card is clicked', async () => {
+  it('shows the problem itself rather than a catalogue to filter', async () => {
+    // The page used to open on a "give me a problem" button above twenty-four
+    // category chips, three difficulty chips and a grid of cards. Deciding
+    // "yes, this one" needs the problem on screen.
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(screen.getByText('Design a URL Shortener')).toBeInTheDocument());
 
-    await user.click(screen.getByText('Design a URL Shortener'));
-    await waitFor(() => expect(screen.getByText('Answer Page')).toBeInTheDocument());
+    expect(await screen.findByText('Your problem')).toBeInTheDocument();
+    expect(screen.getByText('Design a URL Shortener')).toBeInTheDocument();
+    expect(screen.getByText('Design a URL shortener.')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Start' }));
+    expect(await screen.findByText('Answer Page')).toBeInTheDocument();
+  });
+
+  it('offers a problem that has not been answered yet', async () => {
+    mockGetPrompts.mockResolvedValue({
+      items: [
+        { id: 1, title: 'Already done', prompt_text: '.', category: 'c', difficulty: 'easy', is_ai_generated: false, created_at: '' },
+        { id: 2, title: 'Not yet', prompt_text: '.', category: 'c', difficulty: 'easy', is_ai_generated: false, created_at: '' },
+      ],
+      total: 2, skip: 0, limit: 100,
+    });
+    mockGetAttempts.mockResolvedValue({
+      items: [{ prompt_id: 1 }], total: 1, skip: 0, limit: 200,
+    });
+
+    renderPage();
+
+    // Only prompt 2 is unattempted, so that is what is put in front of you.
+    expect(await screen.findByRole('heading', { name: 'Not yet' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Already done' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the prompt bank one disclosure away', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('Your problem');
+
+    expect(screen.queryByLabelText('Category')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /browse prompts/i }));
+    expect(await screen.findByLabelText('Category')).toBeInTheDocument();
   });
 
   it('shows an inline error and does not navigate when generation fails (e.g. no API key)', async () => {
@@ -66,7 +100,10 @@ describe('SystemDesignSetupPage', () => {
     renderPage();
     await waitFor(() => expect(screen.getByText('Design a URL Shortener')).toBeInTheDocument());
 
-    await user.click(screen.getByRole('button', { name: /generate/i }));
+    // Generation lives behind a disclosure now: writing a prompt is content
+    // work, and the page leads with the problem you came to answer.
+    await user.click(screen.getByRole('button', { name: /write me a new one/i }));
+    await user.click(screen.getByRole('button', { name: /write it/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/Settings -> AI Providers/i)).toBeInTheDocument();

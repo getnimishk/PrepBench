@@ -13,6 +13,7 @@ from app.utils.seed_system_design_prompts import seed_system_design_prompts
 from app.utils.seed_interview_questions import seed_interview_questions
 from app.utils.seed_design_reviews import seed_design_reviews
 from app.utils.seed_subjects import seed_subjects
+from app.utils.reconcile_evidence import reconcile_session_kinds
 from app.llm.bootstrap import import_env_provider_if_absent
 
 # Create DB Tables
@@ -42,6 +43,18 @@ async def lifespan(app: FastAPI):
         seeded_subjects = seed_subjects(db)
         if seeded_subjects:
             logger.info(f"Seeded {seeded_subjects} built-in subjects.")
+
+        # Runs after seeding because it reads the subjects' exam profiles.
+        # Recognises full papers that were sat before the browser could say
+        # "mock" -- see reconcile_evidence for why this is not the same thing
+        # as inventing evidence.
+        promoted = reconcile_session_kinds(db)
+        if promoted:
+            logger.info(
+                "Recognised %d historical full paper(s) as mocks: %s",
+                len(promoted),
+                ", ".join(f"session {sid} ({name})" for sid, name in promoted),
+            )
 
         # Turns a pre-existing GEMINI_API_KEY into a visible provider row, once.
         import_env_provider_if_absent(db)

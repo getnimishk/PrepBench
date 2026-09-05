@@ -22,14 +22,14 @@ There is no account, no telemetry, and no subscription. A network connection is 
   Capture these four routes at ~1440px wide, save to docs/screenshots/,
   then delete this comment and uncomment the block below:
 
-    /            dashboard.png       the landing view
+    /            home.png            the verdict, its evidence, and one action
     /exam/:id    exam.png            an exam in progress
     /analytics   analytics.png       score trend + domain mastery
     /chart-sandbox  sandbox.png      the sandbox in Learn mode
 
   | | |
   |---|---|
-  | ![Dashboard](docs/screenshots/dashboard.png) | ![Exam](docs/screenshots/exam.png) |
+  | ![Home](docs/screenshots/home.png) | ![Exam](docs/screenshots/exam.png) |
   | ![Analytics](docs/screenshots/analytics.png) | ![Chart Sandbox](docs/screenshots/sandbox.png) |
 -->
 
@@ -125,7 +125,7 @@ Two rules make that number worth trusting.
 Readiness never appears without what it rests on: the mock count, the recent scores, the weakest domain by name, whether the evidence has gone stale, and — when a trend is computable — roughly how many points a mock you are gaining.
 
 > [!NOTE]
-> **Mocks are an API-level concept today.** `POST /api/v1/exams` accepts `session_kind: "mock"` and a `subject_id`, but no screen sends them yet, so sessions started from the UI are recorded as drills and readiness stays at *"needs evaluation"*. Wiring an exam-setup path to it is the next item on the list below.
+> **Only a full paper counts.** Exam setup starts mocks, and refuses to when the subject has no exam profile or the bank cannot fill the paper — a short mock is a drill wearing a measurement's label, which is worse than no measurement at all. Historical papers that were sat at full length before the browser could say "mock" are recognised at startup from the shape of the row itself, never from a guess about intent.
 
 Each subject page also shows **coverage** — every practice format, including the ones with nothing in them. An empty row is the only way the app can tell you that a subject has ten design reviews and zero exam questions.
 
@@ -158,7 +158,7 @@ What makes it unusual:
 
 - **Every relationship is declared.** A coupling ledger types each edge as **arithmetic** (Little's Law cannot be wrong), **assumption** (a behavioural claim the sandbox is making), or **convention**. The UI shows you which kind you are looking at, so you never mistake a modelling choice for a law.
 - **No fabricated constants.** Calibration coefficients are labelled as teaching constants chosen to make an effect visible — never presented as industry-measured values.
-- **A guided track, not a tutorial.** Orient → Recognize → Commit → Act → Compare → Explain → Generalise. You predict before you observe, and the explanation is earned rather than handed over. Counterfactual pairs present the same visible symptom with different underlying mechanisms.
+- **A guided track, not a tutorial.** Recognize → Commit → Act → Compare → Explain → Generalise. The question comes first — the framing is a disclosure underneath it, for anyone who wants it — and the explanation stays on screen until you move on. You predict before you observe, and the explanation is earned rather than handed over. Counterfactual pairs present the same visible symptom with different underlying mechanisms.
 - **Nothing is gated.** A concept whose prerequisites you have not met shows what it builds on and stays open. If you already know Little's Law, start at the bottleneck work.
 
 Open it at **`/chart-sandbox`**.
@@ -239,7 +239,7 @@ Copy `backend/.env.example` to `backend/.env` if you want to set any of these. N
 | `LOG_LEVEL` | `DEBUG` · `INFO` · `WARNING` · `ERROR` | `DEBUG` |
 | `DATABASE_PATH` | Path to the SQLite file | `data/exam_simulator.db` |
 
-Exam defaults — passing percentage, duration, question count — are **not** environment variables. They live in the database and are edited on the Settings page.
+Exam defaults — passing percentage, duration, question count — are **not** environment variables, and they are no longer settings either. A mock takes its shape from the subject's exam profile, because the real exam does not let you choose; a drill takes its shape from the screen you start it on. The six `app_settings` columns that once held them were dropped: nothing read them, and the value one of them did hold (95%) had been stamped onto six real papers and made an 87.5% pass read as a failure.
 
 </details>
 
@@ -386,12 +386,14 @@ Interactive Swagger docs live at **http://localhost:8000/docs** once the backend
 | `/api/v1/subjects` | GET | Every subject with its readiness and evidence |
 | `/api/v1/home` | GET | Home summary — resumable session, mock totals, outstanding review |
 | `/api/v1/home/activity` | GET | One timeline across every practice format |
+| `/api/v1/home/other-preparation` | GET | What is going on outside the primary subject |
 | `/api/v1/home/subjects/{id}/coverage` | GET | Every format for a subject, including the empty ones |
+| `/api/v1/review/queue` | GET | Today's unread misses — capped at 20, newest mock first |
 | `/api/v1/design-reviews` | GET | List design reviews, filtered by domain, axis, or difficulty |
 | `/api/v1/design-reviews/{id}` | GET | The brief and both options — never the answer |
 | `/api/v1/design-reviews/attempts` | POST | Commit an answer and unlock the reveal |
 | `/api/v1/design-reviews/analytics` | GET | Which deciding axes get named and which get missed |
-| `/api/v1/analytics/dashboard` | GET | Dashboard KPIs |
+| `/api/v1/analytics/dashboard` | GET | Insights totals — every session, drills included |
 | `/api/v1/analytics/score-trends` | GET | Score history |
 | `/api/v1/analytics/domain-performance` | GET | Domain accuracy breakdown |
 | `/api/v1/imports/file` | POST | Bulk upload JSON/CSV/Excel |

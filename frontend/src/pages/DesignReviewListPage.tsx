@@ -6,9 +6,9 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Card, CardContent, Typography, Grid, TextField, MenuItem,
-  Chip, Alert, CircularProgress, Stack,
+  Chip, Alert, CircularProgress,
 } from '@mui/material';
-import { CheckCircle2, Scale } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import {
   getDesignReviews,
   getDesignReviewDomains,
@@ -80,13 +80,13 @@ export const DesignReviewListPage: React.FC = () => {
         <AxisPerformancePanel analytics={analytics} onPractiseAxis={setAxisFilter} />
       )}
 
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Grid container spacing={2}>
+      <Box sx={{ mb: 4 }}>
+          <Grid container spacing={2} sx={{ maxWidth: 720 }}>
             <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 select
                 fullWidth
+                size="small"
                 label="Domain"
                 value={domainFilter}
                 onChange={(e) => setDomainFilter(e.target.value)}
@@ -101,6 +101,7 @@ export const DesignReviewListPage: React.FC = () => {
               <TextField
                 select
                 fullWidth
+                size="small"
                 label="Deciding axis"
                 value={axisFilter}
                 onChange={(e) => setAxisFilter(e.target.value)}
@@ -115,6 +116,7 @@ export const DesignReviewListPage: React.FC = () => {
               <TextField
                 select
                 fullWidth
+                size="small"
                 label="Difficulty"
                 value={difficultyFilter}
                 onChange={(e) => setDifficultyFilter(e.target.value as QuestionDifficulty | '')}
@@ -126,8 +128,7 @@ export const DesignReviewListPage: React.FC = () => {
               </TextField>
             </Grid>
           </Grid>
-        </CardContent>
-      </Card>
+      </Box>
 
       {fetchError && <Alert severity="error" sx={{ mb: 2 }}>{fetchError}</Alert>}
 
@@ -136,14 +137,9 @@ export const DesignReviewListPage: React.FC = () => {
           <CircularProgress />
         </Box>
       ) : reviews.length === 0 ? (
-        <Card>
-          <CardContent sx={{ textAlign: 'center', py: 6 }}>
-            <Scale size={32} style={{ opacity: 0.4 }} />
-            <Typography variant="body1" sx={{ mt: 1.5, color: 'text.secondary' }}>
-              No design reviews match these filters.
-            </Typography>
-          </CardContent>
-        </Card>
+        <Typography variant="body1" sx={{ color: 'text.secondary', py: 2 }}>
+          No design reviews match these filters.
+        </Typography>
       ) : (
         <Grid container spacing={2}>
           {reviews.map((review) => (
@@ -175,23 +171,17 @@ export const DesignReviewListPage: React.FC = () => {
                     )}
                   </Box>
 
-                  <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
-                    {review.axis_label && (
-                      <Chip size="small" label={review.axis_label} color="primary" variant="outlined" />
-                    )}
-                    <Chip size="small" label={domainLabel(review.domain)} variant="outlined" />
-                    <Chip
-                      size="small"
-                      label={review.difficulty}
-                      variant="outlined"
-                      sx={{ textTransform: 'capitalize' }}
-                    />
-                  </Stack>
-
-                  {/* The concepts are the reason to pick one review over another
-                      when you do not yet know what any of them mean. */}
+                  {/* The deciding axis and the concept trail are the answer.
+                      The whole exercise is to name the factor the decision
+                      turns on, and this list used to print it on the card --
+                      "Freshness", then "Structured Streaming · Trigger
+                      interval · Freshness tier" underneath. Both appear only
+                      once the review has been attempted, where they are a
+                      label for something you already worked out rather than a
+                      hint at something you have not. */}
                   <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                    {review.concepts.join(' · ')}
+                    {domainLabel(review.domain)} · {review.difficulty}
+                    {review.attempted && review.axis_label && ` · ${review.axis_label}`}
                   </Typography>
                 </CardContent>
               </Card>

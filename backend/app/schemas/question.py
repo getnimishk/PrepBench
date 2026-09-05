@@ -4,7 +4,7 @@
 
 from typing import List, Optional
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field, AliasChoices
+from pydantic import BaseModel, ConfigDict, field_validator, Field, AliasChoices
 from app.models.question import QuestionType, QuestionDifficulty
 
 class QuestionOptionBase(BaseModel):
@@ -31,12 +31,25 @@ class QuestionBase(BaseModel):
     subtopic: Optional[str] = None
     certification: str = "General Prep"
     source: Optional[str] = None
+    # NULL-tolerant because the column is nullable and the response model is
+    # not. A single row with tags IS NULL -- which the app never writes, but a
+    # hand-loaded bank can carry -- raised a ValidationError inside the list
+    # comprehension that builds the page, so one bad row 500'd the entire
+    # Question Bank and the screen said "check backend connection" over a
+    # backend that was running perfectly. No tags and an absent tags list are
+    # the same statement; a crash is not a third option.
     tags: List[str] = []
     code_snippet: Optional[str] = None
     case_study_text: Optional[str] = None
     image_url: Optional[str] = None
     explanation: Optional[str] = None
     reference_url: Optional[str] = None
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def _tags_never_null(cls, v):
+        return [] if v is None else v
+
 
 class QuestionCreate(QuestionBase):
     options: List[QuestionOptionCreate]

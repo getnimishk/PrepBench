@@ -52,12 +52,6 @@ function makeSettings(overrides: Partial<AppSettings> = {}): AppSettings {
   return {
     theme: 'dark',
     timer_sound_enabled: true,
-    default_exam_mode: 'timed',
-    default_questions_count: 80,
-    default_passing_percentage: 70,
-    shuffle_questions: true,
-    shuffle_options: true,
-    daily_practice_goal: 20,
     initial_seed_completed: true,
     default_target_role: null,
     ...overrides,
@@ -99,8 +93,8 @@ describe('SettingsPage', () => {
 
     await waitFor(() => expect(screen.getByTestId('active-theme-mode')).toHaveTextContent('dark'));
 
-    await user.click(screen.getByLabelText(/theme mode/i));
-    await user.click(await screen.findByRole('option', { name: 'Light Mode' }));
+    await user.click(screen.getByLabelText(/^theme$/i));
+    await user.click(await screen.findByRole('option', { name: 'Light' }));
     await user.click(screen.getByRole('button', { name: /save settings/i }));
 
     await waitFor(() => {
@@ -124,7 +118,7 @@ describe('SettingsPage', () => {
         expect.objectContaining({ default_target_role: 'Staff SRE' })
       );
     });
-    await waitFor(() => expect(screen.getByText(/settings saved successfully/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/^saved\.$/i)).toBeInTheDocument());
   });
 
   it('shows an inline error when saving fails', async () => {
@@ -145,8 +139,8 @@ describe('SettingsPage', () => {
     mockResetApplication.mockResolvedValue({});
     renderPage();
 
-    await waitFor(() => expect(screen.getByRole('button', { name: /reset entire application/i })).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /reset entire application/i }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /reset the application/i })).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /reset the application/i }));
 
     const confirmButton = screen.getByRole('button', { name: /confirm reset/i });
     expect(confirmButton).toBeDisabled();
@@ -154,7 +148,7 @@ describe('SettingsPage', () => {
     await user.type(screen.getByPlaceholderText(/type reset/i), 'RESET');
     expect(confirmButton).not.toBeDisabled();
 
-    mockGetSettings.mockResolvedValue(makeSettings({ default_questions_count: 80 }));
+    mockGetSettings.mockResolvedValue(makeSettings());
     await user.click(confirmButton);
 
     await waitFor(() => expect(mockResetApplication).toHaveBeenCalled());

@@ -117,9 +117,15 @@ The partition decides only *where* work in progress sits. The total is the one t
 
 `frontend/src/services/learning/`. Read-only with respect to the model — it observes and teaches, never alters the simulation.
 
-**The loop:** Orient → Recognize → Commit → Act → Compare → Explain → Generalise.
+**The loop:** Recognize → Commit → Act → Compare → Explain → Generalise.
 
 You predict before you observe. The explanation is earned, not handed over.
+
+Orientation used to be a step of its own — a full-width card between the learner and the question, explaining what a sprint is and that the charts are plotted per sprint. It was the first thing a first-time visitor was made to read, and it is framing for reading the charts rather than for answering the question. It is now a disclosure *under* the prediction (*"New to this? What the sandbox is showing"*), offered until the learner has an attempt against that concept and then dropped: by then they have met it by doing.
+
+`ACT` is no longer tied to dismissing that card. The scenario is applied when the challenge arrives, so the sandbox is already running the thing the question is about.
+
+`COMPARE` and `EXPLAIN` are held on screen until the learner presses **Next**. The page used to swap the challenge out in the same tick the prediction was committed — the recommender moved, the panel's React key changed, and the result step was unmounted before anyone could read it. `ChartSandboxPage` now pins the challenge on screen from the moment an attempt is recorded.
 
 | Module | Holds |
 |---|---|

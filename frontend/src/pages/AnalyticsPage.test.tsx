@@ -13,13 +13,38 @@ const mockGetDomainPerformance = vi.fn();
 const mockGetScoreTrends = vi.fn();
 const mockGetSystemDesignAnalytics = vi.fn();
 const mockGetRecordingAnalytics = vi.fn();
+const mockGetSubjects = vi.fn();
 
 vi.mock('../services/api', () => ({
   getDomainPerformance: (...args: any[]) => mockGetDomainPerformance(...args),
   getScoreTrends: (...args: any[]) => mockGetScoreTrends(...args),
   getSystemDesignAnalytics: (...args: any[]) => mockGetSystemDesignAnalytics(...args),
   getRecordingAnalytics: (...args: any[]) => mockGetRecordingAnalytics(...args),
+  getSubjects: (...args: any[]) => mockGetSubjects(...args),
 }));
+
+/** A subject with enough evidence for the exam tab to have a reading. */
+const MEASURED = {
+  id: 1, name: 'Scrum / PSM I', slug: 'psm-i', kind: 'certification' as const,
+  pass_mark: 85, exam_question_count: 80, exam_minutes: 60, has_exam_profile: true, question_count: 500,
+  readiness: {
+    state: 'almost_there' as const, mock_count: 6, pass_mark: 85,
+    recent_scores: [70, 82.5, 87.5, 92.5], latest_taken_at: null, is_stale: false,
+    domains: [
+      {
+        domain: 'Managing Products with Agility',
+        state: 'needs_work' as const, answered: 53, score_pct: 71.4,
+      },
+    ],
+    weakest_domain: 'Managing Products with Agility', points_per_mock: 7.5,
+    mocks_to_pass_estimate: null,
+    blockers: [{
+      kind: 'weak_domain' as const, domain: 'Managing Products with Agility',
+      value: 71.4, target: 80, count: 53,
+    }],
+    most_improved: null,
+  },
+};
 
 // jsdom has no real <canvas> context, so Chart.js throws on any non-empty
 // dataset regardless of which page renders it -- this predates this test
@@ -56,13 +81,46 @@ beforeEach(() => {
   mockGetScoreTrends.mockResolvedValue([]);
   mockGetSystemDesignAnalytics.mockResolvedValue(emptySdAnalytics);
   mockGetRecordingAnalytics.mockResolvedValue(emptyIpAnalytics);
+  mockGetSubjects.mockResolvedValue([]);
 });
 
 describe('AnalyticsPage', () => {
-  it('defaults to the Exams tab and shows its empty state with zero data', async () => {
+  it('defaults to the Exams tab and says plainly that nothing is measured yet', async () => {
     renderPage();
-    await waitFor(() => expect(screen.getByText('Score Trend & Rolling Average')).toBeInTheDocument());
-    expect(screen.getByText(/Complete exams to see per-domain accuracy tracking/i)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByText(/Nothing measured yet/i)).toBeInTheDocument()
+    );
+    // No chart of an empty dataset and no card containing the words "no
+    // data" -- the page says what is true and stops.
+    expect(screen.queryByTestId('score-trend-chart')).not.toBeInTheDocument();
+  });
+
+  it('leads with the reading and puts the evidence under it', async () => {
+    mockGetSubjects.mockResolvedValue([MEASURED]);
+    renderPage();
+
+    expect(await screen.findByText('What changed')).toBeInTheDocument();
+    expect(screen.getByText(/rising about 7.5 points a mock/)).toBeInTheDocument();
+    expect(screen.getByText('What is holding you back')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Managing Products with Agility is at 71%, under the 80% floor/)
+    ).toBeInTheDocument();
+  });
+
+  it('explains why its domain numbers differ from the ones on Home', async () => {
+    // Both figures were right and neither said which population it counted,
+    // so the two pages appeared to disagree about the same domain.
+    mockGetSubjects.mockResolvedValue([MEASURED]);
+    mockGetDomainPerformance.mockResolvedValue([
+      {
+        domain: 'Managing Products with Agility',
+        total_attempted: 117, correct_count: 96, accuracy_percentage: 82.1,
+      },
+    ]);
+    renderPage();
+
+    expect(await screen.findByText('Everything you have ever answered')).toBeInTheDocument();
+    expect(screen.getByText(/every session, drills included/i)).toBeInTheDocument();
   });
 
   it('switching to System Design tab shows its empty state when there are zero graded attempts', async () => {
@@ -71,16 +129,16 @@ describe('AnalyticsPage', () => {
     await waitFor(() => expect(screen.getByRole('tab', { name: 'System Design' })).toBeInTheDocument());
 
     await user.click(screen.getByRole('tab', { name: 'System Design' }));
-    await waitFor(() => expect(screen.getByText(/Complete a System Design practice attempt to see analytics here/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Nothing graded yet/i)).toBeInTheDocument());
   });
 
   it('switching to Interview Practice tab shows its empty state when nothing has been analyzed', async () => {
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(screen.getByRole('tab', { name: 'Interview Practice' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Interview' })).toBeInTheDocument());
 
-    await user.click(screen.getByRole('tab', { name: 'Interview Practice' }));
-    await waitFor(() => expect(screen.getByText(/Complete and analyze an Interview Practice recording/i)).toBeInTheDocument());
+    await user.click(screen.getByRole('tab', { name: 'Interview' }));
+    await waitFor(() => expect(screen.getByText(/Nothing analysed yet/i)).toBeInTheDocument());
   });
 
   it('populated System Design tab renders stats, category averages, and recent attempts', async () => {
@@ -104,9 +162,10 @@ describe('AnalyticsPage', () => {
     renderPage();
     await user.click(await screen.findByRole('tab', { name: 'System Design' }));
 
-    await waitFor(() => expect(screen.getByText('70%')).toBeInTheDocument()); // average score stat
-    expect(screen.getByText('3')).toBeInTheDocument(); // total attempts
-    expect(screen.getByText('2', { selector: 'h4' })).toBeInTheDocument(); // graded count
+    // The three KPI tiles are gone; the same facts are one sentence.
+    await waitFor(() =>
+      expect(screen.getByText(/2 of 3 attempts graded, averaging 70%/)).toBeInTheDocument()
+    );
     expect(screen.getByText('Requirements Clarification')).toBeInTheDocument();
     expect(screen.getByText('Design a Rate Limiter')).toBeInTheDocument();
   });
@@ -129,13 +188,12 @@ describe('AnalyticsPage', () => {
     });
 
     renderPage();
-    await user.click(await screen.findByRole('tab', { name: 'Interview Practice' }));
+    await user.click(await screen.findByRole('tab', { name: 'Interview' }));
 
-    await waitFor(() => expect(screen.getByText(/Your weakest area:/i)).toBeInTheDocument());
-    expect(screen.getByText('STAR Structure')).toBeInTheDocument();
-    expect(screen.getAllByText('Behavioral').length).toBeGreaterThan(0); // appears in both the callout and the round card
-    expect(screen.getByText('1 recording')).toBeInTheDocument();
-    expect(screen.getAllByText(/Not yet graded/i).length).toBeGreaterThan(0); // the 3 rounds with no data
+    await waitFor(() => expect(screen.getByText('What is holding you back')).toBeInTheDocument());
+    expect(screen.getByText(/STAR Structure in Behavioral rounds, averaging 40%/)).toBeInTheDocument();
+    expect(screen.getByText(/1 recording/)).toBeInTheDocument();
+    expect(screen.getAllByText(/not graded/i).length).toBeGreaterThan(0); // the 3 rounds with no data
   });
 
   it('shows a retry-able error state per tab without crashing the others', async () => {
@@ -150,6 +208,6 @@ describe('AnalyticsPage', () => {
 
     // Exams tab (already loaded before switching) is unaffected.
     await user.click(screen.getByRole('tab', { name: 'Exams' }));
-    expect(screen.getByText('Score Trend & Rolling Average')).toBeInTheDocument();
+    expect(screen.getByText(/Nothing measured yet/i)).toBeInTheDocument();
   });
 });

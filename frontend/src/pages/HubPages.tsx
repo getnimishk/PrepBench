@@ -4,211 +4,204 @@
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Box, Card, CardContent, Typography, Button, Chip, CircularProgress,
-  Stack, Divider, Alert,
-} from '@mui/material';
-import { getActivity, getHomeSummary } from '../services/api';
-import { ActivityItem, HomeSummary } from '../types/subject';
+import { Alert, Box, Typography, Button, CircularProgress, Stack, Divider } from '@mui/material';
+import { getHomeSummary, getSubjects } from '../services/api';
+import { HomeSummary, Subject } from '../types/subject';
 
 /**
- * The three verb hubs.
+ * Practice and Learn.
  *
- * These are the entry point for when you know the activity but not the
- * subject. Subjects are reached from Home instead, which is what keeps the
- * navigation at four items however many subjects arrive.
+ * These pages used to be identical lists of doors -- a card, a divider, a row
+ * per destination, an "Open" button. That is a directory, and the sidebar was
+ * already the directory. Practice now leads with what you were already doing,
+ * then with what your evidence points at, and only then with the list of
+ * formats.
  *
- * Deliberately thin: each hub is a list of doors, not a dashboard. The
- * interesting state lives on the subject pages.
+ * The second correction fixed the part that was still a lie: "Practise this"
+ * under a named weakness went to a generic setup form with the weakness
+ * dropped, so the one button on the page did not do what it said. The domain
+ * now travels with the link, and the setup page starts on it.
  */
 
-interface Door {
+/** A plain, keyboard-reachable row. Used wherever a list is a list of links. */
+const Row: React.FC<{
   label: string;
   detail: string;
-  path: string;
-}
+  onClick: () => void;
+}> = ({ label, detail, onClick }) => (
+  <Box
+    component="button"
+    type="button"
+    aria-label={`${label} — ${detail}`}
+    onClick={onClick}
+    sx={{
+      display: 'flex', alignItems: 'baseline', gap: 2, py: 1.4, width: '100%',
+      textAlign: 'left', font: 'inherit', border: 0, bgcolor: 'transparent',
+      color: 'text.primary', cursor: 'pointer', flexWrap: 'wrap',
+      '&:hover': { bgcolor: 'action.hover' },
+      '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main' },
+    }}
+  >
+    <Typography variant="body1" sx={{ minWidth: 150 }}>{label}</Typography>
+    <Typography variant="body2" sx={{ color: 'text.secondary', flexGrow: 1 }}>{detail}</Typography>
+  </Box>
+);
 
-const HubList: React.FC<{ title: string; blurb: string; doors: Door[] }> = ({
-  title, blurb, doors,
-}) => {
+export const PracticeHubPage: React.FC = () => {
   const navigate = useNavigate();
+  const [summary, setSummary] = useState<HomeSummary | null>(null);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  useEffect(() => {
+    Promise.all([getHomeSummary(), getSubjects()])
+      .then(([h, s]) => { setSummary(h); setSubjects(s); })
+      // The exercise list still works without any of this, but the page must
+      // say so: dropping "Take a mock" without a word looks like the product
+      // deciding you should not sit one.
+      .catch(() => setLoadFailed(true))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}><CircularProgress /></Box>;
+  }
+
+  // A subject with no questions cannot be practised at all, so it is not the
+  // one to lead with -- a fresh install has three subjects and an empty bank.
+  const primary = [...subjects]
+    .filter((s) => s.has_exam_profile && s.question_count > 0)
+    .sort((a, b) => b.readiness.mock_count - a.readiness.mock_count)[0] ?? null;
+  const resumable = summary?.resumable ?? null;
+  const weak = primary?.readiness.blockers.find((b) => b.kind === 'weak_domain') ?? null;
+
+  // "Full mock" is listed only when it is not already the thing at the top
+  // of the page. Offering the same action twice is not two options.
+  const mockIsPrimary = !!primary && !resumable && !weak;
+  const exercises = [
+    ...(primary && !mockIsPrimary
+      ? [{
+        label: 'Full mock',
+        detail: `${primary.exam_question_count} questions, ${primary.exam_minutes} minutes, timed`,
+        path: `/exam-setup?kind=mock&subject=${primary.id}`,
+      }]
+      : []),
+    ...(primary
+      ? [{ label: 'Drill', detail: 'Targeted questions, untimed', path: '/exam-setup?kind=drill' }]
+      : []),
+    { label: 'Design Review', detail: 'Two defensible architectures; name the deciding axis', path: '/design-reviews' },
+    { label: 'System Design', detail: 'Blank-page design, graded against a rubric', path: '/system-design' },
+    { label: 'Interview Answer', detail: 'Answer out loud and have the delivery analysed', path: '/interview-practice' },
+    { label: 'Chart Sandbox', detail: 'Change one thing and see what moves', path: '/chart-sandbox' },
+  ];
+
   return (
-    <Box>
-      <Typography variant="h4" sx={{ fontWeight: 600, mb: 0.5 }}>{title}</Typography>
-      <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3, maxWidth: 680 }}>
-        {blurb}
-      </Typography>
-      <Card>
-        <CardContent>
-          <Stack divider={<Divider />}>
-            {doors.map((d) => (
-              <Box
-                key={d.path}
-                sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.5, flexWrap: 'wrap' }}
-              >
-                <Box sx={{ flexGrow: 1, minWidth: 220 }}>
-                  <Typography variant="body1" sx={{ fontWeight: 500 }}>{d.label}</Typography>
-                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>{d.detail}</Typography>
-                </Box>
-                <Button size="small" variant="outlined" onClick={() => navigate(d.path)}>
-                  Open
-                </Button>
-              </Box>
-            ))}
-          </Stack>
-        </CardContent>
-      </Card>
+    <Box sx={{ maxWidth: 680 }}>
+      <Typography variant="h4" sx={{ fontWeight: 600, mb: 5 }}>Practice</Typography>
+
+      {/* One dominant thing to do, chosen by evidence. Two filled buttons
+          side by side is not a recommendation, it is a fork. */}
+      {resumable ? (
+        <Box sx={{ mb: 6 }}>
+          <Typography variant="overline" sx={{ color: 'text.secondary' }}>Continue</Typography>
+          <Typography variant="body1" sx={{ mt: 0.5, mb: 2 }}>
+            {resumable.title} — you stopped at question {resumable.answered + 1} of {resumable.total}.
+          </Typography>
+          <Button
+            variant="contained"
+            disableElevation
+            onClick={() => navigate(`/exam/${resumable.session_id}`)}
+            sx={{ borderRadius: '100px', fontWeight: 600, textTransform: 'none' }}
+          >
+            Continue
+          </Button>
+        </Box>
+      ) : weak && primary ? (
+        <Box sx={{ mb: 6 }}>
+          <Typography variant="overline" sx={{ color: 'text.secondary' }}>Target a weakness</Typography>
+          <Typography variant="body1" sx={{ mt: 0.5, mb: 2 }}>
+            {weak.domain} is at {Math.round(weak.value ?? 0)}%, under the{' '}
+            {Math.round(weak.target ?? 0)}% floor — the only area that is.
+          </Typography>
+          <Button
+            variant="contained"
+            disableElevation
+            onClick={() => navigate(
+              `/exam-setup?kind=drill&subject=${primary.id}`
+              + `&domain=${encodeURIComponent(weak.domain ?? '')}`
+            )}
+            sx={{ borderRadius: '100px', fontWeight: 600, textTransform: 'none' }}
+          >
+            Practise {weak.domain}
+          </Button>
+        </Box>
+      ) : loadFailed ? (
+        <Alert severity="warning" sx={{ mb: 6 }}>
+          Could not reach your subjects, so this page cannot tell you which mock
+          to sit. The exercises below still work.
+        </Alert>
+      ) : primary ? (
+        <Box sx={{ mb: 6 }}>
+          <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+            Measure where you stand
+          </Typography>
+          <Typography variant="body1" sx={{ mt: 0.5, mb: 2 }}>
+            {primary.name} — {primary.exam_question_count} questions,{' '}
+            {primary.exam_minutes} minutes, timed. Nothing else changes your readiness.
+          </Typography>
+          <Button
+            variant="contained"
+            disableElevation
+            onClick={() => navigate(`/exam-setup?kind=mock&subject=${primary.id}`)}
+            sx={{ borderRadius: '100px', fontWeight: 600, textTransform: 'none' }}
+          >
+            Take a mock
+          </Button>
+        </Box>
+      ) : null}
+
+      <Typography variant="overline" sx={{ color: 'text.secondary' }}>Choose an exercise</Typography>
+      <Stack sx={{ mt: 0.5 }} divider={<Divider />}>
+        {exercises.map((e) => (
+          <Row key={e.path} label={e.label} detail={e.detail} onClick={() => navigate(e.path)} />
+        ))}
+      </Stack>
     </Box>
   );
 };
 
-export const PracticeHubPage: React.FC = () => (
-  <HubList
-    title="Practice"
-    blurb="Everything that tests you. A mock measures where you stand; everything else closes gaps."
-    doors={[
-      { label: 'Exams — mock or drill', detail: 'Only a full timed mock moves your readiness', path: '/exam-setup' },
-      { label: 'Design Review', detail: 'Two defensible architectures; name the deciding axis', path: '/design-reviews' },
-      { label: 'System Design Practice', detail: 'Blank-page design, graded against a rubric', path: '/system-design' },
-      { label: 'Interview Practice', detail: 'Answer out loud and have the delivery analysed', path: '/interview-practice' },
-      { label: 'Chart Sandbox', detail: 'Agile metrics you can pull apart', path: '/chart-sandbox' },
-    ]}
-  />
-);
-
-export const LearnHubPage: React.FC = () => (
-  <HubList
-    title="Learn"
-    blurb="The material itself, rather than a test of it."
-    doors={[
-      { label: 'Roadmaps', detail: 'Imported study plans with tracked topics', path: '/roadmaps' },
-      { label: 'Question Bank', detail: 'Browse, edit and import questions', path: '/question-bank' },
-    ]}
-  />
-);
-
 /**
- * Review merges what used to be two separate history pages plus an
- * exam-only analytics page. Two of four practice modes had their own
- * history and the other two had none, so nowhere answered "what have I
- * been doing".
+ * Learn: the material, rather than a test of it.
+ *
+ * The Question Bank is content maintenance -- import, edit, bulk delete --
+ * and is labelled as such rather than sitting beside a roadmap as though the
+ * two were the same kind of activity.
  */
-export const ReviewHubPage: React.FC = () => {
+export const LearnHubPage: React.FC = () => {
   const navigate = useNavigate();
-  const [summary, setSummary] = useState<HomeSummary | null>(null);
-  const [activity, setActivity] = useState<ActivityItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    Promise.all([getHomeSummary(), getActivity(40)])
-      .then(([h, a]) => { setSummary(h); setActivity(a); })
-      .catch(() => setError('Failed to load your activity.'))
-      .finally(() => setLoading(false));
-  }, []);
-
   return (
-    <Box>
-      <Typography variant="h4" sx={{ fontWeight: 600, mb: 0.5 }}>Review</Typography>
-      <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3, maxWidth: 680 }}>
-        Reviewing wrong answers is where a score actually moves. Everything you have done
-        across every format is here, in one timeline.
-      </Typography>
+    <Box sx={{ maxWidth: 680 }}>
+      <Typography variant="h4" sx={{ fontWeight: 600, mb: 5 }}>Learn</Typography>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      <Typography variant="overline" sx={{ color: 'text.secondary' }}>Study</Typography>
+      <Stack sx={{ mt: 0.5, mb: 6 }} divider={<Divider />}>
+        <Row
+          label="Roadmaps"
+          detail="Imported study plans with tracked topics"
+          onClick={() => navigate('/roadmaps')}
+        />
+      </Stack>
 
-      {summary && (
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Stack spacing={1.5}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                <Box sx={{ flexGrow: 1, minWidth: 220 }}>
-                  <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                    Due for memory review
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                    {summary.due_for_review > 0
-                      ? `${summary.due_for_review} question${summary.due_for_review === 1 ? '' : 's'} scheduled by the spaced-repetition engine`
-                      : 'Nothing due. Items become due as the engine schedules them after you answer.'}
-                  </Typography>
-                </Box>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  disabled={summary.due_for_review === 0}
-                  onClick={() => navigate('/exam-setup')}
-                >
-                  Start
-                </Button>
-              </Box>
-
-              <Divider />
-
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                <Box sx={{ flexGrow: 1, minWidth: 220 }}>
-                  <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                    Unreviewed mock answers
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                    {summary.unreviewed_total > 0
-                      ? `${summary.unreviewed_total} wrong answer${summary.unreviewed_total === 1 ? '' : 's'} you have not looked at yet`
-                      : 'Nothing outstanding.'}
-                  </Typography>
-                </Box>
-                <Chip
-                  size="small"
-                  variant="outlined"
-                  color={summary.unreviewed_total > 0 ? 'warning' : 'default'}
-                  label={summary.unreviewed_total}
-                />
-              </Box>
-            </Stack>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardContent>
-          <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-            Activity — all subjects, all formats
-          </Typography>
-          {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
-          ) : activity.length === 0 ? (
-            <Typography variant="body2" sx={{ mt: 1.5, color: 'text.secondary' }}>
-              Nothing yet. Anything you complete in any format will appear here.
-            </Typography>
-          ) : (
-            <Stack divider={<Divider />} sx={{ mt: 1 }}>
-              {activity.map((item, i) => (
-                <Box
-                  key={`${item.kind}-${i}`}
-                  onClick={() => navigate(item.href)}
-                  sx={{
-                    display: 'flex', alignItems: 'center', gap: 2, py: 1.25,
-                    cursor: 'pointer', flexWrap: 'wrap',
-                    '&:hover': { bgcolor: 'action.hover' },
-                  }}
-                >
-                  <Typography variant="caption" sx={{ width: 84, color: 'text.secondary' }}>
-                    {item.at ? new Date(item.at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : ''}
-                  </Typography>
-                  <Chip size="small" variant="outlined" label={item.kind.replace(/_/g, ' ')} />
-                  <Typography variant="body2" sx={{ flexGrow: 1, minWidth: 160 }}>{item.title}</Typography>
-                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>{item.detail}</Typography>
-                </Box>
-              ))}
-            </Stack>
-          )}
-          <Typography variant="caption" sx={{ display: 'block', mt: 2, color: 'text.secondary' }}>
-            Detailed exam statistics are at{' '}
-            <Box component="span" sx={{ color: 'primary.main', cursor: 'pointer' }}
-                 onClick={() => navigate('/analytics')}>
-              Analytics
-            </Box>.
-          </Typography>
-        </CardContent>
-      </Card>
+      <Typography variant="overline" sx={{ color: 'text.secondary' }}>Your material</Typography>
+      <Stack sx={{ mt: 0.5 }} divider={<Divider />}>
+        <Row
+          label="Question Bank"
+          detail="Browse, edit and import the questions everything else draws from"
+          onClick={() => navigate('/question-bank')}
+        />
+      </Stack>
     </Box>
   );
 };

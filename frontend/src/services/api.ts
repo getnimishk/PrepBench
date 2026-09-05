@@ -5,7 +5,7 @@
 import axios from 'axios';
 import { Question, QuestionDifficulty } from '../types/question';
 import { ExamSession, ExamDetail, ExamCreateRequest, SaveAnswerRequest } from '../types/exam';
-import { DashboardOverview, ScoreTrendPoint, DomainMasteryItem } from '../types/analytics';
+import { ScoreTrendPoint, DomainMasteryItem } from '../types/analytics';
 import { AppSettings } from '../types/settings';
 import {
   LLMProfile,
@@ -41,7 +41,9 @@ import {
   HomeSummary,
   ActivityItem,
   FormatCoverage,
+  OtherPreparation,
 } from '../types/subject';
+import { ReviewQueue } from '../types/review';
 import { PracticeRecording, RecordingAnalysis, ProviderInfo, RecordingAnalytics } from '../types/recording';
 import {
   InterviewQuestion,
@@ -60,7 +62,6 @@ import {
   RoadmapUpdateRequest,
   RoadmapTopic,
   RoadmapTopicUpdateRequest,
-  RoadmapPhase,
   RoadmapImportPreview,
   RoadmapImportConfirm,
   RoadmapImportResult,
@@ -100,10 +101,6 @@ export const getQuestionFilters = async () => {
   return res.data;
 };
 
-export const getQuestion = async (id: number) => {
-  const res = await api.get<Question>(`/questions/${id}`);
-  return res.data;
-};
 
 export const createQuestion = async (data: Partial<Question>) => {
   const res = await api.post<Question>(`/questions`, data);
@@ -160,10 +157,6 @@ export const startExam = async (req: ExamCreateRequest) => {
   return res.data;
 };
 
-export const getExamList = async () => {
-  const res = await api.get<ExamSession[]>(`/exams`);
-  return res.data;
-};
 
 export const getExamDetails = async (sessionId: number) => {
   const res = await api.get<ExamDetail>(`/exams/${sessionId}`);
@@ -181,10 +174,12 @@ export const finishExam = async (sessionId: number) => {
 };
 
 // Analytics API
-export const getDashboardOverview = async () => {
-  const res = await api.get<DashboardOverview>(`/analytics/dashboard`);
-  return res.data;
-};
+// getDashboardOverview() was here. Home was its last caller, and Home no
+// longer needs it: the weak-topic list it fetched was a second opinion from
+// a different population than the readiness rule's, which is how two pages
+// came to disagree about the same domain. The endpoint stays -- it is still
+// the aggregate the analytics service exposes -- but nothing in the client
+// asks for it.
 
 export const getScoreTrends = async () => {
   const res = await api.get<ScoreTrendPoint[]>(`/analytics/score-trends`);
@@ -244,19 +239,7 @@ export const autoRefineBatch = async (questions: Question[]) => {
   return res.data;
 };
 
-export const batchResearch = async (questions: Question[]) => {
-  const res = await api.post<QuestionResearchResponse[]>(`/imports/batch-research`, questions);
-  return res.data;
-};
 
-export const importFile = async (file: File) => {
-  const formData = new FormData();
-  formData.append('file', file);
-  const res = await api.post(`/imports/file`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  });
-  return res.data;
-};
 
 export const repairImportFile = async (file: File) => {
   const formData = new FormData();
@@ -560,22 +543,8 @@ export const getRoadmapSchedule = async (roadmapId: number) => {
   return res.data;
 };
 
-export const addRoadmapPhase = async (roadmapId: number, name: string) => {
-  const res = await api.post<RoadmapPhase>(`/roadmaps/${roadmapId}/phases`, { name });
-  return res.data;
-};
 
-export const deleteRoadmapPhase = async (roadmapId: number, phaseId: number) => {
-  await api.delete(`/roadmaps/${roadmapId}/phases/${phaseId}`);
-};
 
-export const addRoadmapTopic = async (
-  roadmapId: number,
-  data: { phase_id: number; title: string; estimated_hours?: number | null }
-) => {
-  const res = await api.post<RoadmapTopic>(`/roadmaps/${roadmapId}/topics`, data);
-  return res.data;
-};
 
 // PATCH, not PUT -- callers send one field (usually just `status`), and a
 // full-representation contract would make them round-trip the whole topic and
@@ -589,9 +558,6 @@ export const updateRoadmapTopic = async (
   return res.data;
 };
 
-export const deleteRoadmapTopic = async (roadmapId: number, topicId: number) => {
-  await api.delete(`/roadmaps/${roadmapId}/topics/${topicId}`);
-};
 
 export const validateRoadmapImport = async (file: File) => {
   const formData = new FormData();
@@ -680,6 +646,17 @@ export const getHomeSummary = async () => {
 
 export const getActivity = async (limit = 40) => {
   const res = await api.get<ActivityItem[]>('/home/activity', { params: { limit } });
+  return res.data;
+};
+
+export const getOtherPreparation = async () => {
+  const res = await api.get<OtherPreparation[]>('/home/other-preparation');
+  return res.data;
+};
+
+/** Today's review: the newest unreviewed misses, with their explanations. */
+export const getReviewQueue = async (limit = 20) => {
+  const res = await api.get<ReviewQueue>('/review/queue', { params: { limit } });
   return res.data;
 };
 

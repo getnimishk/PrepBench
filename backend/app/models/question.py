@@ -55,5 +55,3 @@ class Question(Base):
     options = relationship("QuestionOption", back_populates="question", cascade="all, delete-orphan", lazy="joined")
     answers = relationship("ExamAnswer", back_populates="question", cascade="all, delete-orphan")
     sr_item = relationship("SpacedRepetition", back_populates="question", uselist=False, cascade="all, delete-orphan")
-    notes = relationship("UserNote", back_populates="question", cascade="all, delete-orphan")
-    bookmarks = relationship("Bookmark", back_populates="question", cascade="all, delete-orphan")

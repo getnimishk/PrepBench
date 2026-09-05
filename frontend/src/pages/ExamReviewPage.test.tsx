@@ -11,10 +11,27 @@ import { ExamReviewPage } from './ExamReviewPage';
 import { ExamDetail } from '../types/exam';
 
 const mockGetExamDetails = vi.fn();
+const mockMarkReviewed = vi.fn();
+const mockGetSubject = vi.fn();
 
 vi.mock('../services/api', () => ({
   getExamDetails: (...args: any[]) => mockGetExamDetails(...args),
+  getSubject: (...args: any[]) => mockGetSubject(...args),
+  markAnswerReviewed: (...args: any[]) => mockMarkReviewed(...args),
 }));
+
+/** The subject whose exam profile decides what "passed" means. */
+const SUBJECT = {
+  id: 1, name: 'Scrum / PSM I', slug: 'psm-i', kind: 'certification' as const,
+  pass_mark: 85, exam_question_count: 80, exam_minutes: 60,
+  has_exam_profile: true, question_count: 500,
+  readiness: {
+    state: 'almost_there' as const, mock_count: 6, pass_mark: 85,
+    recent_scores: [87.5], latest_taken_at: null, is_stale: false, domains: [],
+    weakest_domain: null, points_per_mock: null, mocks_to_pass_estimate: null,
+    blockers: [], most_improved: null,
+  },
+};
 
 function makeExamDetail(): ExamDetail {
   const questions = [1, 2, 3].map((n) => ({
@@ -40,6 +57,7 @@ function makeExamDetail(): ExamDetail {
     id: 1,
     title: 'AWS SAA Practice Exam',
     exam_mode: 'practice',
+    session_kind: 'drill',
     status: 'completed',
     total_questions: 3,
     answered_questions: 2,
@@ -75,6 +93,8 @@ function renderPage(sessionId = '1') {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockMarkReviewed.mockResolvedValue({ status: 'ok' });
+  mockGetSubject.mockResolvedValue(SUBJECT);
   mockGetExamDetails.mockResolvedValue(makeExamDetail());
   vi.stubGlobal('open', vi.fn());
 });
@@ -86,14 +106,39 @@ describe('ExamReviewPage', () => {
     expect(mockGetExamDetails).not.toHaveBeenCalled();
   });
 
-  it('renders the result hero with score, passing threshold, correct count and time', async () => {
+  it('passes no verdict on a drill', async () => {
+    // A drill is targeted practice, not a measurement. Scoring it against a
+    // pass mark is the category error the whole mock/drill split exists to
+    // prevent -- and it used to paint the page red for failing one.
     renderPage();
-    await waitFor(() => expect(screen.getByText('AWS SAA Practice Exam')).toBeInTheDocument());
 
+    expect(await screen.findByText(/33% on this drill/)).toBeInTheDocument();
+    expect(screen.getByText(/not scored against a pass mark/i)).toBeInTheDocument();
     expect(screen.getByText('33%')).toBeInTheDocument();
-    expect(screen.getByText('70%')).toBeInTheDocument();
     expect(screen.getByText('1 / 3')).toBeInTheDocument();
-    expect(screen.getByText(/Keep Practicing/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Keep Practicing/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Pass mark')).not.toBeInTheDocument();
+  });
+
+  it('judges a mock against the exam profile, not the threshold stored on it', async () => {
+    // Session 12 in the working database scored 87.5% and carried
+    // passing_percentage 95.0 -- the app's default the day it was sat, never
+    // the PSM I pass mark. Home counted it as clearing 85%; this page called
+    // it a failure. Two pages, one paper, opposite verdicts.
+    mockGetExamDetails.mockResolvedValue({
+      ...makeExamDetail(),
+      session_kind: 'mock',
+      subject_id: 1,
+      score_percentage: 87.5,
+      passing_percentage: 95,
+      is_passed: 'failed',
+    });
+    renderPage();
+
+    expect(await screen.findByText(/88% — above the pass mark/)).toBeInTheDocument();
+    expect(screen.getByText('85%')).toBeInTheDocument();
+    // The stored threshold is shown rather than quietly dropped.
+    expect(screen.getByText(/Sat with a 95% threshold set at the time/)).toBeInTheDocument();
   });
 
   it('filters the question list down to only incorrect answers', async () => {
@@ -160,5 +205,24 @@ describe('ExamReviewPage', () => {
     await user.click(screen.getByRole('button', { name: /retry/i }));
 
     await waitFor(() => expect(screen.getByText('Question 1 text')).toBeInTheDocument());
+  });
+
+  it('records a wrong answer as reviewed when it is put on screen', async () => {
+    // The count on Home used to have no way down: the endpoint existed, the
+    // column existed, and nothing in the browser ever called it. Reading the
+    // explanation IS the review -- asking for a confirming click would be the
+    // bookkeeping that produced the backlog in the first place.
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Question 1 text')).toBeInTheDocument());
+
+    // Question 1 was answered correctly, so nothing is marked yet -- there is
+    // no explanation to be behind on for an answer that was right.
+    expect(mockMarkReviewed).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: /^Incorrect$/i }));
+
+    // Question 2 is the first wrong answer, and it is now on screen.
+    await waitFor(() => expect(mockMarkReviewed).toHaveBeenCalledWith(1, 2));
   });
 });

@@ -23,7 +23,7 @@ import {
 import { ChevronDown, ChevronRight, EyeOff, GraduationCap, Compass, Map } from 'lucide-react';
 import type { FamilyId, ScenarioParams, Stage, TierId } from '../types/agileMetrics';
 import { CHART_VIEWS, FAMILIES, chartsInFamily } from '../services/metrics/charts';
-import { DEFAULT_PARAMS, validateParams } from '../services/metrics/params';
+import { DEFAULT_PARAMS, PARAM_SPECS, validateParams } from '../services/metrics/params';
 import { simulate } from '../services/metrics/compose';
 import { buildChartPayload } from '../services/metrics/chartData';
 import { lineageFor } from '../services/metrics/lineage';
@@ -96,16 +96,23 @@ const STAGES: { id: Stage; label: string; blurb: string }[] = [
   { id: 'where', label: 'Where to look', blurb: 'Which items, and which part of the system.' },
 ];
 
+// Labelled by what they are about, not by what the model calls them.
+//
+// These read "Core" and "Engineering extension" in the source, which is the
+// right name for a tier in a chart taxonomy and the wrong name for a button.
+// A learner choosing between two views of their own delivery process should
+// not have to work out which one an "extension" extends. The blurbs were
+// already written in the learner's language; they are just promoted.
 const TIERS: { id: TierId; label: string; blurb: string }[] = [
   {
     id: 'core',
-    label: 'Core',
+    label: 'The work',
     blurb: 'How the team works, and what the work costs.',
   },
   {
     id: 'engineeringExtension',
-    label: 'Engineering extension',
-    blurb: 'What happens after the code is done.',
+    label: 'After the code',
+    blurb: 'Deploys, incidents and reliability — what happens once it is written.',
   },
 ];
 
@@ -113,7 +120,17 @@ export const ChartSandboxPage: React.FC = () => {
   const [params, setParams] = useState<ScenarioParams>({ ...DEFAULT_PARAMS });
   const [tier, setTier] = useState<TierId>('core');
   const [family, setFamily] = useState<FamilyId>('flow');
-  const [controlsOpen, setControlsOpen] = useState(true);
+  // The learning apparatus -- placement, concept map, blind mode -- is
+  // available and closed by default.
+  const [apparatusOpen, setApparatusOpen] = useState(false);
+  // Closed on arrival.
+  //
+  // Seventeen sliders sat open under the prediction, so the question the page
+  // exists to ask -- "what do you think will happen?" -- was followed
+  // immediately by a control panel rather than by the charts that answer it.
+  // Opening them is one click; the LearningPanel's own experiments set them
+  // for you anyway, which is how most first visits should go.
+  const [controlsOpen, setControlsOpen] = useState(false);
 
   // Learn vs Explore. NOTHING is locked in either: Explore is the sandbox
   // exactly as it has always been, and a learner can switch at any point. The
@@ -145,6 +162,8 @@ export const ChartSandboxPage: React.FC = () => {
   const collapseOnce = () => {
     if (hasCollapsed.current) return;
     hasCollapsed.current = true;
+    // Only closes a panel the learner opened themselves; the default is
+    // already closed.
     setControlsOpen(false);
 
     // Collapsing alone is not enough. It removes height ABOVE the charts
@@ -223,6 +242,14 @@ export const ChartSandboxPage: React.FC = () => {
   const probe = useMemo(() => probeProgress(attempts), [attempts]);
   const placing = !hasHistory(attempts) || !probe.complete;
 
+  // The challenge on screen, held still while its result is being read.
+  //
+  // Without this the page swapped the question out in the same tick the
+  // prediction was committed: saving the attempt moves the recommender, the
+  // recommender drives the panel's key, and a changed key remounts the panel
+  // at the start. The explanation existed and was unreachable.
+  const [pinnedChallenge, setPinnedChallenge] = useState<string | null>(null);
+
   const recommendation = useMemo(() => {
     // A concept picked off the map wins: the map is navigation, and
     // navigation the product overrules is not navigation.
@@ -262,7 +289,28 @@ export const ChartSandboxPage: React.FC = () => {
     return next;
   }, [attempts, skipped, chosenChallenge, placing, probe]);
 
+  // Pinned wins over the recommendation while the result is up; the
+  // recommendation takes over again the moment the learner moves on.
+  const shown = useMemo(() => {
+    if (pinnedChallenge) {
+      const challenge = CHALLENGE_BY_ID.get(pinnedChallenge);
+      if (challenge) {
+        return {
+          conceptId: challenge.conceptId,
+          challengeId: challenge.id,
+          rationale: '',
+          expectedEvidence: [],
+          difficulty: challenge.difficulty,
+        };
+      }
+    }
+    return recommendation;
+  }, [pinnedChallenge, recommendation]);
+
   const recordAttempt = (attempt: Attempt) => {
+    // Pinned first: the recommender is about to move, and the panel is about
+    // to show what this answer meant.
+    setPinnedChallenge(attempt.challengeId);
     setAttempts(saveAttempt(attempt));
     setSeenConcepts((seen) => new Set(seen).add(attempt.conceptId));
     setChosenChallenge(null);
@@ -285,7 +333,13 @@ export const ChartSandboxPage: React.FC = () => {
   const applyLearningScenario = (scenario: ScenarioId) => {
     // The ACT step. Applies the challenge's parameterisation to the live
     // sandbox so the learner watches the real model respond.
-    applyScenario({ ...paramsFor(scenario), sprints: params.sprints });
+    //
+    // Deliberately NOT applyScenario: this runs when the challenge arrives,
+    // not when the learner does something. Routing it through applyScenario
+    // spent the one-shot collapse-and-scroll on page load, which both yanked
+    // the viewport before anyone had acted and left nothing to collapse when
+    // they finally moved a slider.
+    setParams({ ...paramsFor(scenario), sprints: params.sprints });
   };
 
   const views = chartsInFamily(activeFamily);
@@ -306,12 +360,30 @@ export const ChartSandboxPage: React.FC = () => {
     collapseOnce();
   };
 
+  // What the closed panel is standing in for: the assumptions that differ
+  // from the baseline, named with their values.
+  //
+  // Counted rather than named: the baseline strip directly above already
+  // spells out which assumptions moved and to what, and saying it twice is
+  // how a summary turns back into clutter.
+  const changedSummary = useMemo(() => {
+    const moved = PARAM_SPECS.filter(
+      (spec) => spec.exposed && Math.abs(params[spec.key] - baseline[spec.key]) > 1e-6,
+    ).length;
+    if (moved === 0) return 'Every assumption at its declared default';
+    return `${moved} assumption${moved === 1 ? '' : 's'} changed from the baseline`;
+  }, [params, baseline]);
+
   const reset = () => setParams({ ...DEFAULT_PARAMS, sprints: params.sprints });
 
   return (
     <Box>
       <Box sx={{ mb: 1.5 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
+        {/* h4/600, which is what every other page title in the product is.
+            It was h5/700 -- smaller and heavier than its neighbours, the one
+            signal that most makes a page read as belonging to a different
+            application. */}
+        <Typography variant="h4" sx={{ fontWeight: 600, mb: 0.5 }}>
           Chart Sandbox
         </Typography>
         <Typography variant="body2" color="text.secondary">
@@ -319,6 +391,97 @@ export const ChartSandboxPage: React.FC = () => {
         </Typography>
       </Box>
 
+      {/* The prediction comes first. This page used to open on a mode
+          toggle, a concept map switch, a blind-mode switch, a placement
+          readout ("What you know: Vocabulary", "Concepts demonstrated
+          0 / 10", "Still needs: three more correct answers without
+          hints") and a declaration that the baseline is the baseline --
+          five rows of apparatus above the question. A learner arriving
+          here should be thinking about the metric, not operating the
+          simulator, and the taxonomy is now at the bottom under a
+          disclosure where someone curious about it can find it. */}
+      {mode === 'learn' && shown ? (
+        <LearningPanel
+          key={shown.challengeId}
+          recommendation={shown}
+          conceptSeen={seenConcepts.has(shown.conceptId)}
+          onApplyScenario={applyLearningScenario}
+          onAttemptSaved={recordAttempt}
+          onSkip={() => {
+            // Fired by both Skip (before answering) and Next (after reading
+            // the result). Either way the learner is done with this one --
+            // but only an unanswered one counts as skipped.
+            if (!pinnedChallenge) setSkipped((sk) => new Set(sk).add(shown.challengeId));
+            setPinnedChallenge(null);
+          }}
+        />
+      ) : (
+        <FirstExperiment
+          params={params}
+          atBaseline={atBaseline}
+          onApply={applyScenario}
+        />
+      )}
+
+      {!atBaseline && (
+      <ScenarioState
+        params={params}
+        baseline={baseline}
+        atBaseline={atBaseline}
+        onReset={reset}
+      />
+      )}
+
+      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+        <Stack
+          direction="row"
+          sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: controlsOpen ? 1.5 : 0 }}
+        >
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              Scenario
+            </Typography>
+            {/* What the run is currently made of, so a closed panel is a
+                summary rather than a locked door. */}
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              {atBaseline
+                ? 'Every assumption at its declared default'
+                : changedSummary}
+            </Typography>
+          </Box>
+          <Button
+            size="small"
+            onClick={() => setControlsOpen((open) => !open)}
+            endIcon={controlsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            aria-expanded={controlsOpen}
+            sx={{ textTransform: 'none', flexShrink: 0 }}
+          >
+            {controlsOpen ? 'Hide controls' : 'Adjust assumptions'}
+          </Button>
+        </Stack>
+
+        {/* Unmounted while closed, not merely hidden: a collapsed MUI panel
+            keeps its children focusable, so a keyboard user would tab into
+            sliders they cannot see. */}
+        <Collapse in={controlsOpen} unmountOnExit>
+          <ScenarioControls params={params} onChange={setParams} onCommit={collapseOnce} />
+        </Collapse>
+      </Paper>
+
+      {/* Everything about how the sandbox is taught rather than what it
+          teaches. Reachable, never in the way. */}
+      <Box sx={{ mt: 4 }}>
+        <Button
+          size="small"
+          onClick={() => setApparatusOpen((o) => !o)}
+          endIcon={apparatusOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          aria-expanded={apparatusOpen}
+          sx={{ textTransform: 'none' }}
+        >
+          How you are getting on
+        </Button>
+        <Collapse in={apparatusOpen} unmountOnExit>
+          <Box sx={{ mt: 2 }}>
       {/* Access is open in both modes. The toggle changes what the page
           POINTS AT, never what it permits -- a practitioner who wants DORA
           immediately can have it, in either mode. */}
@@ -394,57 +557,9 @@ export const ChartSandboxPage: React.FC = () => {
           onSelect={openConcept}
         />
       )}
-
-      <ScenarioState
-        params={params}
-        baseline={baseline}
-        atBaseline={atBaseline}
-        onReset={reset}
-      />
-
-      {mode === 'learn' && recommendation ? (
-        <LearningPanel
-          key={recommendation.challengeId}
-          recommendation={recommendation}
-          conceptSeen={seenConcepts.has(recommendation.conceptId)}
-          onApplyScenario={applyLearningScenario}
-          onAttemptSaved={recordAttempt}
-          onSkip={() => setSkipped((s) => new Set(s).add(recommendation.challengeId))}
-        />
-      ) : (
-        <FirstExperiment
-          params={params}
-          atBaseline={atBaseline}
-          onApply={applyScenario}
-        />
-      )}
-
-      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-        <Stack
-          direction="row"
-          sx={{ alignItems: 'center', justifyContent: 'space-between', mb: controlsOpen ? 1.5 : 0 }}
-        >
-          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-            Scenario controls
-          </Typography>
-          <Button
-            size="small"
-            onClick={() => setControlsOpen((open) => !open)}
-            endIcon={controlsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            aria-expanded={controlsOpen}
-            sx={{ textTransform: 'none' }}
-          >
-            {controlsOpen ? 'Hide controls' : 'Show controls'}
-          </Button>
-        </Stack>
-
-        {/* Unmounted while closed, not merely hidden: a collapsed MUI panel
-            keeps its children focusable, so a keyboard user would tab into
-            sliders they cannot see. */}
-        <Collapse in={controlsOpen} unmountOnExit>
-          <ScenarioControls params={params} onChange={setParams} onCommit={collapseOnce} />
+          </Box>
         </Collapse>
-      </Paper>
+      </Box>
 
       {violations.length > 0 && (
         // Reachable only if a slider range and a formula have drifted apart,

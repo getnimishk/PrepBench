@@ -2,23 +2,28 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box, Card, CardContent, Typography, Grid, Chip, Button,
   LinearProgress, Paper, Alert, ToggleButton, ToggleButtonGroup
 } from '@mui/material';
 import {
-  CheckCircle2, XCircle, Clock, Award, RotateCcw,
+  BookOpen, CheckCircle2, XCircle, Clock, Award, RotateCcw,
   Download, Home, Minus, ArrowLeft, ArrowRight, Flag
 } from 'lucide-react';
-import { getExamDetails } from '../services/api';
+import { getExamDetails, getSubject, markAnswerReviewed } from '../services/api';
+import { Explanation } from '../components/common/Explanation';
 import { ExamDetail } from '../types/exam';
+import { Subject } from '../types/subject';
 
 export const ExamReviewPage: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const [exam, setExam] = useState<ExamDetail | null>(null);
+  // The subject, for the one thing the session row cannot be trusted on: the
+  // bar this paper should be judged against.
+  const [subject, setSubject] = useState<Subject | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -32,7 +37,14 @@ export const ExamReviewPage: React.FC = () => {
     setLoading(true);
     setFetchError(null);
     getExamDetails(sid)
-      .then(setExam)
+      .then((detail) => {
+        setExam(detail);
+        if (detail.subject_id) {
+          getSubject(detail.subject_id).then(setSubject).catch(() => {
+            /* the page still works; it just cannot name the exam's own bar */
+          });
+        }
+      })
       .catch((err) => {
         console.error(err);
         setFetchError('Failed to load exam review details. Please check backend connection.');
@@ -42,7 +54,26 @@ export const ExamReviewPage: React.FC = () => {
 
   useEffect(() => {
     fetchExamDetails();
+    // fetchExamDetails closes over sid alone; re-running on its identity
+    // would refetch on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sid]);
+
+  // How many were actually got wrong, independent of the current filter --
+  // the result screen needs the number before anything has been filtered.
+  const wrongCount = useMemo(() => {
+    if (!exam) return 0;
+    const answers = new Map(exam.answers.map((a) => [a.question_id, a]));
+    return exam.questions.filter((q) => !(answers.get(q.id)?.is_correct ?? false)).length;
+  }, [exam]);
+
+  const reviewRef = useRef<HTMLDivElement | null>(null);
+
+  const readTheMisses = () => {
+    setFilter('incorrect');
+    setCurrentIndex(0);
+    reviewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const filteredQuestions = useMemo(() => {
     if (!exam) return [];
@@ -63,6 +94,30 @@ export const ExamReviewPage: React.FC = () => {
     });
   }, [exam, filter]);
 
+  /**
+   * Record that a wrong answer has actually been looked at.
+   *
+   * The endpoint, the column and the count on Home all existed; nothing in
+   * the browser ever called this, so "90 unreviewed answers" could only ever
+   * go up. A number the learner cannot move is the guilt mechanic this
+   * product refuses everywhere else -- it just arrived by omission rather
+   * than by design.
+   *
+   * Fired when a wrong answer is on screen, because reading the explanation
+   * IS the review. Asking for a second click to confirm having read
+   * something is bookkeeping, and bookkeeping is what produced the backlog.
+   * The backend sets reviewed_at once, so revisiting does not re-stamp it.
+   */
+  useEffect(() => {
+    const current = filteredQuestions[currentIndex];
+    if (!current || current.isCorrect || !current.wasAnswered) return;
+    if (current.answer?.reviewed_at) return;
+    markAnswerReviewed(sid, current.q.id).catch(() => {
+      // A failed mark is not worth interrupting the review for. The count
+      // stays where it was and the next visit tries again.
+    });
+  }, [sid, currentIndex, filteredQuestions]);
+
   // Clamp current index if filter changes and we lose items
   useEffect(() => {
     if (filteredQuestions.length > 0 && currentIndex >= filteredQuestions.length) {
@@ -72,7 +127,7 @@ export const ExamReviewPage: React.FC = () => {
 
   if (isNaN(sid) || sid <= 0) {
     return (
-      <Box sx={{ maxWidth: 800, mx: 'auto', mt: 4 }}>
+      <Box sx={{ maxWidth: 800, mt: 4 }}>
         <Alert severity="error">Invalid Exam Session ID.</Alert>
       </Box>
     );
@@ -82,7 +137,7 @@ export const ExamReviewPage: React.FC = () => {
 
   if (fetchError) {
     return (
-      <Box sx={{ maxWidth: 800, mx: 'auto', mt: 4 }}>
+      <Box sx={{ maxWidth: 800, mt: 4 }}>
         <Alert severity="error" action={<Button color="inherit" size="small" onClick={fetchExamDetails}>Retry</Button>}>
           {fetchError}
         </Alert>
@@ -92,39 +147,69 @@ export const ExamReviewPage: React.FC = () => {
 
   if (!exam) return <Alert severity="error">Exam session #{sid} not found in database.</Alert>;
 
-  const isPassed = exam.is_passed === 'passed';
   const currentQData = filteredQuestions[currentIndex];
 
+  // Which bar this paper is actually measured against.
+  //
+  // A mock is judged against the subject's exam profile, because that is the
+  // real exam's pass mark and it is what readiness uses. The threshold stored
+  // on the session was whatever the app's default happened to be the day it
+  // was sat -- for five of the six papers in the working database that was
+  // 95%, so this page called an 87.5% paper a failure while Home counted it
+  // as clearing 85%.
+  //
+  // A drill has no bar at all. Scoring targeted practice against a pass mark
+  // is the category error the whole mock/drill split exists to prevent.
+  const isMock = exam.session_kind === 'mock';
+  const examPassMark = subject?.has_exam_profile ? subject.pass_mark ?? null : null;
+  const passMark = isMock ? examPassMark ?? exam.passing_percentage : null;
+  const score = exam.score_percentage ?? 0;
+  const isPassed = passMark != null && score >= passMark;
+  const storedDiffers =
+    passMark != null && Math.abs(exam.passing_percentage - passMark) > 0.01;
+
   return (
-    <Box sx={{ maxWidth: 1200, mx: 'auto', display: 'flex', flexDirection: 'column', gap: 3 }}>
+    <Box sx={{ maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Result Hero Banner */}
       <Card sx={{
-        bgcolor: isPassed ? 'success.dark' : 'error.dark',
-        color: 'white',
+        bgcolor: passMark == null ? 'background.paper' : isPassed ? 'success.dark' : 'error.dark',
+        color: passMark == null ? 'text.primary' : 'white',
         borderRadius: '12px',
         boxShadow: 'none',
         border: '1px solid',
-        borderColor: isPassed ? 'success.main' : 'error.main'
+        borderColor: passMark == null ? 'divider' : isPassed ? 'success.main' : 'error.main'
       }}>
         <CardContent sx={{ p: 4 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-            {isPassed
-              ? <CheckCircle2 size={40} color="inherit" />
-              : <XCircle size={40} color="inherit" />}
+            {passMark == null
+              ? null
+              : isPassed
+                ? <CheckCircle2 size={40} color="inherit" />
+                : <XCircle size={40} color="inherit" />}
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800 }}>
-                {isPassed ? 'Congratulations! You Passed!' : 'Keep Practicing — You Got This!'}
+              <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                {passMark == null
+                  ? `${Math.round(score)}% on this drill`
+                  : isPassed
+                    ? `${Math.round(score)}% — above the pass mark`
+                    : `${Math.round(score)}% — under the pass mark`}
               </Typography>
               <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                {exam.title}
+                {passMark == null
+                  ? 'A drill closes gaps. It is not scored against a pass mark.'
+                  : exam.title}
               </Typography>
             </Box>
           </Box>
 
           <Grid container spacing={2} sx={{ mt: 1 }}>
             {[
-              { label: 'Score', value: `${exam.score_percentage ?? 0}%`, icon: Award, color: isPassed ? '#34D399' : '#FB7185' },
-              { label: 'Passing', value: `${exam.passing_percentage}%`, icon: CheckCircle2, color: '#94A3B8' },
+              // Rounded, like every other surface. 87.5 in the tile beside
+              // 88 in the heading is the same number disagreeing with itself.
+              { label: 'Score', value: `${Math.round(score)}%`, icon: Award, color: passMark == null ? '#94A3B8' : isPassed ? '#34D399' : '#FB7185' },
+              ...(passMark != null
+                ? [{ label: 'Pass mark', value: `${Math.round(passMark)}%`, icon: CheckCircle2, color: '#94A3B8' }]
+                : []),
               { label: 'Correct', value: `${exam.correct_count} / ${exam.total_questions}`, icon: CheckCircle2, color: '#6366F1' },
               { label: 'Time', value: `${Math.round((exam.time_spent_seconds ?? 0) / 60)} min`, icon: Clock, color: '#FBBF24' },
             ].map((item) => (
@@ -142,12 +227,52 @@ export const ExamReviewPage: React.FC = () => {
             ))}
           </Grid>
 
+          {storedDiffers && (
+            // Shown rather than hidden: the session really was sat with that
+            // threshold, and a learner who remembers the old number deserves
+            // to see where it went instead of wondering why the verdict moved.
+            <Typography variant="caption" sx={{ display: 'block', mt: 2, opacity: 0.85 }}>
+              Sat with a {Math.round(exam.passing_percentage)}% threshold set at the time.
+              Judged here against {subject?.name}&apos;s own pass mark of {Math.round(passMark ?? 0)}%,
+              which is the bar readiness uses.
+            </Typography>
+          )}
+
           <Box sx={{ display: 'flex', gap: 2, mt: 3, flexWrap: 'wrap' }}>
-            <Button variant="outlined" startIcon={<Home size={18} />} onClick={() => navigate('/')} sx={{ borderRadius: '100px', color: 'inherit', borderColor: 'inherit' }}>
-              Dashboard
+            {/* "Dashboard" was the name of a page that no longer exists.
+                The buttons take their colour from the hero rather than
+                hardcoding white on black, because the hero is neutral when
+                there is no verdict to paint. */}
+            {/* The primary action, because it is the one that changes the
+                next score. It used to be a toggle labelled "Incorrect", two
+                screens down, with the same visual weight as an Excel
+                export. */}
+            {wrongCount > 0 && (
+              <Button
+                variant="contained"
+                disableElevation
+                startIcon={<BookOpen size={18} />}
+                onClick={readTheMisses}
+                sx={{ borderRadius: '100px', fontWeight: 600, textTransform: 'none' }}
+              >
+                Read the {wrongCount} you got wrong
+              </Button>
+            )}
+            <Button
+              variant="outlined"
+              startIcon={<Home size={18} />}
+              onClick={() => navigate('/')}
+              sx={{ borderRadius: '100px', color: 'inherit', borderColor: 'inherit', textTransform: 'none' }}
+            >
+              Home
             </Button>
-            <Button variant="contained" startIcon={<RotateCcw size={18} />} onClick={() => navigate('/exam-setup')} sx={{ borderRadius: '100px', bgcolor: 'white', color: 'black', '&:hover': { bgcolor: 'grey.200' } }}>
-              New Exam
+            <Button
+              variant="outlined"
+              startIcon={<RotateCcw size={18} />}
+              onClick={() => navigate('/practice')}
+              sx={{ borderRadius: '100px', color: 'inherit', borderColor: 'inherit', textTransform: 'none' }}
+            >
+              Practise again
             </Button>
             <Button
               variant="outlined"
@@ -155,7 +280,7 @@ export const ExamReviewPage: React.FC = () => {
               onClick={() => window.open(`/api/v1/export/pdf/${sid}`, '_blank', 'noopener,noreferrer')}
               sx={{ borderRadius: '100px', color: 'inherit', borderColor: 'inherit' }}
             >
-              PDF Report
+              PDF report
             </Button>
             <Button
               variant="outlined"
@@ -163,14 +288,14 @@ export const ExamReviewPage: React.FC = () => {
               onClick={() => window.open(`/api/v1/export/excel/${sid}`, '_blank', 'noopener,noreferrer')}
               sx={{ borderRadius: '100px', color: 'inherit', borderColor: 'inherit' }}
             >
-              Excel Report
+              Excel report
             </Button>
           </Box>
         </CardContent>
       </Card>
 
       {/* Review Section Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+      <Box ref={reviewRef} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, scrollMarginTop: 16 }}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>Question Review</Typography>
         <ToggleButtonGroup
           value={filter}
@@ -332,12 +457,12 @@ export const ExamReviewPage: React.FC = () => {
 
                   {/* Official Explanation */}
                   {currentQData.q.explanation && (
-                    <Paper sx={{ p: 2.5, borderLeft: '4px solid', borderColor: 'primary.main', bgcolor: 'primary.light', boxShadow: 'none', color: 'primary.contrastText', opacity: 0.9 }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                        Official Explanation
-                      </Typography>
-                      <Typography variant="body2">{currentQData.q.explanation}</Typography>
-                    </Paper>
+                    <Box sx={{ pl: 2, borderLeft: '2px solid', borderColor: 'divider' }}>
+                      <Typography variant="overline" sx={{ color: 'text.secondary' }}>Why</Typography>
+                      {/* Rendered rather than printed: every explanation in
+                          the bank is Markdown, and this showed it raw. */}
+                      <Explanation text={currentQData.q.explanation} />
+                    </Box>
                   )}
 
                   {/* User Notes */}

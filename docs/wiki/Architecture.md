@@ -147,9 +147,10 @@ Route-level pages worth knowing:
 |---|---|
 | `/` | Home — resumable session, headline mock numbers, per-subject readiness, activity |
 | `/subjects/:id` | One subject: readiness with its evidence, and coverage across every format |
-| `/practice` · `/learn` · `/review` | The three hubs — a list of doors, not a dashboard |
+| `/practice` · `/learn` | Two hubs — a list of doors, not a dashboard |
+| `/review` | A bounded review session: the newest unread misses one at a time, then the timeline |
 | `/design-reviews` · `/design-reviews/:id` | The design review bank and one review |
-| `/dashboard` | The original analytics-style dashboard, still routed |
+| `/dashboard` · `/history` · `/system-design/history` | Redirects. The analytics-style dashboard and the two per-format history pages were deleted; the routes stay so old bookmarks land somewhere real |
 
 ## What CI enforces
 

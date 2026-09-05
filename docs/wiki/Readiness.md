@@ -47,7 +47,15 @@ Three defaults protect the same property:
 - A `session_kind` outside the two known words is rejected by a validator rather than stored. An unrecognised value would silently fail every mock filter, which reads as *"the exam did not count"* with nothing anywhere explaining why.
 
 > [!NOTE]
-> **The UI cannot start a mock yet.** `POST /api/v1/exams` accepts `session_kind` and `subject_id`, but no screen sends them, so every session the running app creates is a drill. This is pinned by `test_every_session_the_api_creates_is_a_drill` rather than left to drift. Until an exam-setup path sets it, readiness stays at `needs_evaluation` for anything driven through the browser.
+> **Mocks are startable from the browser.** Exam setup sends `session_kind: mock` and `subject_id`, and refuses the request unless the subject has an exam profile and enough questions to fill the paper — a short mock is a drill wearing a measurement's label, which is worse than no measurement. `test_product_invariants.py` holds that line.
+
+### Historical sessions can be promoted
+
+`app/utils/reconcile_evidence.py` runs at every startup and promotes a historical drill to a mock when the row itself proves the shape: completed, every question answered, `TIMED`, exactly the subject's question count, exactly its time allowance, its certification, learner provenance. Anything failing any one of those stays a drill.
+
+This is not the same thing as inventing evidence. `session_kind` was added by `ALTER TABLE ... NOT NULL DEFAULT 'drill'`, so `drill` on a row that predates the column is a schema default rather than something anybody chose — there is no intent to overwrite. What the row cannot prove is *motive*, and the product says so where it says the count rather than burying it here.
+
+The `passing_percentage` stored on those rows is deliberately ignored. Five of the six on the developer's database carry `95.0`, which was an app default at the time and never the PSM I pass mark; readiness re-judges the raw score against the subject's own pass mark, so a settings default from August cannot decide whether a paper passed.
 
 ## The five states
 
@@ -134,7 +142,7 @@ A full mock reports `available: false` unless the subject has both an exam profi
 
 `GET /api/v1/home/activity` is one timeline across every format — mocks, drills, design reviews, system design attempts, recordings.
 
-It supersedes the separate Exam History and System Design History pages, which are no longer in the navigation but still resolve at `/history` and `/system-design/history`. Two of the practice modes had their own history page and the other two had none, so nowhere in the app answered "what have I actually been doing".
+It supersedes the separate Exam History and System Design History pages. Those pages are gone; `/history` and `/system-design/history` are kept as redirects to `/review` so an old bookmark still lands somewhere real. Two of the practice modes had their own history page and the other two had none, so nowhere in the app answered "what have I actually been doing".
 
 ## Endpoints
 
@@ -142,9 +150,11 @@ It supersedes the separate Exam History and System Design History pages, which a
 |---|---|---|
 | `/api/v1/subjects` | GET | Every subject with its readiness — what Home renders |
 | `/api/v1/subjects/{id}` | GET | One subject with its readiness |
-| `/api/v1/home` | GET | The dashboard summary above |
+| `/api/v1/home` | GET | The summary Home renders — resumable session, mock totals, outstanding review |
 | `/api/v1/home/activity` | GET | The unified timeline |
+| `/api/v1/home/other-preparation` | GET | The formats that are not the primary subject |
 | `/api/v1/home/subjects/{id}/coverage` | GET | Every format, present or absent |
+| `/api/v1/review/queue` | GET | Today's misses — capped at 20, newest mock first, with `remaining` |
 | `/api/v1/exams/{id}/answers/{qid}/reviewed` | POST | Mark one wrong answer as looked at |
 | `/api/v1/exams/{id}/unreviewed` | GET | Which wrong answers still need review |
 

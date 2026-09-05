@@ -10,6 +10,19 @@ from sqlalchemy import func, case
 from app.models.exam_session import ExamSession, ExamStatus
 from app.models.exam_answer import ExamAnswer
 from app.models.question import Question
+from app.repositories.subject_repository import LEARNER
+
+
+# Every learner-facing figure in this file is computed over the same
+# population: completed sessions the learner actually sat. Written once and
+# spread with * so that a new query cannot quietly widen it by forgetting a
+# filter -- which is precisely how three regression-test sessions ended up
+# inside the headline accuracy, indistinguishable from six real papers.
+def _learner_evidence():
+    return (
+        ExamSession.status == ExamStatus.COMPLETED,
+        ExamSession.source == LEARNER,
+    )
 
 
 class AnalyticsRepository:
@@ -17,23 +30,23 @@ class AnalyticsRepository:
         self.db = db
 
     def _completed_answers_base(self):
-        """Base query: ExamAnswer rows that belong to COMPLETED sessions only."""
+        """Base query: ExamAnswer rows from completed sessions the learner sat."""
         return (
             self.db.query(ExamAnswer)
             .join(ExamSession, ExamAnswer.session_id == ExamSession.id)
-            .filter(ExamSession.status == ExamStatus.COMPLETED)
+            .filter(*_learner_evidence())
         )
 
     def get_overall_stats(self) -> Dict:
         total_exams = (
             self.db.query(func.count(ExamSession.id))
-            .filter(ExamSession.status == ExamStatus.COMPLETED)
+            .filter(*_learner_evidence())
             .scalar() or 0
         )
 
         base = self._completed_answers_base()
 
-        # All three metrics now draw from the same population: completed sessions only.
+        # All three metrics draw from the same population as total_exams above.
         total_attempted = base.filter(ExamAnswer.is_correct != None).count()
         correct_count   = base.filter(ExamAnswer.is_correct == True).count()
 
@@ -67,7 +80,7 @@ class AnalyticsRepository:
             .join(ExamAnswer, Question.id == ExamAnswer.question_id)
             .join(ExamSession, ExamAnswer.session_id == ExamSession.id)
             .filter(
-                ExamSession.status == ExamStatus.COMPLETED,
+                *_learner_evidence(),
                 ExamAnswer.is_correct != None,
             )
             .group_by(Question.topic, Question.domain)
@@ -107,7 +120,7 @@ class AnalyticsRepository:
             .join(ExamAnswer, Question.id == ExamAnswer.question_id)
             .join(ExamSession, ExamAnswer.session_id == ExamSession.id)
             .filter(
-                ExamSession.status == ExamStatus.COMPLETED,
+                *_learner_evidence(),
                 ExamAnswer.is_correct != None,
             )
             .all()
@@ -145,7 +158,7 @@ class AnalyticsRepository:
             .join(ExamAnswer, Question.id == ExamAnswer.question_id)
             .join(ExamSession, ExamAnswer.session_id == ExamSession.id)
             .filter(
-                ExamSession.status == ExamStatus.COMPLETED,
+                *_learner_evidence(),
                 ExamAnswer.is_correct != None,
             )
             .group_by(Question.domain)
@@ -175,7 +188,7 @@ class AnalyticsRepository:
     def get_recent_completed_sessions(self, limit: int = 5) -> List[ExamSession]:
         return (
             self.db.query(ExamSession)
-            .filter(ExamSession.status == ExamStatus.COMPLETED)
+            .filter(*_learner_evidence())
             .order_by(ExamSession.end_time.desc())
             .limit(limit)
             .all()
@@ -192,52 +205,13 @@ class AnalyticsRepository:
         """
         sessions = (
             self.db.query(ExamSession)
-            .filter(ExamSession.status == ExamStatus.COMPLETED)
+            .filter(*_learner_evidence())
             .order_by(ExamSession.end_time.desc())
             .limit(limit)
             .all()
         )
         sessions.reverse()
         return sessions
-
-    def count_practice_answers_since(self, moment: datetime) -> int:
-        """
-        Answers that count as practice, from `moment` onwards.
-
-        Two details that are easy to get wrong, both fixed on main and kept
-        here:
-
-        first_answered_at, not answered_at -- the latter carries onupdate=, so
-        any later write to the row bumps it to now and yesterday's work would
-        silently start counting as today's.
-
-        is_correct IS NULL means nothing was selected (see
-        ExamEngine.save_answer), which is how a question merely navigated past
-        gets recorded. Those are not practice.
-        """
-        return (
-            self.db.query(ExamAnswer)
-            .filter(
-                ExamAnswer.first_answered_at >= moment,
-                ExamAnswer.is_correct.isnot(None),
-            )
-            .count()
-        )
-
-    def get_completed_exam_end_times(self) -> List[datetime]:
-        """
-        Raw completion timestamps of completed exams, for the streak.
-
-        Deliberately not grouped by SQL date(): that extracts the *UTC* date,
-        which is off by one for anyone not on UTC. The caller converts to local
-        calendar dates in Python, where the timezone rule is explicit.
-        """
-        return [
-            row[0]
-            for row in self.db.query(ExamSession.end_time)
-            .filter(ExamSession.status == ExamStatus.COMPLETED, ExamSession.end_time.isnot(None))
-            .all()
-        ]
 
     def get_weak_topic_names(self, below_percent: float = 70.0) -> List[str]:
         """
@@ -253,7 +227,7 @@ class AnalyticsRepository:
             .join(ExamAnswer, Question.id == ExamAnswer.question_id)
             .join(ExamSession, ExamAnswer.session_id == ExamSession.id)
             .filter(
-                ExamSession.status == ExamStatus.COMPLETED,
+                *_learner_evidence(),
                 ExamAnswer.is_correct.isnot(None),
             )
             .group_by(Question.topic)

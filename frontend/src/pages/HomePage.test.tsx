@@ -5,34 +5,18 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { HomePage } from './HomePage';
 import { Subject } from '../types/subject';
 
 const mockGetSubjects = vi.fn();
 const mockGetHome = vi.fn();
-
-const mockGetActivity = vi.fn();
-const mockGetOverview = vi.fn();
-const mockGetTrends = vi.fn();
+const mockGetOther = vi.fn();
 
 vi.mock('../services/api', () => ({
   getSubjects: (...a: any[]) => mockGetSubjects(...a),
   getHomeSummary: (...a: any[]) => mockGetHome(...a),
-  getActivity: (...a: any[]) => mockGetActivity(...a),
-  getDashboardOverview: (...a: any[]) => mockGetOverview(...a),
-  getScoreTrends: (...a: any[]) => mockGetTrends(...a),
-}));
-
-// jsdom has no real canvas context, so Chart.js throws on any non-empty
-// dataset. Mocked as an opaque leaf, exactly as AnalyticsPage.test.tsx does,
-// so this file tests HomePage's own logic rather than fighting an
-// environment limitation unrelated to it.
-vi.mock('../components/analytics/ScoreTrendChart', () => ({
-  ScoreTrendChart: ({ trends }: { trends: any[] }) => (
-    <div data-testid="score-trend-chart">{trends.length} points</div>
-  ),
+  getOtherPreparation: (...a: any[]) => mockGetOther(...a),
 }));
 
 const CERT: Subject = {
@@ -43,30 +27,34 @@ const CERT: Subject = {
   pass_mark: 85,
   exam_question_count: 80,
   exam_minutes: 60,
-  has_exam_profile: true,
+  has_exam_profile: true, question_count: 500,
   readiness: {
     state: 'almost_there',
-    mock_count: 3,
+    mock_count: 6,
     pass_mark: 85,
-    recent_scores: [79, 82, 84],
+    recent_scores: [70, 82.5, 87.5, 92.5],
     latest_taken_at: '2026-09-01T10:00:00',
     is_stale: false,
-    domains: [],
-    weakest_domain: 'Scrum Events',
-    points_per_mock: 2.5,
-    mocks_to_pass_estimate: 2,
+    domains: [
+      { domain: 'Managing Products with Agility', state: 'developing', answered: 53, score_pct: 84.9 },
+    ],
+    weakest_domain: 'Managing Products with Agility',
+    points_per_mock: 7.5,
+    mocks_to_pass_estimate: null,
+    blockers: [{ kind: 'below_pass', value: 82.5, target: 85, count: 1 }],
+    most_improved: null,
   },
 };
 
 const SKILL: Subject = {
-  id: 2,
-  name: 'Databricks Data Platform',
-  slug: 'databricks',
+  id: 3,
+  name: 'System Design',
+  slug: 'system-design',
   kind: 'skill',
   pass_mark: null,
   exam_question_count: null,
   exam_minutes: null,
-  has_exam_profile: false,
+  has_exam_profile: false, question_count: 500,
   readiness: {
     state: 'needs_evaluation',
     mock_count: 0,
@@ -78,252 +66,239 @@ const SKILL: Subject = {
     weakest_domain: null,
     points_per_mock: null,
     mocks_to_pass_estimate: null,
+    blockers: [{ kind: 'no_exam_profile' }],
+    most_improved: null,
   },
 };
 
-function renderHome() {
-  return render(
+const summary = (over: Partial<any> = {}) => ({
+  resumable: null,
+  unreviewed_total: 0,
+  due_for_review: 0,
+  per_subject: [{ subject_id: 1, unreviewed: 0 }],
+  mock_count: 6,
+  mock_accuracy: 81.2,
+  subjects_total: 3,
+  subjects_ready: 0,
+  ...over,
+});
+
+const renderHome = () =>
+  render(
     <MemoryRouter initialEntries={['/']}>
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/subjects/:id" element={<div>Subject Page</div>} />
-        <Route path="/exam/:sessionId" element={<div>Exam Runner</div>} />
+        <Route path="/exam-setup" element={<div>exam setup</div>} />
+        <Route path="/review" element={<div>review page</div>} />
       </Routes>
     </MemoryRouter>
   );
-}
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetSubjects.mockResolvedValue([CERT, SKILL]);
-  mockGetHome.mockResolvedValue({
-    resumable: null,
-    unreviewed_total: 0,
-    due_for_review: 0,
-    per_subject: [],
-    mock_count: 0,
-    mock_accuracy: null,
-    subjects_total: 2,
-    subjects_ready: 0,
-  });
-  mockGetActivity.mockResolvedValue([]);
-  mockGetTrends.mockResolvedValue([]);
-  mockGetOverview.mockResolvedValue({
-    total_exams: 4,
-    total_questions_attempted: 240,
-    overall_accuracy_percentage: 72,
-    average_time_per_question_seconds: 41,
-    weak_topics: [],
-    strong_topics: [],
-    study_streak_days: 3,
-    daily_goal: 20,
-    today_practiced_count: 5,
-    spaced_repetition_due_count: 0,
-    recent_exams: [],
-  });
+  mockGetHome.mockResolvedValue(summary());
+  mockGetOther.mockResolvedValue([]);
 });
 
 describe('HomePage', () => {
-  it('lists every subject with its readiness state', async () => {
+  it('leads with the verdict, with the subject as context above it', async () => {
     renderHome();
-    expect(await screen.findByText('Scrum / PSM I')).toBeInTheDocument();
-    expect(screen.getByText('Databricks Data Platform')).toBeInTheDocument();
-    expect(screen.getByText('Almost there')).toBeInTheDocument();
-    expect(screen.getAllByText('Needs evaluation').length).toBeGreaterThan(0);
+
+    // The state is the answer to the question someone opens Home with; the
+    // subject name is the one fact they already know.
+    const verdict = await screen.findByRole('heading', { name: 'Almost there' });
+    expect(verdict).toBeInTheDocument();
+    expect(screen.getByText('Scrum / PSM I')).toBeInTheDocument();
   });
 
-  it('never shows a ranked list of what to do next', async () => {
-    // The design decision this page exists to hold. Being told what to do
-    // next was put to the user and rejected as nagging.
+  it('shows the evidence behind the verdict, not just the verdict', async () => {
     renderHome();
-    await screen.findByText('Scrum / PSM I');
 
-    expect(screen.queryByText(/do this next/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/suggested/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/we recommend/i)).not.toBeInTheDocument();
+    expect(await screen.findByText('70%')).toBeInTheDocument();
+    expect(screen.getByText('83%')).toBeInTheDocument();
+    expect(screen.getByText('93%')).toBeInTheDocument();
+    expect(screen.getByText('85% to pass')).toBeInTheDocument();
+    expect(screen.getByText(/6 full mocks/)).toBeInTheDocument();
   });
 
-  it('says a subject has no mock rather than showing it as zero per cent', async () => {
+  it('explains why it is not ready from the unmet condition, in numbers', async () => {
     renderHome();
-    await screen.findByText('Databricks Data Platform');
 
-    expect(screen.queryByText('0%')).not.toBeInTheDocument();
-    expect(screen.getByText(/no exam profile/i)).toBeInTheDocument();
+    expect(await screen.findByText('Why not ready')).toBeInTheDocument();
+    expect(
+      screen.getByText(/One of your last three mocks came in at 83%, under the 85% pass mark/)
+    ).toBeInTheDocument();
   });
 
-  it('shows the mock evidence behind a readiness claim', async () => {
+  it('does not call a domain a weakness when it is above the floor', async () => {
     renderHome();
-    await screen.findByText('Scrum / PSM I');
-    // A state with no sample size is a claim with no basis.
-    expect(screen.getByText(/3 mocks/)).toBeInTheDocument();
-    expect(screen.getByText(/pass mark 85%/)).toBeInTheDocument();
+
+    await screen.findByRole('heading', { name: 'Almost there' });
+    // The lowest-scoring domain sits five points above the floor. Naming it
+    // "your weakest area" invented a problem, and a learner cannot tell an
+    // invented problem from a real one.
+    expect(screen.queryByText(/weakest area/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Managing Products with Agility')).not.toBeInTheDocument();
   });
 
-  it('does not put a resume card on the dashboard', async () => {
-    // Removed by request. An unfinished session is still reachable, but the
-    // dashboard is for where you stand, not for pushing you back into a
-    // session you chose to leave.
-    mockGetHome.mockResolvedValue({
-      resumable: {
-        session_id: 42, title: 'PSM I mock 5', session_kind: 'mock',
-        answered: 22, total: 80, seconds_remaining: 2280, started_at: null,
+  it('names the weak area only when it is genuinely under the floor', async () => {
+    mockGetSubjects.mockResolvedValue([{
+      ...CERT,
+      readiness: {
+        ...CERT.readiness,
+        blockers: [{
+          kind: 'weak_domain' as const,
+          domain: 'Managing Products with Agility',
+          value: 71.4,
+          target: 80,
+          count: 53,
+        }],
       },
-      unreviewed_total: 0, due_for_review: 0, per_subject: [],
-      mock_count: 0, mock_accuracy: null, subjects_total: 2, subjects_ready: 0,
-    });
+    }]);
     renderHome();
-    await screen.findByText('Where you stand');
 
-    expect(screen.queryByRole('button', { name: /resume/i })).not.toBeInTheDocument();
-    expect(screen.queryByText('PSM I mock 5')).not.toBeInTheDocument();
+    expect(
+      await screen.findByText(/Managing Products with Agility is at 71%, under the 80% floor/)
+    ).toBeInTheDocument();
   });
 
-  it('plots the score history that already exists', async () => {
-    // Ten sessions of real data were being ignored. The chart is history,
-    // not readiness, and the caption has to say so.
-    mockGetTrends.mockResolvedValue([
-      { date: 'Aug 21', score: 82, rolling_avg: 82, exam_title: 'Timed Exam' },
-      { date: 'Aug 31', score: 88, rolling_avg: 85, exam_title: 'Timed Exam' },
+  it('offers exactly one continuation, not a list of things owed', async () => {
+    mockGetHome.mockResolvedValue(
+      summary({ unreviewed_total: 12, per_subject: [{ subject_id: 1, unreviewed: 12 }] })
+    );
+    renderHome();
+
+    expect(await screen.findByRole('button', { name: 'Review them' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+  });
+
+  it('prefers finishing what was started over starting something new', async () => {
+    mockGetHome.mockResolvedValue(summary({
+      unreviewed_total: 12,
+      per_subject: [{ subject_id: 1, unreviewed: 12 }],
+      resumable: {
+        session_id: 42, title: 'PSM I mock', session_kind: 'mock',
+        answered: 46, total: 80, seconds_remaining: 900, started_at: '2026-09-04T10:00:00',
+      },
+    }));
+    renderHome();
+
+    expect(await screen.findByText(/question 47 of 80/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Pick it up' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Review them' })).not.toBeInTheDocument();
+  });
+
+  it('says nothing is measured yet rather than showing zero per cent', async () => {
+    mockGetSubjects.mockResolvedValue([{
+      ...CERT,
+      readiness: {
+        ...CERT.readiness,
+        state: 'needs_evaluation' as const,
+        mock_count: 0,
+        recent_scores: [],
+        blockers: [{ kind: 'more_mocks' as const, value: 0, target: 3, count: 3 }],
+      },
+    }]);
+    mockGetHome.mockResolvedValue(summary({ mock_count: 0, mock_accuracy: null }));
+    renderHome();
+
+    expect(await screen.findByRole('heading', { name: 'Not measured yet' })).toBeInTheDocument();
+    expect(screen.queryByText('0%')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Take your first mock' })).toBeInTheDocument();
+  });
+
+  it('offers an import, not a mock, when the question bank is empty', async () => {
+    // A fresh install seeds three subjects and no exam questions, so the one
+    // action on a new user's Home was "Take your first mock" against a bank
+    // the engine correctly refuses to draw from. The only thing the product
+    // offered a new user was an error message.
+    mockGetSubjects.mockResolvedValue([{
+      ...CERT,
+      question_count: 0,
+      readiness: {
+        ...CERT.readiness,
+        state: 'needs_evaluation' as const,
+        mock_count: 0,
+        recent_scores: [],
+        blockers: [{ kind: 'more_mocks' as const, value: 0, target: 3, count: 3 }],
+      },
+    }]);
+    mockGetHome.mockResolvedValue(summary({ mock_count: 0, mock_accuracy: null }));
+    renderHome();
+
+    expect(await screen.findByRole('button', { name: 'Import questions' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /mock/i })).not.toBeInTheDocument();
+  });
+
+  it('reports what the last stretch of work bought when something moved', async () => {
+    mockGetSubjects.mockResolvedValue([{
+      ...CERT,
+      readiness: {
+        ...CERT.readiness,
+        most_improved: {
+          domain: 'Understanding and Applying the Scrum Framework',
+          before_pct: 84.8, after_pct: 93, points: 8.2,
+        },
+      },
+    }]);
+    renderHome();
+
+    expect(await screen.findByText('Recent learning')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Scrum Framework went from 85% to 93% between your last two mocks/)
+    ).toBeInTheDocument();
+  });
+
+  it('lists only the formats that have actually been used', async () => {
+    mockGetOther.mockResolvedValue([
+      { key: 'system_design', label: 'System Design', detail: '4 attempts', href: '/system-design' },
     ]);
     renderHome();
 
-    expect(await screen.findByText('Score history')).toBeInTheDocument();
-    expect(screen.getByTestId('score-trend-chart')).toHaveTextContent('2 points');
-    expect(screen.getByText(/mocks and drills together/i)).toBeInTheDocument();
+    expect(await screen.findByText('System Design')).toBeInTheDocument();
+    expect(screen.getByText('4 attempts')).toBeInTheDocument();
+    // The server omits an unused format rather than reporting it as zero.
+    expect(screen.queryByText(/0 attempts/)).not.toBeInTheDocument();
   });
 
-  it('reports unreviewed answers as a count, not an instruction', async () => {
-    mockGetHome.mockResolvedValue({
-      resumable: null,
-      unreviewed_total: 18,
-      due_for_review: 14,
-      per_subject: [{ subject_id: 1, unreviewed: 18 }],
-      mock_count: 3, mock_accuracy: 81.7, subjects_total: 2, subjects_ready: 0,
-    });
+  it('has no streak, no daily goal and no backlog total', async () => {
+    mockGetHome.mockResolvedValue(summary({ unreviewed_total: 90, due_for_review: 315 }));
     renderHome();
 
-    expect(await screen.findByText('18 unreviewed')).toBeInTheDocument();
-    // A count with no verb attached. No "review these now".
-    expect(screen.queryByText(/review them now/i)).not.toBeInTheDocument();
+    await screen.findByRole('heading', { name: 'Almost there' });
+    expect(screen.queryByText(/streak/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/daily goal|practice goal/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('405')).not.toBeInTheDocument();
+    expect(screen.queryByText('315')).not.toBeInTheDocument();
   });
 
-  it('opens the subject when a subject card is clicked', async () => {
-    const user = userEvent.setup();
+  it('does not claim a count of ready subjects it cannot support', async () => {
     renderHome();
-    await user.click(await screen.findByText('Scrum / PSM I'));
-    expect(await screen.findByText('Subject Page')).toBeInTheDocument();
+
+    await screen.findByRole('heading', { name: 'Almost there' });
+    // Two of the three subjects can never be ready, so "0 / 3" described an
+    // achievement that does not exist.
+    expect(screen.queryByText('0 / 3')).not.toBeInTheDocument();
   });
 
   it('invites a first subject rather than rendering an empty page', async () => {
     mockGetSubjects.mockResolvedValue([]);
     renderHome();
-    expect(await screen.findByText(/no subjects yet/i)).toBeInTheDocument();
+
+    expect(await screen.findByText(/Import a question bank/)).toBeInTheDocument();
   });
 
-  it('shows headline metrics that count mocks alone', async () => {
-    mockGetHome.mockResolvedValue({
-      resumable: null, unreviewed_total: 0, due_for_review: 0, per_subject: [],
-      mock_count: 3, mock_accuracy: 81.7, subjects_total: 2, subjects_ready: 1,
-    });
+  it('reports a failed load as a failure, not as an empty account', async () => {
+    mockGetSubjects.mockRejectedValue(new Error('offline'));
     renderHome();
 
-    expect(await screen.findByText('Mock Accuracy')).toBeInTheDocument();
-    expect(screen.getByText('81.7%')).toBeInTheDocument();
-    expect(screen.getByText('Drills excluded')).toBeInTheDocument();
-    expect(screen.getByText('1 / 2')).toBeInTheDocument();
-  });
-
-  it('says accuracy needs evaluation rather than showing it as zero', async () => {
-    // The old dashboard averaged drills into its accuracy figure, which is
-    // why it could not answer whether you would pass. An absent measurement
-    // must not render as a failing one.
-    renderHome();
-    await screen.findByText('Mock Accuracy');
-
-    // It appears both as the headline value and as a subject's state, which
-    // is correct -- the point is that neither is rendered as a zero.
-    expect(screen.getAllByText('Needs evaluation').length).toBeGreaterThan(0);
-    expect(screen.queryByText('0%')).not.toBeInTheDocument();
-    expect(screen.queryByText('0.0%')).not.toBeInTheDocument();
-  });
-
-  it('lists recent activity across every format', async () => {
-    mockGetActivity.mockResolvedValue([
-      { kind: 'mock', at: '2026-09-01T10:00:00', title: 'PSM I mock 4', detail: '84%', href: '/exam-review/4' },
-      { kind: 'design_review', at: '2026-08-31T10:00:00', title: 'The warehouse that sleeps', detail: 'chose B', href: '/design-reviews/2' },
-    ]);
-    renderHome();
-
-    expect(await screen.findByText('PSM I mock 4')).toBeInTheDocument();
-    expect(screen.getByText('The warehouse that sleeps')).toBeInTheDocument();
-  });
-
-  it('opens with a statement about where you stand, and a way in', async () => {
-    // The hero is the page having a voice. It says what is true and offers a
-    // door -- it is not a ranked instruction, which is the thing that was
-    // rejected.
-    renderHome();
-
-    // The default fixture has a subject at "almost there", so the hero
-    // reports that rather than a generic count.
-    expect(await screen.findByText(/close on scrum/i)).toBeInTheDocument();
-    expect(screen.getByText(/last mock 84% against a 85% pass mark/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /start practising/i })).toBeInTheDocument();
-  });
-
-  it('reports a plain count when no subject is close yet', async () => {
-    mockGetSubjects.mockResolvedValue([
-      { ...CERT, readiness: { ...CERT.readiness, state: 'needs_evaluation', mock_count: 0, recent_scores: [] } },
-      SKILL,
-    ]);
-    renderHome();
-
-    expect(await screen.findByText(/2 subjects on the go/i)).toBeInTheDocument();
-    expect(screen.getByText(/nothing measured yet/i)).toBeInTheDocument();
-  });
-
-  it('says you are ready in the hero once a subject actually is', async () => {
-    mockGetSubjects.mockResolvedValue([
-      { ...CERT, readiness: { ...CERT.readiness, state: 'ready', recent_scores: [86, 87, 88] } },
-    ]);
-    renderHome();
-    expect(await screen.findByText(/you are ready for scrum \/ psm i/i)).toBeInTheDocument();
-  });
-
-  it('gives a study technique, not a restated statistic', async () => {
-    mockGetHome.mockResolvedValue({
-      resumable: null, unreviewed_total: 0, due_for_review: 14, per_subject: [],
-      mock_count: 0, mock_accuracy: null, subjects_total: 2, subjects_ready: 0,
-    });
-    renderHome();
-
-    expect(await screen.findByText('Adaptive learning tip')).toBeInTheDocument();
-    expect(screen.getByText(/short, frequent bursts/i)).toBeInTheDocument();
-  });
-
-  it('shows strongest areas alongside the weak ones', async () => {
-    mockGetOverview.mockResolvedValue({
-      total_exams: 4, total_questions_attempted: 240, overall_accuracy_percentage: 72,
-      average_time_per_question_seconds: 41,
-      weak_topics: [{ topic: 'Timeboxes', domain: 'D1', total_attempted: 18, correct_count: 11, accuracy_percentage: 61 }],
-      strong_topics: [{ topic: 'Scrum Roles', domain: 'D1', total_attempted: 42, correct_count: 39, accuracy_percentage: 93 }],
-      study_streak_days: 3, daily_goal: 20, today_practiced_count: 5,
-      spaced_repetition_due_count: 0, recent_exams: [],
-    });
-    renderHome();
-
-    expect(await screen.findByText('Strongest Areas')).toBeInTheDocument();
-    expect(screen.getByText('Scrum Roles')).toBeInTheDocument();
-    expect(screen.getByText('Timeboxes')).toBeInTheDocument();
-  });
-
-  it('does not claim you have no subjects when the request failed', async () => {
-    // A connection error is not an empty account. Saying "no subjects yet"
-    // here tells the user something false about their own data.
-    mockGetSubjects.mockRejectedValue(new Error('network'));
-    renderHome();
-
-    expect(await screen.findByText(/failed to load/i)).toBeInTheDocument();
-    expect(screen.queryByText(/no subjects yet/i)).not.toBeInTheDocument();
+    expect(await screen.findByText(/Could not reach/)).toBeInTheDocument();
+    expect(screen.queryByText(/Import a question bank/)).not.toBeInTheDocument();
+    // And says what has not happened. "Nothing has been lost" is the
+    // difference between a failure and a bereavement on a local-first app.
+    expect(screen.getByText(/Nothing has been lost/)).toBeInTheDocument();
+    // An error you can only look at is a dead end, on the first screen.
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
   });
 });

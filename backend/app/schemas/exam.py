@@ -15,12 +15,14 @@ class ExamCreateRequest(BaseModel):
     exam_mode: ExamMode = ExamMode.PRACTICE
     certification: Optional[str] = None
     topics: Optional[List[str]] = None
+    # The exam-blueprint area, e.g. "Managing Products with Agility". This is
+    # what "practise your weak area" actually restricts to.
+    domains: Optional[List[str]] = None
     difficulties: Optional[List[str]] = None
     total_questions: int = Field(default=25, ge=1)
     time_allowed_minutes: Optional[int] = 60
     passing_percentage: float = 70.0
     randomize_questions: bool = True
-    randomize_options: bool = True
 
     # A mock measures readiness; a drill closes gaps. The model and the
     # readiness rule have distinguished them since they were added, but the
@@ -71,6 +73,11 @@ class ExamAnswerResponse(BaseModel):
     is_flagged: bool
     is_bookmarked: bool
     user_notes: Optional[str] = None
+    # When this answer was actually looked at after the mock. None means it
+    # has not been. Exposed so the client can tell the difference -- without
+    # it the review count could only ever be written to, never read, and
+    # "90 unreviewed" was a number with no way down.
+    reviewed_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -80,6 +87,16 @@ class ExamSessionResponse(BaseModel):
     exam_mode: ExamMode
     status: ExamStatus
     certification: Optional[str] = None
+
+    # A mock must be identifiable wherever a session is shown. Without these
+    # the UI could tell you your score but not whether it counted, which is
+    # the one thing the score means.
+    #
+    # `source` is response-only on purpose -- there is no field for it on
+    # ExamCreateRequest, so a client cannot declare its own provenance and
+    # everything the app records is the learner's.
+    session_kind: str = DRILL
+    subject_id: Optional[int] = None
     total_questions: int
     answered_questions: int
     correct_count: int

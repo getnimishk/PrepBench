@@ -131,6 +131,13 @@ All under `/api/v1/design-reviews`:
 
 Ten reviews in `app/utils/seed_design_reviews.py`, all currently in the `data_platform` domain. The domain vocabulary is shared with the system design prompt bank so the two features can eventually be filtered together.
 
+### Which subject owns which reviews
+
+Design reviews carry a `domain` string and no `subject_id`, so ownership is an explicit dictionary — `HomeService._DESIGN_REVIEW_DOMAIN_BY_SUBJECT`. This is **acknowledged technical debt with a stated trigger**, not an accident:
+
+- **Replace it when** reviews need to belong to a subject nobody enumerated there — when reviews become user-importable, or a fourth subject ships with its own. At that point `domain` becomes `subject_id` on `design_reviews` and the method goes away.
+- **Safe until then because** a subject that is not in the dictionary maps to `None` and runs no query at all, so the only possible error is under-reporting — *"No reviews for this subject"*, a claim a reader can contradict. It used to map to the sentinel string `"__none__"`, which was correct only for as long as no review was ever seeded carrying that value. `tests/test_schema_and_ownership.py` holds both halves.
+
 Vocabulary is introduced **inside the options** rather than defined anywhere. A term attached to a decision it changed is remembered; a glossary entry is not. `concepts` lists what a review introduces, so the terms can be listed and later cross-referenced the way the Chart Sandbox lists its concepts.
 
 Seeding is reconciled through the [seed ledger](Architecture#seeding-and-the-ledger): a review added by a later version reaches an install that has already been seeded, and one deleted by hand stays deleted.

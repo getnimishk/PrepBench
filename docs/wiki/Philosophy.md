@@ -88,7 +88,11 @@ Rules 1 and 2 protect against **over-claiming**: never invent a score, never dec
 Both are dishonest. A product that reports *"needs evaluation"* to someone who has just sat six full 80-question papers and cleared the pass mark twice is not being careful. It is being wrong, modestly.
 
 > [!IMPORTANT]
-> "Never invent" and "never miss" are separate disciplines. Only the first is currently implemented and tested.
+> "Never invent" and "never miss" are separate disciplines.
+
+Both are now implemented. `reconcile_evidence.py` recognises papers that were sat at full length, timed, against a subject's own exam profile, before the app was able to record what kind of session they were — `session_kind` arrived as `ALTER TABLE … DEFAULT 'drill'`, so "drill" on a historical row was a schema default rather than anything the learner said. The criteria are structural and strict, and a session that fails any of them stays a drill.
+
+It claims the shape and nothing more. What it cannot prove is motive: an 80-question, 60-minute, PSM I-filtered paper is both exactly the real exam and exactly what the old app handed you if you changed nothing. So the rule is stated on Insights where the count is claimed, and every recognised session stays listed and dated under Review, where it can be disagreed with.
 
 ## What PrepBench refuses to be
 
@@ -107,7 +111,7 @@ Stated once, so the answer is short when the question comes up.
 
 **Quiet surface. Deep system.**
 
-Adopted as the standing design direction; not yet realised in the UI. Its practical consequences:
+The standing design direction, and now realised in the UI. Its practical consequences:
 
 - **Hierarchical inconsistency is correct.** Practice should be minimal and immersive; learning editorial and calm; analytics dense and factual; settings functional; content management operational. Applying one visual grammar to all five makes everything feel equally important, which means nothing does.
 - **A metric without a corresponding action is secondary.** Metrics should answer *what changed*, not *what can we display*.
@@ -122,11 +126,12 @@ Recorded rather than resolved. A philosophy page that lists only settled princip
 
 | Tension | Status |
 |---|---|
-| Honest absence (rule 2) vs. the false negative it currently produces (rule 6) | Live. Readiness reports `needs_evaluation` on a real six-run improvement arc, because no session in the database is a mock |
-| State, not instructions (rule 5) vs. *"what should I do now?"* | Unresolved. The product has the evidence to guide and declines to use it. The distinction between guidance and nagging is agreed; the implementation is not |
-| Readiness as the single output vs. four first-class outcomes | Acknowledged above. Not yet reflected in the code |
-| Subject as the conceptual anchor vs. format-centric data underneath | Real mismatch. Subject coverage mixes subject-scoped counts with globally scoped ones |
-| Surface built ahead of usage | The structural problem behind most of the above. See [Product Review](Product-Review) |
+| Honest absence (rule 2) vs. the false negative it produced (rule 6) | **Resolved.** Readiness reads the six recognised papers and reports `almost_there`. Both disciplines are implemented and tested |
+| State, not instructions (rule 5) vs. *"what should I do now?"* | **Settled.** Home offers exactly one continuation, always naming the evidence it came from. One claim a person can disagree with is not a ranked backlog with a completion percentage, and the difference is not subtle |
+| Readiness as the single output vs. four first-class outcomes | **Settled.** Readiness is the headline; the other three formats appear under *Other preparation*, counted from real rows, and a format with nothing behind it is omitted rather than shown as zero |
+| Subject as the conceptual anchor vs. format-centric data underneath | **Partly resolved.** Coverage now reports only what a subject actually owns. Design reviews still map to subjects through a hardcoded slug dictionary, kept deliberately: generalising an abstraction with one populated member is the error this page warns about two rows above |
+| Surface built ahead of usage | **Addressed.** Two correction passes deleted three pages, four navigation groups, six dead settings columns and every metric that had no action behind it. See [Product Review](Product-Review) |
+| Recognising evidence (rule 6) vs. inferring intent | **Live, and deliberate.** The reconciliation reads a session's shape, never a motive. It is the one place the product interprets rather than reports, which is why the rule is stated in the UI rather than only in the code |
 
 ## See also
 

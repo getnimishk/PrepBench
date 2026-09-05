@@ -2,13 +2,11 @@
 # Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 # Commercial use requires a separate licence from the copyright holder.
 
-from typing import List
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.exam import ExamCreateRequest, SaveAnswerRequest, ExamSessionResponse, ExamDetailResponse
 from app.services.exam_engine import ExamEngine
-from app.repositories.exam_repository import ExamRepository
 
 router = APIRouter(prefix="/exams", tags=["Exams Engine"])
 
@@ -17,11 +15,11 @@ def start_exam(req: ExamCreateRequest, db: Session = Depends(get_db)):
     engine = ExamEngine(db)
     return engine.create_exam(req)
 
-@router.get("", response_model=List[ExamSessionResponse])
-def list_exams(skip: int = Query(0, ge=0), limit: int = Query(50, ge=1), db: Session = Depends(get_db)):
-    repo = ExamRepository(db)
-    sessions = repo.get_all_sessions(skip=skip, limit=limit)
-    return [ExamSessionResponse.model_validate(s) for s in sessions]
+# There is no GET /exams. It returned every session with every answer
+# embedded -- fifty sessions of eighty answers in one payload -- and its only
+# caller was the standalone exam-history page, which is now folded into
+# Review. Review reads /home/activity, which is one timeline across every
+# format and carries no answer bodies at all.
 
 @router.get("/{session_id}", response_model=ExamDetailResponse)
 def get_exam_details(session_id: int, db: Session = Depends(get_db)):

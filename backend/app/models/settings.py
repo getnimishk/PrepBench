@@ -11,11 +11,21 @@ class AppSettings(Base):
     id = Column(Integer, primary_key=True, default=1)
     theme = Column(String(20), default="light") # dark, light, system
     timer_sound_enabled = Column(Boolean, default=True)
-    default_exam_mode = Column(String(50), default="timed")
-    default_questions_count = Column(Integer, default=80)
-    default_passing_percentage = Column(Float, default=95.0)
-    shuffle_questions = Column(Boolean, default=True)
-    shuffle_options = Column(Boolean, default=True)
-    daily_practice_goal = Column(Integer, default=20)
+    # Six columns stood here and every one of them was a control whose only
+    # effect was to be saved:
+    #
+    #   shuffle_options          the engine never applied it
+    #   daily_practice_goal      went with the streak and the goal ring
+    #   default_exam_mode        nothing read it
+    #   default_questions_count  nothing read it
+    #   default_passing_percentage  nothing read it; worse, the value it did
+    #                            hold (95%) was stamped onto six real papers
+    #                            and made an 87.5% pass look like a failure
+    #   shuffle_questions        nothing read it
+    #
+    # They are dropped from existing databases by the migration rather than
+    # left as furniture. A mock takes its shape from the subject's exam
+    # profile because the real exam does not let you choose; a drill takes
+    # its shape from the screen you start it on.
     initial_seed_completed = Column(Boolean, default=False)
     default_target_role = Column(String(200), nullable=True)

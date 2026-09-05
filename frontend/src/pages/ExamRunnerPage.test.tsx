@@ -69,6 +69,7 @@ function makeExamDetail(): ExamDetail {
     id: 1,
     title: 'Test Exam',
     exam_mode: 'practice',
+    session_kind: 'drill',
     status: 'in_progress',
     total_questions: 2,
     answered_questions: 0,

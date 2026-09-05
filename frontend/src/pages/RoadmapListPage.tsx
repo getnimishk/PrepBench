@@ -88,7 +88,7 @@ export const RoadmapListPage: React.FC = () => {
 
   if (fetchError) {
     return (
-      <Box sx={{ maxWidth: 800, mx: 'auto', mt: 4 }}>
+      <Box sx={{ maxWidth: 800, mt: 4 }}>
         <Alert severity="error" action={<Button color="inherit" size="small" onClick={fetchRoadmaps}>Retry</Button>}>
           {fetchError}
         </Alert>
@@ -102,7 +102,7 @@ export const RoadmapListPage: React.FC = () => {
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1, flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 800 }}>Learning Roadmaps</Typography>
+          <Typography variant="h4" sx={{ fontWeight: 600 }}>Learning Roadmaps</Typography>
           <Typography variant="body2" color="text.secondary">
             Track a curriculum end to end — import one, or build it yourself.
           </Typography>
@@ -167,7 +167,7 @@ export const RoadmapListPage: React.FC = () => {
                     </Box>
 
                     <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mt: 2 }}>
-                      <Typography variant="h4" sx={{ fontWeight: 800 }}>
+                      <Typography variant="h4" sx={{ fontWeight: 600 }}>
                         {formatPercentage(pct)}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">

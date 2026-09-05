@@ -59,6 +59,13 @@ class CoverageItem(BaseModel):
     detail: str
 
 
+class OtherPreparationItem(BaseModel):
+    key: str
+    label: str
+    detail: str
+    href: str
+
+
 class ActivityItem(BaseModel):
     kind: str
     at: Optional[datetime] = None
@@ -89,6 +96,12 @@ def get_activity(limit: int = Query(40, ge=1, le=200), db: Session = Depends(get
     """One timeline across every practice format, replacing the separate
     Exam History and System Design History pages."""
     return HomeService(db).activity(limit=limit)
+
+
+@router.get("/other-preparation", response_model=List[OtherPreparationItem])
+def get_other_preparation(db: Session = Depends(get_db)):
+    """What has been practised outside the exam, counted from real rows."""
+    return HomeService(db).other_preparation()
 
 
 @router.get("/subjects/{subject_id}/coverage", response_model=List[CoverageItem])

@@ -5,10 +5,10 @@
 import React, { useEffect, useState } from 'react';
 import {
   Box, Card, CardContent, Typography, Grid, Switch, FormControlLabel,
-  Slider, MenuItem, TextField, Button, Divider, Alert, Chip, LinearProgress,
+  MenuItem, TextField, Button, Divider, Alert, LinearProgress,
   Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
-import { Save, Settings as SettingsIcon, Moon, Volume2, AlertTriangle, RotateCcw, Network } from 'lucide-react';
+import { Save, Volume2, AlertTriangle, RotateCcw } from 'lucide-react';
 import { getSettings, updateSettings, resetApplication } from '../services/api';
 import { useThemeMode } from '../context/ThemeContext';
 import { AppSettings } from '../types/settings';
@@ -108,13 +108,13 @@ export const SettingsPage: React.FC = () => {
   if (!settings) return null;
 
   return (
-    <Box sx={{ maxWidth: 720, mx: 'auto' }}>
-      <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>Settings</Typography>
+    <Box sx={{ maxWidth: 720 }}>
+      <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>Settings</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        All settings are stored locally in your SQLite database.
+        Stored locally, in the same SQLite file as everything else.
       </Typography>
 
-      {saved && <Alert severity="success" sx={{ mb: 2 }}>Settings saved successfully!</Alert>}
+      {saved && <Alert severity="success" sx={{ mb: 2 }}>Saved.</Alert>}
       {saveError && <Alert severity="error" sx={{ mb: 2 }}>{saveError}</Alert>}
       {resetError && <Alert severity="error" sx={{ mb: 2 }}>{resetError}</Alert>}
       {resetSuccess && (
@@ -123,11 +123,11 @@ export const SettingsPage: React.FC = () => {
         </Alert>
       )}
 
-      <Card sx={{ mb: 3, borderRadius: '12px', boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
-        <CardContent>
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Moon size={20} /> Appearance & Audio
-          </Typography>
+      <Box sx={{ mb: 5 }}>
+        <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+          Appearance and audio
+        </Typography>
+        <Box sx={{ mt: 1.5 }}>
           <Grid container spacing={3}>
             <Grid
               size={{
@@ -137,12 +137,12 @@ export const SettingsPage: React.FC = () => {
               <TextField
                 select
                 fullWidth
-                label="Theme Mode"
+                label="Theme"
                 value={settings.theme}
                 onChange={(e) => setSettings({ ...settings, theme: e.target.value as 'dark' | 'light' })}
               >
-                <MenuItem value="dark">Dark Mode</MenuItem>
-                <MenuItem value="light">Light Mode</MenuItem>
+                <MenuItem value="dark">Dark</MenuItem>
+                <MenuItem value="light">Light</MenuItem>
               </TextField>
             </Grid>
             <Grid
@@ -160,124 +160,30 @@ export const SettingsPage: React.FC = () => {
                 }
                 label={
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Volume2 size={16} /> Timer Sound Alert (&lt; 5 min)
+                    <Volume2 size={16} /> Timer sound alert (under 5 min)
                   </Box>
                 }
               />
             </Grid>
           </Grid>
-        </CardContent>
-      </Card>
+        </Box>
+      </Box>
 
-      <Card sx={{ mb: 3, borderRadius: '12px', boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
-        <CardContent>
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <SettingsIcon size={20} /> Exam Defaults
-          </Typography>
-          <Grid container spacing={3}>
-            <Grid
-              size={{
-                xs: 12,
-                sm: 6
-              }}>
-              <TextField
-                select
-                fullWidth
-                label="Default Exam Mode"
-                value={settings.default_exam_mode}
-                onChange={(e) => setSettings({ ...settings, default_exam_mode: e.target.value })}
-              >
-                <MenuItem value="practice">Practice Mode</MenuItem>
-                <MenuItem value="timed">Timed Exam</MenuItem>
-                <MenuItem value="custom">Custom Exam</MenuItem>
-                <MenuItem value="weak_topic">Weak Topic Focus</MenuItem>
-                <MenuItem value="spaced_repetition">Spaced Repetition</MenuItem>
-              </TextField>
-            </Grid>
+      {/* "Exam Defaults" -- default exam mode, default question count,
+          default passing score and shuffle question order -- stood here.
+          Nothing read any of them. A mock takes its shape from the subject's
+          exam profile because the real exam does not let you choose, and a
+          drill takes its shape from the screen you start it on. Four
+          controls whose only effect was to be saved, which is the same
+          defect as the "Shuffle Answer Options" switch that was removed
+          before them: a false statement about the product that the learner
+          has no way to catch. */}
 
-            <Grid
-              size={{
-                xs: 12,
-                sm: 6
-              }}>
-              <Typography variant="body2" component="div" sx={{ fontWeight: 600, mb: 1 }}>
-                Default Question Count: <Chip label={settings.default_questions_count} size="small" color="primary" />
-              </Typography>
-              <Slider
-                value={settings.default_questions_count}
-                onChange={(_, val) => setSettings({ ...settings, default_questions_count: val as number })}
-                min={5}
-                max={100}
-                step={5}
-                marks
-              />
-            </Grid>
-
-            <Grid
-              size={{
-                xs: 12,
-                sm: 6
-              }}>
-              <Typography variant="body2" component="div" sx={{ fontWeight: 600, mb: 1 }}>
-                Default Passing Score: <Chip label={`${settings.default_passing_percentage}%`} size="small" color="success" />
-              </Typography>
-              <Slider
-                value={settings.default_passing_percentage}
-                onChange={(_, val) => setSettings({ ...settings, default_passing_percentage: val as number })}
-                min={50}
-                max={95}
-                step={5}
-              />
-            </Grid>
-
-            <Grid
-              size={{
-                xs: 12,
-                sm: 6
-              }}>
-              <Typography variant="body2" component="div" sx={{ fontWeight: 600, mb: 1 }}>
-                Daily Practice Goal: <Chip label={`${settings.daily_practice_goal} questions`} size="small" color="warning" />
-              </Typography>
-              <Slider
-                value={settings.daily_practice_goal}
-                onChange={(_, val) => setSettings({ ...settings, daily_practice_goal: val as number })}
-                min={5}
-                max={100}
-                step={5}
-              />
-            </Grid>
-
-            <Grid size={12}>
-              <Box sx={{ display: 'flex', gap: 4 }}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={settings.shuffle_questions}
-                      onChange={(e) => setSettings({ ...settings, shuffle_questions: e.target.checked })}
-                    />
-                  }
-                  label="Shuffle Questions by Default"
-                />
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={settings.shuffle_options}
-                      onChange={(e) => setSettings({ ...settings, shuffle_options: e.target.checked })}
-                    />
-                  }
-                  label="Shuffle Answer Options"
-                />
-              </Box>
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
-
-      <Card sx={{ mb: 3, borderRadius: '12px', boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
-        <CardContent>
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Network size={20} /> System Design Defaults
-          </Typography>
+      <Box sx={{ mb: 5 }}>
+        <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+          System Design
+        </Typography>
+        <Box sx={{ mt: 1.5 }}>
           <TextField
             fullWidth
             label="Default Target Role"
@@ -286,8 +192,8 @@ export const SettingsPage: React.FC = () => {
             onChange={(e) => setSettings({ ...settings, default_target_role: e.target.value || null })}
             helperText="Pre-fills the Target Role field when starting a new System Design attempt, so feedback is calibrated to this role by default. Leave blank for no default -- you can still override it per attempt."
           />
-        </CardContent>
-      </Card>
+        </Box>
+      </Box>
 
       <AIProvidersSection />
 
@@ -300,8 +206,11 @@ export const SettingsPage: React.FC = () => {
         borderColor: 'error.main'
       }}>
         <CardContent>
-          <Typography variant="h6" color="error" sx={{ fontWeight: 700, mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <AlertTriangle size={20} /> Reset System Data
+          {/* The only bordered surface left on the page. Containment is
+              doing real work here: it separates the one irreversible action
+              from the reversible ones above it. */}
+          <Typography variant="subtitle1" color="error" sx={{ fontWeight: 600, mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <AlertTriangle size={18} /> Reset everything
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Restore the application to a brand-new empty state. This will erase all questions, exam sessions, history, bookmarks, notes, and restore default settings.
@@ -313,7 +222,7 @@ export const SettingsPage: React.FC = () => {
             onClick={() => setOpenResetModal(true)}
             sx={{ fontWeight: 700 }}
           >
-            Reset Entire Application
+            Reset the application
           </Button>
         </CardContent>
       </Card>

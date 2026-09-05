@@ -8,12 +8,7 @@ from app.repositories.analytics_repository import AnalyticsRepository
 from app.repositories.settings_repository import SettingsRepository
 from app.repositories.spaced_repetition_repository import SpacedRepetitionRepository
 from app.schemas.analytics import DashboardOverview, TopicMasteryItem, DomainMasteryItem, ScoreTrendPoint
-from app.core.timeutils import utc_now_naive, to_local_date, local_today, local_day_start_as_naive_utc
-from datetime import timedelta
-
-# What the dashboard shows if the settings row has not been created yet. Matches
-# the column default on AppSettings, which is the source of truth for it.
-FALLBACK_DAILY_GOAL = 20
+from app.core.timeutils import utc_now_naive
 
 
 class AnalyticsService:
@@ -64,44 +59,16 @@ class AnalyticsService:
             } for s in recent_db
         ]
 
-        # Streak calculation & today practice count
-        settings = self.settings_repo.get()
-        daily_goal = settings.daily_practice_goal if settings else FALLBACK_DAILY_GOAL
-
-        # Day boundaries come from the machine's local timezone, not UTC.
-        # Timestamps are stored as naive UTC (correct), but asking "did I
-        # practice today?" against a UTC calendar day is wrong for anyone not
-        # on UTC: at +05:30 the UTC day doesn't roll over until 05:30 local, so
-        # studying at 01:00 wouldn't count toward today and a streak would
-        # break on a day the user actually practiced.
-        today_local = local_today()
-        today_answers = self.repo.count_practice_answers_since(
-            local_day_start_as_naive_utc(today_local)
-        )
-
-        # Streak over local calendar dates. The conversion happens in Python
-        # rather than via SQL date(), because that would extract the UTC date
-        # and reintroduce the same off-by-one for non-UTC users -- so the
-        # repository hands back raw timestamps and the calendar logic lives
-        # here, where the timezone rule is stated.
-        completed_end_times = self.repo.get_completed_exam_end_times()
-        completed_dates = sorted({to_local_date(t) for t in completed_end_times}, reverse=True)
-
-        streak = 0
-        if completed_dates:
-            check_date = today_local
-            # Yesterday still counts as an unbroken streak -- today just isn't
-            # over yet.
-            if completed_dates[0] != check_date:
-                check_date = today_local - timedelta(days=1)
-
-            for completed_on in completed_dates:
-                if completed_on == check_date:
-                    streak += 1
-                    check_date -= timedelta(days=1)
-                elif completed_on < check_date:
-                    break
-
+        # There is no streak and no daily goal here any more.
+        #
+        # Both were in the product while the philosophy page said, in as many
+        # words, that PrepBench refuses to be "a streak or gamification
+        # system" because it "optimises for opening the app, not for passing
+        # the exam". The code was the thing that was wrong, not the page.
+        #
+        # A streak also punishes the correct behaviour: taking a rest day
+        # before a mock is good preparation, and a counter that resets for it
+        # is arguing against the learner's interest.
         sr_due_count = self.sr_repo.count_due(utc_now_naive())
 
         return DashboardOverview(
@@ -111,9 +78,6 @@ class AnalyticsService:
             average_time_per_question_seconds=overall["average_time_per_question_seconds"],
             weak_topics=weak,
             strong_topics=strong,
-            study_streak_days=max(streak, 1 if today_answers > 0 else 0),
-            daily_goal=daily_goal,
-            today_practiced_count=today_answers,
             spaced_repetition_due_count=sr_due_count,
             recent_exams=recent_exams
         )
