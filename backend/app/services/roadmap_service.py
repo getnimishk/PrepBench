@@ -4,12 +4,13 @@
 
 import math
 from collections import defaultdict
-from datetime import datetime, date, timedelta, UTC
+from datetime import datetime, date, timedelta
 from typing import List, Optional, Dict
 
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ResourceNotFoundException, InvalidExamStateException
+from app.core.timeutils import local_today, to_local_date, utc_now_naive
 from app.models.roadmap import (
     Roadmap, RoadmapPhase, RoadmapTopic, RoadmapResource, RoadmapTopicStatus,
 )
@@ -24,8 +25,20 @@ from app.schemas.roadmap import (
 )
 
 
-def _utc_now_naive() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
+# Two different questions, deliberately answered by two different helpers.
+#
+#   utc_now_naive()  what instant is it -- for stamping DateTime columns,
+#                    which store naive UTC.
+#   local_today()    what day is it -- for anything a learner reads off a
+#   to_local_date()  calendar.
+#
+# This module used to answer the second question with the first: a private
+# _utc_now_naive().date() for the forecast anchor, and .date() on stored
+# timestamps for the actual bars. Both are the previous day for the first
+# hours after local midnight anywhere ahead of UTC, so a topic finished at
+# 01:00 drew its bar on yesterday and the forecast could start before today.
+# See app/core/timeutils.py, which already made this distinction for the
+# practice-day boundary.
 
 
 class RoadmapService:
@@ -84,7 +97,8 @@ class RoadmapService:
         wrong place. An import leaves those nulls alone; a real status change
         made in the app is a genuine event and gets a real timestamp.
         """
-        now = _utc_now_naive()
+        # An instant, not a day: this lands in a DateTime column.
+        now = utc_now_naive()
         if topic.status == RoadmapTopicStatus.COMPLETED:
             if topic.completed_at is None:
                 topic.completed_at = now
@@ -391,7 +405,7 @@ class RoadmapService:
         # the roadmap never supplied.
         hours_per_day = roadmap.weekly_hours_budget / 7.0
 
-        today = _utc_now_naive().date()
+        today = local_today()
         cursor: date = max(roadmap.start_date, today)
 
         items: List[RoadmapScheduleItem] = []
@@ -417,8 +431,8 @@ class RoadmapService:
                 items.append(RoadmapScheduleItem(
                     **common,
                     schedule_status="actual",
-                    start=topic.started_at.date() if topic.started_at else None,
-                    end=topic.completed_at.date() if topic.completed_at else None,
+                    start=to_local_date(topic.started_at) if topic.started_at else None,
+                    end=to_local_date(topic.completed_at) if topic.completed_at else None,
                 ))
                 continue
 
@@ -434,7 +448,7 @@ class RoadmapService:
             # when it actually started if that is earlier than the cursor.
             bar_start = cursor
             if topic.status == RoadmapTopicStatus.IN_PROGRESS and topic.started_at:
-                bar_start = min(topic.started_at.date(), cursor)
+                bar_start = min(to_local_date(topic.started_at), cursor)
 
             bar_end = cursor + timedelta(days=days - 1)
             items.append(RoadmapScheduleItem(

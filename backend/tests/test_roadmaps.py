@@ -511,6 +511,95 @@ def test_completed_topics_use_actual_dates_and_consume_no_future_budget(roadmap_
     assert date.fromisoformat(upcoming["start"]) >= date.today()
 
 
+# ---- the calendar the schedule is drawn against -------------------------
+#
+# A roadmap is a plan a person reads off a wall calendar: a start date they
+# typed, a weekly budget in their own week, and a finish date they will hold
+# themselves to. Every date in it is a local calendar date.
+#
+# The schedule was deriving those dates from naive-UTC instants -- the
+# forecast anchor from datetime.now(UTC).date(), and the actual bars by
+# calling .date() on stored timestamps. In any timezone ahead of UTC, both
+# are the previous day for the first hours after local midnight. The visible
+# symptoms were a Gantt bar dated a day early and a forecast that could start
+# "yesterday", and it made
+# test_completed_topics_use_actual_dates_and_consume_no_future_budget fail
+# between 00:00 and 05:30 local in IST -- a test that had been green for
+# months and broke on nothing but the clock.
+
+
+def test_the_forecast_anchors_on_the_local_calendar_day(roadmap_ids, monkeypatch):
+    """Remaining work is projected from *today* -- the learner's today.
+
+    Deterministic on any machine: the local day is injected rather than read
+    from the clock, so this asserts which notion of "today" the schedule
+    consults rather than which timezone the test happens to run in. Against
+    the old implementation the patch has no effect -- it read the UTC clock
+    directly -- so the projection lands on the real UTC date and this fails.
+    """
+    from app.services import roadmap_service
+
+    # Stated as an assertion rather than left to monkeypatch's AttributeError,
+    # so the old implementation fails with the reason rather than a stack
+    # trace: it was not consulting a local calendar at all.
+    assert hasattr(roadmap_service, "local_today"), (
+        "the schedule must derive its anchor from the local calendar day"
+    )
+
+    pinned = date(2026, 9, 6)
+    monkeypatch.setattr(roadmap_service, "local_today", lambda: pinned)
+
+    roadmap_id = _new_roadmap(roadmap_ids, start_date="2026-01-01", weekly_hours_budget=7)
+    _add_topics(roadmap_id, [7])
+
+    body = client.get(f"/api/v1/roadmaps/{roadmap_id}/schedule").json()
+
+    assert body["schedule_available"] is True
+    assert body["items"][0]["start"] == pinned.isoformat()
+
+
+def test_an_actual_bar_is_dated_by_the_local_day_it_happened_on(roadmap_ids):
+    """A topic finished at 01:00 local was not finished yesterday.
+
+    Timestamps are stored as naive UTC, which is the right storage choice and
+    is not what changed. What changed is that turning one into a calendar date
+    now goes through the local timezone instead of dropping the time.
+    """
+    from app.core.timeutils import to_local_date
+
+    # An instant late enough in the UTC day that any positive offset carries it
+    # into the next local day.
+    stored_utc = datetime(2026, 9, 5, 23, 30)
+    if to_local_date(stored_utc) == stored_utc.date():
+        pytest.skip(
+            "this machine runs at or behind UTC, so a UTC/local day split "
+            "cannot be constructed here -- "
+            "test_the_forecast_anchors_on_the_local_calendar_day covers the "
+            "same defect without depending on the offset"
+        )
+
+    roadmap_id = _new_roadmap(roadmap_ids, start_date="2026-01-01", weekly_hours_budget=7)
+    _, topic_ids = _add_topics(roadmap_id, [7])
+    client.patch(f"/api/v1/roadmaps/{roadmap_id}/topics/{topic_ids[0]}",
+                 json={"status": "completed"})
+
+    db = TestingSessionLocal()
+    try:
+        topic = db.query(RoadmapTopic).filter(RoadmapTopic.id == topic_ids[0]).one()
+        topic.started_at = stored_utc
+        topic.completed_at = stored_utc
+        db.commit()
+    finally:
+        db.close()
+
+    done = client.get(f"/api/v1/roadmaps/{roadmap_id}/schedule").json()["items"][0]
+
+    assert done["schedule_status"] == "actual"
+    assert done["end"] == to_local_date(stored_utc).isoformat()
+    # The bug, stated as the thing that must not happen.
+    assert done["end"] != stored_utc.date().isoformat()
+
+
 def test_skipped_topics_get_no_bar(roadmap_ids):
     roadmap_id = _new_roadmap(roadmap_ids, start_date="2026-01-01", weekly_hours_budget=7)
     _, topic_ids = _add_topics(roadmap_id, [7, 7])
