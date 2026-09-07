@@ -15,6 +15,32 @@ export interface ReviewOption {
   why_incorrect?: string | null;
 }
 
+/**
+ * One different question on the same concept.
+ *
+ * The check is what turns reading into evidence. Reviewing a miss used to set
+ * a timestamp and nothing else -- the schedule was driven only by answering,
+ * so an evening of explanations left the product's model of the learner
+ * exactly where it started.
+ *
+ * `null` on a ReviewItem is a real answer, not a failure: a concept with one
+ * question in the bank cannot be checked, and saying so beats asking about
+ * something else and calling it verification.
+ */
+export interface CheckQuestion {
+  question_id: number;
+  question_text: string;
+  is_multiple: boolean;
+  options: ReviewOption[];
+}
+
+export interface CheckResult {
+  passed: boolean;
+  correct_option_ids: number[];
+  explanation?: string | null;
+  verdict: string;
+}
+
 export interface ReviewItem {
   answer_id: number;
   session_id: number;
@@ -26,6 +52,7 @@ export interface ReviewItem {
   options: ReviewOption[];
   selected_option_ids: number[];
   explanation?: string | null;
+  check?: CheckQuestion | null;
 }
 
 export interface ReviewQueue {

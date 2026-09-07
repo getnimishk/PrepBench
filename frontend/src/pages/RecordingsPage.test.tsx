@@ -131,6 +131,46 @@ describe('RecordingsPage', () => {
     expect(screen.queryByText(/filler words/i)).not.toBeInTheDocument();
   });
 
+  /**
+   * Which company's model transcribes an answer is a configuration decision,
+   * not a step in practising an interview.
+   *
+   * An "Analysis provider:" dropdown listed model vendors for the learner to
+   * pick between mid-flow, next to a "Check for existing analysis" button --
+   * a cache probe presented as something to decide, which existed only
+   * because the page never looked.
+   */
+  it('shows feedback that already exists instead of offering to look for it', async () => {
+    mockGetRecordings.mockResolvedValue({ items: [{
+      id: 7, title: 'Why us?', mime_type: 'audio/webm', duration_seconds: 42,
+      file_size_bytes: 1000, created_at: '2026-09-01T10:00:00',
+    }] });
+    mockGetAnalysis.mockResolvedValue({
+      recording_id: 7, analysis_status: 'analyzed',
+      summary: 'Clear and well paced.', transcript: 'We build...',
+      communication_scores: [], filler_word_count: 3,
+    });
+    render(<RecordingsPage />);
+
+    expect(await screen.findByText('Clear and well paced.')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Check for existing analysis/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('never asks the learner to pick an AI vendor', async () => {
+    mockGetRecordings.mockResolvedValue({ items: [{
+      id: 7, title: 'Why us?', mime_type: 'audio/webm', duration_seconds: 42,
+      file_size_bytes: 1000, created_at: '2026-09-01T10:00:00',
+    }] });
+    mockGetAnalysis.mockRejectedValue(new Error('none yet'));
+    render(<RecordingsPage />);
+
+    await screen.findByText('Why us?');
+    expect(screen.queryByText(/Analysis provider/i)).not.toBeInTheDocument();
+    expect(mockGetProviders).not.toHaveBeenCalled();
+  });
+
   it('shows transcript and scores when analyzed', async () => {
     const user = userEvent.setup();
     mockGetRecordings.mockResolvedValue({

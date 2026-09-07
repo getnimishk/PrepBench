@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.question import QuestionDifficulty
 from app.schemas.system_design import (
+    DraftRequest,
+    DraftResponse,
     SystemDesignPromptResponse,
     SystemDesignPromptFilter,
     GeneratePromptRequest,
@@ -44,6 +46,33 @@ def list_prompt_categories(db: Session = Depends(get_db)):
 def get_prompt(prompt_id: int, db: Session = Depends(get_db)):
     service = SystemDesignService(db)
     return service.get_prompt(prompt_id)
+
+
+@router.get("/prompts/{prompt_id}/draft", response_model=DraftResponse)
+def get_draft(prompt_id: int, db: Session = Depends(get_db)):
+    """What is saved for this prompt, or the last answer submitted for it.
+
+    Falling back to the previous attempt is what makes a revision a revision:
+    starting the second version from a blank box is a rewrite.
+    """
+    return SystemDesignService(db).get_draft(prompt_id)
+
+
+@router.put("/prompts/{prompt_id}/draft", response_model=DraftResponse)
+def save_draft(prompt_id: int, req: DraftRequest, db: Session = Depends(get_db)):
+    """Keep what is in the box.
+
+    The answer page held its text in React state and nowhere else -- no
+    autosave, no localStorage, no beforeunload guard. Forty minutes of design
+    work was one stray sidebar click from being gone.
+    """
+    return SystemDesignService(db).save_draft(prompt_id, req)
+
+
+@router.get("/prompts/{prompt_id}/attempts", response_model=dict)
+def list_attempts_for_prompt(prompt_id: int, db: Session = Depends(get_db)):
+    """Every attempt at one prompt, so "am I improving at this" has an answer."""
+    return SystemDesignService(db).list_attempts_for_prompt(prompt_id)
 
 
 @router.post("/prompts/generate", response_model=SystemDesignPromptResponse)

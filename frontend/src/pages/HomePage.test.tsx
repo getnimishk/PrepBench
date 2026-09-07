@@ -163,6 +163,18 @@ describe('HomePage', () => {
     ).toBeInTheDocument();
   });
 
+  // /subjects/:id was routed and linked from nowhere: the only way to reach
+  // the per-domain breakdown, the plateau explanation and the READY
+  // explanation was to type its URL. The subject name is the way in, and it
+  // is a link rather than a button so that "exactly one continuation" below
+  // keeps meaning what it says.
+  it('reaches the subject page through the subject name', async () => {
+    renderHome();
+
+    const link = await screen.findByRole('link', { name: 'Scrum / PSM I' });
+    expect(link).toHaveAttribute('href', '/subjects/1');
+  });
+
   it('offers exactly one continuation, not a list of things owed', async () => {
     mockGetHome.mockResolvedValue(
       summary({ unreviewed_total: 12, per_subject: [{ subject_id: 1, unreviewed: 12 }] })
@@ -187,6 +199,67 @@ describe('HomePage', () => {
     expect(await screen.findByText(/question 47 of 80/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Pick it up' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Review them' })).not.toBeInTheDocument();
+  });
+
+  // PLATEAU is a state, not a blocker kind, so `blockers[0]` describes the
+  // score and never the shape of it. Home used to render "one of your last
+  // three came in at 84%" over four results that were all 84%.
+  it('explains a plateau as a plateau, and does not then offer another mock', async () => {
+    mockGetSubjects.mockResolvedValue([{
+      ...CERT,
+      readiness: {
+        ...CERT.readiness,
+        state: 'plateau' as const,
+        recent_scores: [84, 83, 84.5, 84],
+        blockers: [{ kind: 'below_pass' as const, value: 84, target: 85, count: 4 }],
+      },
+    }]);
+    mockGetHome.mockResolvedValue(summary({ unreviewed_total: 0, per_subject: [] }));
+    renderHome();
+
+    expect(await screen.findByText(/no movement across four mocks/i)).toBeInTheDocument();
+    expect(screen.getByText(/exam-day variance, not knowledge/i)).toBeInTheDocument();
+    // The sentence above has just said another paper will not move it.
+    expect(screen.queryByRole('button', { name: /take a mock/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Another full paper is the only thing/)).not.toBeInTheDocument();
+  });
+
+  // The one blocker whose remedy is time-critical: reading a miss cannot make
+  // month-old evidence current, and until a fresh paper lands the verdict is
+  // about someone the learner used to be.
+  it('puts a fresh mock ahead of reading when the evidence has aged out', async () => {
+    mockGetSubjects.mockResolvedValue([{
+      ...CERT,
+      readiness: {
+        ...CERT.readiness,
+        is_stale: true,
+        blockers: [{ kind: 'stale' as const, value: 31, target: 14 }],
+      },
+    }]);
+    mockGetHome.mockResolvedValue(
+      summary({ unreviewed_total: 40, per_subject: [{ subject_id: 1, unreviewed: 40 }] })
+    );
+    renderHome();
+
+    expect(await screen.findByRole('button', { name: 'Take a mock' })).toBeInTheDocument();
+    expect(screen.getByText(/Your last mock was 31 days ago/)).toBeInTheDocument();
+    expect(screen.getByText(/brings the verdict back to now/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Review them' })).not.toBeInTheDocument();
+  });
+
+  it('says the work is done when the evidence supports it, and offers nothing more', async () => {
+    mockGetSubjects.mockResolvedValue([{
+      ...CERT,
+      readiness: {
+        ...CERT.readiness, state: 'ready' as const, recent_scores: [88, 90, 93], blockers: [],
+      },
+    }]);
+    mockGetHome.mockResolvedValue(summary({ unreviewed_total: 0, per_subject: [] }));
+    renderHome();
+
+    expect(await screen.findByText('Ready')).toBeInTheDocument();
+    expect(screen.getByText('Book the exam.')).toBeInTheDocument();
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
   });
 
   it('says nothing is measured yet rather than showing zero per cent', async () => {

@@ -159,6 +159,10 @@ Two claims on this page have since stopped being true, and are left standing bec
 
 - *"Every session is a drill"* and the note about `test_every_session_the_api_creates_is_a_drill`. Exam setup starts mocks now, and six historical full papers were recognised as mocks from the shape of the rows — see [Readiness](Readiness#historical-sessions-can-be-promoted) for why that is not the same thing as inventing evidence.
 - *"`/dashboard` duplicates Home"*. `DashboardPage` was deleted; the route is a redirect.
+- *"The spaced-repetition backlog is a guilt mechanic. 315 of 369 items overdue."* The queue is capped at twenty and the number behind the cap is never shown to the learner: the Review page uses `due_for_review` as a condition and never prints it. The backlog is still there -- 347 of 369 as of the last run -- and that is now a fact about the database rather than a thing said to anyone.
+- *"Spaced repetition: 369 rows generated, 0 consumed."* Reviewing a miss now ends in a check that feeds the schedule directly, and the schedule itself is advanced once per completed sitting rather than on every save -- see [Readiness](Readiness#the-check).
+
+One argument on this page was refined rather than superseded. **"Zero-row features should be deleted, not hidden"** was applied to the exam runner's Bookmark control, which had zero rows across 549 answers -- but the reason it went was not the row count. Flag is read by the question palette during a sitting; bookmark was read by nothing, and the job it reached for is already done, better, by the review queue and the schedule. *Delete a feature whose job is done elsewhere; zero rows is the symptom, not the argument.* Usage alone does not settle it: Design Review has one attempt and stays, because the loop it belongs to now closes.
 
 ## Open questions
 

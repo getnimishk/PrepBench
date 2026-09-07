@@ -54,6 +54,7 @@ export const QuestionTable: React.FC<QuestionTableProps> = ({
                   checked={allSelected}
                   indeterminate={someSelected}
                   onChange={() => onToggleSelectAll?.()}
+                  slotProps={{ input: { 'aria-label': 'Select every question on this page' } }}
                 />
               </TableCell>
             )}
@@ -80,7 +81,14 @@ export const QuestionTable: React.FC<QuestionTableProps> = ({
               >
                 {showCheckbox && (
                   <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
-                    <Checkbox checked={isSelected} onChange={() => onToggleSelect?.(q.id)} />
+                    {/* Named per row. A column of identical unnamed
+                        checkboxes is a column of "checkbox, checkbox,
+                        checkbox" to anything not looking at it. */}
+                    <Checkbox
+                      checked={isSelected}
+                      onChange={() => onToggleSelect?.(q.id)}
+                      slotProps={{ input: { 'aria-label': `Select question ${q.id}` } }}
+                    />
                   </TableCell>
                 )}
                 <TableCell>

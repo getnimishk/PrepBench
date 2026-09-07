@@ -64,8 +64,9 @@ Twenty-four tables, grouped by the feature that owns them:
 | Subjects | `subjects` |
 | Questions | `questions` · `question_options` |
 | Exams | `exam_sessions` · `exam_answers` |
+| Review | `review_checks` |
 | Spaced repetition | `spaced_repetition` |
-| System design | `system_design_prompts` · `system_design_attempts` |
+| System design | `system_design_prompts` · `system_design_attempts` · `system_design_drafts` |
 | Design review | `design_reviews` · `design_options` · `design_review_attempts` |
 | Interview practice | `interview_questions` · `practice_recordings` · `recording_analyses` |
 | Roadmaps | `roadmaps` · `roadmap_phases` · `roadmap_topics` · `roadmap_resources` |

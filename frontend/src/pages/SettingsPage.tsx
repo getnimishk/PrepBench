@@ -156,6 +156,9 @@ export const SettingsPage: React.FC = () => {
                   <Switch
                     checked={settings.timer_sound_enabled}
                     onChange={(e) => setSettings({ ...settings, timer_sound_enabled: e.target.checked })}
+                    // The label is a Box of an icon and text, which gives the
+                    // input no accessible name of its own.
+                    slotProps={{ input: { 'aria-label': 'Timer sound alert under five minutes' } }}
                   />
                 }
                 label={

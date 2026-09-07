@@ -160,7 +160,22 @@ export const DesignReviewPage: React.FC = () => {
       >
         <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-            {!revealed && <Radio checked={selected} size="small" sx={{ p: 0, mt: 0.25 }} />}
+            {/* The radio is the control, not decoration beside one. It used
+                to be an unlabelled `<Radio checked>` with no onChange inside
+                a div carrying the click handler: the primary choice of the
+                whole exercise could not be reached by keyboard and announced
+                nothing. */}
+            {!revealed && (
+              <Radio
+                checked={selected}
+                onChange={() => setChoice(option.label)}
+                name="design-review-choice"
+                value={option.label}
+                size="small"
+                sx={{ p: 0, mt: 0.25 }}
+                slotProps={{ input: { 'aria-label': `Option ${option.label}: ${option.name}` } }}
+              />
+            )}
             <Box>
               <Typography variant="overline" sx={{ color: 'primary.main', lineHeight: 1 }}>
                 Option {option.label}
@@ -250,7 +265,17 @@ export const DesignReviewPage: React.FC = () => {
           }}
         >
           <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1.5 }}>
-            <Radio checked={choice === 'ask_first'} size="small" sx={{ p: 0 }} />
+            <Radio
+              checked={choice === 'ask_first'}
+              onChange={() => setChoice('ask_first')}
+              name="design-review-choice"
+              value="ask_first"
+              size="small"
+              sx={{ p: 0 }}
+              slotProps={{
+                input: { 'aria-label': 'Neither — I would ask something first' },
+              }}
+            />
             <HelpCircle size={18} />
             <Box>
               <Typography variant="body1" sx={{ fontWeight: 500 }}>

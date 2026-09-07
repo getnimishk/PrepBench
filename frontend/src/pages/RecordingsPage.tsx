@@ -6,14 +6,14 @@ import React, { useEffect, useState } from 'react';
 import {
   Box, Card, CardContent, Typography, Button, Chip, Alert,
   CircularProgress, LinearProgress, IconButton,
-  Accordion, AccordionSummary, AccordionDetails, MenuItem, Select
+  Accordion, AccordionSummary, AccordionDetails
 } from '@mui/material';
 import { Mic, Square, Trash2, Sparkles, ChevronDown } from 'lucide-react';
 import {
   getRecordings, uploadRecording, deleteRecording, getRecordingAudioUrl,
-  getRecordingProviders, analyzeRecording, getRecordingAnalysis,
+  analyzeRecording, getRecordingAnalysis,
 } from '../services/api';
-import { PracticeRecording, RecordingAnalysis, ProviderInfo } from '../types/recording';
+import { PracticeRecording, RecordingAnalysis } from '../types/recording';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { CategoryScoreList } from '../components/common/CategoryScoreList';
 import { apiErrorMessage } from '../services/apiError';
@@ -29,8 +29,6 @@ export const RecordingsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const [providers, setProviders] = useState<ProviderInfo[]>([]);
-  const [selectedProvider, setSelectedProvider] = useState<string>('');
 
   const [uploading, setUploading] = useState(false);
 
@@ -59,21 +57,25 @@ export const RecordingsPage: React.FC = () => {
     setLoading(true);
     setFetchError(null);
     getRecordings({ limit: 100 })
-      .then((res) => setRecordings(res.items))
+      .then((res) => {
+        setRecordings(res.items);
+        // Feedback that already exists is shown, not offered.
+        //
+        // There was a "Check for existing analysis" button on every row: a
+        // cache probe, presented to the learner as something to decide. It
+        // existed only because the page never looked. Nobody opens a practice
+        // recording wondering whether the application has already read it.
+        res.items.forEach((r) => {
+          getRecordingAnalysis(r.id)
+            .then((a) => setAnalyses((prev) => ({ ...prev, [r.id]: a })))
+            .catch(() => { /* none yet, which is a normal state */ });
+        });
+      })
       .catch(() => setFetchError('Failed to load recordings. Please check backend connection.'))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => {
-    fetchRecordings();
-    getRecordingProviders()
-      .then((res) => {
-        setProviders(res);
-        const firstAvailable = res.find((p) => p.is_available);
-        setSelectedProvider(firstAvailable ? firstAvailable.name : (res[0]?.name || ''));
-      })
-      .catch(() => {});
-  }, []);
+  useEffect(fetchRecordings, []);
 
   const handleDelete = async (id: number) => {
     await deleteRecording(id);
@@ -84,7 +86,7 @@ export const RecordingsPage: React.FC = () => {
     setAnalyzingId(id);
     setAnalyzeErrors((prev) => ({ ...prev, [id]: '' }));
     try {
-      const result = await analyzeRecording(id, selectedProvider || undefined);
+      const result = await analyzeRecording(id);
       setAnalyses((prev) => ({ ...prev, [id]: result }));
     } catch (err) {
       setAnalyzeErrors((prev) => ({
@@ -93,15 +95,6 @@ export const RecordingsPage: React.FC = () => {
       }));
     } finally {
       setAnalyzingId(null);
-    }
-  };
-
-  const loadExistingAnalysis = async (id: number) => {
-    try {
-      const result = await getRecordingAnalysis(id);
-      setAnalyses((prev) => ({ ...prev, [id]: result }));
-    } catch {
-      // No analysis yet -- fine, nothing to show.
     }
   };
 
@@ -150,22 +143,12 @@ export const RecordingsPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {providers.length > 1 && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <Typography variant="body2" color="text.secondary">Analysis provider:</Typography>
-          <Select
-            size="small"
-            value={selectedProvider}
-            onChange={(e) => setSelectedProvider(e.target.value)}
-          >
-            {providers.map((p) => (
-              <MenuItem key={p.name} value={p.name} disabled={!p.is_available}>
-                {p.name}{!p.is_available ? ' (unavailable)' : ''}
-              </MenuItem>
-            ))}
-          </Select>
-        </Box>
-      )}
+      {/* The "Analysis provider:" dropdown stood here, listing model vendors
+          for the learner to choose between mid-flow. Which company's model
+          transcribes an answer is a configuration decision, not a step in
+          practising an interview, and it lives in Settings -> AI Providers
+          with every other one. The server resolves the default itself when no
+          name is sent. */}
 
       <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>Your Recordings</Typography>
 
@@ -206,9 +189,6 @@ export const RecordingsPage: React.FC = () => {
                         variant="outlined"
                       >
                         {analyzingId === r.id ? 'Analyzing…' : 'Analyze'}
-                      </Button>
-                      <Button size="small" onClick={() => loadExistingAnalysis(r.id)}>
-                        Check for existing analysis
                       </Button>
                     </Box>
                   )}

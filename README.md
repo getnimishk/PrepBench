@@ -40,10 +40,11 @@ There is no account, no telemetry, and no subscription. A network connection is 
 | | |
 |---|---|
 | **Readiness, not a score** | Every subject reports whether you would actually pass, computed from **full mocks only** — with the evidence beside it. Three mocks minimum, three consecutive at the pass mark, no weak domain, recent. Zero mocks reads *"needs evaluation"*, never `0%` |
-| **Five exam modes** | **Practice** (instant explanations) · **Timed** (real exam conditions) · **Custom** (pick topics, difficulty, count) · **Weak Topic Focus** (auto-targets domains you keep failing) · **Spaced Repetition** (only what is due today) |
-| **Spaced repetition** | The SM-2 algorithm that powers Anki. Every answer updates that question's interval and ease factor, so a question comes back just before you would have forgotten it |
+| **Five exam modes** | **Practice** (instant explanations) · **Timed** (real exam conditions) · **Custom** (pick topics, difficulty, count) · **Weak Topic Focus** (targets the topics your *mocks* say you are weak at — never your drills, because a drill draws from what you already get wrong) · **Spaced Repetition** (only what is due today) |
+| **Review that checks** | Reading an explanation is not learning it. Every miss you review ends in a **check** — one different question on the same concept. Pass it and the concept is verified; fail it and the concept goes back to the front of the schedule |
+| **Spaced repetition** | The SM-2 algorithm that powers Anki. Each completed sitting updates the interval and ease factor of every question you answered in it, so a question comes back just before you would have forgotten it |
 | **Design Review** | Two defensible architectures for one requirement. Pick one and say why — or refuse to pick and say what you would ask first. What is graded is whether your reasoning found the axis the decision turns on, not which option you chose |
-| **System design practice** | Write answers to real prompts and get graded across a six-category rubric — scores, strengths, and specific improvements, calibrated to your target role |
+| **System design practice** | Write answers to real prompts and get graded across a six-category rubric — scores, strengths, and specific improvements, calibrated to your target role. Drafts save as you type, so you can leave and come back |
 | **Interview practice (audio)** | Record spoken answers across four rounds — HR screening, hiring manager, system design, behavioral. Scored on **what you said** (content) and **how you said it** (pacing, filler words, clarity) |
 | **Chart Sandbox** | 27 agile metric views over one executable model. Change a WIP limit and watch cycle time, defect escape, and deployment risk move together — with a guided track that teaches you to read each chart before asking you to explain one |
 | **Learning roadmaps** | Import any syllabus (`.xlsx` / `.json` / `.md` / `.csv`) and track it in three views: a table for editing, a journey map for orientation, and a Gantt schedule that projects your finish date |
@@ -337,7 +338,7 @@ cd backend && pip install -r requirements-dev.txt && python -m pytest -q
 cd frontend && npm test && npm run typecheck && npm run lint
 ```
 
-342 backend tests and 411 frontend tests at time of writing. CI runs all of it, plus `tsc` and ESLint, on every push and pull request.
+458 backend tests and 446 frontend tests at time of writing. CI runs all of it, plus `tsc` and ESLint, on every push and pull request.
 
 ### Project layout
 

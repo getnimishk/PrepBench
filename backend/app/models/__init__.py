@@ -7,12 +7,14 @@ from app.models.option import QuestionOption
 from app.models.exam_session import ExamSession, ExamMode, ExamStatus
 from app.models.exam_answer import ExamAnswer, ConfidenceLevel
 from app.models.spaced_repetition import SpacedRepetition
+from app.models.review_check import ReviewCheck
 from app.models.settings import AppSettings
 from app.models.subject import Subject, SubjectKind
 from app.models.seeded_content import SeededContent
 from app.models.system_design_prompt import SystemDesignPrompt
 from app.models.design_review import DesignReview, DesignOption, DesignReviewAttempt
 from app.models.system_design_attempt import SystemDesignAttempt
+from app.models.system_design_draft import SystemDesignDraft
 from app.models.practice_recording import PracticeRecording
 from app.models.recording_analysis import RecordingAnalysis
 from app.models.interview_question import InterviewQuestion, InterviewRoundType
@@ -36,6 +38,7 @@ __all__ = [
     "ExamAnswer",
     "ConfidenceLevel",
     "SpacedRepetition",
+    "ReviewCheck",
     "AppSettings",
     "Subject",
     "SubjectKind",
@@ -45,6 +48,7 @@ __all__ = [
     "DesignOption",
     "DesignReviewAttempt",
     "SystemDesignAttempt",
+    "SystemDesignDraft",
     "PracticeRecording",
     "RecordingAnalysis",
     "InterviewQuestion",

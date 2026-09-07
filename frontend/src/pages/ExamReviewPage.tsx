@@ -9,13 +9,13 @@ import {
   LinearProgress, Paper, Alert, ToggleButton, ToggleButtonGroup
 } from '@mui/material';
 import {
-  BookOpen, CheckCircle2, XCircle, Clock, Award, RotateCcw,
-  Download, Home, Minus, ArrowLeft, ArrowRight, Flag
+  BookOpen, CheckCircle2, XCircle, Clock, Minus, ArrowLeft, ArrowRight, Flag
 } from 'lucide-react';
 import { getExamDetails, getSubject, markAnswerReviewed } from '../services/api';
 import { Explanation } from '../components/common/Explanation';
 import { ExamDetail } from '../types/exam';
-import { Subject } from '../types/subject';
+import { READINESS_LABELS, Subject } from '../types/subject';
+import { blockerSentence, plateauSentence, readySentence } from '../services/readinessText';
 
 export const ExamReviewPage: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -168,131 +168,127 @@ export const ExamReviewPage: React.FC = () => {
   const storedDiffers =
     passMark != null && Math.abs(exam.passing_percentage - passMark) > 0.01;
 
+  const r = subject?.readiness ?? null;
+  const showsVerdict = isMock && r != null && subject?.has_exam_profile === true;
+
   return (
     <Box sx={{ maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 3 }}>
-      {/* Result Hero Banner */}
-      <Card sx={{
-        bgcolor: passMark == null ? 'background.paper' : isPassed ? 'success.dark' : 'error.dark',
-        color: passMark == null ? 'text.primary' : 'white',
-        borderRadius: '12px',
-        boxShadow: 'none',
-        border: '1px solid',
-        borderColor: passMark == null ? 'divider' : isPassed ? 'success.main' : 'error.main'
-      }}>
-        <CardContent sx={{ p: 4 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-            {passMark == null
-              ? null
-              : isPassed
-                ? <CheckCircle2 size={40} color="inherit" />
-                : <XCircle size={40} color="inherit" />}
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                {passMark == null
-                  ? `${Math.round(score)}% on this drill`
-                  : isPassed
-                    ? `${Math.round(score)}% — above the pass mark`
-                    : `${Math.round(score)}% — under the pass mark`}
-              </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                {passMark == null
-                  ? 'A drill closes gaps. It is not scored against a pass mark.'
-                  : exam.title}
-              </Typography>
-            </Box>
-          </Box>
+      {/* The result, interpreted.
 
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            {[
-              // Rounded, like every other surface. 87.5 in the tile beside
-              // 88 in the heading is the same number disagreeing with itself.
-              { label: 'Score', value: `${Math.round(score)}%`, icon: Award, color: passMark == null ? '#94A3B8' : isPassed ? '#34D399' : '#FB7185' },
-              ...(passMark != null
-                ? [{ label: 'Pass mark', value: `${Math.round(passMark)}%`, icon: CheckCircle2, color: '#94A3B8' }]
-                : []),
-              { label: 'Correct', value: `${exam.correct_count} / ${exam.total_questions}`, icon: CheckCircle2, color: '#6366F1' },
-              { label: 'Time', value: `${Math.round((exam.time_spent_seconds ?? 0) / 60)} min`, icon: Clock, color: '#FBBF24' },
-            ].map((item) => (
-              <Grid
-                key={item.label}
-                size={{
-                  xs: 6,
-                  sm: 3
-                }}>
-                <Box sx={{ textAlign: 'center', p: 1.5, bgcolor: 'background.paper', borderRadius: '12px', border: '1px solid', borderColor: 'divider' }}>
-                  <Typography variant="h6" sx={{ fontWeight: 800, color: item.color }}>{item.value}</Typography>
-                  <Typography variant="caption" color="text.secondary">{item.label}</Typography>
-                </Box>
-              </Grid>
-            ))}
-          </Grid>
+          This was a full-bleed coloured banner carrying four KPI tiles --
+          score, pass mark, correct-of-total, minutes -- above five buttons of
+          equal weight. It reported. Nothing on it said what the paper meant
+          for the only question the product exists to answer, so a learner
+          finishing a mock had to go to Home to find out whether anything had
+          moved, and Home explained it in words this page had never used.
 
-          {storedDiffers && (
-            // Shown rather than hidden: the session really was sat with that
-            // threshold, and a learner who remembers the old number deserves
-            // to see where it went instead of wondering why the verdict moved.
-            <Typography variant="caption" sx={{ display: 'block', mt: 2, opacity: 0.85 }}>
-              Sat with a {Math.round(exam.passing_percentage)}% threshold set at the time.
-              Judged here against {subject?.name}&apos;s own pass mark of {Math.round(passMark ?? 0)}%,
-              which is the bar readiness uses.
+          Now: the number, what it clears, the evidence in one line, and then
+          the verdict in the product's own vocabulary. The tiles are gone
+          because four boxed figures are not four ideas. */}
+      <Box sx={{ maxWidth: 720 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary', letterSpacing: '0.08em',
+            textTransform: 'uppercase', fontSize: 12, fontWeight: 500,
+          }}
+        >
+          {exam.title}
+        </Typography>
+
+        <Typography variant="h2" sx={{ fontWeight: 600, mt: 0.5, letterSpacing: '-0.02em' }}>
+          {Math.round(score)}%
+        </Typography>
+
+        <Typography variant="h6" sx={{ fontWeight: 400, mt: 0.5, color: 'text.secondary' }}>
+          {passMark == null
+            ? 'A drill closes gaps. It is not scored against a pass mark, and it does not move your readiness.'
+            : isPassed
+              ? `above the ${Math.round(passMark)}% pass mark`
+              : `under the ${Math.round(passMark)}% pass mark`}
+        </Typography>
+
+        <Typography variant="body2" sx={{ color: 'text.secondary', mt: 2 }}>
+          {exam.correct_count} of {exam.total_questions} correct
+          {(exam.time_spent_seconds ?? 0) > 0
+            && ` · ${Math.round((exam.time_spent_seconds ?? 0) / 60)} minutes`}
+        </Typography>
+
+        {storedDiffers && (
+          // Shown rather than hidden: the session really was sat with that
+          // threshold, and a learner who remembers the old number deserves
+          // to see where it went instead of wondering why the verdict moved.
+          <Typography variant="caption" sx={{ display: 'block', mt: 1.5, color: 'text.secondary' }}>
+            Sat with a {Math.round(exam.passing_percentage)}% threshold set at the time.
+            Judged here against {subject?.name}&apos;s own pass mark of {Math.round(passMark ?? 0)}%,
+            which is the bar readiness uses.
+          </Typography>
+        )}
+
+        {/* What the paper did to the verdict, said the way Home says it.
+            One rule, one vocabulary: two surfaces explaining the same
+            verdict differently is the same defect as two surfaces
+            disagreeing about the score. */}
+        {showsVerdict && (
+          <Box sx={{ mt: 5 }}>
+            <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+              Where this leaves you
             </Typography>
-          )}
-
-          <Box sx={{ display: 'flex', gap: 2, mt: 3, flexWrap: 'wrap' }}>
-            {/* "Dashboard" was the name of a page that no longer exists.
-                The buttons take their colour from the hero rather than
-                hardcoding white on black, because the hero is neutral when
-                there is no verdict to paint. */}
-            {/* The primary action, because it is the one that changes the
-                next score. It used to be a toggle labelled "Incorrect", two
-                screens down, with the same visual weight as an Excel
-                export. */}
-            {wrongCount > 0 && (
-              <Button
-                variant="contained"
-                disableElevation
-                startIcon={<BookOpen size={18} />}
-                onClick={readTheMisses}
-                sx={{ borderRadius: '100px', fontWeight: 600, textTransform: 'none' }}
-              >
-                Read the {wrongCount} you got wrong
-              </Button>
-            )}
-            <Button
-              variant="outlined"
-              startIcon={<Home size={18} />}
-              onClick={() => navigate('/')}
-              sx={{ borderRadius: '100px', color: 'inherit', borderColor: 'inherit', textTransform: 'none' }}
-            >
-              Home
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<RotateCcw size={18} />}
-              onClick={() => navigate('/practice')}
-              sx={{ borderRadius: '100px', color: 'inherit', borderColor: 'inherit', textTransform: 'none' }}
-            >
-              Practise again
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<Download size={18} />}
-              onClick={() => window.open(`/api/v1/export/pdf/${sid}`, '_blank', 'noopener,noreferrer')}
-              sx={{ borderRadius: '100px', color: 'inherit', borderColor: 'inherit' }}
-            >
-              PDF report
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<Download size={18} />}
-              onClick={() => window.open(`/api/v1/export/excel/${sid}`, '_blank', 'noopener,noreferrer')}
-              sx={{ borderRadius: '100px', color: 'inherit', borderColor: 'inherit' }}
-            >
-              Excel report
-            </Button>
+            <Typography variant="body1" sx={{ mt: 0.5, fontWeight: 500 }}>
+              {r.mock_count === 0 && r.state === 'needs_evaluation'
+                ? 'Not measured yet'
+                : READINESS_LABELS[r.state]}
+            </Typography>
+            <Typography variant="body1" sx={{ mt: 0.75, lineHeight: 1.65 }}>
+              {r.state === 'plateau'
+                ? plateauSentence(r.recent_scores)
+                : r.blockers[0]
+                  ? blockerSentence(r.blockers[0])
+                  : readySentence(r.pass_mark)}
+            </Typography>
           </Box>
-        </CardContent>
-      </Card>
+        )}
+
+        {/* One dominant action, because it is the one that changes the next
+            score. Everything else is a text link: "Home" and "Excel report"
+            were outlined buttons the same size as this one. */}
+        <Box sx={{ mt: 4 }}>
+          {wrongCount > 0 && (
+            <Button
+              variant="contained"
+              disableElevation
+              startIcon={<BookOpen size={18} />}
+              onClick={readTheMisses}
+              sx={{ borderRadius: '100px', fontWeight: 600, textTransform: 'none' }}
+            >
+              Read the {wrongCount} you got wrong
+            </Button>
+          )}
+          <Box sx={{ display: 'flex', gap: 2.5, mt: wrongCount > 0 ? 2.5 : 0, flexWrap: 'wrap' }}>
+            {[
+              { label: 'Home', go: () => navigate('/') },
+              { label: 'Practise again', go: () => navigate('/practice') },
+              {
+                label: 'PDF report',
+                go: () => window.open(`/api/v1/export/pdf/${sid}`, '_blank', 'noopener,noreferrer'),
+              },
+              {
+                label: 'Excel report',
+                go: () => window.open(`/api/v1/export/excel/${sid}`, '_blank', 'noopener,noreferrer'),
+              },
+            ].map((a) => (
+              <Button
+                key={a.label}
+                size="small"
+                onClick={a.go}
+                sx={{ textTransform: 'none', p: 0, minWidth: 0, color: 'text.secondary' }}
+              >
+                {a.label}
+              </Button>
+            ))}
+          </Box>
+        </Box>
+      </Box>
 
       {/* Review Section Header */}
       <Box ref={reviewRef} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, scrollMarginTop: 16 }}>

@@ -43,7 +43,7 @@ cd backend && python -m pytest -q
 cd frontend && npm test && npm run typecheck && npm run lint
 ```
 
-Roughly 342 backend and 411 frontend tests. Run `pytest --collect-only -q` and `vitest run` for the current figures rather than trusting this line.
+Roughly 458 backend and 446 frontend tests. Run `pytest --collect-only -q` and `vitest run` for the current figures rather than trusting this line.
 
 **Order matters when reproducing CI locally:** lint, then typecheck, then test. Both of the first two fail in seconds and catch breakage the test suite takes minutes to reach.
 

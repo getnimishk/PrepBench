@@ -181,7 +181,18 @@ export const RoadmapDetailPage: React.FC = () => {
         )}
         <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
           {[
-            pct !== null ? `${formatPercentage(pct)} of the topics` : null,
+            // "of the topics you have marked done", not "of the topics".
+            //
+            // A roadmap is the one place in this product where the number is
+            // the learner's own record rather than a measurement, and it sits
+            // three clicks from a readiness verdict computed from six timed
+            // papers. Both are useful; a reader who cannot tell them apart is
+            // owed the distinction, and one clause is the whole cost of it.
+            // There is no automatic evidence to attach here and none is
+            // invented: these roadmaps carry no questions in the bank, and
+            // guessing which question belongs to "Agentic evaluation harnesses"
+            // would be a claim with nothing behind it.
+            pct !== null ? `${formatPercentage(pct)} of the topics marked done` : null,
             // Null means at least one topic has no estimate, so an hours
             // figure would be measuring only part of the roadmap. Said, not
             // omitted: "nothing to measure" is information, and dropping the

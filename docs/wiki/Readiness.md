@@ -130,6 +130,20 @@ A domain below the reporting threshold returns `score_pct: null`. Rendering it a
 
 The unreviewed count is the only thing the product surfaces unprompted, and it is **a count, not an instruction**. `POST /api/v1/exams/{id}/answers/{qid}/reviewed` clears one.
 
+## The check
+
+Reading an explanation is not learning it, and for most of this application's life reviewing a miss produced nothing but a timestamp. `SM2Service.update_item` was reachable from exactly one place -- on *answering* -- so an evening spent working through twenty explanations left the product's model of the learner unchanged apart from twenty timestamps. Home counted what had been read. Nothing anywhere asked whether it had landed.
+
+Every item in the review queue now carries a **check**: one different question on the same concept, asked straight after the explanation. `POST /api/v1/review/checks` records the answer in `review_checks` and marks the miss read.
+
+Three rules keep it honest.
+
+**A different question, same concept.** Re-asking what was just explained tests whether the last two minutes are still in short-term memory, which is both the wrong question and the one result the learner is guaranteed to get right. The check is drawn from the same topic where the bank has another question, then from the same *topic area* -- topics here are written `Area: facets`, so "Sprint Retrospective: participants" falls back to anything starting "Sprint Retrospective" -- and only then from the domain. A concept with no second question gets **no check**, and the page says so rather than asking about something else and calling it verification.
+
+**A check can demote and cannot promote.** Passing advances the schedule of the question that was actually asked, because it was actually answered, and verifies the miss. It does **not** advance the missed question's own schedule: claiming a question is learnt on the strength of a different question is the kind of evidence this product refuses everywhere else. Failing resets the missed concept to the start of the ladder while leaving its ease factor alone -- the ease factor is the running estimate built over every previous encounter, and one failed neighbour is not grounds to discard it.
+
+**A check is not exam evidence.** Checks live in their own table. Domain accuracy, the weak-topic list and readiness all read `exam_answers`, and a check is practice on a question chosen *because* the learner just got its neighbour wrong. Feeding it back would drag every one of those numbers down and make reviewing look like decline.
+
 ## Coverage
 
 `GET /api/v1/home/subjects/{id}/coverage` lists **every** practice format for a subject, including the ones with no content.
@@ -155,6 +169,7 @@ It supersedes the separate Exam History and System Design History pages. Those p
 | `/api/v1/home/other-preparation` | GET | The formats that are not the primary subject |
 | `/api/v1/home/subjects/{id}/coverage` | GET | Every format, present or absent |
 | `/api/v1/review/queue` | GET | Today's misses — capped at 20, newest mock first, with `remaining` |
+| `/api/v1/review/checks` | POST | Answer the check; records the result and marks the miss read |
 | `/api/v1/exams/{id}/answers/{qid}/reviewed` | POST | Mark one wrong answer as looked at |
 | `/api/v1/exams/{id}/unreviewed` | GET | Which wrong answers still need review |
 

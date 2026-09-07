@@ -8,10 +8,11 @@ import {
   Alert, Box, Button, CircularProgress, Divider, Stack, Typography,
 } from '@mui/material';
 import {
-  getActivity, getHomeSummary, getReviewQueue, markAnswerReviewed, startExam,
+  getActivity, getHomeSummary, getReviewQueue, markAnswerReviewed,
+  startExam, submitReviewCheck,
 } from '../services/api';
 import { ActivityItem, HomeSummary } from '../types/subject';
-import { ReviewItem, ReviewQueue } from '../types/review';
+import { CheckResult, ReviewItem, ReviewQueue } from '../types/review';
 import { apiErrorMessage } from '../services/apiError';
 import { Explanation } from '../components/common/Explanation';
 
@@ -29,6 +30,20 @@ import { Explanation } from '../components/common/Explanation';
  * against the right one, the explanation, and then it is marked read and
  * gone. What is behind the cap is mentioned once, in passing, and never
  * counted at you.
+ *
+ * And then the part that was still missing. Reading was the whole of it: the
+ * page marked the answer read and moved on, and reading is not learning. The
+ * schedule was driven only by answering, so twenty explanations worked through
+ * carefully left the product's model of the learner exactly where it started
+ * -- Home counted what had been read, and nothing anywhere asked whether it
+ * had landed.
+ *
+ * Each miss now ends in a check: one different question on the same concept.
+ * Getting it right is transfer. Getting it wrong is the product finding out
+ * that reading was not enough, which is the thing it could never find out
+ * before, and the concept goes back to the front of the schedule. A concept
+ * with only one question in the bank has no check, and the page says so rather
+ * than asking about something else and calling it verification.
  */
 
 /** Everything you have done, in one place -- but not the point of the page. */
@@ -45,6 +60,7 @@ export const ReviewPage: React.FC = () => {
   // How far through today's set, and which of them have been marked read.
   const [index, setIndex] = useState(0);
   const [done, setDone] = useState<ReviewItem[]>([]);
+  const [checks, setChecks] = useState<boolean[]>([]);
   const [starting, setStarting] = useState(false);
 
   useEffect(() => {
@@ -58,9 +74,13 @@ export const ReviewPage: React.FC = () => {
   const current = items[index] ?? null;
   const finished = !loading && items.length > 0 && index >= items.length;
 
-  const advance = async (item: ReviewItem) => {
+  const advance = async (item: ReviewItem, checkPassed?: boolean) => {
     setDone((d) => [...d, item]);
+    if (checkPassed !== undefined) setChecks((c) => [...c, checkPassed]);
     setIndex((i) => i + 1);
+    // Only where there was no check to submit. Submitting one marks the miss
+    // read on the server, and a second call would be a wasted round trip.
+    if (checkPassed !== undefined) return;
     // Optimistic: the mark is bookkeeping, and a failed write should not
     // interrupt the reading, which is the part that matters.
     try {
@@ -109,11 +129,13 @@ export const ReviewPage: React.FC = () => {
           item={current}
           position={index + 1}
           total={items.length}
-          onNext={() => advance(current)}
+          onNext={(passed) => advance(current, passed)}
         />
       )}
 
-      {finished && <Finished done={done} remaining={queue?.remaining ?? 0} />}
+      {finished && (
+        <Finished done={done} checks={checks} remaining={queue?.remaining ?? 0} />
+      )}
 
       {/* Only when the queue actually came back. With the backend down this
           used to print "Every wrong answer from your mocks has been read"
@@ -198,7 +220,7 @@ const ReviewCard: React.FC<{
   item: ReviewItem;
   position: number;
   total: number;
-  onNext: () => void;
+  onNext: (checkPassed?: boolean) => void;
 }> = ({ item, position, total, onNext }) => {
   const chosen = new Set(item.selected_option_ids);
   const missed = item.options.filter((o) => o.is_correct && !chosen.has(o.id)).length;
@@ -285,15 +307,213 @@ const ReviewCard: React.FC<{
         </Box>
       )}
 
-      <Stack direction="row" sx={{ mt: 3.5, alignItems: 'center', gap: 2 }}>
-        <Button
-          variant="contained"
-          disableElevation
-          onClick={onNext}
-          sx={{ borderRadius: '100px', fontWeight: 600, textTransform: 'none' }}
-        >
-          {position === total ? 'Done' : 'Next'}
-        </Button>
+      {item.check
+        ? <Check item={item} position={position} total={total} onNext={onNext} />
+        : (
+          <Stack direction="row" sx={{ mt: 3.5, alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+            <Button
+              variant="contained"
+              disableElevation
+              onClick={() => onNext()}
+              sx={{ borderRadius: '100px', fontWeight: 600, textTransform: 'none' }}
+            >
+              {position === total ? 'Done' : 'Next'}
+            </Button>
+            {/* Said, rather than silently skipped. A concept with one question
+                in the bank cannot be checked, and pretending otherwise -- by
+                asking about something else -- would be the kind of claim this
+                product refuses everywhere else. */}
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              No second question on this concept in your bank, so there is nothing to
+              check it against.
+            </Typography>
+          </Stack>
+        )}
+    </Box>
+  );
+};
+
+/**
+ * The check: one different question on the same concept.
+ *
+ * This is the whole difference between reading and learning, and it is the
+ * loop the product never closed. Reviewing a miss set `reviewed_at` and
+ * nothing else; the schedule was driven only by answering, so an evening of
+ * explanations changed nothing except twenty timestamps.
+ *
+ * Deliberately a different question rather than the same one again: re-asking
+ * what was just explained tests whether the last two minutes are still in
+ * short-term memory, which is both the wrong question and the one result the
+ * learner is guaranteed to get right.
+ */
+const Check: React.FC<{
+  item: ReviewItem;
+  position: number;
+  total: number;
+  onNext: (checkPassed?: boolean) => void;
+}> = ({ item, position, total, onNext }) => {
+  const check = item.check!;
+  const [picked, setPicked] = useState<number[]>([]);
+  const [result, setResult] = useState<CheckResult | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const toggle = (id: number) => {
+    if (result) return;
+    setPicked((prev) => {
+      if (check.is_multiple) {
+        return prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id];
+      }
+      return [id];
+    });
+  };
+
+  const submit = async () => {
+    setSubmitting(true);
+    setFailed(false);
+    try {
+      setResult(await submitReviewCheck({
+        answer_id: item.answer_id,
+        question_id: check.question_id,
+        selected_option_ids: picked,
+      }));
+    } catch {
+      // Not swallowed. The check is the evidence, so a check the server never
+      // received must not look like one it accepted.
+      setFailed(true);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const correct = new Set(result?.correct_option_ids ?? []);
+
+  return (
+    <Box sx={{ mt: 4, pt: 3.5, borderTop: 1, borderColor: 'divider' }}>
+      <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+        Check
+      </Typography>
+      <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5, mb: 2 }}>
+        A different question on the same idea. Reading an explanation is not the same
+        as being able to use it.
+      </Typography>
+
+      <Typography variant="body1" sx={{ fontSize: 17, lineHeight: 1.6 }}>
+        {check.question_text}
+        {check.is_multiple && (
+          <Typography component="span" variant="caption" sx={{ color: 'text.secondary' }}>
+            {' '}(choose all that apply)
+          </Typography>
+        )}
+      </Typography>
+
+      <Stack sx={{ mt: 2 }} spacing={1}>
+        {check.options.map((o) => {
+          const isPicked = picked.includes(o.id);
+          const isRight = result != null && correct.has(o.id);
+          const isWrongPick = result != null && isPicked && !correct.has(o.id);
+          return (
+            <Box
+              key={o.id}
+              component="button"
+              type="button"
+              disabled={result != null}
+              onClick={() => toggle(o.id)}
+              aria-pressed={isPicked}
+              // Named explicitly, for the reason already learnt on Home's
+              // rows: a button assembled from Typography children reads as an
+              // unnamed button to anything not looking at it.
+              aria-label={o.text}
+              sx={{
+                display: 'flex', gap: 1.5, alignItems: 'baseline', textAlign: 'left',
+                width: '100%', font: 'inherit', cursor: result ? 'default' : 'pointer',
+                px: 1.75, py: 1, borderRadius: 2,
+                border: 1,
+                borderColor: isRight
+                  ? 'success.main'
+                  : isWrongPick
+                    ? 'error.main'
+                    : isPicked ? 'primary.main' : 'divider',
+                bgcolor: isPicked && !result ? 'action.selected' : 'transparent',
+                color: 'text.primary',
+                '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main' },
+              }}
+            >
+              <Typography
+                component="span"
+                aria-hidden
+                sx={{
+                  width: 14, flexShrink: 0,
+                  color: isRight ? 'success.main' : isWrongPick ? 'error.main' : 'text.disabled',
+                }}
+              >
+                {result == null ? (isPicked ? '•' : '') : isRight ? '✓' : isWrongPick ? '✕' : ''}
+              </Typography>
+              <Typography variant="body2" sx={{ lineHeight: 1.55 }}>
+                {o.text}
+                {/* Stated as well as marked, so the reading never rests on a
+                    colour or a glyph. */}
+                {result != null && isRight && (
+                  <Typography component="span" variant="caption" sx={{ color: 'text.secondary' }}>
+                    {' '}— correct
+                  </Typography>
+                )}
+                {isWrongPick && (
+                  <Typography component="span" variant="caption" sx={{ color: 'text.secondary' }}>
+                    {' '}— you chose this
+                  </Typography>
+                )}
+              </Typography>
+            </Box>
+          );
+        })}
+      </Stack>
+
+      {failed && (
+        <Alert severity="warning" sx={{ mt: 2 }}>
+          That did not reach the server, so it has not been recorded. Try again — this
+          answer is the evidence, and a check that was not saved must not look like one
+          that was.
+        </Alert>
+      )}
+
+      {result && (
+        <Box sx={{ mt: 3 }}>
+          <Typography variant="body1" sx={{ fontWeight: 500 }}>
+            {result.passed ? 'Checked.' : 'Not yet.'}
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 0.5, color: 'text.secondary', lineHeight: 1.6 }}>
+            {result.verdict}
+          </Typography>
+          {!result.passed && result.explanation && (
+            <Box sx={{ mt: 2 }}>
+              <Explanation text={result.explanation} />
+            </Box>
+          )}
+        </Box>
+      )}
+
+      <Stack direction="row" sx={{ mt: 3.5, alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+        {result == null ? (
+          <Button
+            variant="contained"
+            disableElevation
+            disabled={picked.length === 0 || submitting}
+            onClick={submit}
+            sx={{ borderRadius: '100px', fontWeight: 600, textTransform: 'none' }}
+          >
+            {submitting ? 'Checking…' : 'Check'}
+          </Button>
+        ) : (
+          <Button
+            variant="contained"
+            disableElevation
+            onClick={() => onNext(result.passed)}
+            sx={{ borderRadius: '100px', fontWeight: 600, textTransform: 'none' }}
+          >
+            {position === total ? 'Done' : 'Next'}
+          </Button>
+        )}
         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
           {item.domain}
         </Typography>
@@ -308,19 +528,43 @@ const ReviewCard: React.FC<{
  * Closes on what was covered rather than on what is left. The remainder is
  * mentioned in one clause because hiding it would be dishonest, and made the
  * headline by nobody, because that is the backlog again.
+ *
+ * It now closes on what was *learnt* rather than on what was read. "Twelve
+ * read" was the only thing this page could ever say, and it was a measure of
+ * time spent. The checks are a measure of the thing the time was spent on --
+ * and the ones that did not pass are reported plainly, because a session that
+ * discovers two concepts have not landed is a more useful session than one
+ * that discovers nothing.
  */
-const Finished: React.FC<{ done: ReviewItem[]; remaining: number }> = ({ done, remaining }) => {
+const Finished: React.FC<{
+  done: ReviewItem[];
+  checks: boolean[];
+  remaining: number;
+}> = ({ done, checks, remaining }) => {
   const byDomain = useMemo(() => {
     const counts = new Map<string, number>();
     done.forEach((d) => counts.set(d.domain, (counts.get(d.domain) ?? 0) + 1));
     return [...counts.entries()].sort((a, b) => b[1] - a[1]);
   }, [done]);
 
+  const passed = checks.filter(Boolean).length;
+  const failed = checks.length - passed;
+
   return (
     <Box>
       <Typography variant="h6" sx={{ fontWeight: 600 }}>
         That is today&apos;s review read.
       </Typography>
+
+      {checks.length > 0 && (
+        <Typography variant="body1" sx={{ mt: 1.5, lineHeight: 1.65 }}>
+          {passed} of {checks.length} checked question{checks.length === 1 ? '' : 's'} came
+          back right.
+          {failed > 0 && ` The other ${failed === 1 ? 'one is' : `${failed} are`} back near `
+            + 'the front of the schedule, so they will come round again soon.'}
+        </Typography>
+      )}
+
       <Stack sx={{ mt: 2 }} spacing={0.5}>
         {byDomain.map(([domain, n]) => (
           <Typography key={domain} variant="body2" sx={{ color: 'text.secondary' }}>

@@ -15,8 +15,11 @@ from app.repositories.system_design_repository import (
     SystemDesignAttemptRepository,
 )
 from app.models.system_design_attempt import SystemDesignAttempt
+from app.models.system_design_draft import SystemDesignDraft
 from app.models.question import QuestionDifficulty
 from app.schemas.system_design import (
+    DraftRequest,
+    DraftResponse,
     SystemDesignPromptCreate,
     SystemDesignPromptFilter,
     SystemDesignPromptResponse,
@@ -151,6 +154,95 @@ Respond ONLY in this exact JSON format, no other text:
 
     # ---- Attempts ------------------------------------------------------
 
+    # ---- drafts ------------------------------------------------------
+    #
+    # The answer page held its text in React state and nowhere else. No
+    # autosave, no localStorage, no beforeunload guard: forty minutes of design
+    # work was one stray sidebar click away from being gone, and nothing on the
+    # screen suggested otherwise. The exam runner has warned before unloading
+    # since it was written; the one surface where a learner types for half an
+    # hour had no protection at all.
+
+    def get_draft(self, prompt_id: int) -> DraftResponse:
+        """What is saved for this prompt, or the last submitted answer.
+
+        Falling back to the previous attempt is what makes revision possible:
+        Phase 59's loop is draft -> feedback -> revision -> resubmission, and a
+        revision that starts from a blank box is a rewrite.
+        """
+        prompt = self.prompt_repo.get_by_id(prompt_id)
+        if not prompt:
+            raise ResourceNotFoundException("SystemDesignPrompt", prompt_id)
+
+        draft = (
+            self.db.query(SystemDesignDraft)
+            .filter(SystemDesignDraft.prompt_id == prompt_id)
+            .first()
+        )
+        if draft is not None:
+            return DraftResponse(
+                prompt_id=prompt_id,
+                answer_text=draft.answer_text or "",
+                target_role=draft.target_role,
+                updated_at=draft.updated_at,
+                exists=True,
+            )
+
+        previous = (
+            self.db.query(SystemDesignAttempt)
+            .filter(SystemDesignAttempt.prompt_id == prompt_id)
+            .order_by(SystemDesignAttempt.created_at.desc())
+            .first()
+        )
+        if previous is not None:
+            return DraftResponse(
+                prompt_id=prompt_id,
+                answer_text=previous.answer_text or "",
+                target_role=previous.target_role,
+                updated_at=previous.created_at,
+                exists=True,
+            )
+
+        return DraftResponse(prompt_id=prompt_id, answer_text="", exists=False)
+
+    def save_draft(self, prompt_id: int, req: DraftRequest) -> DraftResponse:
+        prompt = self.prompt_repo.get_by_id(prompt_id)
+        if not prompt:
+            raise ResourceNotFoundException("SystemDesignPrompt", prompt_id)
+
+        draft = (
+            self.db.query(SystemDesignDraft)
+            .filter(SystemDesignDraft.prompt_id == prompt_id)
+            .first()
+        )
+        if draft is None:
+            draft = SystemDesignDraft(prompt_id=prompt_id)
+            self.db.add(draft)
+
+        draft.answer_text = req.answer_text or ""
+        draft.target_role = req.target_role
+        self.db.commit()
+        self.db.refresh(draft)
+
+        return DraftResponse(
+            prompt_id=prompt_id,
+            answer_text=draft.answer_text,
+            target_role=draft.target_role,
+            updated_at=draft.updated_at,
+            exists=True,
+        )
+
+    def _clear_draft(self, prompt_id: int) -> None:
+        """Submitting is what ends a draft.
+
+        Not deleted before the attempt exists: if grading throws, the learner
+        must still have their words.
+        """
+        self.db.query(SystemDesignDraft).filter(
+            SystemDesignDraft.prompt_id == prompt_id
+        ).delete()
+        self.db.commit()
+
     def submit_attempt(self, req: SubmitAttemptRequest) -> SystemDesignAttemptResponse:
         prompt = self.prompt_repo.get_by_id(req.prompt_id)
         if not prompt:
@@ -175,6 +267,7 @@ Respond ONLY in this exact JSON format, no other text:
             attempt.improvements = []
             attempt.summary = None
             saved = self.attempt_repo.create(attempt)
+            self._clear_draft(req.prompt_id)
             return SystemDesignAttemptResponse.model_validate(saved)
 
         grading_prompt = self._build_grading_prompt(prompt.prompt_text, req.answer_text, req.target_role)
@@ -190,6 +283,7 @@ Respond ONLY in this exact JSON format, no other text:
             attempt.improvements = []
             attempt.summary = None
             saved = self.attempt_repo.create(attempt)
+            self._clear_draft(req.prompt_id)
             return SystemDesignAttemptResponse.model_validate(saved)
 
         category_scores = self._parse_category_scores(parsed.get("category_scores"))
@@ -208,6 +302,7 @@ Respond ONLY in this exact JSON format, no other text:
         attempt.summary = str(parsed.get("summary") or "")
 
         saved = self.attempt_repo.create(attempt)
+        self._clear_draft(req.prompt_id)
         return SystemDesignAttemptResponse.model_validate(saved)
 
     def _parse_category_scores(self, raw) -> List[CategoryScore]:
@@ -288,6 +383,57 @@ Respond ONLY in this exact JSON format, no other text:
             "total": total,
             "skip": skip,
             "limit": limit,
+        }
+
+    def list_attempts_for_prompt(self, prompt_id: int) -> dict:
+        """Every attempt at one prompt, newest first, with the honest comparison.
+
+        The endpoints to list attempts have existed since System Design shipped
+        and no page called either of them, so a learner who answered the same
+        prompt three times had no way to see whether the third was better than
+        the first. "Am I improving at this?" was a question the product stored
+        the answer to and never asked.
+
+        `change_vs_previous` is set only between two *graded* attempts. An
+        ungraded attempt has no score, and a trend drawn through a missing
+        number is a fabricated one -- so where the comparison is not legitimate
+        the field is simply absent and the surface says why.
+        """
+        prompt = self.prompt_repo.get_by_id(prompt_id)
+        if not prompt:
+            raise ResourceNotFoundException("SystemDesignPrompt", prompt_id)
+
+        rows = (
+            self.db.query(SystemDesignAttempt)
+            .filter(SystemDesignAttempt.prompt_id == prompt_id)
+            .order_by(SystemDesignAttempt.created_at.asc(), SystemDesignAttempt.id.asc())
+            .all()
+        )
+
+        items = []
+        last_graded_score = None
+        for a in rows:
+            graded = a.grading_status == "graded" and a.overall_score is not None
+            change = None
+            if graded and last_graded_score is not None:
+                change = round(a.overall_score - last_graded_score, 1)
+            items.append({
+                "attempt_id": a.id,
+                "created_at": a.created_at,
+                "grading_status": a.grading_status,
+                "overall_score": a.overall_score if graded else None,
+                "change_vs_previous": change,
+            })
+            if graded:
+                last_graded_score = a.overall_score
+
+        items.reverse()
+        graded_count = sum(1 for i in items if i["overall_score"] is not None)
+        return {
+            "prompt_id": prompt_id,
+            "prompt_title": prompt.title,
+            "items": items,
+            "graded_count": graded_count,
         }
 
     # ---- Analytics -------------------------------------------------------

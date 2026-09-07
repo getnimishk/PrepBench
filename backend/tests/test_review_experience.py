@@ -451,3 +451,33 @@ def test_a_score_is_rounded_the_same_way_wherever_it_is_shown(db):
     assert HomeService._pct(87.5) == "88%"
     assert HomeService._pct(70.0) == "70%"
     assert HomeService._pct(0.0) == "0%"
+
+
+# ---- 10. the check is fixed once the queue has been built ---------------
+
+
+def test_refetching_the_queue_offers_the_same_check(db):
+    """A refresh must not deal the learner a different check.
+
+    The queue is fetched on every visit to Review, and the check used to be
+    drawn with `ORDER BY random()` inside that fetch. Five consecutive fetches
+    of the same miss returned four different questions -- so reloading the page
+    was a way to shop for the check you preferred. Nothing was corrupted by it,
+    because nothing is recorded until submit; but a product whose weak-topic
+    rule exists to stop a learner clearing a weakness by drilling it cannot
+    also let them re-roll their own verification.
+    """
+    _mock_with_misses(db, 1, NOW - timedelta(days=1))
+    # Enough siblings in the same domain that a random pick would move.
+    for _ in range(8):
+        _question(db)
+    db.commit()
+
+    offered = set()
+    for _ in range(10):
+        queue = review_queue(limit=DAILY_REVIEW_CAP, db=db)
+        assert len(queue.items) == 1
+        assert queue.items[0].check is not None
+        offered.add(queue.items[0].check.question_id)
+
+    assert len(offered) == 1, f"the check changed between fetches: {sorted(offered)}"

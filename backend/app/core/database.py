@@ -301,6 +301,67 @@ def apply_lightweight_migrations():
             _log_migration_failure('llm provider configuration tables', exc)
 
         try:
+            # review_checks: whether reading a miss actually taught anything.
+            #
+            # New rather than altered, so create_all covers a fresh database
+            # and this covers an upgrade in place. Deliberately its own table
+            # rather than more columns on exam_answers: a check is not exam
+            # evidence, and everything that reads exam_answers -- domain
+            # accuracy, the weak-topic list, readiness -- must not see it.
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS review_checks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    answer_id INTEGER NOT NULL
+                        REFERENCES exam_answers(id) ON DELETE CASCADE,
+                    question_id INTEGER NOT NULL
+                        REFERENCES questions(id) ON DELETE CASCADE,
+                    selected_option_ids JSON,
+                    passed BOOLEAN NOT NULL,
+                    confidence_level VARCHAR(10),
+                    created_at DATETIME NOT NULL
+                )
+            """))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_review_checks_answer_id "
+                "ON review_checks (answer_id)"
+            ))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_review_checks_created_at "
+                "ON review_checks (created_at)"
+            ))
+            conn.commit()
+        except Exception as exc:
+            _log_migration_failure('review_checks table', exc)
+
+        try:
+            # system_design_drafts: work in progress on a design prompt.
+            #
+            # New rather than altered, so create_all covers a fresh database
+            # and this covers an upgrade in place. Its own table rather than a
+            # draft-flavoured attempt: list_attempts, the analytics, Home's
+            # "other preparation" count and the activity timeline all read
+            # system_design_attempts, and unsubmitted work must not appear in
+            # any of them as something that was done.
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS system_design_drafts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    prompt_id INTEGER NOT NULL UNIQUE
+                        REFERENCES system_design_prompts(id) ON DELETE CASCADE,
+                    answer_text TEXT NOT NULL DEFAULT '',
+                    target_role VARCHAR(200),
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL
+                )
+            """))
+            conn.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_system_design_drafts_prompt_id "
+                "ON system_design_drafts (prompt_id)"
+            ))
+            conn.commit()
+        except Exception as exc:
+            _log_migration_failure('system_design_drafts table', exc)
+
+        try:
             # recording_analyses: content-quality grading columns, additive
             # alongside the existing delivery-only communication_scores/summary.
             result = conn.execute(text("PRAGMA table_info(recording_analyses)")).fetchall()

@@ -280,3 +280,60 @@ def test_activity_says_not_graded_rather_than_zero(db):
     items = client.get("/api/v1/home/activity?limit=100").json()
     for i in items:
         assert i["detail"] != "0%" or "0%" in i["detail"] and i["kind"] in {"mock", "drill"}
+
+
+def test_other_preparation_says_how_much_of_it_came_back_graded(db):
+    """"System Design: 4 attempts" is true and misleading when three of the
+    four failed to grade.
+
+    The line reads as four pieces of practice with feedback behind them, and
+    the reader has no way to find out otherwise from Home. The rule already
+    applied to interview -- count *analysed* answers, not recordings -- is the
+    same rule; a written design answer is still real work, so the attempts are
+    counted and the line says what came back.
+    """
+    from app.models.system_design_attempt import SystemDesignAttempt
+    from app.models.system_design_prompt import SystemDesignPrompt
+
+    prompt = db.query(SystemDesignPrompt).first()
+    if prompt is None:
+        prompt = SystemDesignPrompt(
+            title=f"Prompt {uuid.uuid4().hex[:6]}",
+            prompt_text="Design something.",
+            category="General",
+        )
+        db.add(prompt)
+        db.commit()
+        db.refresh(prompt)
+
+    made = [
+        SystemDesignAttempt(prompt_id=prompt.id, answer_text="a", grading_status="error"),
+        SystemDesignAttempt(prompt_id=prompt.id, answer_text="b", grading_status="error"),
+        SystemDesignAttempt(prompt_id=prompt.id, answer_text="c", grading_status="graded",
+                            overall_score=61.0),
+    ]
+    for a in made:
+        db.add(a)
+    db.commit()
+
+    try:
+        rows = client.get("/api/v1/home/other-preparation").json()
+        sd = next((r for r in rows if r["key"] == "system_design"), None)
+        assert sd is not None, "three attempts exist, so the row must be there"
+        # Whatever the totals are in this database, the clause must be present
+        # and must not claim more graded work than exists.
+        assert "graded" in sd["detail"]
+        assert "attempt" in sd["detail"]
+    finally:
+        for a in made:
+            db.delete(a)
+        db.commit()
+
+
+def test_other_preparation_stays_silent_when_everything_graded(db):
+    """The clause is an exception report, not a permanent decoration."""
+    from app.services.home_service import _graded_clause
+
+    assert _graded_clause(4, 4) == ""
+    assert _graded_clause(4, 0) == " · none graded yet"
+    assert _graded_clause(4, 1) == " · 1 graded"

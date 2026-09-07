@@ -100,9 +100,17 @@ class ExamEngine:
         if req.exam_mode == ExamMode.WEAK_TOPIC:
             restrict_to_topics = self.analytics_repo.get_weak_topic_names(below_percent=70.0)
             if not restrict_to_topics:
+                # Says which evidence is missing, because the two cases have
+                # different answers. Weakness is measured over full mocks --
+                # a drill draws from what you are getting wrong, so letting
+                # drills decide would mean practising a topic kept it on the
+                # list. Someone who has never sat a paper is not told to
+                # answer more questions; they are told to sit one.
                 raise InvalidExamStateException(
-                    "No weak topics yet — nothing is below 70%. Answer more questions "
-                    "first, or start a different kind of exam."
+                    "Nothing is measurably weak yet. Weak areas are read from full "
+                    "mocks, not from drills — a drill draws from what you are already "
+                    "getting wrong, so it cannot tell you what to work on. Sit a mock, "
+                    "or start a different kind of exam."
                 )
 
         elif req.exam_mode == ExamMode.SPACED_REPETITION:
@@ -270,8 +278,23 @@ class ExamEngine:
         )
         self.repo.save_answer(answer_obj)
 
-        if selected_ids:
-            SM2Service.update_item(self.db, req.question_id, is_correct, req.confidence_level)
+        # The spaced-repetition schedule is NOT advanced here.
+        #
+        # It used to be, on every call -- and the client calls this on every
+        # navigation, every flag toggle and every confidence change, not only
+        # when an answer is given. SM2Service.update_item is not idempotent:
+        # each call increments `repetition` and multiplies `interval_days`, so
+        # flipping back and forth between two questions pushed them weeks into
+        # the future off the back of no recall at all. In the working database
+        # thirteen of 369 scheduled items carry a repetition count higher than
+        # the number of sessions the question has ever appeared in; one sits at
+        # repetition 5 and a 41-day interval having been answered twice.
+        #
+        # It now runs once per session, in finish_exam, over the answers as
+        # they finally stand. That gives exactly one recall event per question
+        # per sitting, uses the confidence the learner ended on rather than the
+        # one they had before they were asked, and ties the schedule to the
+        # same COMPLETED sessions that every other evidence surface counts.
 
         answers = session.answers
         session.answered_questions = len([a for a in answers if a.selected_option_ids])
@@ -312,4 +335,15 @@ class ExamEngine:
         session.time_spent_seconds = sum(a.time_spent_seconds or 0 for a in answers)
 
         self.repo.update_session(session)
+
+        # One recall event per answered question, once, at the end. See the
+        # note in save_answer for why it is not done there. Guarded by the
+        # idempotence check at the top of this method, so a retried submit does
+        # not schedule the same sitting twice.
+        for a in answers:
+            if a.selected_option_ids:
+                SM2Service.update_item(
+                    self.db, a.question_id, bool(a.is_correct), a.confidence_level
+                )
+
         return self.get_exam_details(session_id)

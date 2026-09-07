@@ -44,6 +44,9 @@ vi.mock('../services/api', () => ({
   getExamDetails: (...args: any[]) => mockGetExamDetails(...args),
   saveExamAnswer: (...args: any[]) => mockSaveExamAnswer(...args),
   finishExam: (...args: any[]) => mockFinishExam(...args),
+  // The runner reads Settings for the five-minute audio alert. A failed read
+  // is deliberately not fatal, so the default here is the failure path.
+  getSettings: () => Promise.resolve({ timer_sound_enabled: false }),
 }));
 
 function makeExamDetail(): ExamDetail {

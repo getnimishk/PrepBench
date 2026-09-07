@@ -35,6 +35,9 @@ const NAV_ITEMS = [
 
 const SETTINGS_ITEM = { label: 'Settings', path: '/settings', icon: Settings };
 
+/** The sticky app bar's height, which is what the sidebar hangs from. */
+const NAVBAR_HEIGHT = 64;
+
 type NavEntry = { label: string; path: string; icon: typeof LayoutDashboard };
 
 export const Sidebar: React.FC = () => {
@@ -132,11 +135,22 @@ export const Sidebar: React.FC = () => {
     <Box
       sx={{
         width: collapsed ? 76 : 260,
+        flexShrink: 0,
         transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         borderRight: `1px solid ${dark ? '#1E1F22' : '#E2E8F0'}`,
         bgcolor: 'background.default',
         display: 'flex',
         flexDirection: 'column',
+        // Pinned under the app bar rather than stretched to the height of the
+        // document. It used to grow with the page, so on anything longer than
+        // one screen -- the design-review list is two thousand pixels -- every
+        // destination including Settings scrolled off the top and the only way
+        // back to Home was to scroll the content you were reading. Navigation
+        // that leaves the screen is not navigation.
+        position: 'sticky',
+        top: NAVBAR_HEIGHT,
+        alignSelf: 'flex-start',
+        height: `calc(100vh - ${NAVBAR_HEIGHT}px)`,
       }}
     >
       <Box sx={{ flexGrow: 1, overflowY: 'auto', py: 2, overflowX: 'hidden' }}>

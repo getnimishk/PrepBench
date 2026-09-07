@@ -65,6 +65,25 @@ class FormatCoverage:
     detail: str
 
 
+def _graded_clause(total: int, graded: int) -> str:
+    """How much of that work actually came back with feedback.
+
+    "System Design 4 attempts" is true and misleading when three of the four
+    failed to grade: it reads as four pieces of practice with feedback behind
+    them, and the reader has no way to find out otherwise from this line. The
+    rule already applied elsewhere on this page -- interview counts *analysed*
+    answers, not recordings, because a take nobody looked at is an audio file
+    -- is applied here too, except that a written design answer is real work
+    whether or not a model ever read it. So the attempts are still counted,
+    and the line says what came back.
+    """
+    if graded == total:
+        return ""
+    if graded == 0:
+        return " · none graded yet"
+    return f" · {graded} graded"
+
+
 class HomeService:
     def __init__(self, db: Session):
         self.db = db
@@ -202,19 +221,35 @@ class HomeService:
             self.db.query(func.count(func.distinct(DesignReviewAttempt.review_id))).scalar()
         ) or 0
         if design_reviews:
+            graded = (
+                self.db.query(func.count(func.distinct(DesignReviewAttempt.review_id)))
+                .filter(DesignReviewAttempt.grading_status == "graded")
+                .scalar()
+            ) or 0
             out.append({
                 "key": "design_review",
                 "label": "Design Review",
-                "detail": f"{design_reviews} decision{'' if design_reviews == 1 else 's'} called",
+                "detail": (
+                    f"{design_reviews} decision{'' if design_reviews == 1 else 's'} called"
+                    + _graded_clause(design_reviews, graded)
+                ),
                 "href": "/design-reviews",
             })
 
         system_design = self.db.query(func.count(SystemDesignAttempt.id)).scalar() or 0
         if system_design:
+            sd_graded = (
+                self.db.query(func.count(SystemDesignAttempt.id))
+                .filter(SystemDesignAttempt.grading_status == "graded")
+                .scalar()
+            ) or 0
             out.append({
                 "key": "system_design",
                 "label": "System Design",
-                "detail": f"{system_design} attempt{'' if system_design == 1 else 's'}",
+                "detail": (
+                    f"{system_design} attempt{'' if system_design == 1 else 's'}"
+                    + _graded_clause(system_design, sd_graded)
+                ),
                 "href": "/system-design",
             })
 

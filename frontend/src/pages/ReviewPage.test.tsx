@@ -15,6 +15,7 @@ const mockHome = vi.fn();
 const mockActivity = vi.fn();
 const mockMarkReviewed = vi.fn();
 const mockStartExam = vi.fn();
+const mockSubmitCheck = vi.fn();
 
 vi.mock('../services/api', () => ({
   getReviewQueue: (...a: any[]) => mockQueue(...a),
@@ -22,7 +23,19 @@ vi.mock('../services/api', () => ({
   getActivity: (...a: any[]) => mockActivity(...a),
   markAnswerReviewed: (...a: any[]) => mockMarkReviewed(...a),
   startExam: (...a: any[]) => mockStartExam(...a),
+  submitReviewCheck: (...a: any[]) => mockSubmitCheck(...a),
 }));
+
+/** One different question on the same concept. */
+const check = () => ({
+  question_id: 233,
+  question_text: 'True or False: the Definition of Done can be adapted during the Retrospective.',
+  is_multiple: false,
+  options: [
+    { id: 890, text: 'True', is_correct: true },
+    { id: 891, text: 'False', is_correct: false },
+  ],
+});
 
 const item = (over: Partial<ReviewItem> = {}): ReviewItem => ({
   answer_id: 470,
@@ -57,6 +70,12 @@ beforeEach(() => {
   mockHome.mockResolvedValue({ due_for_review: 0, unreviewed_total: 90, per_subject: [] });
   mockActivity.mockResolvedValue([]);
   mockMarkReviewed.mockResolvedValue({ status: 'ok' });
+  mockSubmitCheck.mockResolvedValue({
+    passed: true,
+    correct_option_ids: [890],
+    explanation: 'The Definition of Done can be adapted at any time.',
+    verdict: 'That one transferred.',
+  });
 });
 
 describe('ReviewPage', () => {
@@ -110,6 +129,127 @@ describe('ReviewPage', () => {
     expect(
       await screen.findByText(/Every wrong answer from your mocks has been read/)
     ).toBeInTheDocument();
+  });
+
+  /**
+   * The check is the whole difference between reading and learning.
+   *
+   * Reviewing a miss used to set a timestamp and nothing else: the schedule
+   * was driven only by answering, so an evening of explanations left the
+   * product's model of the learner exactly where it started.
+   */
+  describe('the check', () => {
+    it('asks a different question on the same concept after the explanation', async () => {
+      mockQueue.mockResolvedValue({
+        items: [item({ check: check() })], remaining: 0, total_unreviewed: 1,
+      });
+      renderReview();
+
+      expect(await screen.findByText(check().question_text)).toBeInTheDocument();
+      expect(
+        screen.getByText(/A different question on the same idea/)
+      ).toBeInTheDocument();
+      // Not the question that was just explained.
+      expect(screen.queryByRole('button', { name: 'The Product Owner' })).not.toBeInTheDocument();
+    });
+
+    it('will not accept a check with nothing selected', async () => {
+      mockQueue.mockResolvedValue({
+        items: [item({ check: check() })], remaining: 0, total_unreviewed: 1,
+      });
+      renderReview();
+
+      expect(await screen.findByRole('button', { name: 'Check' })).toBeDisabled();
+    });
+
+    it('records the answer and says what it proved', async () => {
+      const user = userEvent.setup();
+      mockQueue.mockResolvedValue({
+        items: [item({ check: check() })], remaining: 0, total_unreviewed: 1,
+      });
+      renderReview();
+
+      await user.click(await screen.findByRole('button', { name: 'True' }));
+      await user.click(screen.getByRole('button', { name: 'Check' }));
+
+      expect(mockSubmitCheck).toHaveBeenCalledWith({
+        answer_id: 470, question_id: 233, selected_option_ids: [890],
+      });
+      expect(await screen.findByText('Checked.')).toBeInTheDocument();
+      expect(screen.getByText('That one transferred.')).toBeInTheDocument();
+    });
+
+    it('shows the explanation for a check that did not land', async () => {
+      const user = userEvent.setup();
+      mockSubmitCheck.mockResolvedValue({
+        passed: false,
+        correct_option_ids: [890],
+        explanation: 'The Definition of Done can be adapted at any time.',
+        verdict: 'It did not transfer yet.',
+      });
+      mockQueue.mockResolvedValue({
+        items: [item({ check: check() })], remaining: 0, total_unreviewed: 1,
+      });
+      renderReview();
+
+      await user.click(await screen.findByRole('button', { name: 'False' }));
+      await user.click(screen.getByRole('button', { name: 'Check' }));
+
+      expect(await screen.findByText('Not yet.')).toBeInTheDocument();
+      expect(screen.getByText('It did not transfer yet.')).toBeInTheDocument();
+      expect(
+        screen.getByText(/The Definition of Done can be adapted at any time/)
+      ).toBeInTheDocument();
+    });
+
+    // A check the server never received must not look like one it accepted.
+    // The evidence is the point; a silent failure would be a fabricated pass.
+    it('says a failed submission failed rather than moving on', async () => {
+      const user = userEvent.setup();
+      mockSubmitCheck.mockRejectedValue(new Error('offline'));
+      mockQueue.mockResolvedValue({
+        items: [item({ check: check() })], remaining: 0, total_unreviewed: 1,
+      });
+      renderReview();
+
+      await user.click(await screen.findByRole('button', { name: 'True' }));
+      await user.click(screen.getByRole('button', { name: 'Check' }));
+
+      expect(await screen.findByText(/has not been recorded/)).toBeInTheDocument();
+      expect(screen.queryByText('Checked.')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Check' })).toBeInTheDocument();
+    });
+
+    it('closes the session on what was learnt, not on what was read', async () => {
+      const user = userEvent.setup();
+      mockQueue.mockResolvedValue({
+        items: [item({ check: check() })], remaining: 3, total_unreviewed: 4,
+      });
+      renderReview();
+
+      await user.click(await screen.findByRole('button', { name: 'True' }));
+      await user.click(screen.getByRole('button', { name: 'Check' }));
+      await user.click(await screen.findByRole('button', { name: 'Done' }));
+
+      expect(
+        await screen.findByText(/1 of 1 checked question came back right/)
+      ).toBeInTheDocument();
+    });
+
+    // A concept with one question in the bank cannot be checked. Asking about
+    // something else and calling it verification would be the kind of claim
+    // this product refuses everywhere else.
+    it('says there is nothing to check against rather than inventing one', async () => {
+      mockQueue.mockResolvedValue({
+        items: [item({ check: null })], remaining: 0, total_unreviewed: 1,
+      });
+      renderReview();
+
+      expect(
+        await screen.findByText(/No second question on this concept in your bank/)
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Check' })).not.toBeInTheDocument();
+    });
   });
 
   it('starts the memory drill directly instead of opening a setup form', async () => {

@@ -136,7 +136,14 @@ def test_weak_topic_focus_with_no_weak_topics_fails_instead_of_widening(db, monk
             exam_mode="weak_topic", certification=cert, total_questions=3,
         ))
 
-    assert "weak topic" in str(raised.value.detail).lower()
+    detail = str(raised.value.detail).lower()
+    assert "weak" in detail
+    # And it names which evidence is missing rather than just refusing.
+    # Weakness is read from full mocks: a drill draws from what the learner is
+    # already getting wrong, so letting drills decide would mean practising a
+    # topic kept it on the list. Someone who has never sat a paper needs to be
+    # told to sit one, not to answer more questions.
+    assert "mock" in detail and "drill" in detail
 
 
 def test_review_focus_with_nothing_due_fails_instead_of_widening(db, monkeypatch):

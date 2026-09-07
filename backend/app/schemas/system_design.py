@@ -55,6 +55,27 @@ class SubmitAttemptRequest(BaseModel):
     time_spent_seconds: int = 0
 
 
+class DraftRequest(BaseModel):
+    """What the answer page has in the box right now.
+
+    `answer_text` has no min_length: clearing the box is a real edit, and a
+    draft that refuses to record an emptied one would restore deleted text on
+    the next visit.
+    """
+    answer_text: str = ""
+    target_role: Optional[str] = None
+
+
+class DraftResponse(BaseModel):
+    prompt_id: int
+    answer_text: str
+    target_role: Optional[str] = None
+    updated_at: Optional[datetime] = None
+    # False when there is nothing saved for this prompt. The page needs to know
+    # the difference between "resumed an empty draft" and "never started".
+    exists: bool = True
+
+
 class SystemDesignAttemptResponse(BaseModel):
     id: int
     prompt_id: int

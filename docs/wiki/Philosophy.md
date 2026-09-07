@@ -52,6 +52,14 @@ Readiness is computed from full mocks alone. A drill is not a weaker measurement
 
 The cost asymmetry is the whole argument: an encouraging app that leads to a failed exam costs the fee and the confidence. It is worse than no app.
 
+### 2b. Reading is not learning, so the product asks
+
+The corollary of rule 2, and the one this application went longest without. For most of its life, reviewing a wrong answer set `reviewed_at` and nothing else: the spaced-repetition schedule was driven only by *answering*, so an evening spent working through twenty explanations changed nothing except twenty timestamps. Home could count what had been read. Nothing anywhere asked whether it had landed — which meant "I reviewed my misses" was doing the work of evidence while being a record of time spent.
+
+Every miss now ends in a **check**: one different question on the same concept. It is deliberately a *different* question, because re-asking what was just explained tests short-term memory and is the one result the learner is guaranteed to get right. Passing verifies the concept; failing returns it to the front of the schedule. A concept with no second question in the bank gets no check and the page says so, because asking about something else and calling it verification would break rule 1.
+
+The rule this adds: **a claim about learning needs a check the learner could fail.** See [Readiness](Readiness#the-check).
+
 ### 3. Never present a modelling choice as a fact
 
 In the Chart Sandbox this is enforced structurally: every relationship between models is typed `arithmetic | assumption | convention`, and assumptions render on-chart as assumptions.

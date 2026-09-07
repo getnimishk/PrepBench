@@ -14,7 +14,7 @@ import { QuestionView } from '../components/exam/QuestionView';
 import { ExplanationDrawer } from '../components/exam/ExplanationDrawer';
 import { ExamTimer } from '../components/exam/ExamTimer';
 import { QuestionPalette } from '../components/exam/QuestionPalette';
-import { getExamDetails, saveExamAnswer, finishExam } from '../services/api';
+import { getExamDetails, getSettings, saveExamAnswer, finishExam } from '../services/api';
 import { ExamDetail, ConfidenceLevel } from '../types/exam';
 import { Question } from '../types/question';
 
@@ -39,6 +39,15 @@ export const ExamRunnerPage: React.FC = () => {
   const [confirmFinish, setConfirmFinish] = useState(false);
   const [timeUpDialog, setTimeUpDialog] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  // Settings' "Timer sound alert (under 5 min)". Fetched here because the
+  // timer is its only consumer and a failed read must not stop an exam.
+  const [timerSound, setTimerSound] = useState(false);
+
+  useEffect(() => {
+    getSettings()
+      .then((s) => setTimerSound(!!s?.timer_sound_enabled))
+      .catch(() => { /* no alert, and the clock still turns red */ });
+  }, []);
 
   const currentQuestion: Question | undefined = examDetail?.questions[currentIdx];
   const isPracticeMode = examDetail?.exam_mode === 'practice';
@@ -224,17 +233,10 @@ export const ExamRunnerPage: React.FC = () => {
     persistAnswer(currentQuestion.id, selectedOptionIds, nextState, undefined, undefined);
   };
 
-  const handleToggleBookmark = () => {
-    if (!currentQuestion) return;
-    const nextState = !bookmarkedSet.has(currentQuestion.id);
-    setBookmarkedSet((prev) => {
-      const next = new Set(prev);
-      if (nextState) next.add(currentQuestion.id);
-      else next.delete(currentQuestion.id);
-      return next;
-    });
-    persistAnswer(currentQuestion.id, selectedOptionIds, undefined, nextState, undefined);
-  };
+  // There is no handleToggleBookmark any more -- the control is gone from
+  // QuestionView. `bookmarkedSet` is still loaded from the saved answers and
+  // still sent back on every save, so a historical bookmark survives being
+  // re-saved rather than being quietly cleared by the removal of its button.
 
   const handleChangeConfidence = (lvl: ConfidenceLevel) => {
     if (!currentQuestion) return;
@@ -395,6 +397,7 @@ export const ExamRunnerPage: React.FC = () => {
               startTime={examDetail.start_time}
               timeAllowedSeconds={examDetail.time_allowed_seconds ?? undefined}
               onTimeUp={handleTimeUp}
+              soundEnabled={timerSound}
             />
             <Button
               variant="contained"
@@ -434,11 +437,10 @@ export const ExamRunnerPage: React.FC = () => {
                     selectedOptionIds={selectedOptionIds}
                     onSelectOption={handleSelectOption}
                     isFlagged={flaggedSet.has(currentQuestion.id)}
-                    isBookmarked={bookmarkedSet.has(currentQuestion.id)}
                     onToggleFlag={handleToggleFlag}
-                    onToggleBookmark={handleToggleBookmark}
                     confidenceLevel={confidenceMap.get(currentQuestion.id) || 'not_set'}
                     onChangeConfidence={handleChangeConfidence}
+                    revealed={isPracticeMode && showExplanation}
                   />
 
                   {/* Explanation (Practice Mode only) */}

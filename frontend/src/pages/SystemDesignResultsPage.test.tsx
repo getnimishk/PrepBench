@@ -9,9 +9,11 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { SystemDesignResultsPage } from './SystemDesignResultsPage';
 
 const mockGetAttempt = vi.fn();
+const mockGetHistory = vi.fn();
 
 vi.mock('../services/api', () => ({
   getSystemDesignAttempt: (...args: any[]) => mockGetAttempt(...args),
+  getSystemDesignPromptAttempts: (...args: any[]) => mockGetHistory(...args),
 }));
 
 function renderPage() {
@@ -26,6 +28,10 @@ function renderPage() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // One attempt: nothing to compare, so the section stays out of the way.
+  mockGetHistory.mockResolvedValue({
+    prompt_id: 1, prompt_title: 'Design a URL Shortener', items: [], graded_count: 0,
+  });
 });
 
 describe('SystemDesignResultsPage', () => {
@@ -82,5 +88,73 @@ describe('SystemDesignResultsPage', () => {
     // No fabricated score UI anywhere.
     expect(screen.queryByText('%')).not.toBeInTheDocument();
     expect(screen.queryByText('Category Breakdown')).not.toBeInTheDocument();
+  });
+
+  /**
+   * "Am I improving at this?" was a question the product stored the answer to
+   * and never asked: GET /system-design/attempts shipped with the feature and
+   * no page ever called it.
+   */
+  describe('attempt history', () => {
+    const graded = (over: Record<string, unknown> = {}) => ({
+      id: 1, prompt_id: 1, answer_text: 'My answer', target_role: null,
+      overall_score: 72, category_scores: [], strengths: [], improvements: [],
+      summary: null, grading_status: 'graded', grading_error: null,
+      time_spent_seconds: 900, created_at: '2026-09-05T10:00:00',
+      prompt: { id: 1, title: 'Design a URL Shortener' },
+      ...over,
+    });
+
+    it('says nothing at all when there is only one attempt', async () => {
+      mockGetAttempt.mockResolvedValue(graded());
+      mockGetHistory.mockResolvedValue({
+        prompt_id: 1, prompt_title: 'x', graded_count: 1,
+        items: [{
+          attempt_id: 1, created_at: '2026-09-05T10:00:00',
+          grading_status: 'graded', overall_score: 72, change_vs_previous: null,
+        }],
+      });
+      renderPage();
+
+      await screen.findByText('Design a URL Shortener');
+      expect(screen.queryByText(/Your attempts at this prompt/)).not.toBeInTheDocument();
+    });
+
+    it('shows the change between two graded attempts', async () => {
+      mockGetAttempt.mockResolvedValue(graded());
+      mockGetHistory.mockResolvedValue({
+        prompt_id: 1, prompt_title: 'x', graded_count: 2,
+        items: [
+          { attempt_id: 1, created_at: '2026-09-05T10:00:00', grading_status: 'graded', overall_score: 72, change_vs_previous: 22 },
+          { attempt_id: 2, created_at: '2026-08-20T10:00:00', grading_status: 'graded', overall_score: 50, change_vs_previous: null },
+        ],
+      });
+      renderPage();
+
+      expect(await screen.findByText(/Your attempts at this prompt/)).toBeInTheDocument();
+      expect(screen.getByText('+22 pts')).toBeInTheDocument();
+      expect(screen.getByText('This one')).toBeInTheDocument();
+    });
+
+    // A line drawn through a missing number is a fabricated trend, which is
+    // the same defect as a fabricated score one step further from where
+    // anyone would look for it.
+    it('refuses to compare when the earlier attempt was never graded', async () => {
+      mockGetAttempt.mockResolvedValue(graded());
+      mockGetHistory.mockResolvedValue({
+        prompt_id: 1, prompt_title: 'x', graded_count: 1,
+        items: [
+          { attempt_id: 1, created_at: '2026-09-05T10:00:00', grading_status: 'graded', overall_score: 72, change_vs_previous: null },
+          { attempt_id: 2, created_at: '2026-08-20T10:00:00', grading_status: 'error', overall_score: null, change_vs_previous: null },
+        ],
+      });
+      renderPage();
+
+      expect(await screen.findByText(/Your attempts at this prompt/)).toBeInTheDocument();
+      expect(screen.queryByText(/pts$/)).not.toBeInTheDocument();
+      expect(
+        screen.getByText(/Only one of these was graded, so there is nothing to compare it with yet/)
+      ).toBeInTheDocument();
+    });
   });
 });

@@ -9,7 +9,10 @@ import {
   LinearProgress, Divider, List, ListItem, ListItemIcon, ListItemText
 } from '@mui/material';
 import { CheckCircle2, AlertTriangle, ArrowLeft } from 'lucide-react';
-import { getSystemDesignAttempt } from '../services/api';
+import {
+  getSystemDesignAttempt, getSystemDesignPromptAttempts,
+  SystemDesignAttemptHistoryItem,
+} from '../services/api';
 import { SystemDesignAttempt } from '../types/systemDesign';
 import { CategoryScoreList, scoreColor } from '../components/common/CategoryScoreList';
 
@@ -19,6 +22,7 @@ export const SystemDesignResultsPage: React.FC = () => {
   const aid = attemptId ? parseInt(attemptId, 10) : 0;
 
   const [attempt, setAttempt] = useState<SystemDesignAttempt | null>(null);
+  const [history, setHistory] = useState<SystemDesignAttemptHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -27,7 +31,14 @@ export const SystemDesignResultsPage: React.FC = () => {
     setLoading(true);
     setFetchError(null);
     getSystemDesignAttempt(aid)
-      .then(setAttempt)
+      .then((a) => {
+        setAttempt(a);
+        // History is a second question, so a failure to answer it must not
+        // take the feedback down with it.
+        getSystemDesignPromptAttempts(a.prompt_id)
+          .then((h) => setHistory(h.items))
+          .catch(() => setHistory([]));
+      })
       .catch(() => setFetchError('Failed to load results. Please check backend connection.'))
       .finally(() => setLoading(false));
   }, [aid]);
@@ -136,6 +147,82 @@ export const SystemDesignResultsPage: React.FC = () => {
           Practice Another Prompt
         </Button>
       </Box>
+      <AttemptHistory items={history} currentId={aid} />
+    </Box>
+  );
+};
+
+/**
+ * Every attempt at this prompt, and what actually changed.
+ *
+ * `GET /system-design/attempts` shipped with the feature and no page ever
+ * called it, so someone who answered the same prompt three times could not
+ * find out whether the third was better than the first. "Am I improving at
+ * this?" was a question the product stored the answer to and never asked.
+ *
+ * The change is shown only between two graded attempts. An ungraded one has no
+ * score, and a line drawn through a missing number is a fabricated trend --
+ * which is the same defect as a fabricated score, one step further away from
+ * where anyone would look for it.
+ */
+const AttemptHistory: React.FC<{
+  items: SystemDesignAttemptHistoryItem[];
+  currentId: number;
+}> = ({ items, currentId }) => {
+  if (items.length <= 1) return null;
+
+  const graded = items.filter((i) => i.overall_score !== null).length;
+
+  return (
+    <Box sx={{ mt: 6 }}>
+      <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+        Your attempts at this prompt
+      </Typography>
+
+      <Box sx={{ mt: 1 }}>
+        {items.map((i) => (
+          <Box
+            key={i.attempt_id}
+            sx={{
+              display: 'flex', alignItems: 'baseline', gap: 2, py: 1.1,
+              borderBottom: 1, borderColor: 'divider', flexWrap: 'wrap',
+              fontWeight: i.attempt_id === currentId ? 600 : 400,
+            }}
+          >
+            <Typography variant="body2" sx={{ width: 92, color: 'text.secondary' }}>
+              {new Date(i.created_at).toLocaleDateString(undefined, {
+                day: 'numeric', month: 'short',
+              })}
+            </Typography>
+            <Typography variant="body2" sx={{ flexGrow: 1, fontWeight: 'inherit' }}>
+              {i.attempt_id === currentId ? 'This one' : 'Earlier attempt'}
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{ width: 64, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+            >
+              {/* Never a zero for an attempt that was never graded. */}
+              {i.overall_score !== null ? `${Math.round(i.overall_score)}%` : 'not graded'}
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{ width: 74, textAlign: 'right', color: 'text.secondary' }}
+            >
+              {i.change_vs_previous === null
+                ? ''
+                : `${i.change_vs_previous > 0 ? '+' : ''}${Math.round(i.change_vs_previous)} pts`}
+            </Typography>
+          </Box>
+        ))}
+      </Box>
+
+      {graded < 2 && (
+        <Typography variant="caption" sx={{ display: 'block', mt: 1.5, color: 'text.secondary' }}>
+          {graded === 0
+            ? 'None of these were graded, so there is nothing to compare yet.'
+            : 'Only one of these was graded, so there is nothing to compare it with yet.'}
+        </Typography>
+      )}
     </Box>
   );
 };

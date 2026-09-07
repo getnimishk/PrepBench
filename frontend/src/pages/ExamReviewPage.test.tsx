@@ -112,12 +112,14 @@ describe('ExamReviewPage', () => {
     // prevent -- and it used to paint the page red for failing one.
     renderPage();
 
-    expect(await screen.findByText(/33% on this drill/)).toBeInTheDocument();
+    expect(await screen.findByText('33%')).toBeInTheDocument();
     expect(screen.getByText(/not scored against a pass mark/i)).toBeInTheDocument();
-    expect(screen.getByText('33%')).toBeInTheDocument();
-    expect(screen.getByText('1 / 3')).toBeInTheDocument();
+    expect(screen.getByText(/does not move your readiness/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 of 3 correct/)).toBeInTheDocument();
     expect(screen.queryByText(/Keep Practicing/i)).not.toBeInTheDocument();
-    expect(screen.queryByText('Pass mark')).not.toBeInTheDocument();
+    expect(screen.queryByText(/pass mark$/)).not.toBeInTheDocument();
+    // A drill does not move readiness, so the page must not report a verdict.
+    expect(screen.queryByText('Where this leaves you')).not.toBeInTheDocument();
   });
 
   it('judges a mock against the exam profile, not the threshold stored on it', async () => {
@@ -135,10 +137,57 @@ describe('ExamReviewPage', () => {
     });
     renderPage();
 
-    expect(await screen.findByText(/88% — above the pass mark/)).toBeInTheDocument();
-    expect(screen.getByText('85%')).toBeInTheDocument();
+    expect(await screen.findByText('88%')).toBeInTheDocument();
+    expect(screen.getByText(/above the 85% pass mark/)).toBeInTheDocument();
     // The stored threshold is shown rather than quietly dropped.
     expect(screen.getByText(/Sat with a 95% threshold set at the time/)).toBeInTheDocument();
+  });
+
+  /**
+   * A result screen that only reports is a dead end.
+   *
+   * Four KPI tiles said 93%, 85%, 74/80 and 49 min and nothing said what the
+   * paper had done to the verdict, so a learner finishing a mock had to go to
+   * Home to find out whether anything had moved -- and Home explained it in
+   * words this page had never used.
+   */
+  it('says what the paper did to the verdict, in the words Home uses', async () => {
+    mockGetSubject.mockResolvedValue({
+      ...SUBJECT,
+      readiness: {
+        ...SUBJECT.readiness,
+        state: 'almost_there' as const,
+        blockers: [{ kind: 'below_pass' as const, value: 83, target: 85, count: 1 }],
+      },
+    });
+    mockGetExamDetails.mockResolvedValue({
+      ...makeExamDetail(), session_kind: 'mock', subject_id: 1,
+      score_percentage: 87.5, passing_percentage: 85,
+    });
+    renderPage();
+
+    expect(await screen.findByText('Where this leaves you')).toBeInTheDocument();
+    expect(screen.getByText('Almost there')).toBeInTheDocument();
+    expect(
+      screen.getByText(/One of your last three mocks came in at 83%, under the 85% pass mark/)
+    ).toBeInTheDocument();
+  });
+
+  // One dominant action. "Home" and "Excel report" were outlined buttons of
+  // the same size as the one thing that changes the next score.
+  it('keeps reading the misses as the only weighted action', async () => {
+    mockGetExamDetails.mockResolvedValue({
+      ...makeExamDetail(), session_kind: 'mock', subject_id: 1, score_percentage: 66,
+    });
+    renderPage();
+
+    const read = await screen.findByRole('button', { name: /Read the \d+ you got wrong/ });
+    expect(read.className).toMatch(/MuiButton-contained/);
+
+    for (const label of ['Home', 'Practise again', 'PDF report', 'Excel report']) {
+      expect(screen.getByRole('button', { name: label }).className)
+        .toMatch(/MuiButton-text/);
+    }
   });
 
   it('filters the question list down to only incorrect answers', async () => {

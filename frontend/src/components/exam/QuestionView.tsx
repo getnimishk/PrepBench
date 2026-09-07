@@ -6,18 +6,22 @@ import React from 'react';
 import { Box, Typography, Card, CardContent, Checkbox, Radio, RadioGroup, FormControlLabel, Chip, Paper } from '@mui/material';
 import { Question } from '../../types/question';
 import { ConfidenceLevel } from '../../types/exam';
-import { Code, BookOpen, Bookmark, Flag } from 'lucide-react';
+import { Code, BookOpen, Flag } from 'lucide-react';
 
 interface QuestionViewProps {
   question: Question;
   selectedOptionIds: number[];
   onSelectOption: (optionIds: number[]) => void;
   isFlagged: boolean;
-  isBookmarked: boolean;
   onToggleFlag: () => void;
-  onToggleBookmark: () => void;
   confidenceLevel: ConfidenceLevel;
   onChangeConfidence: (level: ConfidenceLevel) => void;
+  /**
+   * True once the answer is behind the learner and the explanation is on
+   * screen -- practice mode, after Save & Next. Everything that would prime
+   * an answer is held back until then, so in a timed mock it never appears.
+   */
+  revealed?: boolean;
 }
 
 export const QuestionView: React.FC<QuestionViewProps> = ({
@@ -25,11 +29,10 @@ export const QuestionView: React.FC<QuestionViewProps> = ({
   selectedOptionIds,
   onSelectOption,
   isFlagged,
-  isBookmarked,
   onToggleFlag,
-  onToggleBookmark,
   confidenceLevel,
   onChangeConfidence,
+  revealed = false,
 }) => {
   const isMultiple = question.question_type === 'multiple_choice';
 
@@ -47,55 +50,66 @@ export const QuestionView: React.FC<QuestionViewProps> = ({
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-      {/* Header Chips & Action Icons */}
-      {/* Wraps as a whole. The metadata chips wrapped and the two action
-          chips did not, so on a 375px phone Flag and Bookmark were pushed
-          past the right edge with nothing to scroll -- clipped, not
-          reachable. */}
+      {/* What is on screen before the answer, and what is not.
+          Three chips used to stand here:
+
+            HARD          difficulty is a property of the bank, not of the
+                          exam. The real paper does not tell you which
+                          questions are hard, and being told changes how one
+                          is answered.
+            SINGLE CHOICE the QuestionType enum, saying what the radio
+                          buttons below already say.
+            PRACTICE      the ExamMode enum, in caps, telling the learner the
+                          mode they chose on the previous screen.
+
+          The domain and topic chips have now followed them, for the reason
+          the difficulty chip was removed and with more force. A topic in this
+          bank reads "Sprint Cancellation: PO authority and obsolescence
+          condition", or "Product Backlog and Refinement (max 10% capacity
+          rule)": it names the area, the sub-facets, and often the answer,
+          printed directly above the question. Every point that cue is worth
+          is a point the real exam will not award -- and mock scores are what
+          readiness is computed from, so the cue does not merely flatter a
+          screen, it moves the verdict. Both chips appear here once the answer
+          is behind you, and on the review screen afterwards, where they
+          explain instead of priming.
+
+          Bookmark stood beside Flag and looked identical to it. Flag is read
+          by the palette during the sitting, which is what "come back to this
+          before you submit" means; bookmark was read by nothing -- zero rows
+          in 549 answers, and no surface anywhere that lists what you saved.
+          The job it was reaching for is already done, better, by the review
+          queue and the spaced-repetition schedule, and a third queue that
+          nothing renders is a promise the product does not keep. */}
       <Box sx={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         gap: 1, flexWrap: 'wrap',
       }}>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', minWidth: 0 }}>
-          {/* Where this sits in the syllabus, and nothing else.
-              Three more chips stood here:
-
-                HARD          difficulty is a property of the bank, not of
-                              the exam. The real paper does not tell you
-                              which questions are hard, and being told
-                              changes how one is answered. It is on the
-                              review screen afterwards, where it explains
-                              instead of priming.
-                SINGLE CHOICE the QuestionType enum, saying what the radio
-                              buttons below already say.
-                PRACTICE      the ExamMode enum, in caps, telling the learner
-                              the mode they chose on the previous screen. */}
-          <Chip label={question.domain} size="small" color="primary" sx={{ fontWeight: 600 }} />
-          <Chip label={question.topic} size="small" variant="outlined" />
           {isMultiple && (
             // Load-bearing: it changes how the question is answered.
             <Chip label="Choose all that apply" size="small" sx={{ bgcolor: 'action.hover' }} />
+          )}
+          {revealed && (
+            <>
+              <Chip label={question.domain} size="small" color="primary" sx={{ fontWeight: 600 }} />
+              {question.topic && <Chip label={question.topic} size="small" variant="outlined" />}
+            </>
           )}
         </Box>
         <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
           <Chip
             icon={<Flag size={16} color={isFlagged ? '#FB7185' : undefined} />}
             label="Flag"
+            // A clickable Chip renders a div with role=button whose contents
+            // are two spans; it reads as an unnamed button to anything not
+            // looking at it. Same lesson as Home's rows.
+            aria-label={isFlagged ? 'Unflag this question' : 'Flag this question'}
             size="small"
             clickable
             color={isFlagged ? 'error' : 'default'}
             variant={isFlagged ? 'filled' : 'outlined'}
             onClick={onToggleFlag}
-            sx={{ borderRadius: '8px' }}
-          />
-          <Chip
-            icon={<Bookmark size={16} color={isBookmarked ? '#FBBF24' : undefined} />}
-            label="Bookmark"
-            size="small"
-            clickable
-            color={isBookmarked ? 'warning' : 'default'}
-            variant={isBookmarked ? 'filled' : 'outlined'}
-            onClick={onToggleBookmark}
             sx={{ borderRadius: '8px' }}
           />
         </Box>
@@ -157,6 +171,11 @@ export const QuestionView: React.FC<QuestionViewProps> = ({
                       <Checkbox
                         checked={isSelected}
                         onChange={(e) => { e.stopPropagation(); handleOptionToggle(optId); }}
+                        // Named from the option itself. Without this the
+                        // control announces its `value` -- the option's
+                        // database id -- so a screen reader read out "2687"
+                        // where the answer should be.
+                        slotProps={{ input: { 'aria-label': option.option_text } }}
                       />
                     }
                     label={
@@ -202,7 +221,15 @@ export const QuestionView: React.FC<QuestionViewProps> = ({
                 <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 }, display: 'flex', alignItems: 'center' }}>
                   <FormControlLabel
                     value={optId.toString()}
-                    control={<Radio checked={isSelected} />}
+                    control={
+                      <Radio
+                        checked={isSelected}
+                        // Named from the option itself; otherwise the control
+                        // announces its `value`, which is the option's
+                        // database id.
+                        slotProps={{ input: { 'aria-label': option.option_text } }}
+                      />
+                    }
                     label={
                       <Typography variant="body1" sx={{ fontWeight: isSelected ? 600 : 400 }}>
                         <span style={{ fontWeight: 700, marginRight: 8 }}>{String.fromCharCode(65 + idx)}.</span>
@@ -219,49 +246,51 @@ export const QuestionView: React.FC<QuestionViewProps> = ({
         </RadioGroup>
       )}
 
-      {/* Optional, and it now looks it.
-          This sat in a filled panel between the last option and Save & Next
-          -- the only filled container on the screen, so it read as a
-          required step and outweighed the answers themselves. It has been
-          used zero times across 549 answers in the working database: every
-          stored value is NOT_SET.
+      {/* Asked once the answer is behind you, and never during a timed mock.
+          It sat between the last option and Save and Next, where it is a
+          second decision per question under a clock -- which is why it has
+          been used zero times across 549 answers: every stored value is
+          NOT_SET.
 
-          It is kept because it is wired: SM2Service reads it to decide how
-          soon a question comes back. Answering it makes the schedule better;
-          skipping it costs nothing, which is exactly what the layout should
-          have been saying all along. The label says what it is for instead
-          of naming the field. */}
-      <Box sx={{
-        mt: 2, display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap',
-      }}>
-        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-          How sure were you? Optional — it decides how soon this comes back.
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          {(['low', 'medium', 'high'] as ConfidenceLevel[]).map((level) => {
-            const isSelected = confidenceLevel === level;
-            const solidColor = level === 'high' ? 'success.main' 
-                           : level === 'medium' ? 'warning.main' 
-                           : 'error.main';
-            return (
-              <Chip
-                key={level}
-                label={level.toUpperCase()}
-                clickable
-                sx={{
-                  borderRadius: '100px',
-                  bgcolor: isSelected ? solidColor : 'transparent',
-                  color: isSelected ? '#fff' : 'text.primary',
-                  border: isSelected ? 'none' : '1px solid',
-                  borderColor: 'divider',
-                  fontWeight: isSelected ? 700 : 500,
-                }}
-                onClick={() => onChangeConfidence(level)}
-              />
-            );
-          })}
+          That matters more than a tidy screen. SM2Service reads this to
+          decide how soon a question comes back, so with NOT_SET on
+          everything the schedule has run at one setting for the whole
+          history of this database. Moving the question to a moment where it
+          costs nothing is how it starts getting an answer; the review check
+          asks it too, for the same reason. */}
+      {revealed && (
+        <Box sx={{
+          mt: 2, display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap',
+        }}>
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            How sure were you? Optional — it decides how soon this comes back.
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            {(['low', 'medium', 'high'] as ConfidenceLevel[]).map((level) => {
+              const isSelected = confidenceLevel === level;
+              const solidColor = level === 'high' ? 'success.main'
+                : level === 'medium' ? 'warning.main'
+                  : 'error.main';
+              return (
+                <Chip
+                  key={level}
+                  label={level.toUpperCase()}
+                  clickable
+                  sx={{
+                    borderRadius: '100px',
+                    bgcolor: isSelected ? solidColor : 'transparent',
+                    color: isSelected ? '#fff' : 'text.primary',
+                    border: isSelected ? 'none' : '1px solid',
+                    borderColor: 'divider',
+                    fontWeight: isSelected ? 700 : 500,
+                  }}
+                  onClick={() => onChangeConfidence(level)}
+                />
+              );
+            })}
+          </Box>
         </Box>
-      </Box>
+      )}
     </Box>
   );
 };

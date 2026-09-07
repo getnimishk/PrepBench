@@ -3,13 +3,13 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { Box, Typography, Button, Alert, CircularProgress, Stack } from '@mui/material';
 import { getSubjects, getHomeSummary, getOtherPreparation } from '../services/api';
 import {
   HomeSummary, OtherPreparation, Readiness, Subject, READINESS_LABELS,
 } from '../types/subject';
-import { blockerSentence, pct, readySentence } from '../services/readinessText';
+import { blockerSentence, pct, plateauSentence, readySentence } from '../services/readinessText';
 
 /**
  * Where you stand, why, and the one thing worth doing about it.
@@ -145,15 +145,28 @@ const Verdict: React.FC<{ subject: Subject; also: Subject[] }> = ({ subject, als
 
   return (
     <Box>
-      <Typography
-        variant="body2"
+      {/* The subject name is the way through to everything about this subject
+          -- its domains, its formats, and the explanation of a plateau or a
+          READY. That page existed and was reachable only by typing its URL,
+          which made the sidebar's "subjects are reached from Home" false.
+          The name is still small, because it is the one fact the reader
+          already knows; it is now a link, because it is where the next
+          question leads. */}
+      <Box
+        component={RouterLink}
+        to={`/subjects/${subject.id}`}
         sx={{
+          display: 'inline-block', textDecoration: 'none',
           color: 'text.secondary', letterSpacing: '0.08em',
           textTransform: 'uppercase', fontSize: 12, fontWeight: 500,
+          '&:hover': { color: 'primary.main' },
+          '&:focus-visible': {
+            outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2,
+          },
         }}
       >
         {subject.name}
-      </Typography>
+      </Box>
 
       <Typography variant="h3" sx={{ fontWeight: 600, mt: 0.5, letterSpacing: '-0.02em' }}>
         {r.mock_count === 0 && r.state === 'needs_evaluation'
@@ -210,26 +223,56 @@ const Verdict: React.FC<{ subject: Subject; also: Subject[] }> = ({ subject, als
       {also.length > 0 && (
         <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1.5 }}>
           Also measured:{' '}
-          {also
-            .map((s) => `${s.name} — ${READINESS_LABELS[s.readiness.state].toLowerCase()}`)
-            .join(', ')}
+          {also.map((s, i) => (
+            <React.Fragment key={s.id}>
+              {i > 0 && ', '}
+              <Box
+                component={RouterLink}
+                to={`/subjects/${s.id}`}
+                sx={{
+                  color: 'inherit', textDecoration: 'underline',
+                  textDecorationColor: 'transparent',
+                  '&:hover': { color: 'primary.main', textDecorationColor: 'currentColor' },
+                  '&:focus-visible': {
+                    outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2,
+                  },
+                }}
+              >
+                {s.name} &mdash; {READINESS_LABELS[s.readiness.state].toLowerCase()}
+              </Box>
+            </React.Fragment>
+          ))}
         </Typography>
       )}
     </Box>
   );
 };
 
-/** Why the verdict is what it is. Explanation only: it carries no button. */
+/**
+ * Why the verdict is what it is. Explanation only: it carries no button.
+ *
+ * A plateau is read from the state rather than from `blockers[0]`. PLATEAU is
+ * a state, not an unmet condition, so the blocker list describes the score and
+ * never the shape of it -- "one of your last three came in at 84%" is true and
+ * useless when all four came in at 84%. Until this, the one reading the app
+ * owed a learner who had stopped moving lived only on the subject page, which
+ * was reachable by typing its URL.
+ */
 const Why: React.FC<{ readiness: Readiness }> = ({ readiness }) => {
+  const plateau = readiness.state === 'plateau';
   const blocker = readiness.blockers[0] ?? null;
 
   return (
     <Box sx={{ mt: 5 }}>
       <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-        {blocker ? 'Why not ready' : 'Why'}
+        {plateau ? 'What this means' : blocker ? 'Why not ready' : 'Why'}
       </Typography>
       <Typography variant="body1" sx={{ mt: 0.5, lineHeight: 1.65 }}>
-        {blocker ? blockerSentence(blocker) : readySentence(readiness.pass_mark)}
+        {plateau
+          ? plateauSentence(readiness.recent_scores)
+          : blocker
+            ? blockerSentence(blocker)
+            : readySentence(readiness.pass_mark)}
       </Typography>
     </Box>
   );
@@ -255,6 +298,8 @@ const Continuation: React.FC<{
   const resumable = summary?.resumable ?? null;
   const weak = r.blockers.find((b) => b.kind === 'weak_domain');
 
+  const stale = r.blockers.some((b) => b.kind === 'stale');
+
   const next = (() => {
     if (resumable) {
       return {
@@ -262,6 +307,22 @@ const Continuation: React.FC<{
         why: `You stopped at question ${resumable.answered + 1} of ${resumable.total}.`,
         cta: 'Pick it up',
         go: () => navigate(`/exam/${resumable.session_id}`),
+      };
+    }
+    // Stale evidence outranks reading, and only here. Everywhere else in this
+    // ladder understanding a miss beats sitting another paper -- but when the
+    // last mock has aged out, the page is stating a verdict it no longer has
+    // the evidence for, and no amount of reading restores that. This is the
+    // one blocker whose remedy is time-critical.
+    if (stale) {
+      return {
+        label: 'Out of date',
+        // Deliberately does not restate the number: "Why not ready" has just
+        // given it, and this block owes the remedy rather than the reading.
+        why: 'A fresh paper is the only thing that brings the verdict back to now. '
+          + 'Reading old misses is still worth doing; it cannot make old evidence current.',
+        cta: 'Take a mock',
+        go: () => navigate(`/exam-setup?kind=mock&subject=${subject.id}`),
       };
     }
     if (unreviewed > 0) {
@@ -316,6 +377,20 @@ const Continuation: React.FC<{
     }
     if (r.state === 'ready') {
       return { label: 'Next', why: 'Book the exam.', cta: null, go: null };
+    }
+    // At a plateau with nothing left to read, "another full paper is the only
+    // thing that moves the verdict" contradicts the sentence directly above
+    // it, which has just said that another paper will not move it. The honest
+    // continuation is the decision, not more practice.
+    if (r.state === 'plateau') {
+      return {
+        label: 'Next',
+        why: 'There is nothing further this can measure. Four papers at the same '
+          + 'mark is the answer: book the exam, or find the gap somewhere other '
+          + 'than in more questions.',
+        cta: null,
+        go: null,
+      };
     }
     return {
       label: 'Next',

@@ -10,7 +10,7 @@ from sqlalchemy import func, case
 from app.models.exam_session import ExamSession, ExamStatus
 from app.models.exam_answer import ExamAnswer
 from app.models.question import Question
-from app.repositories.subject_repository import LEARNER
+from app.repositories.subject_repository import LEARNER, MOCK
 
 
 # Every learner-facing figure in this file is computed over the same
@@ -23,6 +23,11 @@ def _learner_evidence():
         ExamSession.status == ExamStatus.COMPLETED,
         ExamSession.source == LEARNER,
     )
+
+
+# How many answers a topic needs before "below 70%" means anything. See
+# get_weak_topic_names for why this is three and why it is not ten.
+MIN_ANSWERS_PER_TOPIC = 3
 
 
 class AnalyticsRepository:
@@ -213,14 +218,45 @@ class AnalyticsRepository:
         sessions.reverse()
         return sessions
 
-    def get_weak_topic_names(self, below_percent: float = 70.0) -> List[str]:
+    def get_weak_topic_names(
+        self, below_percent: float = 70.0, min_answers: int = MIN_ANSWERS_PER_TOPIC
+    ) -> List[str]:
         """
-        Topics answered correctly less than `below_percent` of the time.
+        Topics the learner is measurably weak at, on the evidence the product trusts.
 
-        Counts only answered questions in completed sessions. is_correct is NULL
-        for skipped or never-answered questions -- those are auto-saved on
-        navigation -- so including them would inflate the denominator and report
-        topics as weak that were never actually attempted.
+        Counts only answered questions. is_correct is NULL for skipped or
+        never-answered questions -- those are auto-saved on navigation -- so
+        including them would inflate the denominator and report topics as weak
+        that were never actually attempted.
+
+        Two rules were added after measuring this query against the working
+        database, where it qualified **77 of 267 topics** and 61 of those had a
+        sample of two answers or fewer.
+
+        MOCKS ONLY. This used to count every completed learner session, drills
+        included -- and a drill deliberately draws from what you are getting
+        wrong. So practising a weak topic pushed its pooled accuracy *down* and
+        kept it on the list: the feedback loop ran backwards, and the only way
+        off the list was to stop practising. Nineteen of the 77 were weak
+        solely because of drill answers. Measuring over mocks is the same rule
+        readiness uses and the one Insights already explains to the learner in
+        as many words -- "a drill deliberately draws from what you are getting
+        wrong. Neither figure is the other's correction." Now a drill cannot
+        confirm a weakness or clear one; only a paper can.
+
+        A MINIMUM SAMPLE. Under three answers, "less than 70%" is decided by a
+        single question: 0/1 and 0/2 both qualify, and both are noise. Three is
+        the smallest floor at which the threshold means anything (0/3, 1/3 and
+        2/3 qualify; 3/3 does not) and it is deliberately far below
+        readiness.MIN_QUESTIONS_PER_DOMAIN -- a topic is a much finer unit than
+        a domain, and a floor of ten would leave exactly one topic in this
+        bank. The two numbers are different because the questions they answer
+        are different: one guards a verdict the learner is told, the other
+        guards which questions get drawn.
+
+        On this database the two rules together take the list from 77 topics to
+        8 -- Daily Scrum at 6/11, Sprint Planning at 4/6, and six others -- over
+        38 bank questions, which is a real practice set instead of a haystack.
         """
         rows = (
             self.db.query(Question.topic)
@@ -228,9 +264,11 @@ class AnalyticsRepository:
             .join(ExamSession, ExamAnswer.session_id == ExamSession.id)
             .filter(
                 *_learner_evidence(),
+                ExamSession.session_kind == MOCK,
                 ExamAnswer.is_correct.isnot(None),
             )
             .group_by(Question.topic)
+            .having(func.count(ExamAnswer.id) >= min_answers)
             .having(
                 (func.sum(case((ExamAnswer.is_correct == True, 1), else_=0)) * 100.0
                  / func.count(ExamAnswer.id)) < below_percent

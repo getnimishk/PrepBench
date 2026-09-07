@@ -4,7 +4,8 @@
 
 import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
 import { ThemeProvider, createTheme, CssBaseline, Theme } from '@mui/material';
-import { getSettings } from '../services/api';
+import { getSettings, updateSettings } from '../services/api';
+import { AppSettings } from '../types/settings';
 
 // MD3 surface-container tiers: dark-mode surfaces get progressively
 // *lighter* as they elevate (never a drop shadow, which barely reads on
@@ -41,10 +42,14 @@ export const useThemeMode = () => useContext(ThemeContext);
 
 export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [mode, setMode] = useState<ThemeMode>('light');
+  // The rest of the stored settings, kept so the toggle can write the theme
+  // back without clobbering them: PUT /settings replaces the whole record.
+  const [stored, setStored] = useState<AppSettings | null>(null);
 
   useEffect(() => {
     getSettings()
       .then((s) => {
+        setStored(s);
         if (s?.theme && (s.theme === 'dark' || s.theme === 'light')) {
           setMode(s.theme as ThemeMode);
         }
@@ -52,12 +57,31 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
       .catch(console.error);
   }, []);
 
-  const toggleTheme = () => {
-    setMode((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  /**
+   * Switch the theme, and remember it.
+   *
+   * The toggle in the app bar used to change `mode` and nothing else, so the
+   * choice survived until the next reload and was then silently replaced by
+   * whatever Settings had stored. A control that undoes itself on refresh is
+   * worse than no control: the reader has no way to tell whether they were
+   * ignored or misremembered pressing it. Settings has always persisted on
+   * Save; the two now agree.
+   */
+  const persist = (next: ThemeMode) => {
+    setMode(next);
+    setStored((prev) => (prev ? { ...prev, theme: next } : prev));
+    updateSettings({ ...(stored ?? {}), theme: next }).catch(console.error);
   };
 
+  const toggleTheme = () => {
+    persist(mode === 'dark' ? 'light' : 'dark');
+  };
+
+  // Settings drives this after its own save, so it must not write back --
+  // that would be a second PUT of the record Settings has just written.
   const setThemeMode = (newMode: ThemeMode) => {
     setMode(newMode);
+    setStored((prev) => (prev ? { ...prev, theme: newMode } : prev));
   };
 
   const theme = useMemo(

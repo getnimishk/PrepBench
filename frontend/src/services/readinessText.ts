@@ -43,6 +43,21 @@ export function blockerSentence(b: Blocker): string {
   }
 }
 
+/**
+ * What a plateau means, which is not what a blocker means.
+ *
+ * PLATEAU is a state rather than an unmet condition, so `blockers` describes
+ * the score and never the shape of it -- "one of your last three came in at
+ * 84%" is true and useless when all four came in at 84%. This sentence lived
+ * only on the subject page, which was reachable by typing its URL; the one
+ * reading the app owes a learner who has stopped moving was the one reading
+ * nobody could get to.
+ */
+export const plateauSentence = (scores: number[]) =>
+  `${scores.map((s) => pct(s)).join(' · ')} — no movement across four mocks. `
+  + 'What is left is exam-day variance, not knowledge. Another drill will not '
+  + 'change this number; sitting the paper is what is left.';
+
 /** What the verdict says when nothing is blocking it. */
 export const readySentence = (passMark: number | null | undefined) =>
   `Three consecutive mocks at or above ${pct(passMark ?? 0)}, no area under the floor, `

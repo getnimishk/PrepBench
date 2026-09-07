@@ -43,7 +43,7 @@ import {
   FormatCoverage,
   OtherPreparation,
 } from '../types/subject';
-import { ReviewQueue } from '../types/review';
+import { CheckResult, ReviewQueue } from '../types/review';
 import { PracticeRecording, RecordingAnalysis, ProviderInfo, RecordingAnalytics } from '../types/recording';
 import {
   InterviewQuestion,
@@ -657,6 +657,67 @@ export const getOtherPreparation = async () => {
 /** Today's review: the newest unreviewed misses, with their explanations. */
 export const getReviewQueue = async (limit = 20) => {
   const res = await api.get<ReviewQueue>('/review/queue', { params: { limit } });
+  return res.data;
+};
+
+/**
+ * Answer the check, and find out whether the explanation landed.
+ *
+ * Also marks the miss read: reaching the check means the explanation was
+ * worked through, which is a stronger claim than the old one -- that the page
+ * had been open.
+ */
+export const submitReviewCheck = async (body: {
+  answer_id: number;
+  question_id: number;
+  selected_option_ids: number[];
+  confidence_level?: 'low' | 'medium' | 'high' | 'not_set';
+}) => {
+  const res = await api.post<CheckResult>('/review/checks', {
+    confidence_level: 'not_set',
+    ...body,
+  });
+  return res.data;
+};
+
+export interface SystemDesignAttemptHistoryItem {
+  attempt_id: number;
+  created_at: string;
+  grading_status: string;
+  overall_score: number | null;
+  /** Only between two graded attempts. Absent where a comparison would be invented. */
+  change_vs_previous: number | null;
+}
+
+/** Every attempt at one prompt, so "am I improving at this" has an answer. */
+export const getSystemDesignPromptAttempts = async (promptId: number) => {
+  const res = await api.get<{
+    prompt_id: number;
+    prompt_title: string;
+    items: SystemDesignAttemptHistoryItem[];
+    graded_count: number;
+  }>(`/system-design/prompts/${promptId}/attempts`);
+  return res.data;
+};
+
+/** What is saved for this design prompt, or the last answer submitted for it. */
+export const getSystemDesignDraft = async (promptId: number) => {
+  const res = await api.get<{
+    prompt_id: number;
+    answer_text: string;
+    target_role?: string | null;
+    updated_at?: string | null;
+    exists: boolean;
+  }>(`/system-design/prompts/${promptId}/draft`);
+  return res.data;
+};
+
+/** Keep what is in the box. */
+export const saveSystemDesignDraft = async (
+  promptId: number,
+  body: { answer_text: string; target_role?: string | null }
+) => {
+  const res = await api.put(`/system-design/prompts/${promptId}/draft`, body);
   return res.data;
 };
 

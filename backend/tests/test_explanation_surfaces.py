@@ -415,9 +415,13 @@ def test_answering_a_question_schedules_it_and_a_memory_drill_draws_it_back(db):
     was written to and never read from, so a regression anywhere along the
     chain would have gone unnoticed indefinitely.
 
-    Answer a question wrongly, wind its due date into the past, and the drill
-    that claims to draw "what the schedule has brought round" must draw
-    exactly that question and nothing else.
+    Answer a question wrongly, finish the sitting, wind its due date into the
+    past, and the drill that claims to draw "what the schedule has brought
+    round" must draw exactly that question and nothing else.
+
+    Finishing is the part that schedules. It used to be saving, which the
+    client does on every navigation and every flag toggle as well as on every
+    answer -- see the note in ExamEngine.save_answer.
     """
     from datetime import datetime, timedelta, UTC
 
@@ -428,7 +432,7 @@ def test_answering_a_question_schedules_it_and_a_memory_drill_draws_it_back(db):
     scheduled = _questions(cert, "Scheduled Domain", 1)[0]
     _questions(cert, "Unscheduled Domain", 3)
 
-    # A drill, answered wrongly. save_answer is what drives SM-2.
+    # A drill, answered wrongly and submitted. Finishing is what drives SM-2.
     created = client.post("/api/v1/exams", json={
         "certification": cert,
         "domains": ["Scheduled Domain"],
@@ -452,7 +456,16 @@ def test_answering_a_question_schedules_it_and_a_memory_drill_draws_it_back(db):
     })
     assert saved.status_code == 200, saved.text
 
-    # Answering it put it on the schedule at all -- that is the first half.
+    # Saving alone does not schedule anything: the client saves on navigation
+    # and on flag toggles too, and SM-2 is not idempotent.
+    assert db.query(SpacedRepetition).filter(
+        SpacedRepetition.question_id == scheduled
+    ).one_or_none() is None
+
+    finished = client.post(f"/api/v1/exams/{session_id}/finish")
+    assert finished.status_code == 200, finished.text
+
+    # Finishing the sitting put it on the schedule -- that is the first half.
     item = db.query(SpacedRepetition).filter(
         SpacedRepetition.question_id == scheduled
     ).one()
@@ -474,3 +487,103 @@ def test_answering_a_question_schedules_it_and_a_memory_drill_draws_it_back(db):
     assert scheduled in drawn
     # And nothing that was never scheduled.
     assert all(q["domain"] != "Unscheduled Domain" for q in detail["questions"])
+
+
+def test_navigating_between_questions_does_not_advance_the_schedule(db):
+    """Moving around inside an exam is not recall, and must not be scheduled as it.
+
+    The client posts an answer save on every navigation, every flag toggle and
+    every confidence change, not only when an answer is given. SM2Service is
+    not idempotent -- each call increments `repetition` and multiplies
+    `interval_days` -- so with the update wired into save_answer, flipping back
+    and forth between two questions pushed them weeks into the future off the
+    back of no recall at all. In the working database thirteen of 369 scheduled
+    items carry a repetition count higher than the number of sessions their
+    question has ever appeared in; one sits at repetition 5 and a 41-day
+    interval having been answered twice.
+
+    One sitting must produce exactly one recall event per answered question,
+    however many times the client saved it.
+    """
+    from app.models.spaced_repetition import SpacedRepetition
+
+    cert = _cert()
+    subject = _subject(db, cert, question_count=2)
+    qid = _questions(cert, "Repeat Domain", 1)[0]
+
+    created = client.post("/api/v1/exams", json={
+        "certification": cert,
+        "domains": ["Repeat Domain"],
+        "total_questions": 1,
+        "exam_mode": "practice",
+        "session_kind": "drill",
+        "subject_id": subject.id,
+    })
+    assert created.status_code == 201, created.text
+    session_id = created.json()["id"]
+
+    question = client.get(f"/api/v1/questions/{qid}").json()
+    correct = next(o["id"] for o in question["options"] if o["is_correct"])
+
+    # Six saves for one answer: the answer itself, a flag on, a flag off, and
+    # three confidence changes. Every one of these is a real client call.
+    for flagged, confidence in [
+        (False, "not_set"), (True, "not_set"), (False, "not_set"),
+        (False, "low"), (False, "medium"), (False, "high"),
+    ]:
+        res = client.post(f"/api/v1/exams/{session_id}/answer", json={
+            "question_id": qid,
+            "selected_option_ids": [correct],
+            "time_spent_seconds": 5,
+            "confidence_level": confidence,
+            "is_flagged": flagged,
+            "is_bookmarked": False,
+        })
+        assert res.status_code == 200, res.text
+
+    assert client.post(f"/api/v1/exams/{session_id}/finish").status_code == 200
+
+    item = db.query(SpacedRepetition).filter(SpacedRepetition.question_id == qid).one()
+    # One recall event, at the confidence the learner ended on -- HIGH answered
+    # correctly is quality 5, which is the first step: repetition 1, interval 1.
+    assert item.repetition == 1
+    assert item.interval_days == 1
+    assert item.ease_factor > 2.5
+
+
+def test_a_resubmitted_finish_does_not_schedule_the_same_sitting_twice(db):
+    """Finishing is idempotent, and so is what it schedules."""
+    from app.models.spaced_repetition import SpacedRepetition
+
+    cert = _cert()
+    subject = _subject(db, cert, question_count=2)
+    qid = _questions(cert, "Idempotent Domain", 1)[0]
+
+    created = client.post("/api/v1/exams", json={
+        "certification": cert,
+        "domains": ["Idempotent Domain"],
+        "total_questions": 1,
+        "exam_mode": "practice",
+        "session_kind": "drill",
+        "subject_id": subject.id,
+    })
+    session_id = created.json()["id"]
+    question = client.get(f"/api/v1/questions/{qid}").json()
+    correct = next(o["id"] for o in question["options"] if o["is_correct"])
+    client.post(f"/api/v1/exams/{session_id}/answer", json={
+        "question_id": qid,
+        "selected_option_ids": [correct],
+        "time_spent_seconds": 5,
+        "confidence_level": "high",
+        "is_flagged": False,
+        "is_bookmarked": False,
+    })
+
+    client.post(f"/api/v1/exams/{session_id}/finish")
+    first = db.query(SpacedRepetition).filter(SpacedRepetition.question_id == qid).one()
+    repetition, interval = first.repetition, first.interval_days
+
+    client.post(f"/api/v1/exams/{session_id}/finish")
+    db.expire_all()
+    again = db.query(SpacedRepetition).filter(SpacedRepetition.question_id == qid).one()
+    assert (again.repetition, again.interval_days) == (repetition, interval)
