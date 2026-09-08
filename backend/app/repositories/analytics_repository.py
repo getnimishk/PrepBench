@@ -221,8 +221,24 @@ class AnalyticsRepository:
     def get_weak_topic_names(
         self, below_percent: float = 70.0, min_answers: int = MIN_ANSWERS_PER_TOPIC
     ) -> List[str]:
+        """The weak topics, by name.
+
+        Delegates to get_weak_topics so that the definition of "weak" exists in
+        exactly one query. Home renders the same topics with the counts behind
+        them; a second query shaped for that surface is how two definitions get
+        into a product, and this file has already paid for that once.
+        """
+        return [row["topic"] for row in self.get_weak_topics(below_percent, min_answers)]
+
+    def get_weak_topics(
+        self, below_percent: float = 70.0, min_answers: int = MIN_ANSWERS_PER_TOPIC
+    ) -> List[Dict]:
         """
         Topics the learner is measurably weak at, on the evidence the product trusts.
+
+        Returned with the evidence behind each one -- answered, correct, and the
+        percentage -- because a surface that says "Daily Scrum" and nothing else
+        is asking to be taken on faith, and this one can show its working.
 
         Counts only answered questions. is_correct is NULL for skipped or
         never-answered questions -- those are auto-saved on navigation -- so
@@ -259,7 +275,11 @@ class AnalyticsRepository:
         38 bank questions, which is a real practice set instead of a haystack.
         """
         rows = (
-            self.db.query(Question.topic)
+            self.db.query(
+                Question.topic,
+                func.count(ExamAnswer.id).label("answered"),
+                func.sum(case((ExamAnswer.is_correct == True, 1), else_=0)).label("correct"),
+            )
             .join(ExamAnswer, Question.id == ExamAnswer.question_id)
             .join(ExamSession, ExamAnswer.session_id == ExamSession.id)
             .filter(
@@ -275,4 +295,17 @@ class AnalyticsRepository:
             )
             .all()
         )
-        return [row[0] for row in rows]
+
+        out = []
+        for topic, answered, correct in rows:
+            answered = answered or 0
+            correct = correct or 0
+            out.append({
+                "topic": topic,
+                "answered": answered,
+                "correct": correct,
+                "accuracy_percentage": round(correct / answered * 100.0, 1) if answered else 0.0,
+            })
+        # Worst first: the list is a place to start, not an inventory.
+        out.sort(key=lambda t: (t["accuracy_percentage"], -t["answered"]))
+        return out

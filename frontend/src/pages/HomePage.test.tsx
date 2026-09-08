@@ -12,11 +12,13 @@ import { Subject } from '../types/subject';
 const mockGetSubjects = vi.fn();
 const mockGetHome = vi.fn();
 const mockGetOther = vi.fn();
+const mockGetFocus = vi.fn();
 
 vi.mock('../services/api', () => ({
   getSubjects: (...a: any[]) => mockGetSubjects(...a),
   getHomeSummary: (...a: any[]) => mockGetHome(...a),
   getOtherPreparation: (...a: any[]) => mockGetOther(...a),
+  getFocusTopics: (...a: any[]) => mockGetFocus(...a),
 }));
 
 const CERT: Subject = {
@@ -99,6 +101,7 @@ beforeEach(() => {
   mockGetSubjects.mockResolvedValue([CERT, SKILL]);
   mockGetHome.mockResolvedValue(summary());
   mockGetOther.mockResolvedValue([]);
+  mockGetFocus.mockResolvedValue([]);
 });
 
 describe('HomePage', () => {
@@ -112,14 +115,86 @@ describe('HomePage', () => {
     expect(screen.getByText('Scrum / PSM I')).toBeInTheDocument();
   });
 
+  // The evidence panel replaced the running sentence ("85% to pass · 6 full
+  // mocks"), so this asserts the facts rather than the phrasing -- and asserts
+  // each figure against the label that gives it meaning, which the substring
+  // match it replaces did not. A bare "6" on the page is not evidence of
+  // anything; "6" under "Full mocks" is.
+  //
+  // "93%" now legitimately appears twice: as the headline figure, and as the
+  // last point's label on the trend. Each is asserted where it belongs rather
+  // than by a loose text match that would pass on either.
   it('shows the evidence behind the verdict, not just the verdict', async () => {
     renderHome();
 
-    expect(await screen.findByText('70%')).toBeInTheDocument();
-    expect(screen.getByText('83%')).toBeInTheDocument();
-    expect(screen.getByText('93%')).toBeInTheDocument();
-    expect(screen.getByText('85% to pass')).toBeInTheDocument();
-    expect(screen.getByText(/6 full mocks/)).toBeInTheDocument();
+    // The headline: the score of the most recent qualifying paper.
+    const latest = (await screen.findByText('Latest qualifying run')).parentElement!;
+    expect(latest).toHaveTextContent('93%');
+
+    const labelled = (label: string) => {
+      const cell = screen.getByText(label).parentElement;
+      expect(cell).not.toBeNull();
+      return cell as HTMLElement;
+    };
+
+    // The pass mark, and the count of papers it was measured over.
+    expect(labelled('Pass mark')).toHaveTextContent('85%');
+    expect(labelled('Full mocks')).toHaveTextContent('6');
+    expect(labelled('Last sat')).toHaveTextContent(/\d/);
+  });
+
+  // ---- the trend ---------------------------------------------------------
+  //
+  // Four numbers in a row say what the scores were. Only the picture says
+  // whether they are going anywhere, and "am I improving" is most of why
+  // anyone opens this page.
+
+  it('draws the run of mocks, and announces every score to a screen reader', async () => {
+    renderHome();
+
+    const chart = await screen.findByRole('img', { name: /Your last 4 mocks/ });
+    // The series, in full, in order -- not a decorative squiggle.
+    expect(chart).toHaveAccessibleName(/70%, 83%, 88%, 93%/);
+    // And the line it has to be read against.
+    expect(chart).toHaveAccessibleName(/pass mark is 85%/);
+  });
+
+  it('draws the pass mark as a line, so crossing it is visible not calculated', async () => {
+    const { container } = renderHome();
+
+    await screen.findByRole('img', { name: /Your last 4 mocks/ });
+    const dashed = [...container.querySelectorAll('svg line')]
+      .filter((l) => l.getAttribute('stroke-dasharray'));
+    expect(dashed).toHaveLength(1);
+    expect(container.querySelector('svg')).toHaveTextContent('85% to pass');
+  });
+
+  it('says so rather than drawing a line through one point', async () => {
+    mockGetSubjects.mockResolvedValue([{
+      ...CERT,
+      readiness: { ...CERT.readiness, mock_count: 1, recent_scores: [70] },
+    }]);
+    renderHome();
+
+    await screen.findByRole('heading', { name: 'Almost there' });
+    expect(screen.queryByRole('img', { name: /mocks/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/One paper is a reading, not a direction/)).toBeInTheDocument();
+  });
+
+  it('shows no evidence panel at all before the first mock', async () => {
+    mockGetSubjects.mockResolvedValue([{
+      ...CERT,
+      readiness: {
+        ...CERT.readiness, state: 'needs_evaluation' as const,
+        mock_count: 0, recent_scores: [], points_per_mock: null,
+      },
+    }]);
+    renderHome();
+
+    await screen.findByRole('heading', { name: 'Not measured yet' });
+    // An empty band of zeroes would read as failure rather than as absence.
+    expect(screen.queryByText('Latest qualifying run')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pass mark')).not.toBeInTheDocument();
   });
 
   it('explains why it is not ready from the unmet condition, in numbers', async () => {
@@ -373,5 +448,80 @@ describe('HomePage', () => {
     expect(screen.getByText(/Nothing has been lost/)).toBeInTheDocument();
     // An error you can only look at is a dead end, on the first screen.
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
+});
+
+// ---- topics to focus on -------------------------------------------------
+//
+// The counts come from the same query the weak-topic drill draws from, so
+// this panel cannot name a topic Practice would then refuse to offer. What
+// these protect is the other half: that the panel shows the evidence rather
+// than the verdict alone, and that it never becomes a second call to action.
+
+describe('HomePage topics to focus on', () => {
+  it('shows each weak topic with the count that made it weak', async () => {
+    mockGetFocus.mockResolvedValue([
+      { topic: 'Daily Scrum', answered: 11, correct: 6, accuracy_percentage: 54.5 },
+      { topic: 'Sprint Planning', answered: 6, correct: 4, accuracy_percentage: 66.7 },
+    ]);
+    renderHome();
+
+    expect(await screen.findByText('Daily Scrum')).toBeInTheDocument();
+    expect(screen.getByText('6 / 11')).toBeInTheDocument();
+    expect(screen.getByText('Sprint Planning')).toBeInTheDocument();
+    expect(screen.getByText('4 / 6')).toBeInTheDocument();
+  });
+
+  it('says where the numbers come from, because two definitions of weak existed', async () => {
+    mockGetFocus.mockResolvedValue([
+      { topic: 'Daily Scrum', answered: 11, correct: 6, accuracy_percentage: 54.5 },
+    ]);
+    renderHome();
+
+    expect(await screen.findByText(/mocks only, over at least three answers/i))
+      .toBeInTheDocument();
+  });
+
+  it('is absent rather than empty when nothing is measurably weak', async () => {
+    mockGetFocus.mockResolvedValue([]);
+    renderHome();
+
+    await screen.findByRole('heading', { name: 'Almost there' });
+    expect(screen.queryByText(/topics to focus on/i)).not.toBeInTheDocument();
+  });
+
+  // The rows navigate, so they are links. If they were buttons they would
+  // compete with the one continuation, which is the invariant Home has held
+  // since the metric wall came out.
+  it('does not add a second call to action', async () => {
+    mockGetHome.mockResolvedValue(
+      summary({ unreviewed_total: 12, per_subject: [{ subject_id: 1, unreviewed: 12 }] })
+    );
+    mockGetFocus.mockResolvedValue([
+      { topic: 'Daily Scrum', answered: 11, correct: 6, accuracy_percentage: 54.5 },
+      { topic: 'Sprint Planning', answered: 6, correct: 4, accuracy_percentage: 66.7 },
+    ]);
+    renderHome();
+
+    expect(await screen.findByRole('button', { name: 'Review them' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+    // And the rows are still reachable, as links.
+    expect(screen.getByRole('link', { name: /Practise Daily Scrum/ })).toBeInTheDocument();
+  });
+
+  it('defers the tail of a long list to Insights rather than printing all of it', async () => {
+    mockGetFocus.mockResolvedValue(
+      Array.from({ length: 8 }, (_, i) => ({
+        topic: `Topic ${i + 1}`, answered: 6, correct: 3, accuracy_percentage: 50,
+      }))
+    );
+    renderHome();
+
+    // The cap is what is under test, not the number: the panel shows a set
+    // worth acting on and hands the tail to Insights rather than printing all
+    // eight down the side of Home.
+    expect(await screen.findByText('Topic 4')).toBeInTheDocument();
+    expect(screen.queryByText('Topic 5')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '4 more in Insights' })).toBeInTheDocument();
   });
 });

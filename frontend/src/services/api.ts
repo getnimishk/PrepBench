@@ -42,6 +42,7 @@ import {
   ActivityItem,
   FormatCoverage,
   OtherPreparation,
+  FocusTopic,
 } from '../types/subject';
 import { CheckResult, ReviewQueue } from '../types/review';
 import { PracticeRecording, RecordingAnalysis, ProviderInfo, RecordingAnalytics } from '../types/recording';
@@ -651,6 +652,17 @@ export const getActivity = async (limit = 40) => {
 
 export const getOtherPreparation = async () => {
   const res = await api.get<OtherPreparation[]>('/home/other-preparation');
+  return res.data;
+};
+
+/**
+ * The weak topics, worst first, with the counts behind them.
+ *
+ * Same query as the weak-topic drill, so the list Home shows and the
+ * questions Practice draws can never disagree.
+ */
+export const getFocusTopics = async () => {
+  const res = await api.get<FocusTopic[]>('/home/focus-topics');
   return res.data;
 };
 
