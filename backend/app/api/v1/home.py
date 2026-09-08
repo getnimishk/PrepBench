@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.exceptions import ResourceNotFoundException
+from app.repositories.analytics_repository import AnalyticsRepository
 from app.repositories.subject_repository import SubjectRepository
 from app.services.home_service import HomeService
 
@@ -74,6 +75,20 @@ class ActivityItem(BaseModel):
     href: str
 
 
+class FocusTopic(BaseModel):
+    """One weak topic, with the evidence that made it weak.
+
+    The counts travel with the name on purpose. "Daily Scrum" alone is a
+    verdict the reader has to take on trust; "6 of 11 in your mocks" is the
+    same verdict with its working shown, and it is the difference between a
+    surface that instructs and one that informs.
+    """
+    topic: str
+    answered: int
+    correct: int
+    accuracy_percentage: float
+
+
 @router.get("", response_model=HomeResponse)
 def get_home(db: Session = Depends(get_db)):
     service = HomeService(db)
@@ -102,6 +117,17 @@ def get_activity(limit: int = Query(40, ge=1, le=200), db: Session = Depends(get
 def get_other_preparation(db: Session = Depends(get_db)):
     """What has been practised outside the exam, counted from real rows."""
     return HomeService(db).other_preparation()
+
+
+@router.get("/focus-topics", response_model=List[FocusTopic])
+def get_focus_topics(db: Session = Depends(get_db)):
+    """The weak topics, worst first, with their counts.
+
+    Reads AnalyticsRepository.get_weak_topics -- the same query, and therefore
+    the same definition of weak, that the weak-topic drill draws from. Home
+    must never be able to name a topic the drill would not then offer.
+    """
+    return AnalyticsRepository(db).get_weak_topics()
 
 
 @router.get("/subjects/{subject_id}/coverage", response_model=List[CoverageItem])

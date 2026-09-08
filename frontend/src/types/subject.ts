@@ -129,6 +129,19 @@ export interface OtherPreparation {
   href: string;
 }
 
+/**
+ * One weak topic, with the evidence behind it.
+ *
+ * Comes from the same query the weak-topic drill draws from, so Home can
+ * never name a topic that Practice would then refuse to offer.
+ */
+export interface FocusTopic {
+  topic: string;
+  answered: number;
+  correct: number;
+  accuracy_percentage: number;
+}
+
 export interface ActivityItem {
   kind: string;
   at?: string | null;

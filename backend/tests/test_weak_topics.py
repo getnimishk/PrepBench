@@ -205,3 +205,47 @@ def test_a_skipped_question_does_not_count_against_the_topic(db):
     # a different topic they would have invented a weakness outright.
     assert weak(db) == {"Sprint Review"}
     assert weak(db, min_answers=4) == set()
+
+
+# ---- the same definition, two shapes ------------------------------------
+
+
+def test_the_names_are_exactly_the_topics(db):
+    """One definition, structurally.
+
+    get_weak_topic_names delegates to get_weak_topics. If it ever grows its
+    own query again, Home could name a topic the weak-topic drill would then
+    refuse to draw -- which is the two-definitions bug this file exists for,
+    wearing a different hat.
+    """
+    _sitting(db, MOCK, [
+        ("Daily Scrum", False), ("Daily Scrum", False), ("Daily Scrum", True),
+        ("Sprint Review", False), ("Sprint Review", True), ("Sprint Review", False),
+        ("Sprint Goal", True), ("Sprint Goal", True), ("Sprint Goal", True),
+    ])
+    repo = AnalyticsRepository(db)
+    assert repo.get_weak_topic_names() == [t["topic"] for t in repo.get_weak_topics()]
+
+
+def test_a_weak_topic_carries_the_evidence_that_made_it_weak(db):
+    """The counts travel with the name, so the surface can show its working."""
+    _sitting(db, MOCK, [
+        ("Daily Scrum", False), ("Daily Scrum", False), ("Daily Scrum", True),
+        ("Daily Scrum", False),
+    ])
+    topic = AnalyticsRepository(db).get_weak_topics()[0]
+    assert topic == {
+        "topic": "Daily Scrum", "answered": 4, "correct": 1, "accuracy_percentage": 25.0,
+    }
+
+
+def test_the_worst_topic_comes_first(db):
+    """A list to start from, not an inventory to work through."""
+    _sitting(db, MOCK, [
+        ("Nearly there", True), ("Nearly there", True), ("Nearly there", False),
+        ("Badly stuck", False), ("Badly stuck", False), ("Badly stuck", False),
+        ("Halfway", True), ("Halfway", False), ("Halfway", False), ("Halfway", True),
+    ])
+    assert [t["topic"] for t in AnalyticsRepository(db).get_weak_topics()] == [
+        "Badly stuck", "Halfway", "Nearly there",
+    ]
