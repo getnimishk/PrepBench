@@ -16,13 +16,27 @@ from app.utils.seed_subjects import seed_subjects
 from app.utils.reconcile_evidence import reconcile_session_kinds
 from app.llm.bootstrap import import_env_provider_if_absent
 
-# Create DB Tables
-Base.metadata.create_all(bind=engine)
+# Create DB Tables.
+#
+# Guarded because importing this module must not, by itself, reach a database.
+# The test suite imports app.main to get `app`, so an unguarded create_all here
+# ran against the real backend/data/exam_simulator.db during mere collection.
+if settings.RUN_STARTUP_DB_INIT:
+    Base.metadata.create_all(bind=engine)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Modern FastAPI lifespan handler replacing deprecated @app.on_event('startup')."""
+    if not settings.RUN_STARTUP_DB_INIT:
+        # TestClient(app) fires this handler, and everything below it builds its
+        # own SessionLocal() rather than taking the get_db dependency -- so
+        # app.dependency_overrides does not redirect it and it wrote to the real
+        # database. Skipped entirely under test; tests that want a migration or
+        # a seeder call it directly against their own session.
+        yield
+        return
+
     logger.info("Initializing database and applying migrations...")
     apply_lightweight_migrations()
 
