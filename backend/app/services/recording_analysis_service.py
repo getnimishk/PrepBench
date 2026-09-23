@@ -5,8 +5,8 @@
 from typing import List, Optional
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import ResourceNotFoundException
-from app.core.config import DATA_DIR
+from app.core.exceptions import InvalidExamStateException, ResourceNotFoundException
+from app.core.config import RECORDINGS_DIR, recording_file
 from app.core.logging_config import logger
 from app.repositories.recording_repository import PracticeRecordingRepository, RecordingAnalysisRepository
 from app.repositories.interview_question_repository import InterviewQuestionRepository
@@ -22,7 +22,7 @@ from app.schemas.recording import (
 )
 from app.schemas.analytics import ScoreTrendPoint
 
-RECORDINGS_DIR = DATA_DIR / "recordings"
+
 
 # Every failure/unavailable path persists this exact shape -- empty scores,
 # no fabricated content -- kept as one constant so every early-return below
@@ -35,6 +35,7 @@ _EMPTY_RESULT_FIELDS = dict(
     summary=None,
     content_scores=[],
     content_summary=None,
+    answer_comparison=None,
 )
 
 
@@ -53,7 +54,10 @@ class RecordingAnalysisService:
         if not recording:
             raise ResourceNotFoundException("PracticeRecording", recording_id)
 
-        file_path = RECORDINGS_DIR / recording.file_path
+        try:
+            file_path = recording_file(recording.file_path)
+        except ValueError as outside:
+            raise InvalidExamStateException(str(outside))
         if not file_path.exists():
             raise ResourceNotFoundException("PracticeRecording file on disk", recording_id)
 
@@ -95,6 +99,10 @@ class RecordingAnalysisService:
                     "round_type": question.round_type.value if hasattr(question.round_type, "value") else str(question.round_type),
                     "question_text": question.question_text,
                 }
+                if question.prepared_answer:
+                    question_context["prepared_answer"] = question.prepared_answer
+                if question.key_talking_points:
+                    question_context["key_talking_points"] = question.key_talking_points
 
         audio_bytes = file_path.read_bytes()
         parsed, error_msg = provider.analyze(audio_bytes, recording.mime_type, question_context)
@@ -125,6 +133,30 @@ class RecordingAnalysisService:
         content_scores = self._parse_scores(parsed.get("content_scores")) if question_context else []
         content_summary = str(parsed.get("content_summary") or "") if question_context and parsed.get("content_summary") else None
 
+        raw_comparison = parsed.get("answer_comparison") if question_context else None
+        answer_comparison = None
+        if isinstance(raw_comparison, dict):
+            align_score = raw_comparison.get("alignment_score")
+            try:
+                align_score = int(align_score) if align_score is not None else 0
+            except (TypeError, ValueError):
+                align_score = 0
+            matches = []
+            for m in raw_comparison.get("key_point_matches", []):
+                if isinstance(m, dict) and "point" in m:
+                    matches.append({
+                        "point": str(m.get("point", "")),
+                        "status": str(m.get("status", "partial")).lower(),
+                        "evidence": str(m.get("evidence", "")),
+                    })
+            answer_comparison = {
+                "alignment_score": align_score,
+                "key_point_matches": matches,
+                "gap_analysis": str(raw_comparison["gap_analysis"]) if raw_comparison.get("gap_analysis") else None,
+                "unplanned_additions": str(raw_comparison["unplanned_additions"]) if raw_comparison.get("unplanned_additions") else None,
+                "coaching_tips": str(raw_comparison["coaching_tips"]) if raw_comparison.get("coaching_tips") else None,
+            }
+
         saved = self.analysis_repo.upsert(
             recording_id,
             provider=provider.name,
@@ -136,6 +168,7 @@ class RecordingAnalysisService:
             summary=str(parsed.get("summary") or ""),
             content_scores=[s.model_dump() for s in content_scores],
             content_summary=content_summary,
+            answer_comparison=answer_comparison,
         )
         return RecordingAnalysisResponse.model_validate(saved)
 

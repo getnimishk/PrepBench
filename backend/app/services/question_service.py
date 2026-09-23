@@ -18,14 +18,39 @@ class QuestionService:
             raise ResourceNotFoundException("Question", question_id)
         return QuestionResponse.model_validate(q)
 
-    def get_filters(self) -> dict:
-        return self.repo.get_distinct_filters()
+    def get_filters(self, subject_id: Optional[int] = None) -> dict:
+        return self.repo.get_distinct_filters(subject_id)
 
-    def list_questions(self, skip: int = 0, limit: int = 100, filter_params: Optional[QuestionFilter] = None):
+    def list_questions(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+        filter_params: Optional[QuestionFilter] = None,
+        include_evidence: bool = False,
+    ):
         questions = self.repo.get_all(skip=skip, limit=limit, filter_params=filter_params)
         total = self.repo.count(filter_params=filter_params)
+        if include_evidence:
+            # One page's worth: two grouped queries, whatever the page size.
+            from app.services.question_evidence import evidence_for
+            from app.schemas.question import QuestionEvidence, QuestionWithEvidence
+            evidence = evidence_for(self.repo.db, [q.id for q in questions])
+            items = [
+                QuestionWithEvidence(
+                    **QuestionResponse.model_validate(q).model_dump(),
+                    evidence=QuestionEvidence(
+                        answered=evidence[q.id].answered,
+                        correct=evidence[q.id].correct,
+                        missed=evidence[q.id].missed,
+                        due=evidence[q.id].due,
+                    ),
+                )
+                for q in questions
+            ]
+        else:
+            items = [QuestionResponse.model_validate(q) for q in questions]
         return {
-            "items": [QuestionResponse.model_validate(q) for q in questions],
+            "items": items,
             "total": total,
             "skip": skip,
             "limit": limit

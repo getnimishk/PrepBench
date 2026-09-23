@@ -19,7 +19,11 @@ class ExamAnswer(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     session_id = Column(Integer, ForeignKey("exam_sessions.id", ondelete="CASCADE"), nullable=False)
-    question_id = Column(Integer, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False)
+    # Indexed on its own: the (session_id, question_id) constraint cannot serve a
+    # lookup by question, and every "has this question been answered" join --
+    # the review check, readiness, the storage report -- scanned the whole table
+    # once per question without it (see GATE-17-REPORT, performance).
+    question_id = Column(Integer, ForeignKey("questions.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Enforce at the DB level: one answer per question per session.
     # This makes the check-then-act in save_answer fail loudly on a race

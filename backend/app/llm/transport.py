@@ -66,3 +66,20 @@ def get_json(client: httpx.Client, url: str, timeout: float,
         return res.json(), None
     except Exception as e:
         return None, f"Response was not valid JSON: {str(e)}"
+
+
+def get_text(client: httpx.Client, url: str, timeout: float,
+             headers: Optional[dict] = None) -> Tuple[Optional[str], Optional[str]]:
+    """GET returning (body_text, error). Used for external library page discovery."""
+    try:
+        res = client.get(url, timeout=timeout, headers=headers or None)
+    except httpx.TimeoutException:
+        return None, f"Timed out after {timeout:.0f}s"
+    except httpx.ConnectError as e:
+        return None, f"Could not connect: {e}"
+    except Exception as e:
+        return None, f"Network/HTTP Exception: {str(e)}"
+
+    if res.status_code != 200:
+        return None, f"HTTP {res.status_code}: {res.text[:150]}"
+    return res.text, None

@@ -40,7 +40,13 @@ export const CategoryScoreList: React.FC<Props> = ({ scores, gap = 1.5 }) => (
               {c.score}/{c.max_score}
             </Typography>
           </Box>
-          <LinearProgress variant="determinate" value={pct} color={scoreColor(pct)} sx={{ height: 6, borderRadius: 3, mb: 0.5 }} />
+          <LinearProgress
+            variant="determinate"
+            value={pct}
+            aria-label={`${c.category}: ${c.score} of ${c.max_score}`}
+            color={scoreColor(pct)}
+            sx={{ height: 6, borderRadius: 3, mb: 0.5 }}
+          />
           <Typography variant="caption" color="text.secondary">{c.feedback}</Typography>
         </Box>
       );

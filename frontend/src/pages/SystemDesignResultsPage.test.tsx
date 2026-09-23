@@ -5,15 +5,18 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { SystemDesignResultsPage } from './SystemDesignResultsPage';
 
 const mockGetAttempt = vi.fn();
 const mockGetHistory = vi.fn();
+const mockRegrade = vi.fn();
 
 vi.mock('../services/api', () => ({
   getSystemDesignAttempt: (...args: any[]) => mockGetAttempt(...args),
   getSystemDesignPromptAttempts: (...args: any[]) => mockGetHistory(...args),
+  regradeSystemDesignAttempt: (...args: any[]) => mockRegrade(...args),
 }));
 
 function renderPage() {
@@ -57,10 +60,11 @@ describe('SystemDesignResultsPage', () => {
 
     renderPage();
 
-    await waitFor(() => expect(screen.getByText('72%')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: '7.2 / 10' })).toBeInTheDocument());
     expect(screen.getByText('Requirements Clarification')).toBeInTheDocument();
     expect(screen.getByText('Clear structure')).toBeInTheDocument();
-    expect(screen.getByText('Discuss scaling more')).toBeInTheDocument();
+    // Named twice on purpose: as the one thing to improve next, and in the full list.
+    expect(screen.getAllByText('Discuss scaling more')).toHaveLength(2);
     expect(screen.getByText('Solid attempt.')).toBeInTheDocument();
   });
 
@@ -84,7 +88,7 @@ describe('SystemDesignResultsPage', () => {
 
     renderPage();
 
-    await waitFor(() => expect(screen.getByText(/not graded/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Not graded' })).toBeInTheDocument());
     // No fabricated score UI anywhere.
     expect(screen.queryByText('%')).not.toBeInTheDocument();
     expect(screen.queryByText('Category Breakdown')).not.toBeInTheDocument();
@@ -132,7 +136,8 @@ describe('SystemDesignResultsPage', () => {
       renderPage();
 
       expect(await screen.findByText(/Your attempts at this prompt/)).toBeInTheDocument();
-      expect(screen.getByText('+22 pts')).toBeInTheDocument();
+      // Points out of 100 from the server, shown on the page's scale of ten.
+      expect(screen.getByText('+2.2')).toBeInTheDocument();
       expect(screen.getByText('This one')).toBeInTheDocument();
     });
 
@@ -151,10 +156,67 @@ describe('SystemDesignResultsPage', () => {
       renderPage();
 
       expect(await screen.findByText(/Your attempts at this prompt/)).toBeInTheDocument();
-      expect(screen.queryByText(/pts$/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/^[+-]\d/)).not.toBeInTheDocument();
       expect(
         screen.getByText(/Only one of these was graded, so there is nothing to compare it with yet/)
       ).toBeInTheDocument();
     });
   });
+
+  describe('improve, revise, and grade again', () => {
+    const base = {
+      id: 3, prompt_id: 7, answer_text: 'x', target_role: null, overall_score: null, category_scores: [],
+      strengths: [], improvements: [], summary: null, grading_status: 'unavailable', grading_error: null,
+      time_spent_seconds: 60, created_at: '2026-09-13T10:00:00',
+      sections: {
+        requirements: '10M notifications an hour.', architecture: 'Queue and workers.',
+        data_model: '', failure_handling: 'Dead-letter queue.', trade_offs: '',
+      },
+      prompt: { id: 7, title: 'Design a notification service' },
+    };
+
+    it('shows the answer by section, and says which were not written', async () => {
+      mockGetAttempt.mockResolvedValue(base);
+      renderPage();
+
+      expect(await screen.findByText('Requirements & scale assumptions')).toBeInTheDocument();
+      expect(screen.getByText('Dead-letter queue.')).toBeInTheDocument();
+      expect(screen.getAllByText('Not written.')).toHaveLength(2);
+    });
+
+    it('grades an ungraded answer again, without touching the answer', async () => {
+      const user = userEvent.setup({ delay: null });
+      mockGetAttempt.mockResolvedValue(base);
+      mockRegrade.mockResolvedValue({
+        ...base, grading_status: 'graded', overall_score: 64,
+        category_scores: [
+          { category: 'Data Modeling & Storage', score: 3, max_score: 10, feedback: 'No data model.' },
+          { category: 'Requirements Clarification', score: 8, max_score: 10, feedback: 'Clear.' },
+        ],
+        improvements: ['Say what is stored and how it is keyed.'],
+      });
+      renderPage();
+
+      await user.click(await screen.findByRole('button', { name: 'Grade again' }));
+
+      expect(mockRegrade).toHaveBeenCalledWith(3);
+      expect(await screen.findByRole('heading', { name: '6.4 / 10' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Say what is stored and how it is keyed.' })).toBeInTheDocument();
+      expect(screen.getByText(/Lowest-scored: Data Modeling & Storage at 30%/)).toBeInTheDocument();
+      expect(screen.getAllByRole('link', { name: 'Revise your answer' })[0]).toHaveAttribute('href', '/system-design/7/answer');
+    });
+
+    it('says when grading again did not run', async () => {
+      const user = userEvent.setup({ delay: null });
+      mockGetAttempt.mockResolvedValue(base);
+      mockRegrade.mockRejectedValue({ response: { data: { detail: 'Provider timed out' } } });
+      renderPage();
+
+      await user.click(await screen.findByRole('button', { name: 'Grade again' }));
+
+      expect(await screen.findByText('Provider timed out')).toBeInTheDocument();
+      expect(screen.queryByText('%')).not.toBeInTheDocument();
+    });
+  });
 });
+

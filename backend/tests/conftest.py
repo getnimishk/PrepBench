@@ -2,29 +2,59 @@
 # Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 # Commercial use requires a separate licence from the copyright holder.
 
-import pytest
+import os
+import tempfile
 from pathlib import Path
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from fastapi.testclient import TestClient
 
-from app.core.config import DATA_DIR
-from app.core.database import Base, get_db, register_sqlite_pragmas
-from app.main import app
+# Before anything imports the app: recordings made by the tests go to a throwaway
+# folder, never beside the learner's own recordings in backend/data/recordings.
+os.environ.setdefault(
+    "PREPBENCH_RECORDINGS_DIR", tempfile.mkdtemp(prefix="prepbench-test-recordings-")
+)
 
-# Dedicated isolated test database path
-TEST_DB_PATH = DATA_DIR / "test_exam_simulator.db"
-TEST_SQLALCHEMY_DATABASE_URI = f"sqlite:///{TEST_DB_PATH}"
+# And the provider secret store, for the same reason: creating a provider with an
+# API key wrote the fake key into the learner's own .llm_secrets.json.
+os.environ.setdefault(
+    "PREPBENCH_SECRETS_DIR", tempfile.mkdtemp(prefix="prepbench-test-secrets-")
+)
+
+# And the database, for the same reason and at the same moment. Overriding get_db
+# is not enough: app.main creates tables when it is imported, and every TestClient
+# that starts the app runs its migrations, seeding and evidence reconciliation on
+# the app's own engine. Left to its default, that engine is backend/data/
+# exam_simulator.db -- the learner's real database, holding question banks that
+# cannot be regenerated. Set unconditionally, so a SQLALCHEMY_DATABASE_URI left
+# in the shell cannot point a test run at real data either.
+TEST_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "test_exam_simulator.db"
+TEST_SQLALCHEMY_DATABASE_URI = f"sqlite:///{TEST_DB_PATH.as_posix()}"
+os.environ["SQLALCHEMY_DATABASE_URI"] = TEST_SQLALCHEMY_DATABASE_URI
 
 # Start every run from an empty file rather than trusting the last run to have
 # cleaned up. On Windows the teardown unlink can fail while the file is still
 # mapped, and it fails silently -- so a leaked row from a previous run shows up
 # as a failure in a completely unrelated test, which is the worst kind to debug.
-if TEST_DB_PATH.exists():
-    try:
-        TEST_DB_PATH.unlink()
-    except OSError:
-        pass
+# Before the app is imported, which would otherwise open the file first.
+for _suffix in ("", "-wal", "-shm", "-journal"):
+    _stale = Path(f"{TEST_DB_PATH}{_suffix}")
+    if _stale.exists():
+        try:
+            _stale.unlink()
+        except OSError:
+            pass
+
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from fastapi.testclient import TestClient
+
+from app.core.config import DATA_DIR, settings
+from app.core.database import Base, get_db, register_sqlite_pragmas
+from app.main import app
+
+assert TEST_DB_PATH == DATA_DIR / "test_exam_simulator.db"
+assert settings.SQLALCHEMY_DATABASE_URI == TEST_SQLALCHEMY_DATABASE_URI, (
+    "The app's own engine is not on the test database; refusing to run against real data."
+)
 
 test_engine = create_engine(
     TEST_SQLALCHEMY_DATABASE_URI,

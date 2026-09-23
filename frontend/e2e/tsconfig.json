@@ -1,0 +1,18 @@
+{
+  // The browser tests and the Playwright config run in Node, not the browser,
+  // so they need Node's types rather than vite/client's. Kept as its own
+  // project so `npm run typecheck` checks them without leaking Node globals
+  // into the app, which the root tsconfig deliberately keeps out.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true
+  },
+  "include": ["./**/*.ts", "../playwright.config.ts"]
+}

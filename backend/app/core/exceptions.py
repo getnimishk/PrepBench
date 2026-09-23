@@ -23,6 +23,23 @@ class InvalidExamStateException(HTTPException):
             detail=detail
         )
 
+class ConflictException(HTTPException):
+    """The request is well formed but collides with something already stored.
+
+    Its own class rather than a status_code argument on
+    InvalidExamStateException: that one means "this operation does not make sense
+    here" and is a 400 by definition. A name or certification already in use is a
+    different thing -- the caller did nothing wrong, the resource is simply taken
+    -- and a client retrying a 400 is wasting its time where a 409 tells it to
+    change the value.
+    """
+
+    def __init__(self, detail: str):
+        super().__init__(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=detail
+        )
+
 class ImportValidationException(HTTPException):
     def __init__(self, detail: str, errors: list = None):
         super().__init__(

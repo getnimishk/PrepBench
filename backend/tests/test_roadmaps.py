@@ -302,6 +302,24 @@ def _new_roadmap(roadmap_ids, **kwargs) -> int:
     return roadmap_id
 
 
+def _complete(roadmap_id: int, topic_id: int) -> dict:
+    """Complete a topic the only way the product allows: a passing demonstration.
+
+    PATCH can no longer set a topic to completed (plan section 11 -- completion is
+    earned against the success criterion, not set). Tests that need a completed
+    topic as a starting point get one here, by the real route.
+    """
+    res = client.post(
+        f"/api/v1/roadmaps/{roadmap_id}/topics/{topic_id}/demonstrations",
+        json={
+            "response_text": "An explanation of the topic given unprompted, from memory.",
+            "self_grade": "yes",
+        },
+    )
+    assert res.status_code == 201, res.text
+    return res.json()["topic"]
+
+
 def _add_topics(roadmap_id: int, hours_list):
     phase = client.post(f"/api/v1/roadmaps/{roadmap_id}/phases", json={"name": "Phase 1"})
     phase_id = phase.json()["id"]
@@ -345,7 +363,7 @@ def test_skipped_topics_leave_the_denominator_entirely(roadmap_ids):
     roadmap_id = _new_roadmap(roadmap_ids)
     _, topic_ids = _add_topics(roadmap_id, [2, 2, 2, 2])
 
-    client.patch(f"/api/v1/roadmaps/{roadmap_id}/topics/{topic_ids[0]}", json={"status": "completed"})
+    _complete(roadmap_id, topic_ids[0])
     client.patch(f"/api/v1/roadmaps/{roadmap_id}/topics/{topic_ids[1]}", json={"status": "skipped"})
 
     progress = client.get(f"/api/v1/roadmaps/{roadmap_id}").json()["progress"]
@@ -374,8 +392,8 @@ def test_completing_a_topic_forces_full_progress_and_stamps_dates(roadmap_ids):
     roadmap_id = _new_roadmap(roadmap_ids)
     _, topic_ids = _add_topics(roadmap_id, [3])
 
-    body = client.patch(f"/api/v1/roadmaps/{roadmap_id}/topics/{topic_ids[0]}",
-                        json={"status": "completed"}).json()
+    body = _complete(roadmap_id, topic_ids[0])
+    assert body["status"] == "completed"
     assert body["progress_percentage"] == 100
     assert body["completed_at"] is not None
     assert body["started_at"] is not None
@@ -392,10 +410,19 @@ def test_setting_progress_alone_infers_the_status(roadmap_ids):
     assert partial["started_at"] is not None
     assert partial["completed_at"] is None
 
-    done = client.patch(f"/api/v1/roadmaps/{roadmap_id}/topics/{topic_id}",
-                        json={"progress_percentage": 100}).json()
-    assert done["status"] == "completed"
-    assert done["completed_at"] is not None
+    # 100% would imply completed, and completed is earned by demonstration, so
+    # this route to it is refused -- and the topic is left exactly as it was.
+    refused = client.patch(f"/api/v1/roadmaps/{roadmap_id}/topics/{topic_id}",
+                           json={"progress_percentage": 100})
+    assert refused.status_code == 400, refused.text
+    assert "demonstrat" in refused.json()["detail"].lower()
+
+    after = next(
+        tp for ph in client.get(f"/api/v1/roadmaps/{roadmap_id}").json()["phases"]
+        for tp in ph["topics"] if tp["id"] == topic_id
+    )
+    assert after["status"] == "in_progress"
+    assert after["progress_percentage"] == 40
 
 
 def test_in_progress_at_100_percent_is_clamped_rather_than_silently_completed(roadmap_ids):
@@ -415,7 +442,10 @@ def test_reverting_to_not_started_clears_progress_and_dates(roadmap_ids):
     _, topic_ids = _add_topics(roadmap_id, [3])
     topic_id = topic_ids[0]
 
-    client.patch(f"/api/v1/roadmaps/{roadmap_id}/topics/{topic_id}", json={"status": "completed"})
+    # Genuinely completed first. The old setup PATCHed status=completed, which is
+    # now refused -- left as it was, this test would have gone on passing while
+    # testing a topic that was never completed at all.
+    assert _complete(roadmap_id, topic_id)["status"] == "completed"
     body = client.patch(f"/api/v1/roadmaps/{roadmap_id}/topics/{topic_id}",
                         json={"status": "not_started"}).json()
 
@@ -433,7 +463,7 @@ def test_patching_status_leaves_other_fields_untouched(roadmap_ids):
     client.patch(f"/api/v1/roadmaps/{roadmap_id}/topics/{topic_id}",
                  json={"evidence_notes": "Built a demo cluster"})
     body = client.patch(f"/api/v1/roadmaps/{roadmap_id}/topics/{topic_id}",
-                        json={"status": "completed"}).json()
+                        json={"status": "in_progress"}).json()
 
     assert body["evidence_notes"] == "Built a demo cluster"
 
@@ -498,7 +528,7 @@ def test_a_topic_without_hours_is_marked_unschedulable_not_given_a_default(roadm
 def test_completed_topics_use_actual_dates_and_consume_no_future_budget(roadmap_ids):
     roadmap_id = _new_roadmap(roadmap_ids, start_date="2026-01-01", weekly_hours_budget=7)
     _, topic_ids = _add_topics(roadmap_id, [7, 7])
-    client.patch(f"/api/v1/roadmaps/{roadmap_id}/topics/{topic_ids[0]}", json={"status": "completed"})
+    _complete(roadmap_id, topic_ids[0])
 
     body = client.get(f"/api/v1/roadmaps/{roadmap_id}/schedule").json()
     done, upcoming = body["items"]
@@ -580,8 +610,7 @@ def test_an_actual_bar_is_dated_by_the_local_day_it_happened_on(roadmap_ids):
 
     roadmap_id = _new_roadmap(roadmap_ids, start_date="2026-01-01", weekly_hours_budget=7)
     _, topic_ids = _add_topics(roadmap_id, [7])
-    client.patch(f"/api/v1/roadmaps/{roadmap_id}/topics/{topic_ids[0]}",
-                 json={"status": "completed"})
+    _complete(roadmap_id, topic_ids[0])
 
     db = TestingSessionLocal()
     try:
@@ -625,6 +654,49 @@ def test_list_reports_progress_per_roadmap_and_hides_archived(roadmap_ids):
 
     with_archived = client.get("/api/v1/roadmaps", params={"include_archived": True}).json()
     assert archived in [r["id"] for r in with_archived]
+
+
+def test_the_list_counts_each_roadmaps_phases_including_empty_ones(roadmap_ids):
+    """The list card reads "N phases · N topics · Nh". A phase with no topics
+    yet is still a phase of the plan, so the count comes from the phases."""
+    with_topics = _new_roadmap(roadmap_ids)
+    _add_topics(with_topics, [1, 2])
+    client.post(f"/api/v1/roadmaps/{with_topics}/phases", json={"name": "Not filled in yet"})
+    empty = _new_roadmap(roadmap_ids)
+
+    by_id = {r["id"]: r for r in client.get("/api/v1/roadmaps").json()}
+    detail_phases = len(client.get(f"/api/v1/roadmaps/{with_topics}").json()["phases"])
+    assert by_id[with_topics]["phase_count"] == detail_phases
+    assert by_id[with_topics]["phase_count"] >= 2
+    assert by_id[empty]["phase_count"] == 0
+    assert client.get(f"/api/v1/roadmaps/{with_topics}").json()["phase_count"] == detail_phases
+
+
+def test_a_roadmap_says_which_preparation_it_belongs_to(roadmap_ids):
+    name = "Roadmap Owner"
+    created_subject = client.post("/api/v1/subjects", json={"name": name, "kind": "skill"})
+    assert created_subject.status_code == 201, created_subject.text
+    body = created_subject.json()
+    subject_id = body.get("id", body.get("subject_id"))
+    try:
+        created = client.post("/api/v1/roadmaps", json={"title": "Owned", "subject_id": subject_id})
+        assert created.status_code == 201
+        owned = created.json()["id"]
+        roadmap_ids.append(owned)
+        assert created.json()["subject_id"] == subject_id
+        assert client.get(f"/api/v1/roadmaps/{owned}").json()["subject_id"] == subject_id
+
+        unlinked = _new_roadmap(roadmap_ids)
+        by_id = {r["id"]: r for r in client.get("/api/v1/roadmaps").json()}
+        assert by_id[owned]["subject_id"] == subject_id
+        assert by_id[unlinked]["subject_id"] is None
+
+        # Linking is visible in the list straight away.
+        client.put(f"/api/v1/roadmaps/{unlinked}", json={"subject_id": subject_id})
+        by_id = {r["id"]: r for r in client.get("/api/v1/roadmaps").json()}
+        assert by_id[unlinked]["subject_id"] == subject_id
+    finally:
+        client.request("DELETE", f"/api/v1/subjects/{subject_id}", json={"confirm_name": name})
 
 
 def test_unknown_roadmap_returns_404():

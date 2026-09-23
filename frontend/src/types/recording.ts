@@ -11,7 +11,13 @@ export interface PracticeRecording {
   duration_seconds: number | null;
   file_size_bytes: number;
   interview_question_id: number | null;
+  session_id?: number | null;
+  plan_note?: string | null;
   created_at: string;
+  /** List endpoint only. Percentages stay null unless the analysis succeeded. */
+  analysis_status?: string | null;
+  content_percent?: number | null;
+  delivery_percent?: number | null;
 }
 
 export interface RecordingCommunicationScore {
@@ -19,6 +25,20 @@ export interface RecordingCommunicationScore {
   score: number;
   max_score: number;
   feedback: string;
+}
+
+export interface KeyPointMatch {
+  point: string;
+  status: 'covered' | 'partial' | 'missed';
+  evidence: string;
+}
+
+export interface AnswerComparison {
+  alignment_score: number;
+  key_point_matches: KeyPointMatch[];
+  gap_analysis?: string | null;
+  unplanned_additions?: string | null;
+  coaching_tips?: string | null;
 }
 
 export type AnalysisStatus = 'analyzed' | 'unavailable' | 'error';
@@ -33,6 +53,7 @@ export interface RecordingAnalysis {
   summary: string | null;
   content_scores: RecordingCommunicationScore[];
   content_summary: string | null;
+  answer_comparison?: AnswerComparison | null;
   analysis_status: AnalysisStatus;
   analysis_error: string | null;
   created_at: string;

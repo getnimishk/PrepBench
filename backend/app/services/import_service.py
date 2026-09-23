@@ -6,16 +6,22 @@ import json
 import io
 import re
 import pandas as pd
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 from sqlalchemy.orm import Session
 from app.schemas.question import QuestionCreate, QuestionOptionCreate
 from app.services.question_service import QuestionService
 from app.repositories.question_repository import QuestionRepository
-from app.services.question_validator import QuestionValidator
-from app.schemas.question_validation import QuestionValidationReport
+from app.services.question_validator import DEFAULT_ACTIONS, QuestionValidator
+from app.schemas.question_validation import (
+    QuestionValidationReport, ValidatedQuestionItem, ValidationErrorItem,
+)
 from app.schemas.import_export import ImportResult
 from app.models.question import QuestionType, QuestionDifficulty
 from app.core.logging_config import logger
+from sqlalchemy import insert
+from datetime import datetime, UTC
+from app.models.question import Question as QuestionModel
+from app.models.option import QuestionOption
 
 # Diagnostic toggle for the post-write option-count verification in
 # import_validated_batch: False = log a warning only; True = treat a mismatch as
@@ -25,11 +31,16 @@ from app.core.logging_config import logger
 # positives) before flipping to hard-fail.
 VERIFY_OPTION_COUNTS_HARD_FAIL = True
 
-# Commit every N questions instead of holding the entire batch as one long
-# transaction. Shrinks the blast radius of any single failure and narrows the
-# diagnostic window (the per-chunk aggregate check below reports which ~N-sized
-# window an issue occurred in, not just "somewhere in 500 questions").
-IMPORT_CHUNK_SIZE = 25
+# Written and committed N questions at a time instead of holding the entire batch
+# as one long transaction. Shrinks the blast radius of any single failure and
+# narrows the diagnostic window (the per-chunk aggregate check below reports which
+# ~N-sized window an issue occurred in, not just "somewhere in 500 questions").
+#
+# A chunk is written in two statements -- the questions, then their options -- and
+# only if that fails is the chunk redone one question at a time, so a bad row is
+# still reported as itself. Row by row, a 2,000-question import took 45 seconds on
+# this machine: six statements and a savepoint each.
+IMPORT_CHUNK_SIZE = 200
 
 class ImportService:
     def __init__(self, db: Session):
@@ -68,7 +79,46 @@ class ImportService:
                 detail=f"Unsupported file format '{filename}'. Supported formats: .json, .md, .markdown, .csv, .xlsx, .xls"
             )
 
-        return self.validator.validate_batch(questions, validate_content=validate_content)
+        report = self.validator.validate_batch(questions, validate_content=validate_content)
+        return self._with_row_outcomes(report)
+
+    def _with_row_outcomes(self, report: QuestionValidationReport) -> QuestionValidationReport:
+        """Fold what the row parser recorded into the validation report.
+
+        Every parsed item gets its file row and any replaced-value warnings; every
+        row that produced nothing gets an error item of its own, with no question,
+        so it is counted and shown instead of vanishing. Formats without rows
+        (JSON, Markdown) leave the report as it was.
+        """
+        source_rows = getattr(self, "_source_rows", None)
+        if source_rows is None:
+            return report
+
+        for item, source_row in zip(report.items, source_rows):
+            item.source_row = source_row
+            extra = self._row_notes.get(source_row, [])
+            if extra:
+                item.issues.extend(extra)
+                if item.status == "valid":
+                    item.status = "warning"
+
+        next_index = len(report.items) + 1
+        for issue, source_row in zip(self._skipped_rows, self._skipped_row_numbers):
+            report.items.append(ValidatedQuestionItem(
+                index=next_index, source_row=source_row, question=None,
+                status="error", issues=[issue],
+            ))
+            next_index += 1
+
+        report.items.sort(key=lambda i: (i.source_row or 0, i.index))
+        report.total_processed = len(report.items)
+        report.valid_count = sum(1 for i in report.items if i.status == "valid")
+        report.warning_count = sum(1 for i in report.items if i.status == "warning")
+        report.error_count = sum(1 for i in report.items if i.status == "error")
+
+        # Cleared so a second validate_file on the same service cannot inherit rows.
+        self._source_rows = None
+        return report
 
     def _check_aggregate_option_counts(self, ids_and_counts: List[Tuple[int, int]], QuestionOption) -> None:
         """Post-commit aggregate check for a just-committed chunk: catches corruption
@@ -92,84 +142,64 @@ class ImportService:
             logger.warning(msg)
 
     def import_validated_batch(self, questions: List[QuestionCreate], skip_errors: bool = True) -> ImportResult:
+        """Write a validated batch, in chunks, and verify the options that landed.
+
+        The fast path writes a whole chunk with two bulk statements. If anything in
+        it fails -- a row the database refuses, an option count that does not match
+        -- that chunk is rolled back and redone one question at a time, which is
+        where a single bad row gets named and skipped. So the common case costs two
+        statements per chunk, and a failure still costs the caller nothing in detail.
+        """
         success = 0
         failed = 0
-        errors = []
-        chunk_ids_and_counts: List[Tuple[int, int]] = []
+        errors: List[str] = []
 
-        from app.models.question import Question as QuestionModel
-        from app.models.option import QuestionOption
+        # Resolved once per distinct certification rather than once per row: an
+        # import is usually hundreds of questions under one or two certification
+        # names, and resolve_subject_id is a query.
+        subject_for_certification: dict = {}
 
-        for idx, q in enumerate(questions):
+        def owner_of(q: QuestionCreate):
+            if q.subject_id is not None:
+                return q.subject_id
+            # Which preparation owns this question. The same rule, and the same
+            # function, as QuestionRepository.create -- exact certification match,
+            # and nothing when two preparations claim the string. This path built
+            # Question rows directly and so skipped that step; before preparations
+            # scoped by foreign key it did not matter, because the fuzzy
+            # certification match found imported questions anyway. Afterwards every
+            # newly imported bank landed unowned and was invisible to its own
+            # preparation.
+            cert_key = (q.certification or "").strip()
+            if cert_key not in subject_for_certification:
+                subject_for_certification[cert_key] = self.question_repo.resolve_subject_id(cert_key)
+            return subject_for_certification[cert_key]
+
+        for start in range(0, len(questions), IMPORT_CHUNK_SIZE):
+            chunk = questions[start:start + IMPORT_CHUNK_SIZE]
             try:
-                with self.db.begin_nested():  # SAVEPOINT — rollback only affects this question
-                    db_obj = QuestionModel(
-                        text=q.text,
-                        question_type=q.question_type,
-                        difficulty=q.difficulty,
-                        domain=q.domain,
-                        topic=q.topic,
-                        subtopic=q.subtopic,
-                        certification=q.certification,
-                        source=q.source,
-                        tags=q.tags,
-                        code_snippet=q.code_snippet,
-                        case_study_text=q.case_study_text,
-                        image_url=q.image_url,
-                        explanation=q.explanation,
-                        reference_url=q.reference_url,
-                    )
-                    self.db.add(db_obj)
-                    self.db.flush()  # resolve db_obj.id within the savepoint
-
-                    expected_option_count = len(q.options or [])
-                    for opt_idx, opt in enumerate(q.options or []):
-                        self.db.add(QuestionOption(
-                            question_id=db_obj.id,
-                            option_text=opt.option_text,
-                            is_correct=opt.is_correct,
-                            explanation_why_incorrect=opt.explanation_why_incorrect,
-                            order_index=opt.order_index if opt.order_index is not None else opt_idx,
-                        ))
-
-                    # Verify what actually landed, not what Python thinks it added.
-                    # A real COUNT query (not len(db_obj.options), which only reflects
-                    # SQLAlchemy's in-memory identity map) catches silent option loss
-                    # that has occurred twice during real imports on this app.
-                    if expected_option_count:
-                        self.db.flush()
-                        actual_option_count = self.question_repo.count_options_for_questions([db_obj.id])
-                        if actual_option_count != expected_option_count:
-                            msg = (
-                                f"Option count mismatch for question {idx + 1} "
-                                f"('{q.text[:60]}...'): expected {expected_option_count}, "
-                                f"found {actual_option_count} after flush."
-                            )
-                            if VERIFY_OPTION_COUNTS_HARD_FAIL:
-                                raise RuntimeError(msg)
-                            logger.warning(msg)
-
-                    chunk_ids_and_counts.append((db_obj.id, expected_option_count))
-                success += 1
-            except Exception as e:
-                # SAVEPOINT was rolled back automatically by the context manager;
-                # every previously-successful question in this batch is unaffected.
-                if not skip_errors:
-                    raise
-                failed += 1
-                errors.append(f"Question {idx + 1}: {str(e)}")
-
-            # Commit every IMPORT_CHUNK_SIZE questions (and always on the last one),
-            # instead of holding the whole batch as one long transaction. A failure
-            # committing a chunk is a different, more serious kind of failure than a
-            # single question's validation error — it means something is wrong at
-            # the connection/transaction level, so it aborts the whole import rather
-            # than being swallowed like a per-question error.
-            is_last_question = idx == len(questions) - 1
-            if chunk_ids_and_counts and (len(chunk_ids_and_counts) >= IMPORT_CHUNK_SIZE or is_last_question):
+                written = self._write_chunk(chunk, owner_of)
                 self.db.commit()
-                self._check_aggregate_option_counts(chunk_ids_and_counts, QuestionOption)
-                chunk_ids_and_counts = []
+                self._check_aggregate_option_counts(written, QuestionOption)
+                success += len(chunk)
+            except Exception as chunk_error:
+                self.db.rollback()
+                logger.warning(
+                    "Import chunk of %d starting at question %d failed (%s); "
+                    "retrying it one question at a time.", len(chunk), start + 1, chunk_error,
+                )
+                for offset, q in enumerate(chunk):
+                    try:
+                        written = self._write_chunk([q], owner_of)
+                        self.db.commit()
+                        self._check_aggregate_option_counts(written, QuestionOption)
+                        success += 1
+                    except Exception as row_error:
+                        self.db.rollback()
+                        if not skip_errors:
+                            raise
+                        failed += 1
+                        errors.append(f"Question {start + offset + 1}: {row_error}")
 
         return ImportResult(
             success_count=success,
@@ -177,6 +207,71 @@ class ImportService:
             total_processed=success + failed,
             errors=errors
         )
+
+    def _write_chunk(self, chunk: List[QuestionCreate], owner_of) -> List[Tuple[int, int]]:
+        """Insert these questions and their options, and check the options landed.
+
+        Returns (question id, expected option count) pairs. Nothing is committed
+        here; the caller decides. The count is a real COUNT query rather than
+        len(question.options), which only reflects SQLAlchemy's identity map --
+        options have gone missing on this app twice, and in-memory state said
+        they were there.
+        """
+        rows = [
+            {
+                "text": q.text,
+                "question_type": q.question_type,
+                "difficulty": q.difficulty,
+                "domain": q.domain,
+                "topic": q.topic,
+                "subtopic": q.subtopic,
+                "certification": q.certification,
+                "subject_id": owner_of(q),
+                "source": q.source,
+                "tags": q.tags,
+                "code_snippet": q.code_snippet,
+                "case_study_text": q.case_study_text,
+                "image_url": q.image_url,
+                "explanation": q.explanation,
+                "reference_url": q.reference_url,
+                "is_reviewed": False,
+                "created_at": datetime.now(UTC).replace(tzinfo=None),
+                "updated_at": datetime.now(UTC).replace(tzinfo=None),
+            }
+            for q in chunk
+        ]
+        inserted = self.db.execute(insert(QuestionModel).returning(QuestionModel.id), rows)
+        ids = [row[0] for row in inserted]
+        if len(ids) != len(chunk):
+            raise RuntimeError(
+                f"Inserted {len(ids)} questions from a chunk of {len(chunk)}."
+            )
+
+        options = [
+            {
+                "question_id": question_id,
+                "option_text": opt.option_text,
+                "is_correct": opt.is_correct,
+                "explanation_why_incorrect": opt.explanation_why_incorrect,
+                "order_index": opt.order_index if opt.order_index is not None else opt_idx,
+            }
+            for question_id, q in zip(ids, chunk)
+            for opt_idx, opt in enumerate(q.options or [])
+        ]
+        if options:
+            self.db.execute(insert(QuestionOption), options)
+
+        expected = [(question_id, len(q.options or [])) for question_id, q in zip(ids, chunk)]
+        expected_total = sum(count for _, count in expected)
+        if expected_total:
+            self.db.flush()
+            actual_total = self.question_repo.count_options_for_questions(ids)
+            if actual_total != expected_total:
+                raise RuntimeError(
+                    f"Option count mismatch: expected {expected_total} options across "
+                    f"{len(ids)} questions, found {actual_total} after flush."
+                )
+        return expected
 
     def parse_questions_from_markdown(self, md_text: str) -> List[QuestionCreate]:
         if re.search(r'(?i)##\s+Answer\s+Key', md_text):
@@ -486,14 +581,47 @@ class ImportService:
         return questions
 
     def parse_questions_from_dataframe(self, df: pd.DataFrame) -> List[QuestionCreate]:
+        """Rows to questions, and a record of everything that was not a clean read.
+
+        This used to fail quietly in four ways: a row with no text, a row with no
+        options and a row that raised were all skipped with nothing in the report,
+        and an unrecognised difficulty or type was replaced with medium or single
+        choice without a word. A 100-row file with 20 bad rows reported "80 valid",
+        and nobody importing it could tell 20 had vanished.
+
+        Nothing is refused here that was accepted before -- the same questions come
+        out. What changes is that validate_file can now say what happened to every
+        row, with the row number a spreadsheet shows.
+
+        Row numbers count the header as row 1, so the first data row is row 2.
+        """
         questions: List[QuestionCreate] = []
+        # Aligned with `questions`: the file row each parsed question came from.
+        self._source_rows: List[int] = []
+        # Warnings about a row that was still imported (e.g. a replaced value).
+        self._row_notes: Dict[int, List[ValidationErrorItem]] = {}
+        # Rows that produced no question at all.
+        self._skipped_rows: List[ValidationErrorItem] = []
+        self._skipped_row_numbers: List[int] = []
 
         df.columns = [str(c).strip().lower() for c in df.columns]
 
-        for idx, row in df.iterrows():
+        def skip(source_row: int, message: str) -> None:
+            self._skipped_rows.append(ValidationErrorItem(
+                severity="error", field="row", error_category="structural",
+                message=message, action=DEFAULT_ACTIONS["row"],
+            ))
+            self._skipped_row_numbers.append(source_row)
+
+        for position, (idx, row) in enumerate(df.iterrows()):
+            source_row = position + 2  # header is row 1
             try:
                 text = str(row.get("text", "")).strip()
                 if not text or text == "nan":
+                    # A fully blank line is not a mistake worth reporting; a row
+                    # with other cells filled but no question text is.
+                    if any(pd.notna(v) and str(v).strip() for v in row.values):
+                        skip(source_row, f"Row {source_row} has no question text, so it was not imported.")
                     continue
 
                 q_type = str(row.get("question_type", "single_choice")).lower()
@@ -522,23 +650,53 @@ class ImportService:
                         ))
 
                 if not options:
+                    skip(source_row, f"Row {source_row} has no answer choices (option_1, option_2, ...), so it was not imported.")
                     continue
 
                 valid_types = {e.value for e in QuestionType}
                 valid_diffs = {e.value for e in QuestionDifficulty}
+                notes: List[ValidationErrorItem] = []
+
+                # Still replaced, so the import proceeds with a usable value -- but
+                # now said, with what was there and what it became.
+                if q_type in valid_types:
+                    resolved_type = QuestionType(q_type)
+                else:
+                    resolved_type = QuestionType.SINGLE_CHOICE
+                    raw_type = row.get("question_type")
+                    notes.append(ValidationErrorItem(
+                        severity="warning", field="question_type", error_category="structural",
+                        message=f"Question type {raw_type!r} is not recognised, so it will be imported as single choice.",
+                        action="Use one of: " + ", ".join(sorted(valid_types)) + ".",
+                    ))
+                if difficulty in valid_diffs:
+                    resolved_difficulty = QuestionDifficulty(difficulty)
+                else:
+                    resolved_difficulty = QuestionDifficulty.MEDIUM
+                    raw_difficulty = row.get("difficulty")
+                    notes.append(ValidationErrorItem(
+                        severity="warning", field="difficulty", error_category="structural",
+                        message=f"Difficulty {raw_difficulty!r} is not recognised, so it will be imported as medium.",
+                        action=DEFAULT_ACTIONS["difficulty"],
+                    ))
+
                 questions.append(QuestionCreate(
                     text=text,
-                    question_type=QuestionType(q_type) if q_type in valid_types else QuestionType.SINGLE_CHOICE,
-                    difficulty=QuestionDifficulty(difficulty) if difficulty in valid_diffs else QuestionDifficulty.MEDIUM,
+                    question_type=resolved_type,
+                    difficulty=resolved_difficulty,
                     domain=domain,
                     topic=topic,
                     certification=certification,
                     explanation=explanation,
                     options=options
                 ))
+                self._source_rows.append(source_row)
+                if notes:
+                    self._row_notes[source_row] = notes
             except Exception as e:
                 from app.core.logging_config import logger
-                logger.warning(f"Skipping dataframe row {idx + 1} due to parsing error: {str(e)}")
+                logger.warning(f"Skipping dataframe row {source_row} due to parsing error: {str(e)}")
+                skip(source_row, f"Row {source_row} could not be read ({e}), so it was not imported.")
                 continue
 
         return questions

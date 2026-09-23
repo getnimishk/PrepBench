@@ -22,9 +22,18 @@ class ValidationErrorItem(BaseModel):
     field: str
     message: str
     error_category: str = "structural"       # "structural" | "content" | "duplication"
+    # What to do about it. `message` says what is wrong; this says how to fix it,
+    # which is the half a person importing 300 rows actually needs.
+    action: Optional[str] = None
 
 class ValidatedQuestionItem(BaseModel):
     index: int
+    # The row (CSV/Excel) the item came from, counting the header as row 1 so it
+    # matches what a spreadsheet shows. `index` is the position among parsed
+    # questions, and the two diverge as soon as any row is skipped -- which is
+    # exactly when someone needs to find the bad row in their file. None where
+    # the format has no rows to point at.
+    source_row: Optional[int] = None
     question: Optional[QuestionCreate] = None
     status: str # "valid", "warning", "error"
     issues: List[ValidationErrorItem] = []

@@ -20,6 +20,8 @@ import type { ChartDataset, TooltipItem } from 'chart.js';
 import { Line, Bar, Scatter } from 'react-chartjs-2';
 import type { ChartPrimitive } from '../../types/agileMetrics';
 import type { ChartPayload, ChartUnit, ScatterPoint } from '../../services/metrics/chartData';
+import { chartDescription } from '../../services/metrics/chartDescription';
+import { usePb } from '../../theme/usePb';
 
 type ScatterPointData = ScatterPoint;
 
@@ -48,10 +50,12 @@ ChartJS.register(
 // case and the four primitives quietly become twenty-seven components.
 
 /**
- * Series colours. Chosen to stay legible on both the light and dark app
- * themes rather than pulled from the palette, which shifts between them.
+ * Series colours pulled from the prototype theme tokens for dynamic theme compliance.
  */
-const SERIES_COLORS = ['#6366F1', '#14B8A6', '#F59E0B', '#EC4899'];
+function useSeriesColors(): string[] {
+  const pb = usePb();
+  return [pb.accent, pb.success, pb.warning, pb.danger];
+}
 
 function formatValue(value: number, unit: ChartUnit): string {
   switch (unit) {
@@ -147,6 +151,7 @@ const EmptyState: React.FC<{ message: string }> = ({ message }) => (
 
 export const LineChartView: React.FC<{ payload: ChartPayload }> = ({ payload }) => {
   const theme = useTheme();
+  const seriesColors = useSeriesColors();
   const options = useBaseOptions(payload);
 
   if (payload.series.length === 0) {
@@ -160,8 +165,8 @@ export const LineChartView: React.FC<{ payload: ChartPayload }> = ({ payload }) 
       data: s.data,
       // A reference line is a target or a threshold, not an observation.
       // Dashing it keeps the eye from reading a commitment as a measurement.
-      borderColor: s.reference ? theme.palette.text.disabled : SERIES_COLORS[i % SERIES_COLORS.length],
-      backgroundColor: s.reference ? 'transparent' : SERIES_COLORS[i % SERIES_COLORS.length],
+      borderColor: s.reference ? theme.palette.text.disabled : seriesColors[i % seriesColors.length],
+      backgroundColor: s.reference ? 'transparent' : seriesColors[i % seriesColors.length],
       borderDash: s.reference ? [6, 4] : undefined,
       pointRadius: s.reference ? 0 : 2,
       borderWidth: 2,
@@ -170,11 +175,12 @@ export const LineChartView: React.FC<{ payload: ChartPayload }> = ({ payload }) 
     })),
   };
 
-  return <Line data={data} options={options} />;
+  return <Line data={data} options={options} aria-label={chartDescription(payload)} role="img" />;
 };
 
 export const BarChartView: React.FC<{ payload: ChartPayload }> = ({ payload }) => {
   const theme = useTheme();
+  const seriesColors = useSeriesColors();
   const options = useBaseOptions(payload);
 
   if (payload.series.length === 0) {
@@ -192,17 +198,17 @@ export const BarChartView: React.FC<{ payload: ChartPayload }> = ({ payload }) =
     type: s.reference ? 'line' : 'bar',
     label: s.label,
     data: s.data,
-    borderColor: s.reference ? theme.palette.text.disabled : SERIES_COLORS[i % SERIES_COLORS.length],
+    borderColor: s.reference ? theme.palette.text.disabled : seriesColors[i % seriesColors.length],
     backgroundColor: s.reference
       ? 'transparent'
-      : `${SERIES_COLORS[i % SERIES_COLORS.length]}CC`,
+      : `${seriesColors[i % seriesColors.length]}CC`,
     borderDash: s.reference ? [6, 4] : undefined,
     pointRadius: 0,
     borderWidth: s.reference ? 2 : 0,
     borderRadius: s.reference ? 0 : 3,
   })) as unknown as ChartDataset<'bar', (number | null)[]>[];
 
-  return <Bar data={{ labels: payload.labels, datasets }} options={options} />;
+  return <Bar data={{ labels: payload.labels, datasets }} options={options} aria-label={chartDescription(payload)} role="img" />;
 };
 
 export const StackedAreaChartView: React.FC<{ payload: ChartPayload }> = ({ payload }) => {
@@ -214,6 +220,7 @@ export const StackedAreaChartView: React.FC<{ payload: ChartPayload }> = ({ payl
   // that is not drawn. A CFD's entire meaning is band thickness, so this is
   // the difference between the chart teaching the lesson and contradicting it.
   const stacked = payload.stacked === true;
+  const seriesColors = useSeriesColors();
   const options = useBaseOptions(payload, stacked);
 
   if (payload.series.length === 0) {
@@ -225,8 +232,8 @@ export const StackedAreaChartView: React.FC<{ payload: ChartPayload }> = ({ payl
     datasets: payload.series.map((s, i) => ({
       label: s.label,
       data: s.data,
-      borderColor: SERIES_COLORS[i % SERIES_COLORS.length],
-      backgroundColor: `${SERIES_COLORS[i % SERIES_COLORS.length]}${stacked ? 'AA' : '55'}`,
+      borderColor: seriesColors[i % seriesColors.length],
+      backgroundColor: `${seriesColors[i % seriesColors.length]}${stacked ? 'AA' : '55'}`,
       // Stacked bands fill to the dataset below them; unstacked cumulative
       // curves fill to the origin, where the GAP between curves is the band.
       fill: stacked && i > 0 ? ('-1' as const) : ('origin' as const),
@@ -236,11 +243,12 @@ export const StackedAreaChartView: React.FC<{ payload: ChartPayload }> = ({ payl
     })),
   };
 
-  return <Line data={data} options={options} />;
+  return <Line data={data} options={options} aria-label={chartDescription(payload)} role="img" />;
 };
 
 export const ScatterChartView: React.FC<{ payload: ChartPayload }> = ({ payload }) => {
   const theme = useTheme();
+  const seriesColors = useSeriesColors();
   const points = payload.points ?? [];
 
   if (points.length === 0) {
@@ -259,7 +267,7 @@ export const ScatterChartView: React.FC<{ payload: ChartPayload }> = ({ payload 
       type: 'scatter',
       label: 'Completed items',
       data: points,
-      backgroundColor: `${SERIES_COLORS[0]}AA`,
+      backgroundColor: `${seriesColors[0]}AA`,
       pointRadius: 4,
     },
     // Percentile markers are what make a scatter actionable: the 85th is what
@@ -272,7 +280,7 @@ export const ScatterChartView: React.FC<{ payload: ChartPayload }> = ({ payload 
         { x: xMin, y: p.value },
         { x: xMax, y: p.value },
       ],
-      borderColor: SERIES_COLORS[(i + 2) % SERIES_COLORS.length],
+      borderColor: seriesColors[(i + 2) % seriesColors.length],
       borderDash: [6, 4],
       borderWidth: 2,
       pointRadius: 0,
@@ -317,7 +325,7 @@ export const ScatterChartView: React.FC<{ payload: ChartPayload }> = ({ payload 
     },
   };
 
-  return <Scatter data={{ datasets }} options={options} />;
+  return <Scatter data={{ datasets }} options={options} aria-label={chartDescription(payload)} role="img" />;
 };
 
 /** Picks the renderer declared by the view's metadata. */

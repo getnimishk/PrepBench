@@ -61,7 +61,7 @@ export const InterviewQuestionImportModal: React.FC<Props> = ({ open, onClose, o
         onSuccess();
       }
     } catch (err) {
-      setError(apiErrorMessage(err, 'Failed to import questions. Please check backend connection.'));
+      setError(apiErrorMessage(err, 'The import did not complete, so no questions were added.'));
     } finally {
       setImporting(false);
     }
@@ -156,7 +156,6 @@ export const InterviewQuestionImportModal: React.FC<Props> = ({ open, onClose, o
             onClick={handleImport}
             disabled={!canImport || importing}
             startIcon={importing ? <CircularProgress size={16} color="inherit" /> : undefined}
-            sx={{ borderRadius: '100px', boxShadow: 'none' }}
           >
             {importing ? 'Importing…' : 'Import'}
           </Button>

@@ -3,10 +3,15 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import axios from 'axios';
-import { Question, QuestionDifficulty } from '../types/question';
-import { ExamSession, ExamDetail, ExamCreateRequest, SaveAnswerRequest } from '../types/exam';
-import { ScoreTrendPoint, DomainMasteryItem } from '../types/analytics';
+import { connection } from './connection';
+import { isUnreachable } from './apiError';
+import { Question, QuestionDifficulty, QuestionType, QuestionOutcome, QuestionBankSummary } from '../types/question';
+import { ExamSession, ExamDetail, ExamCreateRequest, SaveAnswerRequest, ExamPreview, MockHistoryItem } from '../types/exam';
+import type { SpacedDeck, SpacedGrade, SpacedGradeResult } from '../types/spaced';
+import type { WireLearningAttempt } from '../types/learning';
+import { ScoreTrendPoint, DomainMasteryItem, DomainDetail } from '../types/analytics';
 import { AppSettings } from '../types/settings';
+import type { AboutReport, AppNotification, ReviewScheduleRules, StorageReport } from '../types/system';
 import {
   LLMProfile,
   LLMProvider,
@@ -21,6 +26,7 @@ import {
   RunnerInfo,
   LauncherRequest,
   LauncherScript,
+  CatalogRefreshResponse,
 } from '../types/llm';
 import {
   SystemDesignPrompt,
@@ -38,14 +44,23 @@ import {
 } from '../types/designReview';
 import {
   Subject,
+  SubjectCreate,
+  SubjectUpdate,
+  SubjectDeleteResult,
+  DailyGoals,
   HomeSummary,
   ActivityItem,
   FormatCoverage,
   OtherPreparation,
   FocusTopic,
 } from '../types/subject';
-import { CheckResult, ReviewQueue } from '../types/review';
+import { CheckResult, ReviewCounts, ReviewQueue } from '../types/review';
+import type { SearchResponse } from '../types/search';
+import type { Profile, ProfileUpdate } from '../types/profile';
 import { PracticeRecording, RecordingAnalysis, ProviderInfo, RecordingAnalytics } from '../types/recording';
+import type {
+  InterviewSession, InterviewSessionCreate, InterviewSessionReport, PlannedQuestion,
+} from '../types/interviewSession';
 import {
   InterviewQuestion,
   GenerateInterviewQuestionRequest,
@@ -61,11 +76,19 @@ import {
   RoadmapSchedule,
   RoadmapCreateRequest,
   RoadmapUpdateRequest,
+  RoadmapPlanRequest,
   RoadmapTopic,
   RoadmapTopicUpdateRequest,
   RoadmapImportPreview,
   RoadmapImportConfirm,
   RoadmapImportResult,
+  TopicDemonstration,
+  TopicDemonstrationResult,
+  DemonstrationGrade,
+  TopicGuide,
+  TopicGuideDraftResult,
+  TopicGuideSection,
+  TopicGuideSectionWrite,
 } from '../types/roadmap';
 
 const API_BASE = '/api/v1';
@@ -77,6 +100,29 @@ export const api = axios.create({
   },
 });
 
+// Every answer from the server says it is there; a request with no answer at
+// all says it is not. See services/connection.
+api.interceptors.response.use(
+  (response) => {
+    connection.report('online');
+    return response;
+  },
+  (error) => {
+    connection.report(isUnreachable(error) ? 'unreachable' : 'online');
+    return Promise.reject(error);
+  },
+);
+
+/** Whether the server answers now. Resolves either way; never throws. */
+export const pingServer = async (): Promise<boolean> => {
+  try {
+    await api.get('/system/health', { timeout: 4000 });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 // Questions API
 export const getQuestions = async (params?: {
   skip?: number;
@@ -85,20 +131,39 @@ export const getQuestions = async (params?: {
   domain?: string;
   topic?: string;
   certification?: string;
+  /** Only this preparation's questions. Omit for the whole bank. */
+  subject_id?: number;
   difficulty?: QuestionDifficulty;
+  question_type?: QuestionType;
   is_reviewed?: boolean;
+  outcome?: QuestionOutcome;
+  /** Adds each question's evidence: answers, correct, missed, due. */
+  include_evidence?: boolean;
 }) => {
   const res = await api.get<{ items: Question[]; total: number; skip: number; limit: number }>(`/questions`, { params });
   return res.data;
 };
 
-export const getQuestionFilters = async () => {
+export const getQuestionBankSummary = async (subjectId?: number | null) => {
+  const res = await api.get<QuestionBankSummary>('/questions/summary', {
+    params: subjectId ? { subject_id: subjectId } : undefined,
+  });
+  return res.data;
+};
+
+/** The values each question filter can take. Pass a preparation for its own. */
+export const getQuestion = async (id: number) => {
+  const res = await api.get<Question>(`/questions/${id}`);
+  return res.data;
+};
+
+export const getQuestionFilters = async (subjectId?: number | null) => {
   const res = await api.get<{
     certifications: string[];
     domains: string[];
     topics: string[];
     difficulties: string[];
-  }>(`/questions/filters`);
+  }>(`/questions/filters`, { params: subjectId ? { subject_id: subjectId } : undefined });
   return res.data;
 };
 
@@ -158,6 +223,39 @@ export const startExam = async (req: ExamCreateRequest) => {
   return res.data;
 };
 
+/** Due spaced-repetition cards, most overdue first. Pass the picked preparation. */
+export const getSpacedDeck = async (subjectId?: number | null, limit?: number, domain?: string | null) => {
+  const params: Record<string, number | string> = {};
+  if (subjectId) params.subject_id = subjectId;
+  if (limit) params.limit = limit;
+  if (domain) params.domain = domain;
+  const res = await api.get<SpacedDeck>('/spaced/deck', { params });
+  return res.data;
+};
+
+/** How well a due card came back. Refused (409) if the card is no longer due. */
+export const gradeSpacedCard = async (questionId: number, grade: SpacedGrade) => {
+  const res = await api.post<SpacedGradeResult>('/spaced/grades', { question_id: questionId, grade });
+  return res.data;
+};
+
+/** What `startExam(req)` would draw from, without starting it -- or the refusal. */
+export const previewExam = async (req: ExamCreateRequest) => {
+  const res = await api.post<ExamPreview>(`/exams/preview`, req);
+  return res.data;
+};
+
+
+/** Throw away an unfinished session. A submitted one is refused (409). */
+export const discardExam = async (sessionId: number) => {
+  await api.delete(`/exams/${sessionId}`);
+};
+
+/** The mocks sat for a preparation, newest first. */
+export const getMockHistory = async (subjectId: number, limit = 20) => {
+  const res = await api.get<MockHistoryItem[]>(`/subjects/${subjectId}/mocks`, { params: { limit } });
+  return res.data;
+};
 
 export const getExamDetails = async (sessionId: number) => {
   const res = await api.get<ExamDetail>(`/exams/${sessionId}`);
@@ -165,7 +263,12 @@ export const getExamDetails = async (sessionId: number) => {
 };
 
 export const saveExamAnswer = async (sessionId: number, req: SaveAnswerRequest) => {
-  const res = await api.post<ExamSession>(`/exams/${sessionId}/answer`, req);
+  // A save with no answer after this long is treated like one that never
+  // arrived: the runner keeps the answer and sends it again, which is safe
+  // because the server replaces a question's answer rather than adding one.
+  // Longer than the backend's 10s lock wait, so a busy database is not mistaken
+  // for a missing server.
+  const res = await api.post<ExamSession>(`/exams/${sessionId}/answer`, req, { timeout: 15000 });
   return res.data;
 };
 
@@ -182,13 +285,27 @@ export const finishExam = async (sessionId: number) => {
 // the aggregate the analytics service exposes -- but nothing in the client
 // asks for it.
 
-export const getScoreTrends = async () => {
-  const res = await api.get<ScoreTrendPoint[]>(`/analytics/score-trends`);
+/** Scored sessions over time. One preparation's when `subjectId` is given. */
+export const getScoreTrends = async (subjectId?: number | null) => {
+  const res = await api.get<ScoreTrendPoint[]>(`/analytics/score-trends`, {
+    params: subjectId ? { subject_id: subjectId } : undefined,
+  });
   return res.data;
 };
 
-export const getDomainPerformance = async () => {
-  const res = await api.get<DomainMasteryItem[]>(`/analytics/domain-performance`);
+/** Accuracy by area over every answer. One preparation's when `subjectId` is given. */
+export const getDomainPerformance = async (subjectId?: number | null) => {
+  const res = await api.get<DomainMasteryItem[]>(`/analytics/domain-performance`, {
+    params: subjectId ? { subject_id: subjectId } : undefined,
+  });
+  return res.data;
+};
+
+/** One area of one preparation. 404 when the preparation has nothing in it. */
+export const getDomainDetail = async (subjectId: number, domain: string) => {
+  const res = await api.get<DomainDetail>(`/analytics/domain-detail`, {
+    params: { subject_id: subjectId, domain },
+  });
   return res.data;
 };
 
@@ -196,12 +313,20 @@ export const getDomainPerformance = async () => {
 export interface ValidationErrorItem {
   severity: 'error' | 'warning' | 'info';
   field: string;
+  /** What is wrong. */
   message: string;
+  /** What to do about it. */
+  action?: string | null;
 }
 
 export interface ValidatedQuestionItem {
   index: number;
-  question: Question;
+  /** The row in a CSV/Excel file, counting the header as row 1, so it matches
+   *  what a spreadsheet shows. Null for formats with no rows. */
+  source_row?: number | null;
+  /** Null for a row that produced no question at all -- it is still reported,
+   *  so a skipped row is seen rather than silently missing from the count. */
+  question: Question | null;
   status: 'valid' | 'warning' | 'error';
   issues: ValidationErrorItem[];
 }
@@ -261,6 +386,32 @@ export const getSettings = async () => {
 export const updateSettings = async (data: Partial<AppSettings>) => {
   const res = await api.put<AppSettings>(`/settings`, data);
   return res.data;
+};
+
+// ---- system: where the data is, and what this build does with it ----
+
+export const getStorageReport = async () => {
+  const res = await api.get<StorageReport>('/system/storage');
+  return res.data;
+};
+
+/** Where the browser downloads a consistent copy of the database from. */
+export const backupDownloadUrl = () => `${api.defaults.baseURL ?? ''}/system/backup`;
+
+export const getAboutReport = async () => {
+  const res = await api.get<AboutReport>('/system/about');
+  return res.data;
+};
+
+export const getReviewScheduleRules = async () => {
+  const res = await api.get<ReviewScheduleRules>('/system/review-schedule');
+  return res.data;
+};
+
+/** Alerts derived from the evidence right now, filtered by the triggers turned on. */
+export const getNotifications = async () => {
+  const res = await api.get<{ items: AppNotification[] }>('/notifications');
+  return res.data.items;
 };
 
 export const resetApplication = async () => {
@@ -336,6 +487,11 @@ export const getLocalModelOptions = async (ramGb?: number) => {
   return res.data;
 };
 
+export const refreshLocalModels = async () => {
+  const res = await api.post<CatalogRefreshResponse>(`/llm/local/models/refresh`);
+  return res.data;
+};
+
 export const getLocalRunners = async () => {
   const res = await api.get<RunnerInfo[]>(`/llm/local/runners`);
   return res.data;
@@ -402,7 +558,13 @@ export const getSystemDesignAnalytics = async () => {
 };
 
 // Recordings API
-export const uploadRecording = async (blob: Blob, title: string, durationSeconds: number, interviewQuestionId?: number) => {
+export const uploadRecording = async (
+  blob: Blob,
+  title: string,
+  durationSeconds: number,
+  interviewQuestionId?: number,
+  extra?: { sessionId?: number; planNote?: string },
+) => {
   const formData = new FormData();
   formData.append('file', blob, 'recording.webm');
   formData.append('title', title);
@@ -410,6 +572,8 @@ export const uploadRecording = async (blob: Blob, title: string, durationSeconds
   if (interviewQuestionId !== undefined) {
     formData.append('interview_question_id', String(interviewQuestionId));
   }
+  if (extra?.sessionId !== undefined) formData.append('session_id', String(extra.sessionId));
+  if (extra?.planNote) formData.append('plan_note', extra.planNote);
   const res = await api.post<PracticeRecording>(`/recordings`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 30000,
@@ -417,7 +581,7 @@ export const uploadRecording = async (blob: Blob, title: string, durationSeconds
   return res.data;
 };
 
-export const getRecordings = async (params?: { skip?: number; limit?: number }) => {
+export const getRecordings = async (params?: { skip?: number; limit?: number; interview_question_id?: number }) => {
   const res = await api.get<{ items: PracticeRecording[]; skip: number; limit: number }>(`/recordings`, { params });
   return res.data;
 };
@@ -474,6 +638,58 @@ export const getInterviewQuestions = async (params?: {
   keyword?: string;
 }) => {
   const res = await api.get<{ items: InterviewQuestion[]; total: number; skip: number; limit: number }>(`/interview-questions`, { params });
+  return res.data;
+};
+
+// ---- learning attempts: the Chart Sandbox's evidence ----
+
+export const getLearningAttempts = async () => {
+  const res = await api.get<WireLearningAttempt[]>('/learning/attempts');
+  return res.data;
+};
+
+/** Open an attempt. Idempotent on attempt_uid: a retry returns the one that exists. */
+export const startLearningAttempt = async (body: {
+  attempt_uid: string; challenge_id: string; concept_id: string;
+  scenario_fingerprint: string; mode: string; started_at?: string; hint_count: number;
+}) => {
+  const res = await api.post<WireLearningAttempt>('/learning/attempts', body);
+  return res.data;
+};
+
+/** One transition at a time. A second prediction is refused by the server. */
+export const patchLearningAttempt = async (attemptUid: string, body: Record<string, unknown>) => {
+  const res = await api.patch<WireLearningAttempt>(`/learning/attempts/${encodeURIComponent(attemptUid)}`, body);
+  return res.data;
+};
+
+// ---- interview sessions ----
+
+/** The questions a session with these settings would ask, without starting it. */
+export const planInterviewSession = async (params: {
+  round_type: InterviewRoundType; category?: string; question_count: number;
+}) => {
+  const res = await api.get<PlannedQuestion[]>('/interview-sessions/plan', { params });
+  return res.data;
+};
+
+export const createInterviewSession = async (body: InterviewSessionCreate) => {
+  const res = await api.post<InterviewSession>('/interview-sessions', body);
+  return res.data;
+};
+
+export const getInterviewSession = async (id: number) => {
+  const res = await api.get<InterviewSession>(`/interview-sessions/${id}`);
+  return res.data;
+};
+
+export const finishInterviewSession = async (id: number) => {
+  const res = await api.post<InterviewSession>(`/interview-sessions/${id}/finish`);
+  return res.data;
+};
+
+export const getInterviewSessionReport = async (id: number) => {
+  const res = await api.get<InterviewSessionReport>(`/interview-sessions/${id}/report`);
   return res.data;
 };
 
@@ -544,12 +760,91 @@ export const getRoadmapSchedule = async (roadmapId: number) => {
   return res.data;
 };
 
+/**
+ * The schedule a start date and weekly budget would give, without saving them.
+ *
+ * The plan editor's preview. The server projects it with the same calculation as
+ * the saved schedule, so what the editor promises is what the roadmap then says.
+ * A null value counts as not set.
+ */
+export const getDraftRoadmapSchedule = async (
+  roadmapId: number,
+  draft: { start_date: string | null; weekly_hours_budget: number | null },
+) => {
+  const params: Record<string, string | number | boolean> = { draft: true };
+  if (draft.start_date) params.start_date = draft.start_date;
+  if (draft.weekly_hours_budget != null) params.weekly_hours_budget = draft.weekly_hours_budget;
+  const res = await api.get<RoadmapSchedule>(`/roadmaps/${roadmapId}/schedule`, { params });
+  return res.data;
+};
+
+/** Title, budget, start date and phases in one write, or none of it. */
+export const saveRoadmapPlan = async (roadmapId: number, plan: RoadmapPlanRequest) => {
+  const res = await api.put<RoadmapDetail>(`/roadmaps/${roadmapId}/plan`, plan);
+  return res.data;
+};
+
 
 
 
 // PATCH, not PUT -- callers send one field (usually just `status`), and a
 // full-representation contract would make them round-trip the whole topic and
 // risk clobbering evidence_notes.
+/** Every demonstration of a topic, newest first. */
+export const getTopicDemonstrations = async (roadmapId: number, topicId: number) => {
+  const res = await api.get<TopicDemonstration[]>(
+    `/roadmaps/${roadmapId}/topics/${topicId}/demonstrations`,
+  );
+  return res.data;
+};
+
+/**
+ * Demonstrate a topic against its success criterion -- the only way a topic
+ * becomes completed. "yes" completes it; "partial" and "not_yet" leave it in
+ * progress, and "not_yet" on a completed topic moves it back.
+ */
+export const demonstrateTopic = async (
+  roadmapId: number,
+  topicId: number,
+  responseText: string,
+  selfGrade: DemonstrationGrade,
+) => {
+  const res = await api.post<TopicDemonstrationResult>(
+    `/roadmaps/${roadmapId}/topics/${topicId}/demonstrations`,
+    { response_text: responseText, self_grade: selfGrade },
+  );
+  return res.data;
+};
+
+const guideBase = (roadmapId: number, topicId: number) =>
+  `/roadmaps/${roadmapId}/topics/${topicId}/guide`;
+
+export const getTopicGuide = async (roadmapId: number, topicId: number) =>
+  (await api.get<TopicGuide>(guideBase(roadmapId, topicId))).data;
+
+/** Ask the configured AI to draft sections. Never throws for "no AI" or an
+ *  unusable answer -- those come back as a status, with nothing saved. The AI
+ *  call can take a while, so the timeout is generous. */
+export const draftTopicGuide = async (roadmapId: number, topicId: number) =>
+  (await api.post<TopicGuideDraftResult>(`${guideBase(roadmapId, topicId)}/draft`, undefined, { timeout: 120000 })).data;
+
+export const addTopicGuideSection = async (roadmapId: number, topicId: number, data: TopicGuideSectionWrite) =>
+  (await api.post<TopicGuideSection>(`${guideBase(roadmapId, topicId)}/sections`, data)).data;
+
+export const updateTopicGuideSection = async (
+  roadmapId: number, topicId: number, sectionId: number, data: TopicGuideSectionWrite,
+) => (await api.put<TopicGuideSection>(`${guideBase(roadmapId, topicId)}/sections/${sectionId}`, data)).data;
+
+export const deleteTopicGuideSection = async (roadmapId: number, topicId: number, sectionId: number) => {
+  await api.delete(`${guideBase(roadmapId, topicId)}/sections/${sectionId}`);
+};
+
+export const setTopicGuideSectionRead = async (
+  roadmapId: number, topicId: number, sectionId: number, read: boolean,
+) => (await api.put<TopicGuideSection>(
+  `${guideBase(roadmapId, topicId)}/sections/${sectionId}/read`, undefined, { params: { read } },
+)).data;
+
 export const updateRoadmapTopic = async (
   roadmapId: number,
   topicId: number,
@@ -621,6 +916,12 @@ export const submitDesignReviewAttempt = async (
   return res.data;
 };
 
+/** Seek a verdict for an attempt committed without one. Refused (409) once it has one. */
+export const regradeDesignReviewAttempt = async (attemptId: number) => {
+  const res = await api.post<DesignReviewAttempt>(`/design-reviews/attempts/${attemptId}/grade`, undefined, { timeout: 60000 });
+  return res.data;
+};
+
 export const getLatestDesignReviewAttempt = async (reviewId: number) => {
   const res = await api.get<DesignReviewAttempt | null>(
     `/design-reviews/${reviewId}/latest-attempt`
@@ -630,8 +931,15 @@ export const getLatestDesignReviewAttempt = async (reviewId: number) => {
 
 // ==================== Subjects, Home, Readiness ====================
 
-export const getSubjects = async () => {
-  const res = await api.get<Subject[]>('/subjects');
+export const getSubjects = async (options?: { includeArchived?: boolean }) => {
+  // The server includes archived preparations by default, and that default is
+  // relied on: Home, the Practice hub, Analytics, Exam Setup and the subject page
+  // all call this with no arguments. Only the picker asks to hide them.
+  const params =
+    options?.includeArchived === undefined
+      ? undefined
+      : { include_archived: options.includeArchived };
+  const res = await api.get<Subject[]>('/subjects', { params });
   return res.data;
 };
 
@@ -640,13 +948,47 @@ export const getSubject = async (subjectId: number) => {
   return res.data;
 };
 
+export const createSubject = async (data: SubjectCreate) => {
+  const res = await api.post<Subject>('/subjects', data);
+  return res.data;
+};
+
+export const updateSubject = async (subjectId: number, data: SubjectUpdate) => {
+  const res = await api.put<Subject>(`/subjects/${subjectId}`, data);
+  return res.data;
+};
+
+/** Hide from the picker, keep everything. The reversible half of the danger zone. */
+export const archiveSubject = async (subjectId: number, archived: boolean) =>
+  updateSubject(subjectId, { is_archived: archived });
+
+/**
+ * Destroy a preparation, its questions and its exam evidence.
+ *
+ * `confirmName` must equal the preparation's name exactly -- a mismatch deletes
+ * nothing and throws. Irreversible, and the app has no backup mechanism, so the
+ * caller must have collected the typed name before calling this.
+ *
+ * The result reports what was destroyed and what was merely unlinked, so the
+ * surface can state the outcome rather than repeat the warning.
+ */
+export const deleteSubject = async (subjectId: number, confirmName: string) => {
+  const res = await api.delete<SubjectDeleteResult>(`/subjects/${subjectId}`, {
+    data: { confirm_name: confirmName },
+  });
+  return res.data;
+};
+
 export const getHomeSummary = async () => {
   const res = await api.get<HomeSummary>('/home');
   return res.data;
 };
 
-export const getActivity = async (limit = 40) => {
-  const res = await api.get<ActivityItem[]>('/home/activity', { params: { limit } });
+/** The timeline. With a preparation, only that preparation's exam sessions. */
+export const getActivity = async (limit = 40, subjectId?: number | null) => {
+  const res = await api.get<ActivityItem[]>('/home/activity', {
+    params: subjectId ? { limit, subject_id: subjectId } : { limit },
+  });
   return res.data;
 };
 
@@ -655,20 +997,47 @@ export const getOtherPreparation = async () => {
   return res.data;
 };
 
+/** The two standing daily goals. Pass the selected preparation for its
+ *  certification goal; without one, `certification` comes back null. */
+export const getDailyGoals = async (subjectId?: number | null) => {
+  const res = await api.get<DailyGoals>('/home/daily-goals', {
+    params: subjectId ? { subject_id: subjectId } : undefined,
+  });
+  return res.data;
+};
+
 /**
  * The weak topics, worst first, with the counts behind them.
  *
  * Same query as the weak-topic drill, so the list Home shows and the
- * questions Practice draws can never disagree.
+ * questions Practice draws can never disagree. Pass the preparation the list is
+ * shown under: topic names repeat across banks.
  */
-export const getFocusTopics = async () => {
-  const res = await api.get<FocusTopic[]>('/home/focus-topics');
+export const getFocusTopics = async (subjectId?: number | null) => {
+  const res = await api.get<FocusTopic[]>('/home/focus-topics', {
+    params: subjectId ? { subject_id: subjectId } : undefined,
+  });
   return res.data;
 };
 
-/** Today's review: the newest unreviewed misses, with their explanations. */
-export const getReviewQueue = async (limit = 20) => {
-  const res = await api.get<ReviewQueue>('/review/queue', { params: { limit } });
+/**
+ * Today's review: the newest unreviewed misses, with their explanations.
+ *
+ * No limit is sent. The server sizes the queue from the daily review cap in
+ * Settings; a fixed 20 here used to make any cap above 20 do nothing.
+ */
+/** How much review is waiting, without building the queue. */
+export const getReviewCounts = async (subjectId?: number | null) => {
+  const res = await api.get<ReviewCounts>('/review/counts', {
+    params: subjectId ? { subject_id: subjectId } : undefined,
+  });
+  return res.data;
+};
+
+export const getReviewQueue = async (subjectId?: number | null) => {
+  const res = await api.get<ReviewQueue>('/review/queue', {
+    params: subjectId ? { subject_id: subjectId } : undefined,
+  });
   return res.data;
 };
 
@@ -717,6 +1086,7 @@ export const getSystemDesignDraft = async (promptId: number) => {
   const res = await api.get<{
     prompt_id: number;
     answer_text: string;
+    sections?: Record<string, string> | null;
     target_role?: string | null;
     updated_at?: string | null;
     exists: boolean;
@@ -727,9 +1097,15 @@ export const getSystemDesignDraft = async (promptId: number) => {
 /** Keep what is in the box. */
 export const saveSystemDesignDraft = async (
   promptId: number,
-  body: { answer_text: string; target_role?: string | null }
+  body: { answer_text?: string; sections?: Record<string, string>; target_role?: string | null }
 ) => {
   const res = await api.put(`/system-design/prompts/${promptId}/draft`, body);
+  return res.data;
+};
+
+/** Grade an attempt that was saved without a grade. Refused (409) once graded. */
+export const regradeSystemDesignAttempt = async (attemptId: number) => {
+  const res = await api.post<SystemDesignAttempt>(`/system-design/attempts/${attemptId}/grade`, undefined, { timeout: 60000 });
   return res.data;
 };
 
@@ -747,5 +1123,31 @@ export const getUnreviewedAnswers = async (sessionId: number) => {
 
 export const markAnswerReviewed = async (sessionId: number, questionId: number) => {
   const res = await api.post(`/exams/${sessionId}/answers/${questionId}/reviewed`);
+  return res.data;
+};
+
+// ------------------------------------------------------------- Search
+
+/**
+ * Questions, study guide sections, roadmaps, topics and recordings matching
+ * `query`. Scoped to the preparation when one is given; recordings belong to no
+ * preparation and come from all of them.
+ */
+export const searchEverything = async (query: string, subjectId?: number | null, limit = 6) => {
+  const params: Record<string, string | number> = { q: query, limit };
+  if (subjectId) params.subject_id = subjectId;
+  const res = await api.get<SearchResponse>('/search', { params });
+  return res.data;
+};
+
+// ------------------------------------------------------------- Profile
+
+export const getProfile = async () => {
+  const res = await api.get<Profile>('/profile');
+  return res.data;
+};
+
+export const updateProfile = async (update: ProfileUpdate) => {
+  const res = await api.put<Profile>('/profile', update);
   return res.data;
 };

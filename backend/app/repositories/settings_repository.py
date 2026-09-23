@@ -4,6 +4,7 @@
 
 from typing import Optional
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import Base
@@ -34,7 +35,18 @@ class SettingsRepository:
 
         created = AppSettings(id=SETTINGS_ID)
         self.db.add(created)
-        self.db.commit()
+        try:
+            self.db.commit()
+        except IntegrityError:
+            # Another request created the row between the read above and this
+            # write. On a fresh install several screens read settings at once
+            # (the theme, the notification bell, Settings itself), and one of
+            # them failing with a 500 for losing that race helps nobody.
+            self.db.rollback()
+            existing = self.get()
+            if existing:
+                return existing
+            raise
         self.db.refresh(created)
         return created
 

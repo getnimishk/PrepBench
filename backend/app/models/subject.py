@@ -19,7 +19,7 @@ Two kinds, and the difference is a pass mark:
 """
 import enum
 from datetime import datetime, UTC
-from sqlalchemy import Column, Integer, String, Float, DateTime, Enum
+from sqlalchemy import Column, Integer, String, Float, DateTime, Date, Boolean, Enum
 from app.core.database import Base
 
 
@@ -46,6 +46,21 @@ class Subject(Base):
     pass_mark = Column(Float, nullable=True)
     exam_question_count = Column(Integer, nullable=True)
     exam_minutes = Column(Integer, nullable=True)
+
+    # The one-line description shown under the name on Home and in the picker.
+    description = Column(String(300), nullable=True)
+
+    # When the exam is booked for, if it is.
+    #
+    # Nullable, and null is a real answer rather than a missing one: a skill has
+    # no exam, and a certification may not be booked yet. A guessed date would
+    # drive a countdown the learner never set.
+    target_exam_date = Column(Date, nullable=True)
+
+    # Hidden from the picker, everything kept. A distinct action from delete,
+    # which destroys -- the two are separate rows in the prototype's danger zone
+    # and have to behave differently. Shape matches roadmaps.is_archived.
+    is_archived = Column(Boolean, nullable=False, default=False, server_default="0")
 
     display_order = Column(Integer, nullable=False, default=100)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None))

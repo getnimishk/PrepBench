@@ -13,6 +13,7 @@ from app.core.logging_config import logger
 from app.llm.gateway import LLMGateway
 from app.llm.types import LLMTask
 from app.schemas.question_validation import ContentJudgment, ValidationErrorItem
+from app.llm.prompts import as_material
 
 DEFAULT_CACHE_PATH = DATA_DIR / "scrum_guide_index.json"
 TOP_K_CHUNKS = 4
@@ -142,11 +143,8 @@ Below are relevant excerpts from the Scrum Guide 2020 (for grounding — base yo
 
 Judge the following exam question independently. Do not assume any particular answer is correct going in — reason from the Scrum Guide excerpts above.
 
-QUESTION:
-{question_text}
-
-OPTIONS:
-{options_block}
+QUESTION AND OPTIONS TO JUDGE:
+{as_material("question", f"{question_text}\n\nOPTIONS:\n{options_block}", "whoever wrote the question")}
 
 Respond ONLY in this exact JSON format, no other text:
 {{

@@ -3,12 +3,8 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  Box, Card, CardContent, Typography, Grid, TextField, MenuItem,
-  Chip, Alert, CircularProgress,
-} from '@mui/material';
-import { CheckCircle2 } from 'lucide-react';
+import { Link as RouterLink } from 'react-router-dom';
+import { Alert, Box, Button, MenuItem, TextField, Typography } from '@mui/material';
 import {
   getDesignReviews,
   getDesignReviewDomains,
@@ -18,21 +14,22 @@ import {
 import { DesignReviewAnalytics, DesignReviewSummary } from '../types/designReview';
 import { AxisPerformancePanel } from '../components/learning/AxisPerformancePanel';
 import { QuestionDifficulty } from '../types/question';
+import { loadFailed } from '../services/apiError';
+import { capitalise, domainLabel } from '../services/designReviewText';
+import { EmptyState, LoadingState } from '../components/common/States';
+import { Actions, Detail, Grid, PageHead, Panel, Pill, Section } from '../components/ui/primitives';
+
+/**
+ * Design Reviews: every review as a card -- its domain, its difficulty, and the
+ * way in -- as the prototype lists them.
+ *
+ * The deciding axis is the answer, so a card only names it once the review has
+ * been committed; before that it says the axis is hidden, as the prototype does.
+ */
 
 const DIFFICULTIES: QuestionDifficulty[] = ['easy', 'medium', 'hard'];
 
-const DOMAIN_LABELS: Record<string, string> = {
-  data_platform: 'Data Platform',
-  ai_platform: 'AI Platform',
-  request_serving: 'Request Serving',
-};
-
-const domainLabel = (value: string) =>
-  DOMAIN_LABELS[value] ?? value.replace(/_/g, ' ');
-
 export const DesignReviewListPage: React.FC = () => {
-  const navigate = useNavigate();
-
   const [reviews, setReviews] = useState<DesignReviewSummary[]>([]);
   const [domains, setDomains] = useState<string[]>([]);
   const [axes, setAxes] = useState<string[]>([]);
@@ -51,6 +48,9 @@ export const DesignReviewListPage: React.FC = () => {
     getDesignReviewAnalytics().then(setAnalytics).catch(() => {});
   }, []);
 
+  const [attempt, setAttempt] = useState(0);
+  const filtered = !!(domainFilter || axisFilter || difficultyFilter);
+
   useEffect(() => {
     setLoading(true);
     setFetchError(null);
@@ -61,133 +61,135 @@ export const DesignReviewListPage: React.FC = () => {
       limit: 100,
     })
       .then((res) => setReviews(res.items))
-      .catch(() => setFetchError('Failed to load design reviews. Please check backend connection.'))
+      .catch((err) => setFetchError(loadFailed('Could not load design reviews', err)))
       .finally(() => setLoading(false));
-  }, [domainFilter, axisFilter, difficultyFilter]);
+  }, [domainFilter, axisFilter, difficultyFilter, attempt]);
+
+  const committed = reviews.filter((r) => r.attempted).length;
 
   return (
     <Box>
-      <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
-        Design Review
-      </Typography>
-      <Typography variant="body1" sx={{ color: 'text.secondary', mb: 3, maxWidth: 720 }}>
-        Two defensible architectures for one requirement. Pick one and say why — you are
-        judged on whether you named the factor the decision turns on, not on which option
-        you chose.
-      </Typography>
+      <PageHead
+        eyebrow="Engineering reasoning"
+        title="Design Reviews"
+        sub="Choose between defensible architectures — or say what you need to know before deciding. The deciding axis is revealed after you commit."
+      />
 
-      {analytics && (
-        <AxisPerformancePanel analytics={analytics} onPractiseAxis={setAxisFilter} />
+      {analytics && <AxisPerformancePanel analytics={analytics} onPractiseAxis={setAxisFilter} />}
+
+      <Actions sx={{ mt: '18px', alignItems: 'center' }}>
+        <TextField select label="Domain" value={domainFilter} onChange={(e) => setDomainFilter(e.target.value)} sx={{ minWidth: 180 }}>
+          <MenuItem value="">All domains</MenuItem>
+          {domains.map((d) => <MenuItem key={d} value={d}>{domainLabel(d)}</MenuItem>)}
+        </TextField>
+        <TextField select label="Deciding axis" value={axisFilter} onChange={(e) => setAxisFilter(e.target.value)} sx={{ minWidth: 180 }}>
+          <MenuItem value="">All axes</MenuItem>
+          {axes.map((a) => <MenuItem key={a} value={a}>{a}</MenuItem>)}
+        </TextField>
+        <TextField
+          select
+          label="Difficulty"
+          value={difficultyFilter}
+          onChange={(e) => setDifficultyFilter(e.target.value as QuestionDifficulty | '')}
+          sx={{ minWidth: 160 }}
+        >
+          <MenuItem value="">Any difficulty</MenuItem>
+          {DIFFICULTIES.map((d) => <MenuItem key={d} value={d}>{capitalise(d)}</MenuItem>)}
+        </TextField>
+        {!loading && !fetchError && reviews.length > 0 && (
+          <Detail component="span">
+            {reviews.length} review{reviews.length === 1 ? '' : 's'} · {committed} committed
+          </Detail>
+        )}
+      </Actions>
+
+      {fetchError && (
+        <Alert
+          severity="error"
+          sx={{ mt: 2 }}
+          action={<Button color="inherit" size="small" onClick={() => setAttempt((n) => n + 1)}>Retry</Button>}
+        >
+          {fetchError}
+        </Alert>
       )}
 
-      <Box sx={{ mb: 4 }}>
-          <Grid container spacing={2} sx={{ maxWidth: 720 }}>
-            <Grid size={{ xs: 12, sm: 4 }}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                label="Domain"
-                value={domainFilter}
-                onChange={(e) => setDomainFilter(e.target.value)}
-              >
-                <MenuItem value="">All domains</MenuItem>
-                {domains.map((d) => (
-                  <MenuItem key={d} value={d}>{domainLabel(d)}</MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 4 }}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                label="Deciding axis"
-                value={axisFilter}
-                onChange={(e) => setAxisFilter(e.target.value)}
-              >
-                <MenuItem value="">All axes</MenuItem>
-                {axes.map((a) => (
-                  <MenuItem key={a} value={a}>{a}</MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 4 }}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                label="Difficulty"
-                value={difficultyFilter}
-                onChange={(e) => setDifficultyFilter(e.target.value as QuestionDifficulty | '')}
-              >
-                <MenuItem value="">Any difficulty</MenuItem>
-                {DIFFICULTIES.map((d) => (
-                  <MenuItem key={d} value={d} sx={{ textTransform: 'capitalize' }}>{d}</MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-          </Grid>
-      </Box>
-
-      {fetchError && <Alert severity="error" sx={{ mb: 2 }}>{fetchError}</Alert>}
-
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-          <CircularProgress />
-        </Box>
-      ) : reviews.length === 0 ? (
-        <Typography variant="body1" sx={{ color: 'text.secondary', py: 2 }}>
-          No design reviews match these filters.
-        </Typography>
+        <LoadingState label="Loading design reviews…" />
+      ) : fetchError ? null : reviews.length === 0 ? (
+        <Section>
+          <Panel>
+            {filtered ? (
+              <EmptyState
+                title="No design reviews match these filters"
+                why="Every review is still there; these filters leave none of them showing."
+                action={(
+                  <Button
+                    variant="outlined"
+                    onClick={() => { setDomainFilter(''); setAxisFilter(''); setDifficultyFilter(''); }}
+                  >
+                    Clear filters
+                  </Button>
+                )}
+              />
+            ) : (
+              <EmptyState
+                title="No design reviews yet"
+                why="The built-in reviews come with a fresh install. Resetting the application under Settings, Data and storage restores them."
+              />
+            )}
+          </Panel>
+        </Section>
       ) : (
-        <Grid container spacing={2}>
-          {reviews.map((review) => (
-            <Grid key={review.id} size={{ xs: 12, md: 6 }}>
-              <Card
-                onClick={() => navigate(`/design-reviews/${review.id}`)}
-                sx={{
-                  height: '100%',
-                  cursor: 'pointer',
-                  transition: 'border-color 0.15s ease',
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  '&:hover': { borderColor: 'primary.main' },
-                }}
-              >
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 600, flexGrow: 1 }}>
-                      {review.title}
-                    </Typography>
-                    {review.attempted && (
-                      <Chip
-                        size="small"
-                        icon={<CheckCircle2 size={14} />}
-                        label="Done"
-                        color="success"
-                        variant="outlined"
-                      />
-                    )}
+        <Section>
+          <Grid template="repeat(2, minmax(0,1fr))" aria-label="Design reviews">
+            {reviews.map((review) => (
+              <Panel key={review.id} component="article" aria-label={review.title}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                  <Pill>{domainLabel(review.domain)}</Pill>
+                  {review.attempted && <Pill tone="success">Committed</Pill>}
+                </Box>
+                <Typography variant="h5" component="h2" sx={{ mt: '9px' }}>
+                  <Box
+                    component={RouterLink}
+                    to={`/design-reviews/${review.id}`}
+                    sx={{ color: 'inherit', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+                  >
+                    {review.title}
                   </Box>
-
-                  {/* The deciding axis and the concept trail are the answer.
-                      The whole exercise is to name the factor the decision
-                      turns on, and this list used to print it on the card --
-                      "Freshness", then "Structured Streaming · Trigger
-                      interval · Freshness tier" underneath. Both appear only
-                      once the review has been attempted, where they are a
-                      label for something you already worked out rather than a
-                      hint at something you have not. */}
-                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                    {domainLabel(review.domain)} · {review.difficulty}
-                    {review.attempted && review.axis_label && ` · ${review.axis_label}`}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
+                </Typography>
+                {/* The deciding axis is the answer. It is named on the card only
+                    once the review has been committed, where it labels something
+                    already worked out rather than hinting at something not. */}
+                <Detail sx={{ mt: '4px' }}>
+                  Difficulty {capitalise(review.difficulty)} ·{' '}
+                  {review.attempted && review.axis_label ? `decided on ${review.axis_label}` : 'decision axis hidden'}
+                </Detail>
+                <Actions sx={{ mt: '10px' }}>
+                  {review.attempted ? (
+                    <>
+                      <Button component={RouterLink} to={`/design-reviews/${review.id}?again=1`} variant="outlined">
+                        Review again
+                      </Button>
+                      <Button component={RouterLink} to={`/design-reviews/${review.id}`} variant="outlined">
+                        See result
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      component={RouterLink}
+                      to={`/design-reviews/${review.id}`}
+                      variant="contained"
+                      color="ink"
+                      aria-label={`Start review: ${review.title}`}
+                    >
+                      Start review
+                    </Button>
+                  )}
+                </Actions>
+              </Panel>
+            ))}
+          </Grid>
+        </Section>
       )}
     </Box>
   );

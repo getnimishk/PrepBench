@@ -22,7 +22,7 @@ choosing between six saved versions of it.
 """
 from datetime import datetime, UTC
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import JSON, Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -42,6 +42,8 @@ class SystemDesignDraft(Base):
     )
 
     answer_text = Column(Text, nullable=False, default="")
+    # The draft by section. NULL for a draft saved before sections existed.
+    sections = Column(JSON, nullable=True)
     target_role = Column(String(200), nullable=True)
 
     created_at = Column(DateTime, default=_now, nullable=False)

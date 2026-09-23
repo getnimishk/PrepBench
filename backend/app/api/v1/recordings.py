@@ -4,13 +4,13 @@
 
 import uuid
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.config import DATA_DIR
+from app.core.config import RECORDINGS_DIR, recording_file
 from app.core.exceptions import ResourceNotFoundException
 from app.repositories.recording_repository import PracticeRecordingRepository
 from app.repositories.interview_question_repository import InterviewQuestionRepository
@@ -25,7 +25,6 @@ from app.services.recording_analysis_service import RecordingAnalysisService
 
 router = APIRouter(prefix="/recordings", tags=["Recordings"])
 
-RECORDINGS_DIR = DATA_DIR / "recordings"
 RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Roughly 3 hours of Opus-encoded speech -- far beyond any realistic interview
@@ -66,6 +65,8 @@ async def upload_recording(
     title: str = Form("Untitled Recording"),
     duration_seconds: int = Form(None),
     interview_question_id: int = Form(None),
+    session_id: int = Form(None),
+    plan_note: str = Form(None),
     db: Session = Depends(get_db),
 ):
     # Validate the declared type before reading the body, so an obviously
@@ -86,6 +87,22 @@ async def upload_recording(
         if not question_repo.get_by_id(interview_question_id):
             raise ResourceNotFoundException("InterviewQuestion", interview_question_id)
 
+    if session_id is not None:
+        from app.models.interview_session import InterviewSession
+
+        session = db.query(InterviewSession).filter(InterviewSession.id == session_id).first()
+        if session is None:
+            raise ResourceNotFoundException("InterviewSession", session_id)
+        # A take filed under a session must answer one of its questions, or the
+        # session report would count an answer to something it never asked.
+        if interview_question_id is None or interview_question_id not in (session.question_ids or []):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This answer is not to one of the session's questions.",
+            )
+
+    plan_note = (plan_note or "").strip() or None
+
     ext = ".webm"
     filename = f"{uuid.uuid4().hex}{ext}"
     dest_path = RECORDINGS_DIR / filename
@@ -99,16 +116,35 @@ async def upload_recording(
         duration_seconds=duration_seconds,
         file_size_bytes=len(contents),
         interview_question_id=interview_question_id,
+        session_id=session_id,
+        plan_note=plan_note,
     )
     return PracticeRecordingResponse.model_validate(obj)
 
 
+def _with_analysis_summary(recording) -> PracticeRecordingResponse:
+    analysis = recording.analysis
+    analysed = analysis is not None and analysis.analysis_status == "analyzed"
+    return PracticeRecordingResponse.model_validate(recording).model_copy(update={
+        "analysis_status": analysis.analysis_status if analysis is not None else None,
+        "content_percent": RecordingAnalysisService._avg_pct(analysis.content_scores or []) if analysed else None,
+        "delivery_percent": RecordingAnalysisService._avg_pct(analysis.communication_scores or []) if analysed else None,
+    })
+
+
 @router.get("", response_model=dict)
-def list_recordings(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def list_recordings(
+    skip: int = 0,
+    limit: int = 100,
+    interview_question_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    """Recordings, newest first. With interview_question_id, only that question's
+    takes -- what a take is compared against."""
     repo = PracticeRecordingRepository(db)
-    items = repo.get_all(skip=skip, limit=limit)
+    items = repo.get_all(skip=skip, limit=limit, interview_question_id=interview_question_id)
     return {
-        "items": [PracticeRecordingResponse.model_validate(r) for r in items],
+        "items": [_with_analysis_summary(r) for r in items],
         "skip": skip,
         "limit": limit,
     }
@@ -142,7 +178,10 @@ def get_recording_audio(recording_id: int, db: Session = Depends(get_db)):
     if not obj:
         raise ResourceNotFoundException("PracticeRecording", recording_id)
 
-    file_path = RECORDINGS_DIR / obj.file_path
+    try:
+        file_path = recording_file(obj.file_path)
+    except ValueError as outside:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(outside))
     if not file_path.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recording file missing from disk.")
 
@@ -158,12 +197,16 @@ def delete_recording(recording_id: int, db: Session = Depends(get_db)):
     if not obj:
         raise ResourceNotFoundException("PracticeRecording", recording_id)
 
-    file_path = RECORDINGS_DIR / obj.file_path
+    try:
+        file_path = recording_file(obj.file_path)
+    except ValueError:
+        # The row is still removable; only the file beside it is not this one's to delete.
+        file_path = None
     deleted = repo.delete(recording_id)
 
     # Remove the file from disk after the DB row is gone, so a failed delete
     # never leaves an orphaned DB row pointing at a missing file.
-    if file_path.exists():
+    if file_path is not None and file_path.exists():
         try:
             file_path.unlink()
         except OSError:

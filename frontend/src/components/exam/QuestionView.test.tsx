@@ -33,8 +33,6 @@ function renderView(props: Partial<React.ComponentProps<typeof QuestionView>> = 
       question={QUESTION}
       selectedOptionIds={[]}
       onSelectOption={vi.fn()}
-      isFlagged={false}
-      onToggleFlag={vi.fn()}
       confidenceLevel="not_set"
       onChangeConfidence={vi.fn()}
       {...props}
@@ -70,26 +68,53 @@ describe('QuestionView', () => {
     expect(screen.getByText(/how sure were you/i)).toBeInTheDocument();
   });
 
-  // Flag is read by the palette during the sitting. Bookmark was read by
-  // nothing -- no surface anywhere lists what you saved -- and looked
-  // identical to the control that works.
-  it('offers flag and not bookmark', () => {
+  // Bookmark was read by nothing -- no surface anywhere lists what you saved.
+  // Flag lives in the runner's head now, beside Back and Next.
+  it('offers no bookmark', () => {
     renderView();
 
-    expect(screen.getByText('Flag')).toBeInTheDocument();
     expect(screen.queryByText('Bookmark')).not.toBeInTheDocument();
   });
 
   // The radio announced its `value` -- the option's database id -- so a screen
-  // reader read out "11" where the answer should have been. The Flag chip
-  // renders a div of two spans and read as an unnamed button.
+  // reader read out "11" where the answer should have been.
   it('names its controls after what they do, not after their database ids', () => {
     renderView();
 
     expect(
       screen.getByRole('radio', { name: 'Only the Product Owner has the authority' })
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Flag this question' })).toBeInTheDocument();
+  });
+
+  it('picks an option by clicking anywhere on it, and marks the picked one', async () => {
+    const onSelectOption = vi.fn();
+    const { rerender } = renderView({ onSelectOption });
+
+    await userEvent.click(screen.getByText('The Scrum Master decides'));
+    expect(onSelectOption).toHaveBeenCalledWith([12]);
+
+    rerender(
+      <QuestionView
+        question={QUESTION}
+        selectedOptionIds={[12]}
+        onSelectOption={onSelectOption}
+        confidenceLevel="not_set"
+        onChangeConfidence={vi.fn()}
+      />
+    );
+    expect(screen.getByRole('radio', { name: 'The Scrum Master decides' })).toBeChecked();
+  });
+
+  it('once revealed, marks the right answer and a wrong pick, and the answer can no longer change', async () => {
+    const onSelectOption = vi.fn();
+    renderView({ revealed: true, selectedOptionIds: [12], onSelectOption });
+
+    expect(screen.getByText('Correct')).toBeInTheDocument();
+    expect(screen.getByText('Your answer')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Only the Product Owner has the authority' })).toBeDisabled();
+
+    await userEvent.click(screen.getByText('Only the Product Owner has the authority'));
+    expect(onSelectOption).not.toHaveBeenCalled();
   });
 
   it('still says when more than one option is expected', () => {
@@ -101,7 +126,7 @@ describe('QuestionView', () => {
     const onChangeConfidence = vi.fn();
     renderView({ revealed: true, onChangeConfidence });
 
-    await userEvent.click(screen.getByText('HIGH'));
+    await userEvent.click(screen.getByRole('button', { name: 'High' }));
     expect(onChangeConfidence).toHaveBeenCalledWith('high');
   });
 });

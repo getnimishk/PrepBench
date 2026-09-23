@@ -57,7 +57,7 @@ export const ConceptMap: React.FC<Props> = ({ attempts, focusConceptId, onSelect
   return (
     <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
       <Stack direction="row" spacing={1} sx={{ alignItems: 'baseline', mb: 1.5 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+        <Typography variant="subtitle2" component="h2" sx={{ fontWeight: 700 }}>
           What there is to learn
         </Typography>
         <Typography variant="caption" color="text.secondary">
@@ -124,7 +124,7 @@ export const ConceptMap: React.FC<Props> = ({ attempts, focusConceptId, onSelect
                   color={style.color}
                   variant={state.state === 'mastered' ? 'filled' : 'outlined'}
                   label={style.label}
-                  sx={{ height: 20, fontSize: '0.62rem' }}
+                  sx={{ minHeight: 20, fontSize: (t) => t.typography.pxToRem(9.92) }}
                 />
 
                 <Typography
@@ -139,7 +139,8 @@ export const ConceptMap: React.FC<Props> = ({ attempts, focusConceptId, onSelect
                   size="small"
                   endIcon={<ArrowRight size={13} />}
                   onClick={() => onSelect(id)}
-                  sx={{ textTransform: 'none', flexShrink: 0 }}
+                  aria-label={`${state.state === 'notStarted' ? 'Start' : 'Practise'} ${concept.canonicalName}`}
+                  sx={{ flexShrink: 0 }}
                 >
                   {state.state === 'notStarted' ? 'Start' : 'Practise'}
                 </Button>

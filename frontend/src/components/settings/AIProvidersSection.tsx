@@ -10,19 +10,20 @@ import {
 } from '@mui/material';
 import {
   Plus, Trash2, RefreshCw, Search, CheckCircle2, AlertTriangle,
-  XCircle, Cloud, HardDrive, ChevronDown, KeyRound,
+  XCircle, Cloud, HardDrive, KeyRound,
 } from 'lucide-react';
 import {
   getLLMProfiles, getLLMProviders, createLLMProvider, updateLLMProvider,
   deleteLLMProvider, verifyLLMProvider,
-  detectLocalRunners,
+  detectLocalRunners, refreshLocalModels,
 } from '../../services/api';
 import {
   LLMProfile, LLMProvider, DetectedRunner, LLMVerifyResult,
   CAPABILITY_LABELS,
 } from '../../types/llm';
 import { LocalSetupWizard } from './LocalSetupWizard';
-import { apiErrorMessage } from '../../services/apiError';
+import { Detail, Panel, PanelHead } from '../ui/primitives';
+import { apiErrorMessage, loadFailed } from '../../services/apiError';
 
 const readinessStyles: Record<string, { color: 'success' | 'warning' | 'error'; Icon: typeof CheckCircle2 }> = {
   ready: { color: 'success', Icon: CheckCircle2 },
@@ -36,6 +37,7 @@ export const AIProvidersSection: React.FC = () => {
   const [providers, setProviders] = useState<LLMProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [addOpen, setAddOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -51,14 +53,31 @@ export const AIProvidersSection: React.FC = () => {
   const [keyEdit, setKeyEdit] = useState<LLMProvider | null>(null);
   const [keyValue, setKeyValue] = useState('');
 
+  const [refreshingCatalog, setRefreshingCatalog] = useState(false);
+  const [refreshCatalogMsg, setRefreshCatalogMsg] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const handleRefreshCatalog = async () => {
+    setRefreshingCatalog(true);
+    setRefreshCatalogMsg(null);
+    try {
+      const res = await refreshLocalModels();
+      setRefreshCatalogMsg({ ok: res.ok, message: res.message });
+    } catch (err) {
+      setRefreshCatalogMsg({ ok: false, message: apiErrorMessage(err, 'Could not refresh model catalogue.') });
+    } finally {
+      setRefreshingCatalog(false);
+    }
+  };
+
   const load = async () => {
     setError(null);
+    setLoadError(null);
     try {
       const [p, pr] = await Promise.all([getLLMProfiles(), getLLMProviders()]);
       setProfiles(p);
       setProviders(pr);
     } catch (err) {
-      setError(apiErrorMessage(err, 'Could not load AI provider settings.'));
+      setLoadError(loadFailed('Could not load your AI providers', err));
     } finally {
       setLoading(false);
     }
@@ -135,57 +154,60 @@ export const AIProvidersSection: React.FC = () => {
   }
 
   return (
-    <Box sx={{ mb: 5 }}>
-      {/* Same rhythm as the sections above it. This used to be a bordered
-          card between two borderless sections, which made the optional part
-          of Settings the loudest thing on the page. */}
-      <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-        AI providers
-      </Typography>
-      <Box sx={{ mt: 1.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, mb: 1, flexWrap: 'wrap' }}>
-          <Box>
-            <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 560 }}>
-              PrepBench grades answers and generates questions using an AI model. Run one locally
-              to keep everything on this machine, or connect a cloud API for sharper feedback.
-              Everything else in PrepBench works without any of this.
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<HardDrive size={16} />}
-              onClick={() => setWizardOpen(true)}
-              sx={{ fontWeight: 700, borderRadius: '100px' }}
-            >
-              Set up a local model
-            </Button>
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<Plus size={16} />}
-              onClick={() => setAddOpen(true)}
-              sx={{ fontWeight: 700, borderRadius: '100px' }}
-            >
-              Add
-            </Button>
-          </Box>
-        </Box>
+    <Box sx={{ mb: '28px' }}>
+      {/* One of the prototype's panels, like every group on a settings screen. */}
+      <Panel component="section" aria-label="AI providers">
+        <PanelHead
+          eyebrow="On this machine or in the cloud"
+          title="AI providers"
+          aside={(
+            <>
+              <Button variant="outlined" startIcon={<HardDrive size={16} />} onClick={() => setWizardOpen(true)}>
+                Set up a local model
+              </Button>
+              <Button variant="contained" color="ink" startIcon={<Plus size={16} />} onClick={() => setAddOpen(true)}>
+                Add
+              </Button>
+            </>
+          )}
+        />
+        <Detail sx={{ maxWidth: 620 }}>
+          PrepBench grades answers and generates questions using an AI model. Run one locally
+          to keep everything on this machine, or connect a cloud API for sharper feedback.
+          Everything else in PrepBench works without any of this.
+        </Detail>
 
         {error && <Alert severity="error" sx={{ my: 2 }} onClose={() => setError(null)}>{error}</Alert>}
 
-        <Box sx={{ my: 2 }}>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={detecting ? <CircularProgress size={14} /> : <Search size={16} />}
-            onClick={handleDetect}
-            disabled={detecting}
-            sx={{ borderRadius: '100px' }}
-          >
-            {detecting ? 'Scanning…' : 'Scan for local models'}
-          </Button>
+        <Box sx={{ my: '14px' }}>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
+            <Button
+              variant="outlined"
+              startIcon={detecting ? <CircularProgress size={14} /> : <Search size={16} />}
+              onClick={handleDetect}
+              disabled={detecting}
+            >
+              {detecting ? 'Scanning…' : 'Scan for local models'}
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={refreshingCatalog ? <CircularProgress size={14} /> : <RefreshCw size={16} />}
+              onClick={handleRefreshCatalog}
+              disabled={refreshingCatalog}
+            >
+              {refreshingCatalog ? 'Checking Ollama library…' : 'Check for new models'}
+            </Button>
+          </Box>
+
+          {refreshCatalogMsg && (
+            <Alert
+              severity={refreshCatalogMsg.ok ? 'success' : 'warning'}
+              sx={{ mt: 2 }}
+              onClose={() => setRefreshCatalogMsg(null)}
+            >
+              {refreshCatalogMsg.message}
+            </Alert>
+          )}
           {detected !== null && detected.length === 0 && (
             <Alert severity="info" sx={{ mt: 2 }}>
               Nothing found on this machine. Start Ollama or a llamafile server, then scan again —
@@ -213,7 +235,12 @@ export const AIProvidersSection: React.FC = () => {
           ))}
         </Box>
 
-        {providers.length === 0 ? (
+        {loadError ? (
+          // Never "No AI provider set up yet" in place of a list that was not read.
+          <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => void load()}>Retry</Button>}>
+            {loadError}
+          </Alert>
+        ) : providers.length === 0 ? (
           <Alert severity="info">
             No AI provider set up yet. AI grading, question generation and recording analysis stay
             switched off until you add one — everything else works normally.
@@ -244,11 +271,16 @@ export const AIProvidersSection: React.FC = () => {
                       <Chip key={c} label={CAPABILITY_LABELS[c] || c} size="small" variant="outlined" />
                     ))}
                     <Box sx={{ flexGrow: 1 }} />
-                    <Tooltip title={p.is_enabled ? 'Disable' : 'Enable'}>
+                    {/* The name goes on the input, where a screen reader looks for
+                        it, and says which provider, as the buttons beside it do.
+                        The tooltip only describes: as a label it would land on
+                        the switch's wrapper, which cannot carry one. */}
+                    <Tooltip title={p.is_enabled ? 'Disable' : 'Enable'} describeChild>
                       <Switch
                         size="small"
                         checked={p.is_enabled}
                         onChange={() => handleToggleEnabled(p)}
+                        slotProps={{ input: { 'aria-label': `Use ${p.name}` } }}
                       />
                     </Tooltip>
                     {/* Names include the provider, because these buttons repeat
@@ -305,7 +337,6 @@ export const AIProvidersSection: React.FC = () => {
                     <Button
                       size="small"
                       onClick={() => { setKeyEdit(p); setKeyValue(''); }}
-                      sx={{ textTransform: 'none' }}
                     >
                       {p.has_api_key ? 'Replace key' : 'Add key'}
                     </Button>
@@ -340,7 +371,7 @@ export const AIProvidersSection: React.FC = () => {
             test surface while removing the only feedback that might ever
             have justified it. If a real need for per-task routing appears,
             it can come back with a reason. */}
-      </Box>
+      </Panel>
 
       <LocalSetupWizard
         open={wizardOpen}
@@ -381,7 +412,7 @@ export const AIProvidersSection: React.FC = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setKeyEdit(null)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSaveKey} sx={{ fontWeight: 700 }}>Save</Button>
+          <Button variant="contained" onClick={handleSaveKey}>Save</Button>
         </DialogActions>
       </Dialog>
 
@@ -396,7 +427,7 @@ export const AIProvidersSection: React.FC = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setConfirmDelete(null)}>Cancel</Button>
-          <Button variant="contained" color="error" onClick={handleDelete} sx={{ fontWeight: 700 }}>
+          <Button variant="contained" color="error" onClick={handleDelete}>
             Remove
           </Button>
         </DialogActions>
@@ -546,7 +577,6 @@ const AddProviderDialog: React.FC<AddProviderDialogProps> = ({
           variant="contained"
           disabled={!profileKey || !name.trim() || saving}
           onClick={handleSave}
-          sx={{ fontWeight: 700 }}
         >
           {saving ? 'Adding…' : 'Add provider'}
         </Button>

@@ -176,6 +176,19 @@ def test_unknown_task_404s():
     assert res.status_code == 404
 
 
+def test_every_task_has_a_label_and_says_what_happens_without_a_provider():
+    """Settings shows these beside each task. A raw task key or a blank would be
+    a feature the learner cannot tell apart, or one whose failure they cannot predict."""
+    from app.llm.types import LLMTask
+
+    tasks = client.get("/api/v1/llm/tasks").json()
+    assert {t["task"] for t in tasks} == {task.value for task in LLMTask}
+    for t in tasks:
+        assert t["label"] and t["label"] != t["task"], t
+        assert t["fallback"] and "Unavailable until" not in t["fallback"], t
+        assert t["task"] not in (t["unavailable_reason"] or ""), t
+
+
 def test_tasks_report_both_timeout_budgets():
     """The UI tells the user a local model will be slower; that has to come
     from the same table the gateway actually uses."""

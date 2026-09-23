@@ -32,6 +32,7 @@ SEED_INTERVIEW_QUESTIONS = [
     {"round_type": InterviewRoundType.HR_SCREENING, "question_text": "Where do you see yourself in five years?", "category": "Motivation & Fit"},
 
     # Hiring Manager -- leadership, ownership, prioritization, team fit.
+    {"round_type": InterviewRoundType.HIRING_MANAGER, "question_text": "Walk me through your background and why this team is the right next step for you.", "category": "Introduction"},
     {"round_type": InterviewRoundType.HIRING_MANAGER, "question_text": "Tell me about a time you had to lead a project you knew little about.", "category": "Leadership"},
     {"round_type": InterviewRoundType.HIRING_MANAGER, "question_text": "Describe a time you disagreed with a decision made by leadership and how you handled it.", "category": "Ownership"},
     {"round_type": InterviewRoundType.HIRING_MANAGER, "question_text": "How do you prioritize when you have multiple competing deadlines?", "category": "Prioritization"},
@@ -41,6 +42,7 @@ SEED_INTERVIEW_QUESTIONS = [
     {"round_type": InterviewRoundType.HIRING_MANAGER, "question_text": "Tell me about a time you had to influence a decision without formal authority.", "category": "Leadership"},
 
     # Behavioral -- STAR-format "tell me about a time..." questions.
+    {"round_type": InterviewRoundType.BEHAVIORAL, "question_text": "Tell me about yourself and what drives you in your engineering career.", "category": "Introduction"},
     {"round_type": InterviewRoundType.BEHAVIORAL, "question_text": "Tell me about a time you made a mistake at work and how you handled it.", "category": "Accountability"},
     {"round_type": InterviewRoundType.BEHAVIORAL, "question_text": "Describe a time you went above and beyond what was expected of you.", "category": "Initiative"},
     {"round_type": InterviewRoundType.BEHAVIORAL, "question_text": "Tell me about a conflict you had with a coworker and how you resolved it.", "category": "Conflict Resolution"},

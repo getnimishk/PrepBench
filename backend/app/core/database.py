@@ -501,6 +501,434 @@ def apply_lightweight_migrations():
         except Exception as exc:
             _log_migration_failure("exam_sessions.source", exc)
 
+        try:
+            # questions.subject_id: which preparation owns this question.
+            #
+            # Replaces inferring ownership from the certification string by
+            # matching words. ExamEngine ORed an ILIKE for every token of a
+            # subject's certification name across certification AND domain, so
+            # "PSM I - Professional Scrum Master" matched anything whose domain
+            # contained "Master" and a Databricks question could be served in a
+            # PSM I mock.
+            #
+            # The backfill uses EXACT equality only. Exact match is the safe
+            # half of the old rule -- it is what seed_subjects.py relies on when
+            # it says 700-odd existing questions resolve to PSM I -- and the
+            # fuzzy half is the bug, so it takes no part in repairing the data.
+            # Anything that does not match exactly is left NULL and counted in
+            # the log, because an unowned question is a fact the operator should
+            # see rather than a blank for this migration to fill in.
+            result = conn.execute(text("PRAGMA table_info(questions)")).fetchall()
+            columns = [row[1] for row in result]
+            if columns and "subject_id" not in columns:
+                conn.execute(text(
+                    "ALTER TABLE questions ADD COLUMN subject_id INTEGER "
+                    "REFERENCES subjects(id)"
+                ))
+                conn.commit()
+            if columns:
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_questions_subject_id "
+                    "ON questions (subject_id)"
+                ))
+                conn.commit()
+
+                subjects_exist = conn.execute(text(
+                    "SELECT name FROM sqlite_master "
+                    "WHERE type='table' AND name='subjects'"
+                )).fetchone()
+                if subjects_exist:
+                    # Only certifications claimed by exactly ONE subject are
+                    # backfilled.
+                    #
+                    # `subjects.certification` is not unique, and a plain loop
+                    # over every (id, certification) pair would let whichever
+                    # subject came first claim the lot -- so the owner of every
+                    # affected question would be decided by insertion order.
+                    # That is the same coin toss QuestionRepository.
+                    # resolve_subject_id refuses at write time, and the two have
+                    # to agree or a question's owner depends on whether it
+                    # arrived before or after this migration ran.
+                    grouped = conn.execute(text(
+                        "SELECT certification, COUNT(*) AS claimants, MIN(id) AS sid "
+                        "FROM subjects "
+                        "WHERE certification IS NOT NULL AND certification <> '' "
+                        "GROUP BY certification"
+                    )).fetchall()
+                    contested = []
+                    for certification, claimants, sid in grouped:
+                        if claimants > 1:
+                            contested.append(certification)
+                            continue
+                        conn.execute(
+                            text(
+                                "UPDATE questions SET subject_id = :sid "
+                                "WHERE subject_id IS NULL AND certification = :cert"
+                            ),
+                            {"sid": sid, "cert": certification},
+                        )
+                    conn.commit()
+
+                    if contested:
+                        from app.core.logging_config import logger
+                        logger.warning(
+                            "Left questions unowned for "
+                            f"{len(contested)} certification(s) claimed by more "
+                            f"than one preparation: {', '.join(contested)}. "
+                            "Attributing them would have meant choosing a "
+                            "preparation at random. Give each preparation a "
+                            "distinct certification name and restart."
+                        )
+
+                    unowned = conn.execute(text(
+                        "SELECT certification, COUNT(*) FROM questions "
+                        "WHERE subject_id IS NULL GROUP BY certification"
+                    )).fetchall()
+                    if unowned:
+                        from app.core.logging_config import logger
+                        detail = ", ".join(
+                            f"{cert or '(blank)'}: {count}" for cert, count in unowned
+                        )
+                        logger.info(
+                            "questions.subject_id backfill left "
+                            f"{sum(c for _, c in unowned)} question(s) unowned "
+                            f"-- {detail}. These are reachable in the Question "
+                            "Bank but belong to no preparation, so no mock or "
+                            "drill will draw them."
+                        )
+        except Exception as exc:
+            _log_migration_failure("questions.subject_id", exc)
+
+        try:
+            # app_settings.review_daily_cap: the ceiling on a day's review goal.
+            #
+            # Not daily_practice_goal coming back -- that is in the dead list
+            # above and stays there, because nothing read it. This one is read by
+            # HomeService.daily_goals and bounds GET /review/queue. DEFAULT 20 so
+            # an existing install gets the value the queue was already built on.
+            result = conn.execute(text("PRAGMA table_info(app_settings)")).fetchall()
+            columns = [row[1] for row in result]
+            if columns and "review_daily_cap" not in columns:
+                conn.execute(text(
+                    "ALTER TABLE app_settings ADD COLUMN review_daily_cap "
+                    "INTEGER NOT NULL DEFAULT 20"
+                ))
+                conn.commit()
+        except Exception as exc:
+            _log_migration_failure("app_settings.review_daily_cap", exc)
+
+        try:
+            # subjects: the columns prep-new and prep-edit collect.
+            #
+            # No backfill. `description` and `target_exam_date` are genuinely
+            # unknown for the three seeded subjects, and a made-up target date
+            # would drive a countdown the learner never set.
+            result = conn.execute(text("PRAGMA table_info(subjects)")).fetchall()
+            columns = [row[1] for row in result]
+            if columns:
+                if "description" not in columns:
+                    conn.execute(text(
+                        "ALTER TABLE subjects ADD COLUMN description VARCHAR(300)"
+                    ))
+                if "target_exam_date" not in columns:
+                    conn.execute(text(
+                        "ALTER TABLE subjects ADD COLUMN target_exam_date DATE"
+                    ))
+                if "is_archived" not in columns:
+                    conn.execute(text(
+                        "ALTER TABLE subjects ADD COLUMN is_archived "
+                        "BOOLEAN NOT NULL DEFAULT 0"
+                    ))
+                conn.commit()
+        except Exception as exc:
+            _log_migration_failure("subjects description/target_exam_date/is_archived", exc)
+
+        try:
+            # roadmaps.subject_id: which preparation this roadmap serves.
+            #
+            # Added with NO backfill, deliberately. Nothing in the old schema
+            # recorded the answer, so matching a roadmap to a subject by title
+            # words would be the same guess this migration is removing one step
+            # above. Existing roadmaps stay unassigned and the UI says so; the
+            # learner assigns them with one PUT.
+            result = conn.execute(text("PRAGMA table_info(roadmaps)")).fetchall()
+            columns = [row[1] for row in result]
+            if columns and "subject_id" not in columns:
+                conn.execute(text(
+                    "ALTER TABLE roadmaps ADD COLUMN subject_id INTEGER "
+                    "REFERENCES subjects(id)"
+                ))
+                conn.commit()
+            if columns:
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_roadmaps_subject_id "
+                    "ON roadmaps (subject_id)"
+                ))
+                conn.commit()
+        except Exception as exc:
+            _log_migration_failure("roadmaps.subject_id", exc)
+
+        try:
+            # learning_attempts: the sandbox and study evidence, moved off the
+            # browser.
+            #
+            # This was localStorage under key prepbench.learning.attempts.v1,
+            # which made a browser the system of record for the learner's own
+            # history. New rather than altered, so create_all covers a fresh
+            # database and this covers an upgrade in place -- the same pattern
+            # as review_checks and system_design_drafts above.
+            #
+            # correct/transfer are nullable because an uncommitted attempt has
+            # nothing to be right or wrong about; a DEFAULT 0 would record a
+            # wrong answer that nobody gave.
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS learning_attempts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    attempt_uid VARCHAR(64) NOT NULL UNIQUE,
+                    subject_id INTEGER REFERENCES subjects(id),
+                    challenge_id VARCHAR(100) NOT NULL,
+                    concept_id VARCHAR(100) NOT NULL,
+                    scenario_fingerprint VARCHAR(1000) NOT NULL DEFAULT '',
+                    mode VARCHAR(20) NOT NULL DEFAULT 'guided',
+                    started_at DATETIME NOT NULL,
+                    committed_at DATETIME,
+                    prediction VARCHAR(100),
+                    completed_at DATETIME,
+                    explanation_mechanisms TEXT NOT NULL DEFAULT '[]',
+                    selected_alternative_ids TEXT NOT NULL DEFAULT '[]',
+                    rubric_coverage TEXT NOT NULL DEFAULT '{}',
+                    correct BOOLEAN,
+                    transfer BOOLEAN,
+                    hint_count INTEGER NOT NULL DEFAULT 0,
+                    duration_ms INTEGER,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL
+                )
+            """))
+            conn.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_learning_attempts_attempt_uid "
+                "ON learning_attempts (attempt_uid)"
+            ))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_learning_attempts_concept_id "
+                "ON learning_attempts (concept_id)"
+            ))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_learning_attempts_subject_id "
+                "ON learning_attempts (subject_id)"
+            ))
+            conn.commit()
+        except Exception as exc:
+            _log_migration_failure("learning_attempts table", exc)
+
+        try:
+            # topic_demonstrations: the evidence a topic's completion rests on.
+            #
+            # New rather than altered, so create_all covers a fresh database and
+            # this covers an upgrade. CASCADE from the topic: a demonstration of a
+            # topic that no longer exists is not evidence of anything.
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS topic_demonstrations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    topic_id INTEGER NOT NULL
+                        REFERENCES roadmap_topics(id) ON DELETE CASCADE,
+                    response_text TEXT NOT NULL,
+                    self_grade VARCHAR(10) NOT NULL,
+                    repetition INTEGER NOT NULL DEFAULT 0,
+                    interval_days INTEGER NOT NULL DEFAULT 1,
+                    ease_factor FLOAT NOT NULL DEFAULT 2.5,
+                    next_recheck_at DATETIME NOT NULL,
+                    created_at DATETIME NOT NULL
+                )
+            """))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_topic_demonstrations_topic_id "
+                "ON topic_demonstrations (topic_id)"
+            ))
+            conn.commit()
+        except Exception as exc:
+            _log_migration_failure("topic_demonstrations table", exc)
+
+        try:
+            # topic_guide_sections: a topic's study guide, AI-drafted or learner
+            # written. New table; CASCADE from the topic like its demonstrations.
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS topic_guide_sections (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    topic_id INTEGER NOT NULL
+                        REFERENCES roadmap_topics(id) ON DELETE CASCADE,
+                    order_index INTEGER NOT NULL DEFAULT 0,
+                    title VARCHAR(200) NOT NULL,
+                    body TEXT NOT NULL,
+                    example TEXT,
+                    common_mistake TEXT,
+                    check_question TEXT,
+                    check_answer TEXT,
+                    source VARCHAR(10) NOT NULL DEFAULT 'learner',
+                    generated_by VARCHAR(200),
+                    edited_at DATETIME,
+                    read_at DATETIME,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL
+                )
+            """))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_topic_guide_sections_topic_id "
+                "ON topic_guide_sections (topic_id)"
+            ))
+            conn.commit()
+        except Exception as exc:
+            _log_migration_failure("topic_guide_sections table", exc)
+
+        try:
+            # interview_sessions, and the two columns a take gains with them.
+            #
+            # The table is new, so create_all covers a fresh database. The columns
+            # are added to an existing practice_recordings table: both nullable, so
+            # every recording made before sessions existed stays a standalone take
+            # with no plan note -- which is exactly what it was.
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS interview_sessions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    round_type VARCHAR(30) NOT NULL,
+                    category VARCHAR(150),
+                    question_ids JSON NOT NULL,
+                    thinking_seconds INTEGER NOT NULL DEFAULT 0,
+                    created_at DATETIME NOT NULL,
+                    ended_at DATETIME
+                )
+            """))
+            columns = [
+                row[1] for row in conn.execute(text("PRAGMA table_info(practice_recordings)")).fetchall()
+            ]
+            if columns and "session_id" not in columns:
+                conn.execute(text(
+                    "ALTER TABLE practice_recordings ADD COLUMN session_id INTEGER "
+                    "REFERENCES interview_sessions(id) ON DELETE SET NULL"
+                ))
+            if columns and "plan_note" not in columns:
+                conn.execute(text("ALTER TABLE practice_recordings ADD COLUMN plan_note TEXT"))
+            if columns:
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_practice_recordings_session_id "
+                    "ON practice_recordings (session_id)"
+                ))
+            conn.commit()
+        except Exception as exc:
+            _log_migration_failure("interview sessions", exc)
+
+        try:
+            # System design answers by section. Nullable on both tables: an
+            # attempt or draft saved before sections existed keeps its single
+            # answer_text, which is still the whole answer.
+            for table in ("system_design_attempts", "system_design_drafts"):
+                columns = [row[1] for row in conn.execute(text(f"PRAGMA table_info({table})")).fetchall()]
+                if columns and "sections" not in columns:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN sections JSON"))
+            conn.commit()
+        except Exception as exc:
+            _log_migration_failure("system design sections", exc)
+
+        try:
+            # learning_attempts: the experiment as it ran, and the learner's own
+            # explanation. Nullable; attempts recorded before this keep NULLs,
+            # which is the truth -- nothing about them was stored.
+            columns = [row[1] for row in conn.execute(text("PRAGMA table_info(learning_attempts)")).fetchall()]
+            for name, ddl in (("manipulation", "JSON"), ("observed", "JSON"), ("explanation_text", "TEXT")):
+                if columns and name not in columns:
+                    conn.execute(text(f"ALTER TABLE learning_attempts ADD COLUMN {name} {ddl}"))
+            conn.commit()
+        except Exception as exc:
+            _log_migration_failure("learning attempt experiment columns", exc)
+
+        try:
+            # app_settings: display preferences, shortcuts and notification
+            # triggers. Defaults match the model, so the existing row reads as a
+            # fresh install would for everything it never had.
+            columns = [row[1] for row in conn.execute(text("PRAGMA table_info(app_settings)")).fetchall()]
+            for name, ddl in (
+                ("text_size", "VARCHAR(10) NOT NULL DEFAULT 'standard'"),
+                ("reduce_motion", "VARCHAR(10) NOT NULL DEFAULT 'system'"),
+                ("shortcuts_enabled", "BOOLEAN NOT NULL DEFAULT 1"),
+                ("notification_triggers", "JSON"),
+            ):
+                if columns and name not in columns:
+                    conn.execute(text(f"ALTER TABLE app_settings ADD COLUMN {name} {ddl}"))
+            conn.commit()
+        except Exception as exc:
+            _log_migration_failure("app settings preferences", exc)
+
+        try:
+            # app_settings: the profile's name and email. Nullable with no default,
+            # so an existing install reads as one where nobody has written them yet.
+            columns = [row[1] for row in conn.execute(text("PRAGMA table_info(app_settings)")).fetchall()]
+            for name, ddl in (("display_name", "VARCHAR(100)"), ("email", "VARCHAR(254)")):
+                if columns and name not in columns:
+                    conn.execute(text(f"ALTER TABLE app_settings ADD COLUMN {name} {ddl}"))
+            conn.commit()
+        except Exception as exc:
+            _log_migration_failure("app settings profile", exc)
+
+        try:
+            # interview_questions: prepared answers (model answer / STAR notes)
+            # and key talking points to hit during practice.
+            columns = [row[1] for row in conn.execute(text("PRAGMA table_info(interview_questions)")).fetchall()]
+            for name, ddl in (("prepared_answer", "TEXT"), ("key_talking_points", "JSON")):
+                if columns and name not in columns:
+                    conn.execute(text(f"ALTER TABLE interview_questions ADD COLUMN {name} {ddl}"))
+            conn.commit()
+        except Exception as exc:
+            _log_migration_failure("interview questions prepared answers", exc)
+
+        try:
+            # recording_analyses: comparison against prepared answer / key talking points
+            columns = [row[1] for row in conn.execute(text("PRAGMA table_info(recording_analyses)")).fetchall()]
+            if columns and "answer_comparison" not in columns:
+                conn.execute(text("ALTER TABLE recording_analyses ADD COLUMN answer_comparison JSON"))
+            conn.commit()
+        except Exception as exc:
+            _log_migration_failure("recording analyses answer comparison", exc)
+
+        try:
+            # Every index the models declare, on a database that was upgraded into
+            # its schema rather than created with it.
+            #
+            # ALTER TABLE adds a column, not the column's index, so an index added
+            # to a model after someone installed existed only on fresh installs.
+            # A real install was missing six of them, including exam_sessions'
+            # subject_id -- the column every preparation-scoped query filters on.
+            #
+            # Read from the metadata rather than listed here, so the next index
+            # added to a model reaches existing installs without anyone
+            # remembering to write a migration. Unique indexes are left out on
+            # purpose: creating one can fail on data that already exists, and the
+            # two that matter have their own steps above, which de-duplicate first.
+            existing_tables = {row[0] for row in conn.execute(
+                text("SELECT name FROM sqlite_master WHERE type = 'table'")
+            ).fetchall()}
+            existing_indexes = {row[0] for row in conn.execute(
+                text("SELECT name FROM sqlite_master WHERE type = 'index'")
+            ).fetchall()}
+            for table in Base.metadata.sorted_tables:
+                if table.name not in existing_tables:
+                    continue
+                columns_present = {
+                    row[1] for row in conn.execute(text(f"PRAGMA table_info('{table.name}')")).fetchall()
+                }
+                for index in table.indexes:
+                    if index.unique or not index.name or index.name in existing_indexes:
+                        continue
+                    index_columns = [c.name for c in index.columns]
+                    if not index_columns or not set(index_columns).issubset(columns_present):
+                        continue
+                    quoted = ", ".join(f'"{name}"' for name in index_columns)
+                    conn.execute(text(
+                        f'CREATE INDEX IF NOT EXISTS "{index.name}" ON "{table.name}" ({quoted})'
+                    ))
+            conn.commit()
+        except Exception as exc:
+            _log_migration_failure("model indexes", exc)
+
     _raise_if_migrations_failed()
 
 

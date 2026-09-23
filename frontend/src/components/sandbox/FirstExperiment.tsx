@@ -61,7 +61,7 @@ export const FirstExperiment: React.FC<Props> = ({ params, onApply, atBaseline }
           <Typography variant="caption" color="text.secondary" sx={{ flexGrow: 1, minWidth: 180 }}>
             Suggested experiment, from wherever you are now:
           </Typography>
-          <Button size="small" onClick={run} sx={{ textTransform: 'none' }}>
+          <Button size="small" onClick={run}>
             {reach.label} {reach.from} → {reach.to}
           </Button>
         </Stack>
@@ -72,9 +72,9 @@ export const FirstExperiment: React.FC<Props> = ({ params, onApply, atBaseline }
   return (
     <Paper
       variant="outlined"
-      sx={{ p: 2, mb: 2, borderColor: 'primary.main', bgcolor: (t) => t.palette.primary.main + '0A' }}
+      sx={{ p: 2, mb: 2, borderColor: 'primary.main', bgcolor: (t) => t.palette.primary.main + '0A', maxWidth: '100%', minWidth: 0 }}
     >
-      <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start' }}>
+      <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start', minWidth: 0, maxWidth: '100%' }}>
         <Box sx={{ color: 'primary.main', mt: 0.25 }}>
           <FlaskConical size={22} />
         </Box>
@@ -133,9 +133,9 @@ export const FirstExperiment: React.FC<Props> = ({ params, onApply, atBaseline }
           <Button
             variant="contained"
             size="small"
-            disableElevation
+
             onClick={run}
-            sx={{ mt: 1.5, textTransform: 'none' }}
+            sx={{ mt: 1.5 }}
           >
             Run experiment
           </Button>

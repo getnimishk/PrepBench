@@ -44,6 +44,8 @@ class InterviewQuestionRepository:
             round_type=obj_in.round_type,
             question_text=obj_in.question_text,
             category=obj_in.category,
+            prepared_answer=obj_in.prepared_answer,
+            key_talking_points=obj_in.key_talking_points,
             is_ai_generated=obj_in.is_ai_generated,
             source_topic=obj_in.source_topic,
         )

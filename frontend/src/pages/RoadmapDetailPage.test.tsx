@@ -121,26 +121,38 @@ describe('RoadmapDetailPage', () => {
 
   it('updates a topic status and refreshes progress without a full reload', async () => {
     const user = userEvent.setup();
-    mockUpdateRoadmapTopic.mockResolvedValue(makeTopic(2, { status: 'completed' }));
+    mockUpdateRoadmapTopic.mockResolvedValue(makeTopic(2, { status: 'in_progress' }));
     renderPage();
 
     await waitFor(() => expect(screen.getByText('Topic 2')).toBeInTheDocument());
 
     mockGetRoadmap.mockResolvedValue(makeDetail({
-      progress: { ...makeDetail().progress, completed_count: 2, completion_percentage: 100 },
+      progress: { ...makeDetail().progress, not_started_count: 0, in_progress_count: 1 },
     }));
 
+    // In progress, not Completed: a topic is completed by demonstrating it, so
+    // the dropdown no longer offers that. The behaviour under test is the same
+    // -- a status change moves the progress line without a page reload.
     await user.click(screen.getByLabelText('Status for Topic 2'));
-    await user.click(await screen.findByRole('option', { name: 'Completed' }));
+    await user.click(await screen.findByRole('option', { name: 'In progress' }));
 
     await waitFor(() => {
-      expect(mockUpdateRoadmapTopic).toHaveBeenCalledWith(1, 2, { status: 'completed' });
+      expect(mockUpdateRoadmapTopic).toHaveBeenCalledWith(1, 2, { status: 'in_progress' });
     });
-    // The progress line, not a KPI card: three bordered tiles used to sit
-    // above the table and two of them said the same thing. What matters here
-    // is unchanged -- the figure moves without a page reload.
-    await waitFor(() => expect(screen.getByText(/100% of the topics/)).toBeInTheDocument());
-    expect(screen.getByText(/2 of 2 done/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/1 in progress/)).toBeInTheDocument());
+  });
+
+  it('does not let a topic be completed from the dropdown', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Topic 2')).toBeInTheDocument());
+
+    await user.click(screen.getByLabelText('Status for Topic 2'));
+    const completed = await screen.findByRole('option', { name: /demonstrate the topic to complete it/ });
+
+    // Visible, with the reason -- and not selectable.
+    expect(completed).toHaveAttribute('aria-disabled', 'true');
+    expect(mockUpdateRoadmapTopic).not.toHaveBeenCalled();
   });
 
   it('switches to the journey view and marks the current phase', async () => {
@@ -148,9 +160,9 @@ describe('RoadmapDetailPage', () => {
     renderPage();
     await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
 
-    await user.click(screen.getByRole('tab', { name: /journey/i }));
+    await user.click(screen.getByRole('tab', { name: 'Phase overview' }));
     await waitFor(() => expect(screen.getByText('You are here')).toBeInTheDocument());
-    expect(screen.getByText('1 / 2')).toBeInTheDocument();
+    expect(screen.getAllByText('1 / 2').length).toBeGreaterThan(0);
   });
 
   it('renders the gantt with a projected finish date', async () => {
@@ -272,7 +284,7 @@ describe('RoadmapDetailPage', () => {
     renderPage();
 
     await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /schedule settings/i }));
+    await user.click(screen.getByRole('button', { name: /budget/i }));
 
     const dialog = await screen.findByRole('dialog');
     const hours = within(dialog).getByLabelText(/study hours per week/i);
@@ -290,7 +302,7 @@ describe('RoadmapDetailPage', () => {
     mockGetRoadmap.mockRejectedValue(new Error('network error'));
     renderPage();
 
-    await waitFor(() => expect(screen.getByText(/Failed to load this roadmap/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Could not load this roadmap\..*Nothing was changed\./i)).toBeInTheDocument());
 
     mockGetRoadmap.mockResolvedValue(makeDetail());
     await user.click(screen.getByRole('button', { name: /retry/i }));

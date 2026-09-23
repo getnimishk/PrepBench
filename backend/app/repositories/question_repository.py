@@ -3,8 +3,9 @@
 # Commercial use requires a separate licence from the copyright holder.
 
 from typing import List, Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only, lazyload
 from sqlalchemy import or_, func
+from app.core.text_match import LIKE_ESCAPE, contains_pattern
 from app.models.question import Question
 from app.models.option import QuestionOption
 from app.schemas.question import QuestionCreate, QuestionUpdate, QuestionFilter
@@ -16,11 +17,22 @@ class QuestionRepository:
     def get_by_id(self, question_id: int) -> Optional[Question]:
         return self.db.query(Question).filter(Question.id == question_id).first()
 
-    def get_distinct_filters(self) -> dict:
-        certifications = [r[0] for r in self.db.query(Question.certification).distinct().all() if r[0]]
-        domains = [r[0] for r in self.db.query(Question.domain).distinct().all() if r[0]]
-        topics = [r[0] for r in self.db.query(Question.topic).distinct().all() if r[0]]
-        difficulties = [r[0].value if hasattr(r[0], 'value') else str(r[0]) for r in self.db.query(Question.difficulty).distinct().all() if r[0]]
+    def get_distinct_filters(self, subject_id: Optional[int] = None) -> dict:
+        """The values each filter can take, for one preparation when named.
+
+        Unscoped, a PSM I drill offered every topic in every bank, and choosing
+        a Databricks topic produced a drill that matched nothing.
+        """
+        def distinct(column):
+            query = self.db.query(column).distinct()
+            if subject_id is not None:
+                query = query.filter(Question.subject_id == subject_id)
+            return query.all()
+
+        certifications = [r[0] for r in distinct(Question.certification) if r[0]]
+        domains = [r[0] for r in distinct(Question.domain) if r[0]]
+        topics = [r[0] for r in distinct(Question.topic) if r[0]]
+        difficulties = [r[0].value if hasattr(r[0], 'value') else str(r[0]) for r in distinct(Question.difficulty) if r[0]]
         return {
             "certifications": sorted(list(set(certifications))),
             "domains": sorted(list(set(domains))),
@@ -28,53 +40,107 @@ class QuestionRepository:
             "difficulties": sorted(list(set(difficulties))),
         }
 
+    @staticmethod
+    def _apply_filters(query, filter_params: Optional[QuestionFilter]):
+        """The listing filters, in one place for the page and its count.
+
+        These were written out twice, once in get_all and once in count. Two
+        copies of a filter set is a page and a total that disagree as soon as
+        anyone adds a filter to one of them -- "1 of 340 questions" over a table
+        of twelve, with nothing obviously wrong in either function. Adding
+        subject_id would have made a third copy, so it is one now.
+        """
+        if not filter_params:
+            return query
+        if filter_params.keyword:
+            # Literal: a % or _ in what was typed is that character. Global search
+            # counts questions through this same filter, so its "see all N in the
+            # Question Bank" and the bank's own total are the same number.
+            kw = contains_pattern(filter_params.keyword)
+            query = query.filter(or_(
+                Question.text.ilike(kw, escape=LIKE_ESCAPE),
+                Question.domain.ilike(kw, escape=LIKE_ESCAPE),
+                Question.topic.ilike(kw, escape=LIKE_ESCAPE),
+                Question.certification.ilike(kw, escape=LIKE_ESCAPE)
+            ))
+        if filter_params.domain:
+            query = query.filter(Question.domain == filter_params.domain)
+        if filter_params.topic:
+            query = query.filter(Question.topic == filter_params.topic)
+        if filter_params.certification:
+            query = query.filter(Question.certification == filter_params.certification)
+        if filter_params.subject_id is not None:
+            query = query.filter(Question.subject_id == filter_params.subject_id)
+        if filter_params.difficulty:
+            query = query.filter(Question.difficulty == filter_params.difficulty)
+        if filter_params.question_type:
+            query = query.filter(Question.question_type == filter_params.question_type)
+        if filter_params.is_reviewed is not None:
+            query = query.filter(Question.is_reviewed == filter_params.is_reviewed)
+        if filter_params.outcome:
+            # The same definition the status column and the practice previews use.
+            from app.services.question_evidence import outcome_criterion
+            query = query.filter(outcome_criterion(filter_params.outcome))
+        return query
+
     def get_all(self, skip: int = 0, limit: int = 100, filter_params: Optional[QuestionFilter] = None) -> List[Question]:
-        query = self.db.query(Question)
-        if filter_params:
-            if filter_params.keyword:
-                kw = f"%{filter_params.keyword}%"
-                query = query.filter(or_(
-                    Question.text.ilike(kw),
-                    Question.domain.ilike(kw),
-                    Question.topic.ilike(kw),
-                    Question.certification.ilike(kw)
-                ))
-            if filter_params.domain:
-                query = query.filter(Question.domain == filter_params.domain)
-            if filter_params.topic:
-                query = query.filter(Question.topic == filter_params.topic)
-            if filter_params.certification:
-                query = query.filter(Question.certification == filter_params.certification)
-            if filter_params.difficulty:
-                query = query.filter(Question.difficulty == filter_params.difficulty)
-            if filter_params.is_reviewed is not None:
-                query = query.filter(Question.is_reviewed == filter_params.is_reviewed)
+        query = self._apply_filters(self.db.query(Question), filter_params)
         return query.order_by(Question.id.desc()).offset(skip).limit(limit).all()
 
     def count(self, filter_params: Optional[QuestionFilter] = None) -> int:
-        query = self.db.query(func.count(Question.id))
-        if filter_params:
-            if filter_params.keyword:
-                kw = f"%{filter_params.keyword}%"
-                query = query.filter(or_(
-                    Question.text.ilike(kw),
-                    Question.domain.ilike(kw),
-                    Question.topic.ilike(kw),
-                    Question.certification.ilike(kw)
-                ))
-            if filter_params.domain:
-                query = query.filter(Question.domain == filter_params.domain)
-            if filter_params.topic:
-                query = query.filter(Question.topic == filter_params.topic)
-            if filter_params.certification:
-                query = query.filter(Question.certification == filter_params.certification)
-            if filter_params.difficulty:
-                query = query.filter(Question.difficulty == filter_params.difficulty)
-            if filter_params.is_reviewed is not None:
-                query = query.filter(Question.is_reviewed == filter_params.is_reviewed)
+        query = self._apply_filters(self.db.query(func.count(Question.id)), filter_params)
         return query.scalar() or 0
 
+    def resolve_subject_id(self, certification: Optional[str]) -> Optional[int]:
+        """The subject whose certification string is exactly this one, if any.
+
+        Exact equality, never a token or substring match. This is the same rule
+        the subject_id migration backfills with, and keeping write-time and
+        migration-time identical is the point: a question created today and one
+        imported last month end up owned by the same preparation.
+
+        The looser match is what allowed a Databricks question into a PSM I
+        mock, so it is not offered here even as a fallback. A certification
+        string that matches no subject leaves the question unowned, which is a
+        truthful answer.
+
+        Two subjects claiming the same certification string is ambiguous by
+        definition, and picking the lower id would be a coin toss dressed up as
+        a decision. That case returns None and logs, so the question is visibly
+        unowned rather than invisibly owned by whichever row was inserted
+        first. `Subject.certification` is not unique in the schema and cannot be
+        made so without rebuilding the table, so this is where the ambiguity has
+        to be handled.
+        """
+        if not (certification and certification.strip()):
+            return None
+        from app.models.subject import Subject
+
+        cert = certification.strip()
+        rows = (
+            self.db.query(Subject.id)
+            .filter(Subject.certification == cert)
+            .limit(2)
+            .all()
+        )
+        if not rows:
+            return None
+        if len(rows) > 1:
+            from app.core.logging_config import logger
+            logger.warning(
+                f"Certification {cert!r} is claimed by more than one preparation, "
+                "so a question carrying it cannot be attributed to either. It is "
+                "stored unowned. Give each preparation a distinct certification "
+                "name to resolve this."
+            )
+            return None
+        return rows[0][0]
+
     def create(self, obj_in: QuestionCreate) -> Question:
+        subject_id = obj_in.subject_id
+        if subject_id is None:
+            subject_id = self.resolve_subject_id(obj_in.certification)
+
         db_obj = Question(
             text=obj_in.text,
             question_type=obj_in.question_type,
@@ -83,6 +149,7 @@ class QuestionRepository:
             topic=obj_in.topic,
             subtopic=obj_in.subtopic,
             certification=obj_in.certification,
+            subject_id=subject_id,
             source=obj_in.source,
             tags=obj_in.tags,
             code_snippet=obj_in.code_snippet,
@@ -191,6 +258,7 @@ class QuestionRepository:
 
     def find_for_exam(
         self,
+        subject_id: Optional[int] = None,
         certification_conditions: Optional[list] = None,
         topics: Optional[List[str]] = None,
         domains: Optional[List[str]] = None,
@@ -204,9 +272,24 @@ class QuestionRepository:
         Takes prepared filter pieces rather than the request object, so the
         repository stays unaware of exam modes and the service keeps the rules
         about what those modes mean.
-        """
-        query = self.db.query(Question)
 
+        Only what choosing a paper reads -- the id and the domain -- is loaded.
+        The whole matching bank comes back here to draw eighty from, and loading
+        every question with its options (joined by default) turned a 5,000
+        question bank into 25,000 objects and most of two seconds before the
+        mock could start. The runner fetches the drawn questions in full itself.
+        """
+        query = self.db.query(Question).options(
+            load_only(Question.id, Question.domain, Question.topic, Question.difficulty),
+            lazyload(Question.options),
+        )
+
+        # Preparation scope, when the caller named one. An indexed integer
+        # equality, and exclusive: a question bound to no preparation, or to a
+        # different one, is not a candidate. The service decides when to pass
+        # this; the repository only runs it.
+        if subject_id is not None:
+            query = query.filter(Question.subject_id == subject_id)
         if certification_conditions:
             query = query.filter(or_(*certification_conditions))
         if topics:
@@ -226,6 +309,19 @@ class QuestionRepository:
             query = query.filter(Question.id.in_(restrict_to_ids))
 
         return query.all()
+
+    def count_for_subject(self, subject_id: int) -> int:
+        """How many questions this preparation owns.
+
+        Used to tell "your filters were too narrow" apart from "this
+        preparation has no question bank at all", which are different problems
+        with different answers.
+        """
+        return (
+            self.db.query(func.count(Question.id))
+            .filter(Question.subject_id == subject_id)
+            .scalar() or 0
+        )
 
     def count_options_for_questions(self, ids: List[int]) -> int:
         """Total option rows across the given questions, for import verification."""

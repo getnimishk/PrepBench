@@ -242,7 +242,7 @@ export const WhatChanged: React.FC<Props> = ({
                 clickable
                 onClick={() => onSelectFamily(f.id)}
                 label={`${f.label} · ${movement.countByFamily.get(f.id)} moved`}
-                sx={{ height: 22, fontSize: '0.68rem' }}
+                sx={{ minHeight: 22, fontSize: (t) => t.typography.pxToRem(10.88) }}
               />
             ))}
           </Stack>
@@ -267,7 +267,7 @@ export const WhatChanged: React.FC<Props> = ({
                     variant="outlined"
                     endIcon={<ArrowRight size={14} />}
                     onClick={() => onApply(applyExperiment(params, e))}
-                    sx={{ textTransform: 'none', textAlign: 'left' }}
+                    sx={{ textAlign: 'left' }}
                   >
                     {reach.label} {reach.from} → {reach.to}
                     <Box component="span" sx={{ opacity: 0.7, ml: 0.75 }}>

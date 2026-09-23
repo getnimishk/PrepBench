@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { AnalyticsPage } from './AnalyticsPage';
@@ -14,6 +14,11 @@ const mockGetScoreTrends = vi.fn();
 const mockGetSystemDesignAnalytics = vi.fn();
 const mockGetRecordingAnalytics = vi.fn();
 const mockGetSubjects = vi.fn();
+const mockPreparation = vi.fn();
+
+vi.mock('../context/PreparationContext', () => ({
+  usePreparation: () => mockPreparation(),
+}));
 
 vi.mock('../services/api', () => ({
   getDomainPerformance: (...args: any[]) => mockGetDomainPerformance(...args),
@@ -26,7 +31,7 @@ vi.mock('../services/api', () => ({
 /** A subject with enough evidence for the exam tab to have a reading. */
 const MEASURED = {
   id: 1, name: 'Scrum / PSM I', slug: 'psm-i', kind: 'certification' as const,
-  pass_mark: 85, exam_question_count: 80, exam_minutes: 60, has_exam_profile: true, question_count: 500,
+  pass_mark: 85, exam_question_count: 80, exam_minutes: 60, has_exam_profile: true, is_archived: false, display_order: 100, question_count: 500,
   readiness: {
     state: 'almost_there' as const, mock_count: 6, pass_mark: 85,
     recent_scores: [70, 82.5, 87.5, 92.5], latest_taken_at: null, is_stale: false,
@@ -82,6 +87,8 @@ beforeEach(() => {
   mockGetSystemDesignAnalytics.mockResolvedValue(emptySdAnalytics);
   mockGetRecordingAnalytics.mockResolvedValue(emptyIpAnalytics);
   mockGetSubjects.mockResolvedValue([]);
+  // Nothing picked: the page falls back to the preparation with the most mocks.
+  mockPreparation.mockReturnValue({ selectedId: null, selected: null });
 });
 
 describe('AnalyticsPage', () => {
@@ -120,7 +127,54 @@ describe('AnalyticsPage', () => {
     renderPage();
 
     expect(await screen.findByText('Everything you have ever answered')).toBeInTheDocument();
-    expect(screen.getByText(/every session, drills included/i)).toBeInTheDocument();
+    expect(screen.getByText(/every Scrum \/ PSM I session, drills included/i)).toBeInTheDocument();
+  });
+
+  it('reads only the described preparation, and reads again when another is picked', async () => {
+    const OTHER = { ...MEASURED, id: 2, name: 'AWS Solutions Architect', readiness: { ...MEASURED.readiness, mock_count: 1 } };
+    mockGetSubjects.mockResolvedValue([MEASURED, OTHER]);
+    mockPreparation.mockReturnValue({ selectedId: 1, selected: MEASURED });
+    const view = renderPage();
+
+    expect(await screen.findByText('What changed')).toBeInTheDocument();
+    expect(mockGetDomainPerformance).toHaveBeenLastCalledWith(1);
+    expect(mockGetScoreTrends).toHaveBeenLastCalledWith(1);
+    expect(screen.getByText('Scrum / PSM I')).toBeInTheDocument();
+
+    mockPreparation.mockReturnValue({ selectedId: 2, selected: OTHER });
+    view.rerender(
+      <MemoryRouter>
+        <AnalyticsPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(mockGetDomainPerformance).toHaveBeenLastCalledWith(2));
+    expect(mockGetScoreTrends).toHaveBeenLastCalledWith(2);
+    expect(await screen.findByText('AWS Solutions Architect')).toBeInTheDocument();
+  });
+
+  it('opens an area from either list, for the preparation being described', async () => {
+    mockGetSubjects.mockResolvedValue([MEASURED]);
+    mockGetDomainPerformance.mockResolvedValue([
+      { domain: 'Scrum Events', total_attempted: 40, correct_count: 30, accuracy_percentage: 75 },
+    ]);
+    renderPage();
+
+    const row = await screen.findByRole('link', { name: /Scrum Events: 75%/ });
+    expect(row).toHaveAttribute('href', '/analytics/area?subject=1&domain=Scrum%20Events');
+    const verdictRow = screen.getByRole('link', { name: /Managing Products with Agility: 71%/ });
+    expect(verdictRow).toHaveAttribute('href', '/analytics/area?subject=1&domain=Managing%20Products%20with%20Agility');
+  });
+
+  it('shows what the verdict rests on and what would change it', async () => {
+    const user = userEvent.setup();
+    mockGetSubjects.mockResolvedValue([MEASURED]);
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Why am I seeing this?' }));
+    const panel = screen.getByRole('region', { name: 'Why am I seeing this' });
+    expect(within(panel).getByText(/Managing Products with Agility: 71% across your recent mocks, 53 questions answered/)).toBeInTheDocument();
+    expect(within(panel).getByText(/reaching 80% in the mocks that decide readiness/)).toBeInTheDocument();
   });
 
   it('switching to System Design tab shows its empty state when there are zero graded attempts', async () => {
@@ -164,7 +218,7 @@ describe('AnalyticsPage', () => {
 
     // The three KPI tiles are gone; the same facts are one sentence.
     await waitFor(() =>
-      expect(screen.getByText(/2 of 3 attempts graded, averaging 70%/)).toBeInTheDocument()
+      expect(screen.getByText(/2 of 3 attempts graded, averaging 7.0 \/ 10/)).toBeInTheDocument()
     );
     expect(screen.getByText('Requirements Clarification')).toBeInTheDocument();
     expect(screen.getByText('Design a Rate Limiter')).toBeInTheDocument();
@@ -203,7 +257,7 @@ describe('AnalyticsPage', () => {
     renderPage();
     await user.click(await screen.findByRole('tab', { name: 'System Design' }));
 
-    await waitFor(() => expect(screen.getByText(/Failed to load System Design analytics/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Could not load System Design insights\..*Nothing was changed\./i)).toBeInTheDocument());
     expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
 
     // Exams tab (already loaded before switching) is unaffected.

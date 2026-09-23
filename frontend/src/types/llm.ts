@@ -68,6 +68,8 @@ export interface LLMVerifyResult {
 export interface LLMTaskBinding {
   task: string;
   label: string;
+  /** What the feature does when no provider can run it. Never an invented result. */
+  fallback: string;
   capability: string;
   bound_provider_id: number | null;
   bound_model: string | null;
@@ -156,4 +158,11 @@ export interface LauncherScript {
   command: string;
   os_family: string;
   port: number | null;
+}
+
+export interface CatalogRefreshResponse {
+  ok: boolean;
+  models_count: number;
+  new_models_added: number;
+  message: string;
 }

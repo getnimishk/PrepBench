@@ -28,6 +28,9 @@ class RecordingAnalysis(Base):
     content_scores = Column(JSON, default=list)  # list of {category, score, max_score, feedback}
     content_summary = Column(Text, nullable=True)
 
+    # Comparison against the learner's prepared answer / key talking points (when present)
+    answer_comparison = Column(JSON, nullable=True)
+
     # "analyzed" | "unavailable" (no provider configured) | "error" (call/parse failed)
     analysis_status = Column(String(20), nullable=False, default="unavailable")
     analysis_error = Column(Text, nullable=True)

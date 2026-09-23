@@ -24,8 +24,15 @@ backend/data/*.db-journal
 backend/data/*.db-wal
 backend/data/*.db-shm
 
+# Models this machine's Ollama catalogue sync discovered. The shipped
+# catalogue is backend/app/data/local_models.json, tracked; this is local state.
+backend/data/local_models.custom.json
+
 # Personal audio recordings
 backend/data/recordings/
+# Recordings made by the browser tests
+backend/data/e2e_recordings/
+backend/data/e2e_secrets/
 
 # Logs
 logs/
@@ -49,3 +56,8 @@ Thumbs.db
 .coverage.*
 htmlcov/
 coverage/
+
+# Playwright output. Traces and screenshots from failed browser tests; useful
+# locally, noise in a diff.
+frontend/playwright-report/
+frontend/test-results/

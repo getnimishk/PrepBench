@@ -86,6 +86,12 @@ def submit_attempt(req: SubmitReviewAttemptRequest, db: Session = Depends(get_db
     return service.submit_attempt(req)
 
 
+@router.post("/attempts/{attempt_id}/grade", response_model=DesignReviewAttemptResponse)
+def regrade_attempt(attempt_id: int, db: Session = Depends(get_db)):
+    """Seek a verdict for an attempt committed without one. 409 once it has one."""
+    return DesignReviewService(db).regrade_attempt(attempt_id)
+
+
 @router.get("/{review_id}", response_model=DesignReviewDetail)
 def get_review(review_id: int, db: Session = Depends(get_db)):
     """The brief and both options. Never the deciding axis or the reveal."""

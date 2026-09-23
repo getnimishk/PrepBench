@@ -20,8 +20,8 @@ Two rules shape the queue:
   Freshest first. A miss from last night's mock is worth more than one from
   six weeks ago, because the reasoning that produced it is still recoverable.
 """
-from typing import List, Optional
-from datetime import datetime, UTC
+from typing import Annotated, List, Optional
+from datetime import datetime, timedelta, UTC
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
@@ -34,14 +34,25 @@ from app.models.exam_answer import ConfidenceLevel, ExamAnswer
 from app.models.exam_session import ExamSession, ExamStatus
 from app.models.question import Question
 from app.models.review_check import ReviewCheck
-from app.repositories.subject_repository import LEARNER, MOCK
+from app.repositories.subject_repository import LEARNER, MOCK, SubjectRepository, session_belongs_to
+from app.repositories.settings_repository import SettingsRepository
+from app.services.home_service import HomeService
 from app.services.review_service import ReviewService
 
 router = APIRouter(prefix="/review", tags=["Review"])
 
 # A session's worth. Twenty wrong answers, read properly, is a real evening;
 # it is also the point past which people stop reading and start clicking.
+#
+# Now the *default* for the learner's own setting (app_settings.review_daily_cap)
+# rather than the only value. The route still refuses anything above
+# MAX_REVIEW_DAILY_CAP whatever is stored, and the handler clamps to the stored
+# cap -- so a caller can ask for fewer, never more.
 DAILY_REVIEW_CAP = 20
+MAX_REVIEW_DAILY_CAP = 200
+
+# How far back "recently strengthened" looks.
+VERIFIED_WINDOW_DAYS = 30
 
 
 class ReviewOption(BaseModel):
@@ -89,6 +100,28 @@ class ReviewQueue(BaseModel):
     # slice, never rendered as a debt.
     remaining: int
     total_unreviewed: int
+    # A different queue: questions the spaced schedule has brought round again.
+    # Same scope as the items above, so Review never offers a memory drill for
+    # one preparation on the strength of another's schedule.
+    spaced_due: int = 0
+    # What the checks have shown, per miss, by its most recent check. A miss
+    # whose last check failed has not transferred yet; one whose last check
+    # passed within VERIFIED_WINDOW_DAYS was recently strengthened. A miss read
+    # without a check is in neither: nothing verified it either way.
+    needs_retry: int = 0
+    verified_recently: int = 0
+    verified_window_days: int = 0
+
+
+class ReviewCounts(BaseModel):
+    """How much review is waiting, without the review itself.
+
+    For the navigation's badge, which is read on every screen. The queue carries
+    each miss with its options, explanation and a check question; a number in the
+    sidebar needs none of that.
+    """
+    unreviewed: int
+    spaced_due: int
 
 
 class CheckRequest(BaseModel):
@@ -108,8 +141,8 @@ class CheckResult(BaseModel):
     verdict: str
 
 
-def _unreviewed_query(db: Session):
-    return (
+def _unreviewed_query(db: Session, subject=None):
+    query = (
         db.query(ExamAnswer)
         .join(ExamSession, ExamSession.id == ExamAnswer.session_id)
         .filter(
@@ -120,18 +153,81 @@ def _unreviewed_query(db: Session):
             ExamAnswer.reviewed_at.is_(None),
         )
     )
+    if subject is not None:
+        # The same ownership rule Home's daily goal counts with, so "Nothing due"
+        # on Home and an empty queue here are the same fact, not two guesses.
+        query = query.filter(session_belongs_to(subject))
+    return query
+
+
+def _check_outcomes(db: Session, subject, now: Optional[datetime] = None) -> tuple[int, int]:
+    """(needs retry, verified recently), each miss counted once by its latest check.
+
+    One grouped query for the latest check of every checked miss in scope, so a
+    concept checked five times is one concept, and a failure followed by a pass
+    is a pass.
+    """
+    now = now or datetime.now(UTC).replace(tzinfo=None)
+    latest = (
+        db.query(ReviewCheck.answer_id, func.max(ReviewCheck.id).label("last_id"))
+        .group_by(ReviewCheck.answer_id)
+        .subquery()
+    )
+    query = (
+        db.query(ReviewCheck.passed, ReviewCheck.created_at)
+        .join(latest, ReviewCheck.id == latest.c.last_id)
+        .join(ExamAnswer, ExamAnswer.id == ReviewCheck.answer_id)
+        .join(ExamSession, ExamSession.id == ExamAnswer.session_id)
+        .filter(ExamSession.source == LEARNER)
+    )
+    if subject is not None:
+        query = query.filter(session_belongs_to(subject))
+    cutoff = now - timedelta(days=VERIFIED_WINDOW_DAYS)
+    needs_retry = verified = 0
+    for passed, created_at in query.all():
+        if not passed:
+            needs_retry += 1
+        elif created_at is not None and created_at >= cutoff:
+            verified += 1
+    return needs_retry, verified
 
 
 @router.get("/queue", response_model=ReviewQueue)
 def review_queue(
-    limit: int = Query(DAILY_REVIEW_CAP, ge=1, le=DAILY_REVIEW_CAP),
+    limit: Optional[int] = Query(None, ge=1, le=MAX_REVIEW_DAILY_CAP),
+    # Annotated, so the Python default is a real None. The tests call this route
+    # function directly; with `= Query(None)` as the default they would receive the
+    # Query marker object instead of None and try to look up a subject by it.
+    subject_id: Annotated[Optional[int], Query(
+        description=(
+            "Only this preparation's mistakes. Omit for all of them, which is the "
+            "default so no existing caller changes. Without it, switching to another "
+            "preparation left the queue listing the first one's mistakes."
+        ),
+    )] = None,
     db: Session = Depends(get_db),
 ):
-    """Today's review: the newest unreviewed misses, with their explanations."""
-    total = _unreviewed_query(db).with_entities(func.count(ExamAnswer.id)).scalar() or 0
+    """Today's review: the newest unreviewed misses, with their explanations.
+
+    Bounded twice, and both halves matter. The route refuses any `limit` above
+    MAX_REVIEW_DAILY_CAP, so the bound is not merely a default a caller can argue
+    past. The handler then clamps to the learner's own review_daily_cap, so the
+    queue never serves more than the day's goal says -- a caller may ask for
+    fewer, never more.
+    """
+    cap = SettingsRepository(db).get_or_create().review_daily_cap or DAILY_REVIEW_CAP
+    limit = cap if limit is None else min(limit, cap)
+
+    subject = None
+    if subject_id is not None:
+        subject = SubjectRepository(db).get_by_id(subject_id)
+        if subject is None:
+            raise ResourceNotFoundException("Subject", subject_id)
+
+    total = _unreviewed_query(db, subject).with_entities(func.count(ExamAnswer.id)).scalar() or 0
 
     rows = (
-        _unreviewed_query(db)
+        _unreviewed_query(db, subject)
         .options(joinedload(ExamAnswer.question).joinedload(Question.options))
         .order_by(ExamSession.start_time.desc(), ExamAnswer.id.asc())
         .limit(limit)
@@ -179,10 +275,36 @@ def review_queue(
             )
         )
 
+    needs_retry, verified = _check_outcomes(db, subject)
     return ReviewQueue(
         items=items,
         remaining=max(0, total - len(items)),
         total_unreviewed=total,
+        spaced_due=HomeService(db).due_for_review_count(subject),
+        needs_retry=needs_retry,
+        verified_recently=verified,
+        verified_window_days=VERIFIED_WINDOW_DAYS,
+    )
+
+
+@router.get("/counts", response_model=ReviewCounts)
+def review_counts(
+    subject_id: Annotated[Optional[int], Query(
+        description="Only this preparation's review. Omit for every preparation's.",
+    )] = None,
+    db: Session = Depends(get_db),
+):
+    """Unreviewed mock misses and spaced-repetition questions due, counted the way
+    the queue counts them."""
+    subject = None
+    if subject_id is not None:
+        subject = SubjectRepository(db).get_by_id(subject_id)
+        if subject is None:
+            raise ResourceNotFoundException("Subject", subject_id)
+    home = HomeService(db)
+    return ReviewCounts(
+        unreviewed=_unreviewed_query(db, subject).with_entities(func.count(ExamAnswer.id)).scalar() or 0,
+        spaced_due=home.due_for_review_count(subject),
     )
 
 

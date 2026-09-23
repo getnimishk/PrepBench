@@ -105,6 +105,8 @@ class TaskBindingInfo(BaseModel):
 
     task: str
     label: str
+    # What the feature does when nothing can run it. Never an invented result.
+    fallback: str = ""
     capability: str
     bound_provider_id: Optional[int] = None
     bound_model: Optional[str] = None
@@ -198,3 +200,10 @@ class LauncherScript(BaseModel):
     command: str
     os_family: str
     port: Optional[int] = None
+
+
+class CatalogRefreshResponse(BaseModel):
+    ok: bool
+    models_count: int
+    new_models_added: int
+    message: str

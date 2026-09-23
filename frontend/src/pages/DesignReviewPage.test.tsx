@@ -12,11 +12,15 @@ import { DesignReviewPage } from './DesignReviewPage';
 const mockGetReview = vi.fn();
 const mockGetLatest = vi.fn();
 const mockSubmit = vi.fn();
+const mockRegrade = vi.fn();
+const mockList = vi.fn();
 
 vi.mock('../services/api', () => ({
   getDesignReview: (...args: any[]) => mockGetReview(...args),
   getLatestDesignReviewAttempt: (...args: any[]) => mockGetLatest(...args),
   submitDesignReviewAttempt: (...args: any[]) => mockSubmit(...args),
+  regradeDesignReviewAttempt: (...args: any[]) => mockRegrade(...args),
+  getDesignReviews: (...args: any[]) => mockList(...args),
 }));
 
 const REVIEW = {
@@ -112,10 +116,10 @@ describe('DesignReviewPage', () => {
     await screen.findByText('Serverless SQL warehouse');
 
     await user.click(screen.getByText('Serverless SQL warehouse'));
-    expect(screen.getByRole('button', { name: /commit and see the reveal/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /commit decision/i })).toBeDisabled();
 
     await user.type(screen.getByPlaceholderText(/two or three sentences/i), 'Duty cycle decides it.');
-    expect(screen.getByRole('button', { name: /commit and see the reveal/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /commit decision/i })).toBeEnabled();
   });
 
   it('will not accept reasoning with no choice', async () => {
@@ -124,7 +128,7 @@ describe('DesignReviewPage', () => {
     await screen.findByText('Serverless SQL warehouse');
 
     await user.type(screen.getByPlaceholderText(/two or three sentences/i), 'Some reasoning.');
-    expect(screen.getByRole('button', { name: /commit and see the reveal/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /commit decision/i })).toBeDisabled();
   });
 
   it('reveals the deciding axis and both failure modes after committing', async () => {
@@ -134,7 +138,7 @@ describe('DesignReviewPage', () => {
 
     await user.click(screen.getByText('Provisioned warehouse with auto-stop'));
     await user.type(screen.getByPlaceholderText(/two or three sentences/i), 'Utilisation looks high.');
-    await user.click(screen.getByRole('button', { name: /commit and see the reveal/i }));
+    await user.click(screen.getByRole('button', { name: /commit decision/i }));
 
     expect(await screen.findByText(ATTEMPT.reveal.deciding_axis)).toBeInTheDocument();
     expect(screen.getByText(ATTEMPT.reveal.elicit_answer)).toBeInTheDocument();
@@ -150,7 +154,7 @@ describe('DesignReviewPage', () => {
 
     await user.click(screen.getByText('Serverless SQL warehouse'));
     await user.type(screen.getByPlaceholderText(/two or three sentences/i), 'Reasoning.');
-    await user.click(screen.getByRole('button', { name: /commit and see the reveal/i }));
+    await user.click(screen.getByRole('button', { name: /commit decision/i }));
 
     expect(await screen.findByText('Not graded')).toBeInTheDocument();
     expect(screen.queryByText('0%')).not.toBeInTheDocument();
@@ -163,7 +167,7 @@ describe('DesignReviewPage', () => {
 
     await user.click(screen.getByText(/neither — I would ask something first/i));
     await user.type(screen.getByPlaceholderText(/what would you ask/i), 'What are the query-hours?');
-    await user.click(screen.getByRole('button', { name: /commit and see the reveal/i }));
+    await user.click(screen.getByRole('button', { name: /commit decision/i }));
 
     await waitFor(() =>
       expect(mockSubmit).toHaveBeenCalledWith(expect.objectContaining({ choice: 'ask_first' }))
@@ -201,7 +205,7 @@ describe('DesignReviewPage', () => {
 
     await user.click(screen.getByText(/neither — I would ask something first/i));
     await user.type(screen.getByPlaceholderText(/what would you ask/i), 'I dislike both.');
-    await user.click(screen.getByRole('button', { name: /commit and see the reveal/i }));
+    await user.click(screen.getByRole('button', { name: /commit decision/i }));
 
     expect(
       await screen.findByText(/only when it names the question/i)
@@ -212,15 +216,20 @@ describe('DesignReviewPage', () => {
     mockGetLatest.mockResolvedValue(ATTEMPT);
     renderPage();
 
-    expect(await screen.findByDisplayValue(ATTEMPT.justification)).toBeInTheDocument();
+    // What was said is shown as said, beside the reveal -- not as a box to edit.
+    expect((await screen.findAllByText(ATTEMPT.justification)).length).toBeGreaterThan(0);
     expect(screen.getByText(ATTEMPT.reveal.deciding_axis)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /commit and see the reveal/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /commit decision/i })).not.toBeInTheDocument();
   });
 
-  it('surfaces a load failure instead of rendering an empty review', async () => {
-    mockGetReview.mockRejectedValue(new Error('network'));
+  it('surfaces a load failure instead of rendering an empty review, and loads on retry', async () => {
+    const user = userEvent.setup();
+    mockGetReview.mockRejectedValueOnce({ isAxiosError: true, request: {} });
     renderPage();
-    expect(await screen.findByText(/failed to load this design review/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Could not load this design review\. Could not reach the PrepBench server\..*Nothing was changed\./)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText(REVIEW.title)).toBeInTheDocument();
   });
 
   it('shows the verdict and its feedback when the answer was graded', async () => {
@@ -262,4 +271,71 @@ describe('DesignReviewPage', () => {
     expect(screen.queryByText('Partly there')).not.toBeInTheDocument();
     expect(screen.queryByText('You named the deciding axis')).not.toBeInTheDocument();
   });
+
+  describe('after the reveal', () => {
+    const renderOpen = () => render(
+      <MemoryRouter initialEntries={['/design-reviews/2']}>
+        <Routes>
+          <Route path="/design-reviews/:reviewId" element={<DesignReviewPage />} />
+          <Route path="/design-reviews" element={<div>List Page</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    beforeEach(() => {
+      mockGetReview.mockResolvedValue(REVIEW);
+      mockGetLatest.mockResolvedValue(ATTEMPT);
+    });
+
+    it('puts what you said beside what the strongest answer asks', async () => {
+      renderOpen();
+
+      expect(await screen.findByText('Compare your reasoning')).toBeInTheDocument();
+      expect(screen.getByText('You said · Option B')).toBeInTheDocument();
+      expect(screen.getAllByText(ATTEMPT.justification).length).toBeGreaterThan(0);
+      expect(screen.getByText(ATTEMPT.reveal.elicit_answer)).toBeInTheDocument();
+    });
+
+    it('grades an ungraded commit again, keeping the choice and the reasoning', async () => {
+      const user = userEvent.setup();
+      mockRegrade.mockResolvedValue({
+        ...ATTEMPT, grading_status: 'graded', axis_verdict: 'missed',
+        feedback: 'Utilisation was the axis, but you never asked for the query-hours.',
+      });
+      renderOpen();
+
+      await user.click(await screen.findByRole('button', { name: 'Grade again' }));
+
+      expect(mockRegrade).toHaveBeenCalledWith(77);
+      expect(await screen.findByText('Missed the axis')).toBeInTheDocument();
+      expect(screen.getByText(/never asked for the query-hours/)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Grade again' })).not.toBeInTheDocument();
+    });
+
+    it('goes straight to the next review not yet attempted', async () => {
+      const user = userEvent.setup();
+      mockList.mockResolvedValue({
+        items: [
+          { id: 1, title: 'Done', domain: 'd', difficulty: 'easy', concepts: [], attempted: true },
+          { id: 2, title: REVIEW.title, domain: 'd', difficulty: 'medium', concepts: [], attempted: true },
+          { id: 5, title: 'Fresh', domain: 'd', difficulty: 'hard', concepts: [], attempted: false },
+        ],
+        total: 3,
+      });
+      mockGetReview.mockImplementation((reviewId: number) => Promise.resolve(
+        reviewId === 5 ? { ...REVIEW, id: 5, title: 'The fresh one' } : REVIEW,
+      ));
+      mockGetLatest.mockImplementation((reviewId: number) => Promise.resolve(reviewId === 5 ? null : ATTEMPT));
+      renderOpen();
+
+      await user.click(await screen.findByRole('button', { name: /Next review/ }));
+
+      expect(await screen.findByText('The fresh one')).toBeInTheDocument();
+      expect(mockGetReview).toHaveBeenLastCalledWith(5);
+      // A new exercise, not the last one's reveal: nothing is committed yet.
+      expect(await screen.findByRole('button', { name: /Commit decision/ })).toBeInTheDocument();
+      expect(screen.queryByText('Compare your reasoning')).not.toBeInTheDocument();
+    });
+  });
 });
+

@@ -97,6 +97,12 @@ def list_attempts(
     return service.list_attempts(skip=skip, limit=limit)
 
 
+@router.post("/attempts/{attempt_id}/grade", response_model=SystemDesignAttemptResponse)
+def regrade_attempt(attempt_id: int, db: Session = Depends(get_db)):
+    """Grade an attempt that was saved without one. 409 if it is already graded."""
+    return SystemDesignService(db).regrade_attempt(attempt_id)
+
+
 @router.get("/attempts/{attempt_id}", response_model=SystemDesignAttemptResponse)
 def get_attempt(attempt_id: int, db: Session = Depends(get_db)):
     service = SystemDesignService(db)

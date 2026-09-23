@@ -16,6 +16,7 @@ from app.models.design_review import DesignReview, DesignOption, DesignReviewAtt
 from app.models.system_design_attempt import SystemDesignAttempt
 from app.models.system_design_draft import SystemDesignDraft
 from app.models.practice_recording import PracticeRecording
+from app.models.interview_session import InterviewSession
 from app.models.recording_analysis import RecordingAnalysis
 from app.models.interview_question import InterviewQuestion, InterviewRoundType
 from app.models.roadmap import (
@@ -24,8 +25,11 @@ from app.models.roadmap import (
     RoadmapTopic,
     RoadmapResource,
     RoadmapTopicStatus,
+    TopicDemonstration,
+    TopicGuideSection,
 )
 from app.models.llm_config import LLMProviderConfig, LLMTaskBinding
+from app.models.learning_attempt import LearningAttempt
 
 __all__ = [
     "Question",
@@ -50,6 +54,7 @@ __all__ = [
     "SystemDesignAttempt",
     "SystemDesignDraft",
     "PracticeRecording",
+    "InterviewSession",
     "RecordingAnalysis",
     "InterviewQuestion",
     "InterviewRoundType",
@@ -58,6 +63,9 @@ __all__ = [
     "RoadmapTopic",
     "RoadmapResource",
     "RoadmapTopicStatus",
+    "TopicDemonstration",
+    "TopicGuideSection",
     "LLMProviderConfig",
     "LLMTaskBinding",
+    "LearningAttempt",
 ]

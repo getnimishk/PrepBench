@@ -41,6 +41,7 @@ from app.schemas.llm_config import (
     TaskBindingInfo,
     TaskBindingUpdate,
     VerifyResult,
+    CatalogRefreshResponse,
 )
 
 TASK_LABELS = {
@@ -50,6 +51,22 @@ TASK_LABELS = {
     LLMTask.RECORDING_ANALYSIS: "Interview recording analysis",
     LLMTask.CONTENT_VALIDATION: "Question content validation",
     LLMTask.EMBEDDING: "Semantic search indexing",
+    LLMTask.DESIGN_REVIEW_GRADING: "Design Review grading",
+    LLMTask.TOPIC_GUIDE_DRAFTING: "Study guide drafting",
+}
+
+# What each feature does when no provider can run it. Stated next to the
+# features' own code paths' behaviour, so Settings can say it rather than leave
+# the learner to find out: nothing here is ever replaced by an invented result.
+TASK_FALLBACKS = {
+    LLMTask.SYSTEM_DESIGN_GRADING: "The answer is saved as Not graded and can be graded later.",
+    LLMTask.DESIGN_REVIEW_GRADING: "The decision is saved; the verdict shows Not graded until graded again.",
+    LLMTask.RECORDING_ANALYSIS: "The recording is saved; its analysis shows Not graded.",
+    LLMTask.TOPIC_GUIDE_DRAFTING: "No draft is written; you can write the guide yourself.",
+    LLMTask.CONTENT_VALIDATION: "Skipped: each imported question is marked for your own review instead.",
+    LLMTask.INTERVIEW_QUESTION_GEN: "Generation is unavailable; the built-in question bank still works.",
+    LLMTask.SYSTEM_DESIGN_PROMPT_GEN: "Generation is unavailable; the built-in prompt bank still works.",
+    LLMTask.EMBEDDING: "Question checks use keyword matching instead of semantic search.",
 }
 
 # Ports probed by local detection, in the order a user is most likely to have
@@ -419,6 +436,15 @@ class LLMConfigService:
     def list_local_models(self, ram_gb: Optional[float] = None) -> List[LocalModelOption]:
         return [LocalModelOption(**m) for m in local_setup.recommend_models(ram_gb)]
 
+    def refresh_local_models(self) -> CatalogRefreshResponse:
+        ok, count, added, message = local_setup.refresh_catalogue_from_ollama()
+        return CatalogRefreshResponse(
+            ok=ok,
+            models_count=count,
+            new_models_added=added,
+            message=message,
+        )
+
     def list_runners(self) -> List[RunnerInfo]:
         return [RunnerInfo(**r) for r in local_setup.list_runners()]
 
@@ -460,6 +486,7 @@ class LLMConfigService:
             out.append(TaskBindingInfo(
                 task=task.value,
                 label=TASK_LABELS.get(task, task.value),
+                fallback=TASK_FALLBACKS.get(task, "Unavailable until a provider is configured."),
                 capability=spec.capability.value,
                 bound_provider_id=binding.provider_config_id if binding else None,
                 bound_model=binding.model if binding else None,
@@ -467,7 +494,9 @@ class LLMConfigService:
                 resolved_provider_name=conn.provider_name if conn else None,
                 resolved_model=model,
                 is_available=conn is not None and model is not None,
-                unavailable_reason=reason,
+                # The gateway names the task by its key; a screen names it by
+                # the label the learner sees beside it.
+                unavailable_reason=reason.replace(task.value, TASK_LABELS.get(task, task.value)) if reason else None,
                 cloud_timeout_seconds=spec.cloud_timeout,
                 local_timeout_seconds=spec.local_timeout,
             ))

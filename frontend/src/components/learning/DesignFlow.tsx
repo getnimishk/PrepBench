@@ -3,7 +3,7 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React from 'react';
-import { Box, Typography, useTheme } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { ChevronRight } from 'lucide-react';
 import { FlowStage } from '../../types/designReview';
 
@@ -23,8 +23,6 @@ interface DesignFlowProps {
  * marking it is the difference between a diagram and an even row of boxes.
  */
 export const DesignFlow: React.FC<DesignFlowProps> = ({ stages }) => {
-  const theme = useTheme();
-
   if (!stages.length) return null;
 
   return (
@@ -44,14 +42,10 @@ export const DesignFlow: React.FC<DesignFlowProps> = ({ stages }) => {
               minWidth: 96,
               px: 1.25,
               py: 0.75,
-              borderRadius: 1,
+              borderRadius: '6px',
               border: '1px solid',
-              borderColor: stage.emphasis ? 'warning.main' : 'divider',
-              bgcolor: stage.emphasis
-                ? theme.palette.mode === 'dark'
-                  ? 'rgba(255,180,161,0.10)'
-                  : 'rgba(143,76,56,0.07)'
-                : 'transparent',
+              borderColor: stage.emphasis ? 'pb.noteLine' : 'divider',
+              bgcolor: stage.emphasis ? 'pb.warningSoft' : 'background.default',
             }}
           >
             <Typography
@@ -66,7 +60,7 @@ export const DesignFlow: React.FC<DesignFlowProps> = ({ stages }) => {
                 sx={{
                   display: 'block',
                   color: stage.emphasis ? 'warning.main' : 'text.secondary',
-                  fontSize: '0.68rem',
+                  fontSize: (t) => t.typography.pxToRem(10.88),
                   lineHeight: 1.35,
                 }}
               >

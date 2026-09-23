@@ -63,8 +63,25 @@ def test_the_dead_settings_columns_are_gone_from_the_table(db):
     for dead in DEAD_SETTINGS_COLUMNS:
         assert dead not in present, f"app_settings still carries {dead}"
     # And what should be there, is.
+    #
+    # review_daily_cap was added in Phase 4 together with the two things that
+    # read it -- HomeService.daily_goals and GET /review/queue -- which is the
+    # line this test exists to hold. daily_practice_goal was dropped because
+    # nothing read it; a column may live here only if something does.
+    #
+    # The Phase 14 four each arrived with their reader too: text_size and
+    # reduce_motion are applied by the frontend's theme, shortcuts_enabled
+    # gates every keyboard shortcut, and notification_triggers filters
+    # NotificationService.
+    #
+    # display_name and email are read by the profile and shown there: the name
+    # also draws the header's initials, and both label the Profile row in
+    # Settings. There is no account behind them and nothing else reads them.
     assert set(present) == {
-        "id", "theme", "timer_sound_enabled", "initial_seed_completed", "default_target_role",
+        "id", "theme", "timer_sound_enabled", "initial_seed_completed",
+        "default_target_role", "review_daily_cap",
+        "text_size", "reduce_motion", "shortcuts_enabled", "notification_triggers",
+        "display_name", "email",
     }
 
 
@@ -96,7 +113,10 @@ def test_nothing_in_the_application_reads_a_dead_settings_column():
 
 def test_the_settings_api_exposes_only_the_settings_that_do_something(client):
     body = client.get("/api/v1/settings").json()
-    assert set(body) == {"theme", "timer_sound_enabled", "default_target_role"}
+    assert set(body) == {
+        "theme", "timer_sound_enabled", "default_target_role", "review_daily_cap",
+        "text_size", "reduce_motion", "shortcuts_enabled", "notification_triggers",
+    }
 
 
 def test_first_answered_at_is_live_and_immutable(db):

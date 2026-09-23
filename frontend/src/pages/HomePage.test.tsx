@@ -4,7 +4,8 @@
 
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { HomePage } from './HomePage';
 import { Subject } from '../types/subject';
@@ -13,13 +14,27 @@ const mockGetSubjects = vi.fn();
 const mockGetHome = vi.fn();
 const mockGetOther = vi.fn();
 const mockGetFocus = vi.fn();
+const mockGetGoals = vi.fn();
+const mockGetRoadmaps = vi.fn();
 
 vi.mock('../services/api', () => ({
   getSubjects: (...a: any[]) => mockGetSubjects(...a),
   getHomeSummary: (...a: any[]) => mockGetHome(...a),
   getOtherPreparation: (...a: any[]) => mockGetOther(...a),
   getFocusTopics: (...a: any[]) => mockGetFocus(...a),
+  getDailyGoals: (...a: any[]) => mockGetGoals(...a),
+  getRoadmaps: (...a: any[]) => mockGetRoadmaps(...a),
 }));
+
+/**
+ * Buttons that do something, as opposed to one that opens an explanation.
+ *
+ * "One continuation" is about what the page asks you to do. "Why am I seeing
+ * this?" asks nothing of you -- it shows the evidence behind the ask -- so it
+ * is counted apart rather than hidden from the count.
+ */
+const callsToAction = () =>
+  screen.queryAllByRole('button').filter((b) => !b.hasAttribute('aria-expanded'));
 
 const CERT: Subject = {
   id: 1,
@@ -29,7 +44,7 @@ const CERT: Subject = {
   pass_mark: 85,
   exam_question_count: 80,
   exam_minutes: 60,
-  has_exam_profile: true, question_count: 500,
+  has_exam_profile: true, is_archived: false, display_order: 100, question_count: 500,
   readiness: {
     state: 'almost_there',
     mock_count: 6,
@@ -56,7 +71,7 @@ const SKILL: Subject = {
   pass_mark: null,
   exam_question_count: null,
   exam_minutes: null,
-  has_exam_profile: false, question_count: 500,
+  has_exam_profile: false, is_archived: false, display_order: 100, question_count: 500,
   readiness: {
     state: 'needs_evaluation',
     mock_count: 0,
@@ -102,6 +117,10 @@ beforeEach(() => {
   mockGetHome.mockResolvedValue(summary());
   mockGetOther.mockResolvedValue([]);
   mockGetFocus.mockResolvedValue([]);
+  mockGetRoadmaps.mockResolvedValue([]);
+  // Unavailable by default, so the tests below that are about the verdict are
+  // not also about the goals. The goals have their own tests at the end.
+  mockGetGoals.mockRejectedValue(new Error('not under test'));
 });
 
 describe('HomePage', () => {
@@ -127,20 +146,12 @@ describe('HomePage', () => {
   it('shows the evidence behind the verdict, not just the verdict', async () => {
     renderHome();
 
-    // The headline: the score of the most recent qualifying paper.
-    const latest = (await screen.findByText('Latest qualifying run')).parentElement!;
-    expect(latest).toHaveTextContent('93%');
-
-    const labelled = (label: string) => {
-      const cell = screen.getByText(label).parentElement;
-      expect(cell).not.toBeNull();
-      return cell as HTMLElement;
-    };
-
-    // The pass mark, and the count of papers it was measured over.
-    expect(labelled('Pass mark')).toHaveTextContent('85%');
-    expect(labelled('Full mocks')).toHaveTextContent('6');
-    expect(labelled('Last sat')).toHaveTextContent(/\d/);
+    // The prototype's "Current evidence": the latest qualifying paper against
+    // the pass mark, and the papers it was measured over.
+    const evidence = await screen.findByRole('region', { name: 'Current evidence' });
+    expect(evidence).toHaveTextContent(/93%\s*· 85% to pass/);
+    expect(within(evidence).getByText('6 mocks')).toBeInTheDocument();
+    expect(within(evidence).getByText(/^evidence · last sat /)).toBeInTheDocument();
   });
 
   // ---- the trend ---------------------------------------------------------
@@ -193,16 +204,17 @@ describe('HomePage', () => {
 
     await screen.findByRole('heading', { name: 'Not measured yet' });
     // An empty band of zeroes would read as failure rather than as absence.
-    expect(screen.queryByText('Latest qualifying run')).not.toBeInTheDocument();
-    expect(screen.queryByText('Pass mark')).not.toBeInTheDocument();
+    const evidence = screen.getByRole('region', { name: 'Current evidence' });
+    expect(within(evidence).getByText('—')).toBeInTheDocument();
+    expect(within(evidence).queryByText(/\d+%/)).not.toBeInTheDocument();
+    expect(within(evidence).getByText(/none has been sat yet/)).toBeInTheDocument();
   });
 
   it('explains why it is not ready from the unmet condition, in numbers', async () => {
     renderHome();
 
-    expect(await screen.findByText('Why not ready')).toBeInTheDocument();
     expect(
-      screen.getByText(/One of your last three mocks came in at 83%, under the 85% pass mark/)
+      await screen.findByText(/One of your last three mocks came in at 83%, under the 85% pass mark/)
     ).toBeInTheDocument();
   });
 
@@ -213,8 +225,10 @@ describe('HomePage', () => {
     // The lowest-scoring domain sits five points above the floor. Naming it
     // "your weakest area" invented a problem, and a learner cannot tell an
     // invented problem from a real one.
-    expect(screen.queryByText(/weakest area/i)).not.toBeInTheDocument();
-    expect(screen.queryByText('Managing Products with Agility')).not.toBeInTheDocument();
+    expect(screen.queryByText(/weakest/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/under the floor/i)).not.toBeInTheDocument();
+    // It is still the lowest area, and it is called exactly that.
+    expect(screen.getByText('lowest area · Managing Products with Agility')).toBeInTheDocument();
   });
 
   it('names the weak area only when it is genuinely under the floor', async () => {
@@ -257,17 +271,60 @@ describe('HomePage', () => {
     renderHome();
 
     expect(await screen.findByRole('button', { name: 'Review them' })).toBeInTheDocument();
-    expect(screen.getAllByRole('button')).toHaveLength(1);
+    expect(callsToAction()).toHaveLength(1);
+  });
+
+  it('shows what a recommendation rests on, and what would change it, when asked', async () => {
+    const user = userEvent.setup();
+    mockGetHome.mockResolvedValue(
+      summary({ unreviewed_total: 12, per_subject: [{ subject_id: 1, unreviewed: 12 }] })
+    );
+    renderHome();
+
+    const why = await screen.findByRole('button', { name: 'Why am I seeing this?' });
+    expect(why).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('What would change it')).not.toBeInTheDocument();
+
+    await user.click(why);
+
+    const panel = screen.getByRole('region', { name: 'Why am I seeing this' });
+    expect(within(panel).getByText('12 wrong answers from your mocks with no review recorded')).toBeInTheDocument();
+    expect(within(panel).getByText(/Reviewing all 12/)).toBeInTheDocument();
+  });
+
+  it('quotes the rule the server applied, not a copy of it', async () => {
+    const user = userEvent.setup();
+    mockGetSubjects.mockResolvedValue([{
+      ...CERT,
+      readiness: {
+        ...CERT.readiness,
+        blockers: [{ kind: 'weak_domain' as const, domain: 'Scrum Events', value: 62, target: 75, count: 31 }],
+        rules: {
+          min_mocks_for_ready: 3, consecutive_mocks_at_pass: 3, domain_floor_pct: 75,
+          recency_days: 21, plateau_min_mocks: 4, plateau_max_spread: 3, min_questions_per_domain: 10,
+        },
+      },
+    }]);
+    mockGetHome.mockResolvedValue(summary({ unreviewed_total: 0, per_subject: [] }));
+    renderHome();
+
+    await user.click(await screen.findByRole('button', { name: 'Why am I seeing this?' }));
+
+    const panel = screen.getByRole('region', { name: 'Why am I seeing this' });
+    expect(within(panel).getByText('Scrum Events: 62% across your last 3 mocks, 31 questions answered')).toBeInTheDocument();
+    expect(within(panel).getByText('Every area has to reach 75%')).toBeInTheDocument();
+    expect(within(panel).getByText(/Scrum Events reaching 75% in the mocks that decide readiness/)).toBeInTheDocument();
   });
 
   it('prefers finishing what was started over starting something new', async () => {
+    const resumable = {
+      session_id: 42, title: 'PSM I mock', session_kind: 'mock',
+      answered: 46, total: 80, seconds_remaining: 900, started_at: '2026-09-04T10:00:00',
+    };
     mockGetHome.mockResolvedValue(summary({
       unreviewed_total: 12,
-      per_subject: [{ subject_id: 1, unreviewed: 12 }],
-      resumable: {
-        session_id: 42, title: 'PSM I mock', session_kind: 'mock',
-        answered: 46, total: 80, seconds_remaining: 900, started_at: '2026-09-04T10:00:00',
-      },
+      per_subject: [{ subject_id: 1, unreviewed: 12, resumable }],
+      resumable,
     }));
     renderHome();
 
@@ -334,7 +391,7 @@ describe('HomePage', () => {
 
     expect(await screen.findByText('Ready')).toBeInTheDocument();
     expect(screen.getByText('Book the exam.')).toBeInTheDocument();
-    expect(screen.queryAllByRole('button')).toHaveLength(0);
+    expect(callsToAction()).toHaveLength(0);
   });
 
   it('says nothing is measured yet rather than showing zero per cent', async () => {
@@ -392,9 +449,8 @@ describe('HomePage', () => {
     }]);
     renderHome();
 
-    expect(await screen.findByText('Recent learning')).toBeInTheDocument();
     expect(
-      screen.getByText(/Scrum Framework went from 85% to 93% between your last two mocks/)
+      await screen.findByText(/Scrum Framework went from 85% to 93% between your last two mocks/)
     ).toBeInTheDocument();
   });
 
@@ -478,8 +534,9 @@ describe('HomePage topics to focus on', () => {
     ]);
     renderHome();
 
-    expect(await screen.findByText(/mocks only, over at least three answers/i))
-      .toBeInTheDocument();
+    const focus = await screen.findByRole('region', { name: 'Topics to focus on' });
+    expect(within(focus).getByText('From your mocks')).toBeInTheDocument();
+    expect(within(focus).getByText(/over at least three answers each/i)).toBeInTheDocument();
   });
 
   it('is absent rather than empty when nothing is measurably weak', async () => {
@@ -503,10 +560,11 @@ describe('HomePage topics to focus on', () => {
     ]);
     renderHome();
 
-    expect(await screen.findByRole('button', { name: 'Review them' })).toBeInTheDocument();
-    expect(screen.getAllByRole('button')).toHaveLength(1);
-    // And the rows are still reachable, as links.
-    expect(screen.getByRole('link', { name: /Practise Daily Scrum/ })).toBeInTheDocument();
+    // The rows are reachable, as links. Awaited first: the list is fetched once
+    // the page knows which preparation it describes, so it lands after the verdict.
+    expect(await screen.findByRole('link', { name: /Practise Daily Scrum/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Review them' })).toBeInTheDocument();
+    expect(callsToAction()).toHaveLength(1);
   });
 
   it('defers the tail of a long list to Insights rather than printing all of it', async () => {
@@ -523,5 +581,92 @@ describe('HomePage topics to focus on', () => {
     expect(await screen.findByText('Topic 4')).toBeInTheDocument();
     expect(screen.queryByText('Topic 5')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: '4 more in Insights' })).toBeInTheDocument();
+  });
+
+  // ---- the two daily goals (Phase 4) ----------------------------------------
+
+  const goals = (overrides: Record<string, unknown> = {}) => ({
+    certification: {
+      subject_id: 1, subject_name: 'Scrum / PSM I', target: 8, done: 3, remaining: 5,
+      due_for_review: 5, queued_beyond_today: 0, daily_cap: 20, state: 'in_progress',
+      weakest_area: 'Scrum Events',
+    },
+    interview: {
+      target: 1, done: 0, remaining: 1, recorded_today: 0, state: 'not_started',
+      latest_content_signal: null, latest_delivery_signal: null,
+      longest_since_round: 'hiring_manager', longest_since_round_never_practised: true,
+    },
+    ...overrides,
+  });
+
+  it('leads with both daily goals, with the counts the server measured', async () => {
+    mockGetGoals.mockResolvedValue(goals());
+    renderHome();
+
+    expect(await screen.findByText('Certification practice')).toBeInTheDocument();
+    expect(screen.getByText('Interview practice')).toBeInTheDocument();
+    expect(screen.getByText('3 / 8')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Continue review' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Practise Scrum Events' })).toBeInTheDocument();
+  });
+
+  it('says a day with nothing due is the system working, not a missed day', async () => {
+    const g = goals();
+    mockGetGoals.mockResolvedValue({
+      ...g,
+      certification: { ...g.certification, target: 0, done: 0, remaining: 0, due_for_review: 0, state: 'nothing_due' },
+    });
+    renderHome();
+
+    expect(await screen.findByText(/That is the system working, not a missed day/)).toBeInTheDocument();
+    // No start button when there is nothing to start.
+    expect(screen.queryByRole('button', { name: 'Start review' })).not.toBeInTheDocument();
+  });
+
+  it('shows no interview signal rather than a zero when nothing was analysed', async () => {
+    mockGetGoals.mockResolvedValue(goals());
+    renderHome();
+
+    expect(await screen.findByText('Interview practice')).toBeInTheDocument();
+    expect(screen.getAllByText('not analysed yet')).toHaveLength(2);
+    expect(screen.queryByText('0%')).not.toBeInTheDocument();
+  });
+
+  it('keeps the verdict when the goals cannot be loaded', async () => {
+    // beforeEach already makes the goals request fail.
+    renderHome();
+
+    expect(await screen.findByRole('heading', { level: 1 })).toBeInTheDocument();
+    expect(screen.queryByText('Certification practice')).not.toBeInTheDocument();
+  });
+});
+
+// ---- one preparation at a time -------------------------------------------
+
+describe('HomePage keeps to the preparation on screen', () => {
+  // The top-level resumable is the newest across every preparation. "Pick it up"
+  // on it opened another preparation's runner under this one's name.
+  it("does not offer another preparation's unfinished session", async () => {
+    mockGetHome.mockResolvedValue(summary({
+      per_subject: [{ subject_id: 1, unreviewed: 0, resumable: null }],
+      resumable: {
+        session_id: 77, title: 'Databricks drill', session_kind: 'drill',
+        answered: 3, total: 10, seconds_remaining: null, started_at: '2026-09-04T10:00:00',
+      },
+    }));
+    renderHome();
+
+    await screen.findByRole('heading', { name: 'Almost there' });
+    expect(screen.queryByRole('button', { name: 'Pick it up' })).not.toBeInTheDocument();
+  });
+
+  // Topic names repeat across banks, so the list is asked for by preparation.
+  it('asks for the weak topics of the preparation it is describing', async () => {
+    renderHome();
+
+    await screen.findByRole('heading', { name: 'Almost there' });
+    // Fetched in an effect once the page knows its preparation, which can land a
+    // tick after the heading renders.
+    await waitFor(() => expect(mockGetFocus).toHaveBeenCalledWith(CERT.id));
   });
 });

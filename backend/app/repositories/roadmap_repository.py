@@ -15,10 +15,16 @@ class RoadmapRepository:
 
     # ------------------------------------------------------------ roadmaps
 
-    def list_roadmaps(self, include_archived: bool = False) -> List[Roadmap]:
+    def list_roadmaps(
+        self,
+        include_archived: bool = False,
+        subject_id: Optional[int] = None,
+    ) -> List[Roadmap]:
         query = self.db.query(Roadmap)
         if not include_archived:
             query = query.filter(Roadmap.is_archived.is_(False))
+        if subject_id is not None:
+            query = query.filter(Roadmap.subject_id == subject_id)
         return query.order_by(Roadmap.created_at.desc(), Roadmap.id.desc()).all()
 
     def get_roadmap(self, roadmap_id: int) -> Optional[Roadmap]:
@@ -118,6 +124,22 @@ class RoadmapRepository:
             .filter(RoadmapTopic.roadmap_id.in_(roadmap_ids))
             .all()
         )
+
+    def count_phases_for_roadmaps(self, roadmap_ids: List[int]) -> dict:
+        """How many phases each roadmap has, in one grouped query.
+
+        Counted from the phases themselves, not from the topics: a phase with no
+        topics yet is still a phase of the plan.
+        """
+        if not roadmap_ids:
+            return {}
+        rows = (
+            self.db.query(RoadmapPhase.roadmap_id, func.count(RoadmapPhase.id))
+            .filter(RoadmapPhase.roadmap_id.in_(roadmap_ids))
+            .group_by(RoadmapPhase.roadmap_id)
+            .all()
+        )
+        return {roadmap_id: count for roadmap_id, count in rows}
 
     def next_topic_order_index(self, phase_id: int) -> int:
         current_max = (

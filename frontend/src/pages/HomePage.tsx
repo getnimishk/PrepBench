@@ -2,62 +2,72 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { Alert, Box, Button, Stack, Typography, useTheme } from '@mui/material';
+import { ChevronRight, Map as RouteMap } from 'lucide-react';
 import {
-  Box, Typography, Button, Alert, CircularProgress, Stack, alpha, useTheme,
-} from '@mui/material';
-import { ArrowRight, ChevronRight } from 'lucide-react';
-import {
-  getSubjects, getHomeSummary, getOtherPreparation, getFocusTopics,
+  getSubjects, getHomeSummary, getOtherPreparation, getFocusTopics, getDailyGoals, getRoadmaps,
 } from '../services/api';
+import { DailyGoals } from '../components/home/DailyGoals';
+import { usePreparation } from '../context/PreparationContext';
 import {
-  FocusTopic, HomeSummary, OtherPreparation, Readiness, Subject, READINESS_LABELS,
+  Blocker, DailyGoals as DailyGoalsData,
+  FocusTopic, HomeSummary, OtherPreparation, Readiness, Resumable, Subject, READINESS_LABELS,
 } from '../types/subject';
+import type { RoadmapSummary } from '../types/roadmap';
 import { blockerSentence, pct, plateauSentence, readySentence } from '../services/readinessText';
+import { nextAction } from '../services/recommendation';
+import { WhyThis } from '../components/common/WhyThis';
+import { LoadingState } from '../components/common/States';
+import {
+  Actions, BigFigure, Detail, Good, Grid, Metric, MetricRow, Note, PageHead, Panel, PanelHead, Pill, Row, Section, Sub,
+  type Tone,
+} from '../components/ui/primitives';
+import { usePb } from '../theme/usePb';
+import { chooseRoadmap } from '../services/roadmapChoice';
 
 /**
  * Where you stand, why, and the one thing worth doing about it.
  *
- * Three rounds of correction landed here. The first removed a metric wall --
- * four KPI cards, a chart of every session, a streak, a daily goal ring, an
- * "adaptive tip", two topic widgets and an activity table. The second removed
- * what was left over from being a status page: the subject name as the largest
- * thing on screen, an invented "weakest area", a six-row history table that
- * Review already owns, and a sparkline above the same four numbers written out.
+ * Laid out as the unified prototype's Home: the verdict with the preparation as
+ * its eyebrow; today's two goals; the current evidence beside the next useful
+ * action; what is already in motion; and, across the other preparations, what
+ * needs attention. The topics to focus on and the rest of the preparation stay
+ * under it, quieter.
  *
- * The third and fourth are the two halves of one correction, against a visual
- * reference. The third read the reference's density as the thing to resist and
- * stripped the page to a headline, two panels and a three-line list: honest,
- * and too thin to be worth opening. It had also dropped the trend, which left
- * the page able to say where the learner stood but not whether they were
- * moving -- and "am I improving" is most of why anyone opens it.
+ * Four rounds of correction landed here before the prototype did, and what
+ * they refused is still refused: a streak, a goal ring, a second chart, an
+ * activity feed, a wall of unrelated KPI cards, and an invented "weakest area".
+ * Every figure is read from the rows that caused it, and the one chart is the
+ * mocks readiness is computed from, drawn against the pass mark.
  *
- * The fourth put the richness back without putting the dashboard back. The
- * distinction it runs on: a KPI wall is four unrelated numbers given equal
- * weight; grouped evidence is one argument with a picture of itself.
- *
- *   the verdict, large, with the subject as its eyebrow
- *   the case for it -- the latest run, the shape of the last four, and the
- *     conditions it is measured against -- in one panel rather than four cards
- *   why it is not better, and the one thing to do about it
- *   the topics that action would draw from
- *   the rest of the preparation, quieter, but present enough to find
- *
- * Still refused: a second chart, a streak, a daily goal, an activity feed, and
- * a row of equally loud buttons -- a page with four primary actions has none.
+ * A daily goal was on that list, and was put back in Phase 4 by decision,
+ * against the unified prototype. What was refused was a quota that turns a
+ * quiet day into a failure; the two goals here are not that. See
+ * components/home/DailyGoals.tsx.
  */
 
 /** How many focus topics the panel shows before deferring to Insights. */
 const FOCUS_LIMIT = 4;
 
-/** The card treatment, in one place so every surface on the page agrees. */
-const panel = {
-  bgcolor: 'background.paper',
-  border: '1px solid',
-  borderColor: 'divider',
-  borderRadius: 3.5,
-} as const;
+/**
+ * The subject being prepared for: the one chosen in the header's picker.
+ *
+ * This used to be inferred -- the subject with an exam profile and the most
+ * evidence behind it -- which meant Home ignored the picker entirely: switch to
+ * Databricks and Home went on describing PSM I. The inference stays only as the
+ * fallback for when nothing is selected, which is also what keeps this page
+ * rendering outside a PreparationProvider.
+ */
+const pickPrimary = (subjects: Subject[], selectedId: number | null): Subject => {
+  const inferred =
+    [...subjects]
+      .filter((s) => s.has_exam_profile)
+      .sort((a, b) => b.readiness.mock_count - a.readiness.mock_count)[0]
+    ?? subjects[0];
+  return subjects.find((s) => s.id === selectedId) ?? inferred;
+};
 
 const shortDate = (iso?: string | null): string | null => {
   if (!iso) return null;
@@ -67,12 +77,28 @@ const shortDate = (iso?: string | null): string | null => {
     : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 };
 
+/** "today" where that is true, and a date where it is not. */
+const worked = (iso?: string | null): string | null => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const today = new Date();
+  const sameDay = d.getFullYear() === today.getFullYear()
+    && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
+  return sameDay ? 'today' : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+};
+
+const hours = (h: number) => (Number.isInteger(h) ? `${h}h` : `${h.toFixed(1)}h`);
+
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
+  const { selectedId } = usePreparation();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [summary, setSummary] = useState<HomeSummary | null>(null);
   const [other, setOther] = useState<OtherPreparation[]>([]);
+  const [roadmaps, setRoadmaps] = useState<RoadmapSummary[]>([]);
   const [focus, setFocus] = useState<FocusTopic[]>([]);
+  const [goals, setGoals] = useState<DailyGoalsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -83,11 +109,10 @@ export const HomePage: React.FC = () => {
       getSubjects(),
       getHomeSummary(),
       getOtherPreparation().catch(() => []),
-      // The focus list is supporting detail. Losing it must not cost the
-      // learner the verdict, which is the reason they opened the page.
-      getFocusTopics().catch(() => []),
+      // Supporting detail: a roadmap that cannot be read costs its one row, not the page.
+      getRoadmaps().catch(() => []),
     ])
-      .then(([s, h, o, f]) => { setSubjects(s); setSummary(h); setOther(o); setFocus(f); })
+      .then(([s, h, o, r]) => { setSubjects(s); setSummary(h); setOther(o); setRoadmaps(r); })
       .catch(() => setError('Could not reach PrepBench’s backend, so this page has nothing '
         + 'to show yet. Nothing has been lost — your history is in the database on this machine.'))
       .finally(() => setLoading(false));
@@ -95,8 +120,40 @@ export const HomePage: React.FC = () => {
 
   useEffect(load, []);
 
+  // Worked out before the early returns below, because the focus list is
+  // fetched for it and hooks cannot follow a return.
+  const primaryId = useMemo(
+    () => (subjects.length === 0 ? null : pickPrimary(subjects, selectedId).id),
+    [subjects, selectedId],
+  );
+
+  // The weak topics of the preparation on screen. Topic names repeat across
+  // banks, so a pooled list named another preparation's topics here -- and
+  // linked each one to a drill of this preparation that would refuse it. The
+  // list is supporting detail, so losing it must not cost the verdict.
+  useEffect(() => {
+    if (primaryId == null) return undefined;
+    let cancelled = false;
+    getFocusTopics(primaryId)
+      .then((f) => { if (!cancelled) setFocus(f); })
+      .catch(() => { if (!cancelled) setFocus([]); });
+    return () => { cancelled = true; };
+  }, [primaryId]);
+
+  // The goals are fetched on their own, and again whenever the preparation
+  // changes -- the certification goal belongs to one preparation, so switching
+  // must replace it. Separate from the main load so that a failure here costs
+  // the learner the goals and not the verdict, which is why they opened the page.
+  useEffect(() => {
+    let cancelled = false;
+    getDailyGoals(selectedId)
+      .then((g) => { if (!cancelled) setGoals(g); })
+      .catch(() => { if (!cancelled) setGoals(null); });
+    return () => { cancelled = true; };
+  }, [selectedId]);
+
   if (loading) {
-    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}><CircularProgress /></Box>;
+    return <LoadingState label="Loading your progress…" />;
   }
   // Actionable rather than merely truthful: an error the reader can only
   // look at is a dead end, and this is the first screen of the product.
@@ -113,176 +170,89 @@ export const HomePage: React.FC = () => {
 
   if (subjects.length === 0) {
     return (
-      <Box sx={{ maxWidth: 520, py: 8 }}>
-        <Typography variant="h4" component="h1" sx={{ fontWeight: 600, mb: 1.5 }}>
-          Nothing to measure yet
-        </Typography>
-        <Typography variant="body1" sx={{ color: 'text.secondary', mb: 3 }}>
-          Import a question bank and PrepBench will start keeping track of where you stand.
-        </Typography>
-        <Button
-          variant="contained"
-          disableElevation
-          onClick={() => navigate('/question-bank')}
-          sx={{ borderRadius: '100px', textTransform: 'none' }}
-        >
-          Import questions
-        </Button>
-      </Box>
+      <PageHead
+        title="Nothing to measure yet"
+        sub="Import a question bank and PrepBench will start keeping track of where you stand."
+        actions={<Button variant="contained" onClick={() => navigate('/question-bank')}>Import questions</Button>}
+      />
     );
   }
 
-  // The subject being prepared for: the one with an exam profile and the most
-  // evidence behind it. A second one appears only if it has evidence too.
-  const primary =
-    [...subjects]
-      .filter((s) => s.has_exam_profile)
-      .sort((a, b) => b.readiness.mock_count - a.readiness.mock_count)[0]
-    ?? subjects[0];
-  const alsoMeasured = subjects.filter(
-    (s) => s.id !== primary.id && s.has_exam_profile && s.readiness.mock_count > 0
-  );
-
-  const unreviewed = summary?.per_subject.find((p) => p.subject_id === primary.id)?.unreviewed ?? 0;
-
-  const full = { gridColumn: { md: '1 / -1' } };
-
-  return (
-    // One grid rather than a stack, so the wide layout can put the margin note
-    // beside the verdict without the narrow one having to carry it there too.
-    //
-    // The note is LAST in the DOM and placed explicitly into the top-right
-    // cell on md+, rather than written second and moved down with `order`.
-    // Both look identical; only one of them reads correctly. `order` moves
-    // boxes on screen and leaves the document alone, so a screen reader would
-    // still have heard "recent learning" before the evidence it is a footnote
-    // to -- the required reading order is preparation, state, evidence, why,
-    // action, and only then anything else, for everybody.
-    <Box
-      sx={{
-        maxWidth: 1180, pb: 6,
-        display: 'grid',
-        gap: { xs: 3, md: 3 },
-        gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) minmax(0, 340px)' },
-        alignItems: 'start',
-      }}
-    >
-      <Briefing subject={primary} also={alsoMeasured} />
-
-      <Box sx={full}>
-        <Evidence readiness={primary.readiness} />
-      </Box>
-
-      {/* Why, and what to do about it, in the width the reference gave its
-          chart -- because the explanation is the thing a chart of six points
-          was standing in for. */}
-      <Box
-        sx={{
-          ...full,
-          display: 'grid',
-          gap: { xs: 3, md: 3.5 },
-          gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1.55fr) minmax(280px, 1fr)' },
-          alignItems: 'start',
-        }}
-      >
-        <Box sx={{ ...panel, p: { xs: 2.5, sm: 3 } }}>
-          <Why readiness={primary.readiness} />
-          <Continuation subject={primary} unreviewed={unreviewed} summary={summary} />
-        </Box>
-
-        <FocusTopics topics={focus} subject={primary} />
-      </Box>
-
-      <Box sx={full}>
-        <OtherPreparationRow items={other} />
-      </Box>
-
-      <Box sx={{ gridColumn: { md: '2' }, gridRow: { md: '1' }, width: '100%' }}>
-        <RecentLearning readiness={primary.readiness} />
-      </Box>
-    </Box>
-  );
-};
-
-/**
- * The briefing head: what you are preparing for, and where you stand.
- *
- * The state is the headline because it answers the only question someone
- * opens this page with. The subject name sits above it in small type: it
- * identifies the numbers, it is not news -- and it is a link, because the
- * next question ("which domains?") is answered on its page.
- */
-const Briefing: React.FC<{ subject: Subject; also: Subject[] }> = ({ subject, also }) => {
-  const r = subject.readiness;
+  const primary = pickPrimary(subjects, selectedId);
+  const r = primary.readiness;
   const unmeasured = r.mock_count === 0 && r.state === 'needs_evaluation';
+
+  const counts = summary?.per_subject.find((p) => p.subject_id === primary.id);
+  const unreviewed = counts?.unreviewed ?? 0;
+  // This preparation's unfinished session only. The top-level one is the newest
+  // across all preparations, and "Pick it up" on it opened another preparation.
+  const resumable = counts?.resumable ?? null;
+
+  // The preparation's own roadmaps count toward it; another preparation's never do.
+  const own = roadmaps.filter((m) => !m.is_archived && m.subject_id === primary.id);
+  const topicsProgressed = own.length > 0
+    ? own.reduce((n, m) => n + m.progress.completed_count + m.progress.in_progress_count, 0)
+    : null;
+  const activeRoadmap = chooseRoadmap(roadmaps, primary.id);
+
+  const description = primary.description?.trim().replace(/\.$/, '');
 
   return (
     <Box>
-        <Box
-          component={RouterLink}
-          to={`/subjects/${subject.id}`}
-          sx={{
-            display: 'inline-block', textDecoration: 'none',
-            color: 'text.secondary', letterSpacing: '0.09em',
-            textTransform: 'uppercase', fontSize: 12, fontWeight: 600,
-            '&:hover': { color: 'primary.main' },
-            '&:focus-visible': {
-              outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2,
-            },
-          }}
-        >
-          {subject.name}
-        </Box>
-
-        <Typography
-          variant="h3"
-          component="h1"
-          sx={{
-            fontWeight: 700, mt: 0.75, letterSpacing: '-0.025em',
-            fontSize: { xs: 34, sm: 42, md: 46 }, lineHeight: 1.1,
-          }}
-        >
-          {unmeasured ? 'Not measured yet' : READINESS_LABELS[r.state]}
-        </Typography>
-
-        {also.length > 0 && (
-          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1.5 }}>
-            Also measured:{' '}
-            {also.map((s, i) => (
-              <React.Fragment key={s.id}>
-                {i > 0 && ', '}
-                <Box
-                  component={RouterLink}
-                  to={`/subjects/${s.id}`}
-                  sx={{
-                    color: 'inherit', textDecoration: 'underline',
-                    textDecorationColor: 'transparent',
-                    '&:hover': { color: 'primary.main', textDecorationColor: 'currentColor' },
-                    '&:focus-visible': {
-                      outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2,
-                    },
-                  }}
-                >
-                  {s.name} &mdash; {READINESS_LABELS[s.readiness.state].toLowerCase()}
-                </Box>
-              </React.Fragment>
-            ))}
-          </Typography>
+      <PageHead
+        eyebrow={(
+          <Box
+            component={RouterLink}
+            to={`/subjects/${primary.id}`}
+            sx={{
+              color: 'inherit', textDecoration: 'none',
+              '&:hover': { color: 'primary.main' },
+            }}
+          >
+            {primary.name}
+          </Box>
         )}
+        title={unmeasured ? 'Not measured yet' : READINESS_LABELS[r.state]}
+        sub={`${description ? `${description}. ` : ''}Two things stay warm every day: certification readiness and interview readiness.`}
+      />
+
+      {goals && (
+        <Section>
+          <DailyGoals goals={goals} />
+        </Section>
+      )}
+
+      <Section>
+        <Grid columns={2}>
+          <CurrentEvidence subject={primary} topicsProgressed={topicsProgressed} />
+          <NextUsefulAction subject={primary} unreviewed={unreviewed} resumable={resumable} />
+        </Grid>
+      </Section>
+
+      <Section>
+        <InMotion
+          subject={primary}
+          resumable={resumable}
+          goals={goals}
+          unreviewed={unreviewed}
+          roadmap={activeRoadmap?.roadmap ?? null}
+        />
+      </Section>
+
+      <NeedsAttention subjects={subjects.filter((s) => s.id !== primary.id)} />
+
+      {(focus.length > 0 || other.length > 0) && (
+        <Section>
+          <Grid columns={2}>
+            {focus.length > 0 && <FocusTopics topics={focus} subject={primary} />}
+            {other.length > 0 && <OtherPreparationPanel items={other} />}
+          </Grid>
+        </Section>
+      )}
     </Box>
   );
 };
 
-/**
- * The evidence, as one band rather than four cards.
- *
- * The reference put four bordered metric cards here, each with an icon, a
- * large number and an encouraging line under it. Four cards say four things
- * of equal weight; these four are one thing -- the case for the verdict above
- * them -- and they only mean anything read together. So they share a surface
- * and are separated by rules rather than by gaps, and the trend, which is the
- * part that carries the argument, gets the room.
- */
 /**
  * The shape of the last few papers, drawn.
  *
@@ -300,14 +270,14 @@ const Briefing: React.FC<{ subject: Subject; also: Subject[] }> = ({ subject, al
  * here is `recent_scores` -- the same numbers, from the same rule, as the
  * state it is evidence for.
  *
- * SVG rather than Chart.js: four points need a line, two labels and a rule,
- * and the axes, legend, tooltips and gradient that come with the chart library
- * would dress the data up as more than it is.
+ * The prototype draws five bars of invented height here. A line against the
+ * pass mark is kept instead: the bars had no pass mark to be read against.
  */
 const TrendChart: React.FC<{ scores: number[]; passMark: number | null }> = ({
   scores, passMark,
 }) => {
   const theme = useTheme();
+  const pb = usePb();
   // One point is a dot, not a trend. Say nothing rather than draw nothing.
   if (scores.length < 2) return null;
 
@@ -330,22 +300,24 @@ const TrendChart: React.FC<{ scores: number[]; passMark: number | null }> = ({
   const line = scores.map((s, i) => `${i === 0 ? 'M' : 'L'} ${x(i)} ${y(s)}`).join(' ');
   const area = `${line} L ${x(scores.length - 1)} ${H - padBottom} L ${x(0)} ${H - padBottom} Z`;
   const accent = theme.palette.primary.main;
+  // Scale SVG text labels when Large text setting is active (fontSize scales from 14 to 16)
+  const textScale = theme.typography.fontSize / 14;
 
   return (
-    <Box sx={{ width: '100%', minWidth: 0 }}>
+    <Box sx={{ width: '100%', minWidth: 0, mt: '17px' }}>
       <Box
         component="svg"
         viewBox={`0 0 ${W} ${H}`}
         role="img"
         aria-label={
-          `Your last ${scores.length} mocks: ${scores.map((s) => `${Math.round(s)}%`).join(', ')}.`
+          `Your last ${scores.length} ${scores.length === 1 ? 'mock' : 'mocks'}: ${scores.map((s) => `${Math.round(s)}%`).join(', ')}.`
           + (passMark != null ? ` The pass mark is ${Math.round(passMark)}%.` : '')
         }
         sx={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible' }}
       >
         <defs>
           <linearGradient id="prepbench-trend" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={accent} stopOpacity="0.18" />
+            <stop offset="0%" stopColor={accent} stopOpacity="0.16" />
             <stop offset="100%" stopColor={accent} stopOpacity="0" />
           </linearGradient>
         </defs>
@@ -354,14 +326,14 @@ const TrendChart: React.FC<{ scores: number[]; passMark: number | null }> = ({
           <>
             <line
               x1={padX - 10} y1={y(passMark)} x2={W - padX + 10} y2={y(passMark)}
-              stroke={theme.palette.text.secondary} strokeWidth="1"
-              strokeDasharray="4 4" opacity="0.55"
+              stroke={pb.rule} strokeWidth="1"
+              strokeDasharray="4 4"
             />
             {/* Left end, above the rule. Anchored to the right it landed on
                 top of the final point, which is exactly where the eye goes. */}
             <text
               x={padX - 10} y={y(passMark) - 7} textAnchor="start"
-              fontSize="11" fontWeight="600"
+              fontSize={Math.round(11 * textScale)} fontWeight="600"
               fill={theme.palette.text.secondary}
             >
               {Math.round(passMark)}% to pass
@@ -384,7 +356,7 @@ const TrendChart: React.FC<{ scores: number[]; passMark: number | null }> = ({
               />
               <text
                 x={x(i)} y={H - 8} textAnchor="middle"
-                fontSize="12" fontWeight={i === scores.length - 1 ? 700 : 500}
+                fontSize={Math.round(12 * textScale)} fontWeight={i === scores.length - 1 ? 700 : 500}
                 fill={i === scores.length - 1
                   ? theme.palette.text.primary : theme.palette.text.secondary}
               >
@@ -399,365 +371,276 @@ const TrendChart: React.FC<{ scores: number[]; passMark: number | null }> = ({
 };
 
 /**
- * The case for the verdict: the headline figure, the run behind it, and the
- * two numbers that give both meaning -- grouped, because they only mean
- * anything read together.
- *
- * This has been through both failure modes. It began as four bordered KPI
- * cards, which made supporting evidence the loudest thing on the page and
- * turned one argument into four unrelated facts. Then it was stripped to a
- * rule-delimited row of figures, which was honest and told the reader nothing
- * about direction -- "70, 83, 88, 93" is a trend only if you do the work.
- * It is now one panel: the number, the picture of how it got there, and the
- * conditions it is measured against.
+ * The prototype's "Current evidence": the latest qualifying run against the
+ * pass mark, the evidence behind it, the lowest area, the roadmap work done,
+ * and the run drawn.
  */
-const Evidence: React.FC<{ readiness: Readiness }> = ({ readiness: r }) => {
+const CurrentEvidence: React.FC<{ subject: Subject; topicsProgressed: number | null }> = ({
+  subject, topicsProgressed,
+}) => {
+  const r: Readiness = subject.readiness;
   const passMark = r.pass_mark ?? null;
-  const last = shortDate(r.latest_taken_at);
   const scores = r.recent_scores ?? [];
   const latest = scores.length > 0 ? scores[scores.length - 1] : null;
-
-  // No mocks means no evidence, and an empty band of zeroes would read as
-  // failure rather than as absence.
-  if (r.mock_count === 0) return null;
+  const weakest = r.weakest_domain ? r.domains.find((d) => d.domain === r.weakest_domain) : null;
+  const last = shortDate(r.latest_taken_at);
+  const moved = r.points_per_mock != null && r.points_per_mock !== 0
+    ? `${r.points_per_mock > 0 ? '+' : ''}${r.points_per_mock} a mock`
+    : null;
 
   return (
-    <Box>
-      <Box
-        sx={{
-          ...panel,
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 340px) minmax(0, 1fr)' },
-        }}
-      >
-        {/* The argument, in words and figures. */}
-        <Box
-          sx={{
-            p: { xs: 2.5, sm: 3 },
-            borderRight: { md: '1px solid' },
-            borderBottom: { xs: '1px solid', md: 'none' },
-            borderColor: 'divider',
-          }}
-        >
-          <Typography
-            component="div"
-            sx={{
-              fontSize: 11, fontWeight: 600, letterSpacing: '0.08em',
-              textTransform: 'uppercase', color: 'text.secondary',
-            }}
-          >
-            Latest qualifying run
-          </Typography>
-          <Stack direction="row" sx={{ alignItems: 'baseline', gap: 1.25, mt: 0.5 }}>
-            <Typography
-              sx={{
-                fontSize: { xs: 40, sm: 46 }, fontWeight: 700,
-                letterSpacing: '-0.03em', lineHeight: 1,
-                fontVariantNumeric: 'tabular-nums',
-              }}
-            >
-              {latest != null ? pct(latest) : '—'}
-            </Typography>
-            {r.points_per_mock != null && r.points_per_mock !== 0 && (
-              <Typography
-                variant="body2"
-                sx={{
-                  fontWeight: 600,
-                  color: r.points_per_mock > 0 ? 'success.main' : 'error.main',
-                }}
-              >
-                {r.points_per_mock > 0 ? '+' : ''}{r.points_per_mock} a mock
-              </Typography>
+    <Panel component="section" aria-labelledby="home-evidence">
+      <Typography variant="overline" component="h2" id="home-evidence" sx={{ display: 'block', color: 'pb.faint' }}>
+        Current evidence
+      </Typography>
+
+      {r.mock_count === 0 ? (
+        <>
+          {/* No mocks means no evidence, and an empty band of zeroes would read
+              as failure rather than as absence. */}
+          <BigFigure>—</BigFigure>
+          <Sub sx={{ mb: 0 }}>
+            Readiness is read from full mocks under exam conditions, and none has been sat yet.
+            Drills and review are practice; they do not move it.
+          </Sub>
+        </>
+      ) : (
+        <>
+          <BigFigure detail={[passMark != null ? `· ${pct(passMark)} to pass` : null, moved ? `· ${moved}` : null].filter(Boolean).join(' ') || undefined}>
+            {latest != null ? pct(latest) : '—'}
+          </BigFigure>
+          <MetricRow>
+            <Metric value={`${r.mock_count} ${r.mock_count === 1 ? 'mock' : 'mocks'}`} label={last ? `evidence · last sat ${last}` : 'evidence'} />
+            {/* The lowest area, named for what it is: under the floor only when
+                the verdict says so. Calling an area above the floor "weakest"
+                invents a problem a learner cannot tell from a real one. */}
+            {weakest && weakest.score_pct != null && (
+              <Metric
+                value={pct(weakest.score_pct)}
+                label={`${r.blockers.some((b) => b.kind === 'weak_domain' && b.domain === weakest.domain) ? 'under the floor' : 'lowest area'} · ${weakest.domain}`}
+              />
             )}
-          </Stack>
-
-          <Box
-            sx={{
-              mt: 2.5, pt: 2, borderTop: '1px solid', borderColor: 'divider',
-              display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-            }}
-          >
-            <Cell label="Pass mark" sx={{ px: 0, py: 0 }}>
-              <Figure>{passMark != null ? pct(passMark) : '—'}</Figure>
-            </Cell>
-            <Cell label={`Full mock${r.mock_count === 1 ? '' : 's'}`} sx={{ px: 0, py: 0 }}>
-              <Figure>{r.mock_count}</Figure>
-            </Cell>
-            <Cell label="Last sat" sx={{ px: 0, py: 0 }}>
-              <Figure>{last ?? '—'}</Figure>
-            </Cell>
-          </Box>
-        </Box>
-
-        {/* The same argument, drawn. */}
-        <Box sx={{ p: { xs: 2, sm: 2.5 }, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <Typography
-            component="div"
-            sx={{
-              fontSize: 11, fontWeight: 600, letterSpacing: '0.08em',
-              textTransform: 'uppercase', color: 'text.secondary', mb: 0.5,
-            }}
-          >
+            {topicsProgressed != null && <Metric value={topicsProgressed} label="topics progressed" />}
+          </MetricRow>
+          <Detail sx={{ mt: '14px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'text.secondary' }}>
             Your last {scores.length} mock{scores.length === 1 ? '' : 's'}
-          </Typography>
+          </Detail>
           {scores.length >= 2 ? (
             <TrendChart scores={scores} passMark={passMark} />
           ) : (
-            <Typography variant="body2" sx={{ color: 'text.secondary', py: 2 }}>
-              One paper is a reading, not a direction. The shape of your progress
-              appears from the second mock.
-            </Typography>
+            <Detail sx={{ mt: '14px' }}>
+              One paper is a reading, not a direction. The shape of your progress appears from the second mock.
+            </Detail>
           )}
-        </Box>
-      </Box>
-    </Box>
-  );
-};
-
-const Cell: React.FC<{
-  label: string;
-  children: React.ReactNode;
-  sx?: object;
-}> = ({ label, children, sx }) => (
-  <Box sx={{ px: { xs: 2, sm: 3 }, py: { xs: 2, sm: 2.5 }, minWidth: 0, ...sx }}>
-    <Typography
-      component="div"
-      sx={{
-        fontSize: { xs: 10, sm: 11 }, fontWeight: 600, letterSpacing: '0.07em',
-        textTransform: 'uppercase', color: 'text.secondary', mb: 1,
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {label}
-    </Typography>
-    {children}
-  </Box>
-);
-
-const Figure: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <Typography
-    component="div"
-    sx={{
-      fontSize: { xs: 20, sm: 28 }, fontWeight: 600,
-      letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums',
-      whiteSpace: 'nowrap',
-    }}
-  >
-    {children}
-  </Typography>
-);
-
-/**
- * Why the verdict is what it is. Explanation only: it carries no button.
- *
- * A plateau is read from the state rather than from `blockers[0]`. PLATEAU is
- * a state, not an unmet condition, so the blocker list describes the score and
- * never the shape of it -- "one of your last three came in at 84%" is true and
- * useless when all four came in at 84%.
- */
-const Why: React.FC<{ readiness: Readiness }> = ({ readiness }) => {
-  const plateau = readiness.state === 'plateau';
-  const blocker = readiness.blockers[0] ?? null;
-
-  return (
-    <Box>
-      <Typography
-        component="h2"
-        sx={{
-          fontSize: 11, fontWeight: 600, letterSpacing: '0.08em',
-          textTransform: 'uppercase', color: 'text.secondary',
-        }}
-      >
-        {plateau ? 'What this means' : blocker ? 'Why not ready' : 'Why'}
-      </Typography>
-      <Typography variant="body1" sx={{ mt: 1, lineHeight: 1.7, fontSize: 17 }}>
-        {plateau
-          ? plateauSentence(readiness.recent_scores)
-          : blocker
-            ? blockerSentence(blocker)
-            : readySentence(readiness.pass_mark)}
-      </Typography>
-    </Box>
+          {r.most_improved && (
+            <Detail sx={{ mt: '10px' }}>
+              {r.most_improved.domain} went from {pct(r.most_improved.before_pct)} to {pct(r.most_improved.after_pct)} between your last two mocks.
+            </Detail>
+          )}
+          <Detail sx={{ mt: '10px' }}>
+            Broad assessments measure certification readiness; focused practice repairs gaps.
+          </Detail>
+        </>
+      )}
+    </Panel>
   );
 };
 
 /**
- * The one action, chosen from the evidence rather than offered as a menu.
+ * The prototype's "Next useful action": the one action, chosen from the
+ * evidence rather than offered as a menu, and why the verdict is what it is.
  *
- * The reference ends on four cards with four coloured buttons -- practise,
- * mock, review, write -- which is a menu, and a menu is what a page shows when
- * it does not know which one you need. This page does know: the ladder below
- * reads the same blockers the verdict is computed from, so the button changes
- * as the evidence changes.
+ * The ladder in services/recommendation reads the same blockers the verdict is
+ * computed from, so the button changes as the evidence changes -- and "Why am
+ * I seeing this?" shows the evidence and what would change it.
  */
-const Continuation: React.FC<{
+const NextUsefulAction: React.FC<{
   subject: Subject;
   unreviewed: number;
-  summary: HomeSummary | null;
-}> = ({ subject, unreviewed, summary }) => {
+  resumable: Resumable | null;
+}> = ({ subject, unreviewed, resumable }) => {
   const navigate = useNavigate();
+  const next = nextAction({ subject, unreviewed, resumable });
   const r = subject.readiness;
-  const resumable = summary?.resumable ?? null;
   const weak = r.blockers.find((b) => b.kind === 'weak_domain');
-
-  const stale = r.blockers.some((b) => b.kind === 'stale');
-
-  const next = (() => {
-    if (resumable) {
-      return {
-        label: 'Unfinished session',
-        why: `You stopped at question ${resumable.answered + 1} of ${resumable.total}.`,
-        cta: 'Pick it up',
-        go: () => navigate(`/exam/${resumable.session_id}`),
-      };
-    }
-    // Stale evidence outranks reading, and only here. Everywhere else in this
-    // ladder understanding a miss beats sitting another paper -- but when the
-    // last mock has aged out, the page is stating a verdict it no longer has
-    // the evidence for, and no amount of reading restores that. This is the
-    // one blocker whose remedy is time-critical.
-    if (stale) {
-      return {
-        label: 'Out of date',
-        // Deliberately does not restate the number: "Why not ready" has just
-        // given it, and this block owes the remedy rather than the reading.
-        why: 'A fresh paper is the only thing that brings the verdict back to now. '
-          + 'Reading old misses is still worth doing; it cannot make old evidence current.',
-        cta: 'Take a mock',
-        go: () => navigate(`/exam-setup?kind=mock&subject=${subject.id}`),
-      };
-    }
-    if (unreviewed > 0) {
-      return {
-        label: 'Unreviewed misses',
-        why: `${unreviewed} wrong answer${unreviewed === 1 ? '' : 's'} you have not read `
-          + 'the explanation for. Understanding a miss is what changes the next score; '
-          + 'answering another new question is not.',
-        cta: 'Review them',
-        go: () => navigate('/review'),
-      };
-    }
-    if (weak) {
-      return {
-        label: 'Weak area',
-        why: `${weak.domain} is the one area under the floor, at ${pct(weak.value ?? 0)}.`,
-        cta: 'Practise it',
-        go: () => navigate(
-          `/exam-setup?kind=drill&subject=${subject.id}`
-          + `&domain=${encodeURIComponent(weak.domain ?? '')}`
-        ),
-      };
-    }
-    // A fresh install has subjects and no questions. Offering a mock that
-    // the engine will refuse to assemble makes the only action on a new
-    // user's Home an error message.
-    if (subject.question_count === 0) {
-      return {
-        label: 'Next',
-        why: `There are no ${subject.name} questions yet. Import a bank and `
-          + 'PrepBench can start measuring where you stand.',
-        cta: 'Import questions',
-        go: () => navigate('/question-bank'),
-      };
-    }
-    if (!subject.has_exam_profile) {
-      return {
-        label: 'Next',
-        why: 'There is no exam to sit for this one, so practice is the whole of it.',
-        cta: 'Practise',
-        go: () => navigate('/practice'),
-      };
-    }
-    if (r.mock_count === 0) {
-      return {
-        label: 'Next',
-        why: 'A full paper under exam conditions calibrates everything else — the '
-          + 'weak-area detection, the review schedule, and whether you would actually pass.',
-        cta: 'Take your first mock',
-        go: () => navigate(`/exam-setup?kind=mock&subject=${subject.id}`),
-      };
-    }
-    if (r.state === 'ready') {
-      return { label: 'Next', why: 'Book the exam.', cta: null, go: null };
-    }
-    // At a plateau with nothing left to read, "another full paper is the only
-    // thing that moves the verdict" contradicts the sentence directly above
-    // it, which has just said that another paper will not move it. The honest
-    // continuation is the decision, not more practice.
-    if (r.state === 'plateau') {
-      return {
-        label: 'Next',
-        why: 'There is nothing further this can measure. Four papers at the same '
-          + 'mark is the answer: book the exam, or find the gap somewhere other '
-          + 'than in more questions.',
-        cta: null,
-        go: null,
-      };
-    }
-    return {
-      label: 'Next',
-      why: 'Another full paper is the only thing that moves the verdict.',
-      cta: 'Take a mock',
-      go: () => navigate(`/exam-setup?kind=mock&subject=${subject.id}`),
-    };
-  })();
+  const title = next.label === 'Weak area' && weak?.domain ? weak.domain : next.label;
+  // A plateau is read from the state rather than from `blockers[0]`: PLATEAU is
+  // a state, not an unmet condition, so the blocker list describes the score
+  // and never the shape of it.
+  const plateau = r.state === 'plateau';
+  const blocker = r.blockers[0] ?? null;
 
   return (
-    <Box sx={{ mt: 3, pt: 3, borderTop: '1px solid', borderColor: 'divider' }}>
-      <Typography
-        component="h2"
+    <Panel component="section" aria-labelledby="home-next">
+      <PanelHead eyebrow="Next useful action" title={title} titleId="home-next" sx={{ mb: 0 }} />
+      <Sub sx={{ mb: 0 }}>{next.why}</Sub>
+      <WhyThis explanation={next} sx={{ mt: 1 }} />
+      <Actions sx={{ mt: '16px' }}>
+        {next.cta && next.to && (
+          <Button variant="contained" onClick={() => navigate(next.to!)}>{next.cta}</Button>
+        )}
+        <Button variant="outlined" component={RouterLink} to={`/subjects/${subject.id}`}>Open preparation</Button>
+      </Actions>
+      {r.mock_count > 0 && (plateau || blocker ? (
+        <Note sx={{ mt: '14px' }}>
+          {plateau ? plateauSentence(r.recent_scores, r.rules) : blockerSentence(blocker!, r.rules)}
+        </Note>
+      ) : (
+        <Good sx={{ mt: '14px' }}>{readySentence(r.pass_mark, r.rules)}</Good>
+      ))}
+    </Panel>
+  );
+};
+
+/**
+ * The prototype's "Continue -- Already in motion": work started and not
+ * finished. Each row is only drawn when that work exists.
+ */
+const InMotion: React.FC<{
+  subject: Subject;
+  resumable: Resumable | null;
+  goals: DailyGoalsData | null;
+  unreviewed: number;
+  roadmap: RoadmapSummary | null;
+}> = ({ subject, resumable, goals, unreviewed, roadmap }) => {
+  const goal = goals?.certification && goals.certification.subject_id === subject.id ? goals.certification : null;
+  const dueToday = goal ? goal.remaining : 0;
+  const rows: React.ReactNode[] = [];
+
+  if (resumable) {
+    const remaining = resumable.total - resumable.answered;
+    const when = worked(resumable.started_at);
+    rows.push(
+      <Row
+        key="session"
+        title={resumable.title}
+        detail={`${remaining} ${remaining === 1 ? 'question' : 'questions'} remaining${when ? ` · started ${when}` : ''}`}
+        middle={<Pill>In progress</Pill>}
+        action={<Button variant="outlined" component={RouterLink} to={`/exam/${resumable.session_id}`}>Continue</Button>}
+      />,
+    );
+  }
+
+  if (dueToday > 0 || unreviewed > 0) {
+    const parts = [
+      ...(goal && goal.due_for_review > 0 ? [`${goal.due_for_review} due from the schedule`] : []),
+      ...(unreviewed > 0 ? [`${unreviewed} ${unreviewed === 1 ? 'miss' : 'misses'} not yet read`] : []),
+    ];
+    rows.push(
+      <Row
+        key="review"
+        title="Review due today"
+        detail={parts.join(' · ') || 'Misses from your mocks waiting to be read'}
+        middle={<Pill tone="warning">{dueToday > 0 ? `${dueToday} due` : `${unreviewed} to read`}</Pill>}
+        action={<Button variant="outlined" component={RouterLink} to="/review">Review</Button>}
+      />,
+    );
+  }
+
+  if (roadmap) {
+    const p = roadmap.progress;
+    const facts = [
+      `${p.completed_count} of ${p.total_topics} topics complete${p.completion_percentage != null ? ` (${Math.round(p.completion_percentage)}%)` : ''}`,
+      ...(p.total_estimated_hours != null ? [`${hours(p.total_estimated_hours)} estimated study plan`] : []),
+    ];
+    rows.push(
+      <Row
+        key="roadmap"
+        title={(
+          <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            <RouteMap size={16} aria-hidden />
+            {roadmap.title}
+          </Box>
+        )}
+        detail={facts.join(' · ')}
+        middle={<Pill tone="accent">Active plan</Pill>}
+        action={(
+          <Button variant="contained" component={RouterLink} to={`/roadmaps/${roadmap.id}`}>
+            Continue roadmap →
+          </Button>
+        )}
         sx={{
-          fontSize: 11, fontWeight: 600, letterSpacing: '0.08em',
-          textTransform: 'uppercase', color: 'text.secondary',
+          bgcolor: (t) => `color-mix(in srgb, ${t.palette.primary.main} 3%, transparent)`,
+          border: '1px solid', borderColor: (t) => `color-mix(in srgb, ${t.palette.primary.main} 15%, transparent)`,
+          '&:last-child': { borderBottom: '1px solid' },
         }}
-      >
-        {next.label}
-      </Typography>
-      <Typography variant="body1" sx={{ mt: 1, lineHeight: 1.7 }}>{next.why}</Typography>
-      {next.cta && next.go && (
-        <Button
-          variant="contained"
-          disableElevation
-          onClick={next.go}
-          endIcon={<ArrowRight size={18} />}
-          sx={{
-            mt: 2.5, borderRadius: '100px', fontWeight: 600, textTransform: 'none',
-            px: 2.75, py: 1.15, fontSize: 15,
-          }}
-        >
-          {next.cta}
-        </Button>
+      />,
+    );
+  }
+
+  return (
+    <Panel component="section" aria-labelledby="home-in-motion">
+      <PanelHead eyebrow="Continue" title="Already in motion" titleId="home-in-motion" />
+      {rows.length > 0 ? rows : (
+        <Detail>Nothing is in motion. A mock you start, a review that comes due or a roadmap you work from shows here.</Detail>
       )}
-    </Box>
+    </Panel>
+  );
+};
+
+const ATTENTION: Partial<Record<Blocker['kind'], { label: string; tone: Tone; order: number }>> = {
+  below_pass: { label: 'Below pass mark', tone: 'danger', order: 0 },
+  weak_domain: { label: 'Weak area', tone: 'warning', order: 1 },
+  stale: { label: 'Out of date', tone: 'warning', order: 2 },
+};
+
+/**
+ * The prototype's "Needs attention", across the other preparations: each one
+ * whose own readiness rules name a problem, in their own words. A preparation
+ * those rules have nothing against is not listed.
+ */
+const NeedsAttention: React.FC<{ subjects: Subject[] }> = ({ subjects }) => {
+  const items = subjects
+    .filter((s) => s.readiness.mock_count > 0)
+    .map((s) => {
+      const blocker = s.readiness.blockers.find((b) => ATTENTION[b.kind]);
+      return blocker ? { subject: s, blocker, meta: ATTENTION[blocker.kind]! } : null;
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null)
+    .sort((a, b) => a.meta.order - b.meta.order);
+
+  if (items.length === 0) return null;
+  return (
+    <Section>
+      <Panel component="section" aria-labelledby="home-attention">
+        <PanelHead
+          eyebrow="Across your preparations"
+          title="Needs attention"
+          titleId="home-attention"
+          aside={<Button variant="text" component={RouterLink} to="/preparations">All preparations</Button>}
+        />
+        {items.map(({ subject, blocker, meta }) => (
+          <Row
+            key={subject.id}
+            title={subject.name}
+            detail={blockerSentence(blocker, subject.readiness.rules)}
+            middle={<Pill tone={meta.tone}>{meta.label}</Pill>}
+            action={<Button variant="outlined" component={RouterLink} to={`/subjects/${subject.id}`}>Open</Button>}
+          />
+        ))}
+      </Panel>
+    </Section>
   );
 };
 
 /**
  * The topics the one action would actually draw from.
  *
- * The reference's best idea, kept almost as drawn: the name, a bar, the
- * fraction, a way in. Two changes. The counts are real and come from the same
- * query the weak-topic drill uses, so this list cannot name something Practice
- * would then refuse to offer. And every row here is below the floor -- the
- * reference showed three green rows in a panel headed "Topics to Focus On",
- * which is a list of topics you are fine at.
+ * The counts are real and come from the same query the weak-topic drill uses,
+ * so this list cannot name something Practice would then refuse to offer. And
+ * every row here is below the floor -- a panel headed "Topics to focus on"
+ * that lists topics you are fine at would be a list of topics you are fine at.
  */
 const FocusTopics: React.FC<{ topics: FocusTopic[]; subject: Subject }> = ({ topics, subject }) => {
   const theme = useTheme();
-  if (topics.length === 0) return null;
-
   const shown = topics.slice(0, FOCUS_LIMIT);
 
   return (
-    <Box sx={{ ...panel, p: { xs: 2.5, sm: 3 } }}>
-      <Typography component="h2" sx={{ fontSize: 17, fontWeight: 700, letterSpacing: '-0.01em' }}>
-        Topics to focus on
-      </Typography>
-      <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5, lineHeight: 1.5 }}>
-        From your mocks only, over at least three answers each.
-      </Typography>
+    <Panel component="section" aria-labelledby="home-focus">
+      <PanelHead eyebrow="From your mocks" title="Topics to focus on" titleId="home-focus" sx={{ mb: '4px' }} />
+      <Detail>Over at least three answers each.</Detail>
 
-      <Stack sx={{ mt: 2.5 }} spacing={0.5}>
+      <Stack sx={{ mt: '12px' }} spacing={0.5}>
         {shown.map((t) => {
           const ratio = t.answered > 0 ? t.correct / t.answered : 0;
           const severe = t.accuracy_percentage < 50;
@@ -775,48 +658,30 @@ const FocusTopics: React.FC<{ topics: FocusTopic[]; subject: Subject }> = ({ top
                 alignItems: 'center',
                 gap: 1.5,
                 px: 1, py: 0.8, mx: -1,
-                borderRadius: 2,
+                borderRadius: '9px',
                 textDecoration: 'none',
                 color: 'text.primary',
                 '&:hover': { bgcolor: 'action.hover' },
-                '&:focus-visible': {
-                  outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2,
-                },
               }}
             >
               <Box sx={{ minWidth: 0 }}>
                 <Typography
-                  variant="body2"
+                  variant="body1"
                   // Topics in this bank run to sixty characters, so the row
                   // truncates. The full name is on the link's accessible name
                   // and here, so nothing is only available to a mouse.
                   title={t.topic}
-                  sx={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap' }}
+                  sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                 >
                   {t.topic}
                 </Typography>
                 {/* The bar restates the fraction beside it, so nothing here
                     depends on reading a colour. */}
-                <Box
-                  aria-hidden
-                  sx={{
-                    mt: 0.6, height: 5, borderRadius: 3,
-                    bgcolor: alpha(theme.palette.text.primary, 0.08),
-                    overflow: 'hidden',
-                  }}
-                >
-                  <Box sx={{
-                    width: `${Math.round(ratio * 100)}%`, height: '100%',
-                    bgcolor: barColor, borderRadius: 3,
-                  }} />
+                <Box aria-hidden sx={{ mt: '6px', height: 7, borderRadius: '8px', bgcolor: 'pb.track', overflow: 'hidden' }}>
+                  <Box sx={{ width: `${Math.round(ratio * 100)}%`, height: '100%', bgcolor: barColor, borderRadius: '8px' }} />
                 </Box>
               </Box>
-              <Typography
-                variant="body2"
-                sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums',
-                  whiteSpace: 'nowrap' }}
-              >
+              <Typography variant="body2" sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
                 {t.correct} / {t.answered}
               </Typography>
               <ChevronRight size={16} aria-hidden style={{ opacity: 0.45 }} />
@@ -826,154 +691,31 @@ const FocusTopics: React.FC<{ topics: FocusTopic[]; subject: Subject }> = ({ top
       </Stack>
 
       {topics.length > shown.length && (
-        <Box
-          component={RouterLink}
-          to="/analytics"
-          sx={{
-            display: 'inline-block', mt: 2, fontSize: 14, fontWeight: 500,
-            color: 'primary.main', textDecoration: 'none',
-            '&:hover': { textDecoration: 'underline' },
-            '&:focus-visible': {
-              outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2,
-            },
-          }}
-        >
+        <Button variant="text" component={RouterLink} to="/analytics" sx={{ mt: 1.5, ml: '-6px' }}>
           {topics.length - shown.length} more in Insights
-        </Box>
+        </Button>
       )}
-    </Box>
+    </Panel>
   );
 };
 
 /**
- * What the last stretch of work bought.
- *
- * A page that only lists deficits teaches people to stop opening it. This is
- * the one place on Home that reports a gain, and it stays quiet: a note in the
- * margin, not a celebration.
- *
- * A rule rather than a filled panel. As a grey box it was 126px tall against a
- * 90px briefing, and since the two share a grid row it was the box -- not the
- * verdict -- setting the row height, opening 130px of empty space to the left
- * of nothing. The hole read as a layout accident because it was one.
+ * Everything else being prepared: a record, not a launcher -- counts of work
+ * already done, each a way into where that work lives.
  */
-const RecentLearning: React.FC<{ readiness: Readiness }> = ({ readiness }) => {
-  const m = readiness.most_improved;
-  if (!m) return null;
-  return (
-    <Box
-      sx={{
-        borderLeft: '2px solid',
-        borderColor: 'divider',
-        pl: 2,
-      }}
-    >
-      <Typography
-        component="h2"
-        sx={{
-          fontSize: 11, fontWeight: 600, letterSpacing: '0.08em',
-          textTransform: 'uppercase', color: 'text.secondary',
-        }}
-      >
-        Recent learning
-      </Typography>
-      <Typography variant="body2" sx={{ mt: 0.75, lineHeight: 1.6 }}>
-        {m.domain} went from {pct(m.before_pct)} to {pct(m.after_pct)} between your last two mocks.
-      </Typography>
+const OtherPreparationPanel: React.FC<{ items: OtherPreparation[] }> = ({ items }) => (
+  <Panel component="section" aria-labelledby="home-other">
+    <PanelHead eyebrow="Counted from work already done" title="Other preparation" titleId="home-other" sx={{ mb: '4px' }} />
+    <Detail>None of it moves the verdict above.</Detail>
+    <Box sx={{ mt: '6px' }}>
+      {items.map((it) => (
+        <Row
+          key={it.key}
+          title={it.label}
+          detail={it.detail}
+          action={<Button variant="outlined" component={RouterLink} to={it.href} aria-label={`${it.label} — ${it.detail}`}>Open</Button>}
+        />
+      ))}
     </Box>
-  );
-};
-
-/**
- * Everything else being prepared: a record, not a launcher.
- *
- * This has now been wrong in two opposite directions. The reference gave these
- * the bottom of the page as full cards with their own coloured buttons, which
- * is a launcher competing with the one action above. Replacing the buttons
- * with a row of pastel-badged tiles fixed the competition and kept the
- * launcher: four equal boxes in a horizontal grid, each with a coloured
- * circular mark, is the visual grammar of an app drawer whatever is written
- * in it. The grid also held four columns for three items, so the page ended
- * on an empty cell.
- *
- * A list reads as a record of what has been done. A row of tiles reads as a
- * menu of what could be done. The content here is the former: counts of work
- * already completed, each linking to where that work lives.
- *
- * That correction then overshot. Three bare lines at the foot of the page were
- * quiet to the point of being missable, and quieter-than-the-verdict is the
- * requirement -- invisible is not. The rows keep their list semantics and get
- * a surface, room, and a way in on each one, so the area reads as a section of
- * the page rather than a footnote to it. Divided by rules, not boxed
- * individually: the same device the evidence panel uses, so the two agree.
- */
-const OtherPreparationRow: React.FC<{ items: OtherPreparation[] }> = ({ items }) => {
-  if (items.length === 0) return null;
-
-  return (
-    <Box>
-      <Box sx={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-        gap: 2, flexWrap: 'wrap', mb: 1.5,
-      }}>
-        <Typography
-          component="h2"
-          sx={{
-            fontSize: 11, fontWeight: 600, letterSpacing: '0.08em',
-            textTransform: 'uppercase', color: 'text.secondary',
-          }}
-        >
-          Other preparation
-        </Typography>
-        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          Counted from work already done. None of it moves the verdict above.
-        </Typography>
-      </Box>
-
-      <Box
-        sx={{
-          ...panel,
-          display: 'grid',
-          gridTemplateColumns: {
-            xs: '1fr',
-            sm: 'repeat(2, minmax(0, 1fr))',
-            lg: 'repeat(3, minmax(0, 1fr))',
-          },
-          overflow: 'hidden',
-        }}
-      >
-        {items.map((it, i) => (
-          <Box
-            key={it.key}
-            component={RouterLink}
-            to={it.href}
-            aria-label={`${it.label} — ${it.detail}`}
-            sx={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              gap: 2, px: 2.5, py: 2, minWidth: 0,
-              borderTop: i === 0 ? 0 : { xs: '1px solid', sm: 0 },
-              borderLeft: i === 0 ? 0 : { xs: 0, sm: '1px solid' },
-              borderColor: 'divider',
-              textDecoration: 'none', color: 'text.primary',
-              '&:hover': { bgcolor: 'action.hover' },
-              '&:focus-visible': {
-                outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2,
-              },
-            }}
-          >
-            <Box sx={{ minWidth: 0 }}>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>{it.label}</Typography>
-              <Typography
-                variant="body2"
-                sx={{ color: 'text.secondary', mt: 0.25, lineHeight: 1.45 }}
-              >
-                {it.detail}
-              </Typography>
-            </Box>
-            <ChevronRight size={16} aria-hidden style={{ opacity: 0.4, flexShrink: 0 }} />
-          </Box>
-        ))}
-      </Box>
-    </Box>
-  );
-};
+  </Panel>
+);

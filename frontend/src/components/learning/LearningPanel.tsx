@@ -10,10 +10,11 @@ import {
   Chip,
   Collapse,
   Divider,
-  Paper,
   Stack,
+  TextField,
   Typography,
 } from '@mui/material';
+import { Eyebrow, Panel } from '../ui/primitives';
 import {
   ArrowRight,
   Check,
@@ -36,6 +37,8 @@ import {
   withHint,
 } from '../../services/learning/attempts';
 import type { Recommendation } from '../../services/learning/recommendations';
+import { describeChange, describeOutcome, moved } from '../../services/learning/experiment';
+import { apiErrorMessage } from '../../services/apiError';
 import { ConceptCard } from './ConceptCard';
 
 // The guided loop, in one surface.
@@ -58,8 +61,11 @@ import { ConceptCard } from './ConceptCard';
 // it just stops the attempt counting as unaided evidence, which is the honest
 // consequence rather than a punishment.
 //
-// PHASE 1: there is no articulation step. Turning this reasoning into a spoken
-// answer is Phase 2, and the recorder is deliberately untouched.
+// The experiment is kept with the attempt: what was changed from the baseline
+// and what the model then showed, read at the moment of commitment. "What
+// actually happened" is those numbers, never a sentence about what usually
+// happens. The learner's own explanation is saved beside it, and is not scored
+// -- there is nothing honest to score it against without a grader.
 
 // ORIENT is no longer a step. It was a full-width card between the learner
 // and the question, and its content -- what a sprint is, that the charts are
@@ -74,14 +80,23 @@ interface Props {
   conceptSeen: boolean;
   /** Applies the challenge's scenario to the sandbox. The ACT step. */
   onApplyScenario: (scenario: ScenarioId) => void;
-  onAttemptSaved: (attempt: Attempt) => void;
+  /**
+   * The experiment, read once when the prediction is committed: the scenario
+   * named, or what the sandbox is showing when none is.
+   */
+  observe?: (scenario?: ScenarioId) => Pick<Attempt, 'manipulation' | 'observed'>;
+  /** Saves the attempt. A rejected promise is shown as "not saved", with a retry. */
+  onAttemptSaved: (attempt: Attempt) => Promise<unknown> | void;
   onSkip: () => void;
 }
+
+type SaveState = { state: 'idle' | 'saving' | 'saved' } | { state: 'failed'; error: string };
 
 export const LearningPanel: React.FC<Props> = ({
   recommendation,
   conceptSeen,
   onApplyScenario,
+  observe,
   onAttemptSaved,
   onSkip,
 }) => {
@@ -94,6 +109,9 @@ export const LearningPanel: React.FC<Props> = ({
   const [conceptOpen, setConceptOpen] = useState(false);
   const [attempt, setAttempt] = useState<Attempt>(() => startAttempt(challenge));
   const [hintsShown, setHintsShown] = useState(0);
+  const [saved, setSaved] = useState<SaveState>({ state: 'idle' });
+  const [explanation, setExplanation] = useState('');
+  const [explanationSaved, setExplanationSaved] = useState<SaveState>({ state: 'idle' });
 
   // A fresh challenge means a fresh attempt: an id from a previous challenge
   // would attach this evidence to the wrong concept.
@@ -105,6 +123,13 @@ export const LearningPanel: React.FC<Props> = ({
   // promises "run this side effect exactly once per id". It is the documented
   // reset-on-prop-change pattern instead: compare the id against the one this
   // state was built for, and adjust during render, which React does support.
+  // A prediction question is answered before the model runs the change it asks
+  // about: predict, commit, then manipulate and observe. Showing the changed
+  // model while the question is open would put the answer on screen beside it.
+  // Questions that ask the learner to read or diagnose a chart need the
+  // scenario showing, so they get it on arrival.
+  const predictsFirst = challenge.type === 'prediction';
+
   const [builtFor, setBuiltFor] = useState(challenge.id);
   if (builtFor !== challenge.id) {
     setBuiltFor(challenge.id);
@@ -112,6 +137,9 @@ export const LearningPanel: React.FC<Props> = ({
     setHintsShown(0);
     setStep('commit');
     setConceptOpen(false);
+    setSaved({ state: 'idle' });
+    setExplanation('');
+    setExplanationSaved({ state: 'idle' });
   }
 
   // The ACT step, which used to be tied to dismissing the orientation card.
@@ -120,21 +148,46 @@ export const LearningPanel: React.FC<Props> = ({
   // arrives rather than when a card is clicked. An effect rather than a
   // render-phase call, because it moves state that belongs to the page.
   useEffect(() => {
-    onApplyScenario(challenge.scenario);
+    onApplyScenario(predictsFirst ? 'baseline' : challenge.scenario);
     // Keyed on the challenge alone: onApplyScenario is redefined every render
     // by the page, and depending on it would re-apply the scenario over any
     // slider the learner had since moved.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [challenge.id]);
 
+  const persist = (next: Attempt, report: (s: SaveState) => void) => {
+    report({ state: 'saving' });
+    Promise.resolve(onAttemptSaved(next)).then(
+      () => {
+        // A save records everything the attempt has established, so any
+        // save that lands is also the answer saved.
+        setAttempt(next);
+        setSaved({ state: 'saved' });
+        report({ state: 'saved' });
+      },
+      (err: unknown) =>
+        report({ state: 'failed', error: apiErrorMessage(err, 'The server did not accept it.') }),
+    );
+  };
+
   const commit = (optionId: string) => {
     // One click commits. Recorded before anything about the result is on
-    // screen, and not amendable afterwards.
+    // screen, and not amendable afterwards. The experiment is read at the same
+    // moment, so what it showed is kept exactly as it was.
     const committed = commitPrediction(attempt, optionId);
-    const finished = completeAttempt(committed, challenge);
+    // MANIPULATE, only now that the prediction is on the record.
+    if (predictsFirst) onApplyScenario(challenge.scenario);
+    const experiment = observe?.(predictsFirst ? challenge.scenario : undefined);
+    const finished = completeAttempt(experiment ? { ...committed, ...experiment } : committed, challenge);
     setAttempt(finished);
-    onAttemptSaved(finished);
+    persist(finished, setSaved);
     setStep('result');
+  };
+
+  const saveExplanationText = () => {
+    const text = explanation.trim();
+    if (!text) return;
+    persist({ ...attempt, explanationText: text }, setExplanationSaved);
   };
 
   const revealHint = () => {
@@ -146,10 +199,14 @@ export const LearningPanel: React.FC<Props> = ({
   const chosen = challenge.options.find((o) => o.id === attempt.prediction);
   const answer = challenge.options.find((o) => o.id === challenge.correctOptionId)!;
   const wasRight = attempt.correct === true;
+  const observedOutcomes = Object.values(attempt.observed ?? {});
+  const movedOutcomes = observedOutcomes.filter(moved);
+  const stillOutcomes = observedOutcomes.filter((o) => !moved(o));
+  const changes = Object.entries(attempt.manipulation ?? {});
 
   return (
-    <Paper
-      variant="outlined"
+    <Panel
+      soft
       sx={{ p: 2, mb: 2, borderColor: 'primary.main', bgcolor: (t) => t.palette.primary.main + '0A' }}
     >
       <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start' }}>
@@ -163,17 +220,9 @@ export const LearningPanel: React.FC<Props> = ({
             spacing={1}
             sx={{ alignItems: 'center', flexWrap: 'wrap', rowGap: 0.5, mb: 0.5 }}
           >
-            <Typography
-              variant="caption"
-              sx={{
-                textTransform: 'uppercase',
-                letterSpacing: 0.6,
-                fontWeight: 700,
-                color: 'primary.main',
-              }}
-            >
+            <Eyebrow color="primary.main">
               {concept.canonicalName}
-            </Typography>
+            </Eyebrow>
             {/* challenge.type -- "recognition", "prediction", "reading" --
                 described the question to the curriculum, not to the person
                 answering it. The scenario was a chip beside it; it is the
@@ -186,24 +235,24 @@ export const LearningPanel: React.FC<Props> = ({
           </Typography>
 
           <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1.5 }}>
-            The sandbox is running: {SCENARIOS[challenge.scenario].label.toLowerCase()}.
+            {predictsFirst && step === 'commit'
+              ? `The sandbox is showing the ${SCENARIOS.baseline.label.toLowerCase()}. Predict first; then it runs: ${SCENARIOS[challenge.scenario].label.toLowerCase()}.`
+              : `The sandbox is running: ${SCENARIOS[challenge.scenario].label.toLowerCase()}.`}
           </Typography>
 
           {/* ------------------------------------------------------ COMMIT */}
           {step === 'commit' && (
             <>
-              <Stack spacing={1}>
+              <Stack spacing={1} role="group" aria-label="Your prediction">
                 {challenge.options.map((option) => (
                   <Button
                     key={option.id}
                     variant="outlined"
                     onClick={() => commit(option.id)}
                     sx={{
-                      textTransform: 'none',
                       justifyContent: 'flex-start',
                       textAlign: 'left',
-                      py: 1,
-                    }}
+                      py: 1 }}
                   >
                     {option.text}
                   </Button>
@@ -231,7 +280,6 @@ export const LearningPanel: React.FC<Props> = ({
                   startIcon={<HelpCircle size={14} />}
                   disabled={hintsShown >= challenge.hints.length}
                   onClick={revealHint}
-                  sx={{ textTransform: 'none' }}
                 >
                   {hintsShown === 0 ? 'Stuck? Take a hint' : 'Another hint'}
                 </Button>
@@ -240,7 +288,7 @@ export const LearningPanel: React.FC<Props> = ({
                     ? 'Answering without a hint is what counts as evidence — but a hint is always here.'
                     : `${hintsShown} hint${hintsShown === 1 ? '' : 's'} taken. This attempt still counts, just not as unaided.`}
                 </Typography>
-                <Button size="small" onClick={onSkip} sx={{ textTransform: 'none' }}>
+                <Button size="small" onClick={onSkip}>
                   Skip
                 </Button>
               </Stack>
@@ -255,7 +303,6 @@ export const LearningPanel: React.FC<Props> = ({
                     onClick={() => setConceptOpen((open) => !open)}
                     endIcon={conceptOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     aria-expanded={conceptOpen}
-                    sx={{ textTransform: 'none' }}
                   >
                     New to this? What the sandbox is showing
                   </Button>
@@ -284,19 +331,58 @@ export const LearningPanel: React.FC<Props> = ({
                 )}
               </Stack>
 
+              {saved.state === 'saving' && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                  Saving your answer…
+                </Typography>
+              )}
+              {saved.state === 'failed' && (
+                <Alert
+                  severity="error"
+                  sx={{ mb: 1.5 }}
+                  action={
+                    <Button color="inherit" size="small" onClick={() => persist(attempt, setSaved)}>
+                      Try again
+                    </Button>
+                  }
+                >
+                  Your answer was not saved, so it does not count yet. {saved.error}
+                </Alert>
+              )}
+
+              {observedOutcomes.length > 0 && (
+                <Box component="section" sx={{ mb: 1.5 }} aria-label="What actually happened">
+                  <SectionLabel>What actually happened</SectionLabel>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                    {changes.length > 0
+                      ? `Changed from the baseline: ${changes.map(([key, c]) => describeChange(key, c)).join(', ')}`
+                      : 'Nothing was changed from the baseline.'}
+                  </Typography>
+                  {movedOutcomes.length > 0 ? (
+                    <Box component="ul" sx={{ m: 0, mt: 0.5, pl: 2.5 }}>
+                      {movedOutcomes.map((o) => (
+                        <Typography component="li" variant="body2" key={o.label} sx={{ fontWeight: 600 }}>
+                          {describeOutcome(o)}
+                        </Typography>
+                      ))}
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>
+                      None of the headline figures moved.
+                    </Typography>
+                  )}
+                  {movedOutcomes.length > 0 && stillOutcomes.length > 0 && (
+                    // Named, not listed: what stayed put matters, but it is not news.
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                      Unchanged: {stillOutcomes.map((o) => o.label).join(', ')}
+                    </Typography>
+                  )}
+                </Box>
+              )}
+
               <Divider sx={{ mb: 1.5 }} />
 
-              <Typography
-                variant="caption"
-                sx={{
-                  textTransform: 'uppercase',
-                  letterSpacing: 0.6,
-                  fontWeight: 700,
-                  color: 'text.secondary',
-                }}
-              >
-                Why
-              </Typography>
+              <SectionLabel>Why</SectionLabel>
               <Typography variant="body2" sx={{ mt: 0.5, mb: 1 }}>
                 {challenge.explanation}
               </Typography>
@@ -313,7 +399,7 @@ export const LearningPanel: React.FC<Props> = ({
                         variant="outlined"
                         color={coupling.type === 'assumption' ? 'warning' : 'default'}
                         label={`${coupling.type}: ${coupling.formula}`}
-                        sx={{ height: 22, fontSize: '0.65rem' }}
+                        sx={{ minHeight: 22, fontSize: (t) => t.typography.pxToRem(10.4) }}
                       />
                     );
                   })}
@@ -332,13 +418,54 @@ export const LearningPanel: React.FC<Props> = ({
                 </Alert>
               )}
 
+              <Box sx={{ mb: 1.5 }}>
+                <SectionLabel>Your explanation</SectionLabel>
+                <TextField
+                  multiline
+                  minRows={2}
+                  fullWidth
+                  size="small"
+                  value={explanation}
+                  onChange={(e) => {
+                    setExplanation(e.target.value);
+                    if (explanationSaved.state === 'saved') setExplanationSaved({ state: 'idle' });
+                  }}
+                  placeholder="Why did it move the way it did? Name the mechanism, not the metric."
+                  slotProps={{ htmlInput: { 'aria-label': 'Your explanation', maxLength: 4000 } }}
+                  sx={{ mt: 0.75 }}
+                />
+                <Stack direction="row" spacing={1} sx={{ mt: 0.75, alignItems: 'center', flexWrap: 'wrap', rowGap: 0.5 }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={saveExplanationText}
+                    disabled={
+                      !explanation.trim() ||
+                      explanationSaved.state === 'saving' ||
+                      explanation.trim() === attempt.explanationText
+                    }
+                  >
+                    {attempt.explanationText ? 'Save new wording' : 'Save explanation'}
+                  </Button>
+                  <Typography variant="caption" color="text.secondary" role="status">
+                    {explanationSaved.state === 'saving' && 'Saving…'}
+                    {explanationSaved.state === 'saved' && 'Saved with this attempt. Not scored.'}
+                    {explanationSaved.state === 'idle' && 'Kept with this attempt. Not scored.'}
+                  </Typography>
+                </Stack>
+                {explanationSaved.state === 'failed' && (
+                  <Alert severity="error" sx={{ mt: 1 }}>
+                    Your explanation was not saved. {explanationSaved.error}
+                  </Alert>
+                )}
+              </Box>
+
               <Button
                 variant="contained"
                 size="small"
-                disableElevation
+
                 endIcon={<ArrowRight size={14} />}
                 onClick={onSkip}
-                sx={{ textTransform: 'none' }}
               >
                 Next
               </Button>
@@ -346,9 +473,25 @@ export const LearningPanel: React.FC<Props> = ({
           )}
         </Box>
       </Stack>
-    </Paper>
+    </Panel>
   );
 };
+
+const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <Typography
+    variant="caption"
+    component="p"
+    sx={{
+      m: 0,
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
+      fontWeight: 700,
+      color: 'text.secondary',
+    }}
+  >
+    {children}
+  </Typography>
+);
 
 const ResultRow: React.FC<{
   label: string;

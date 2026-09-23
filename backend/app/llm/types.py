@@ -34,6 +34,7 @@ class LLMTask(str, Enum):
     SYSTEM_DESIGN_GRADING = "system_design_grading"
     DESIGN_REVIEW_GRADING = "design_review_grading"
     RECORDING_ANALYSIS = "recording_analysis"
+    TOPIC_GUIDE_DRAFTING = "topic_guide_drafting"
     EMBEDDING = "embedding"
 
 
@@ -62,6 +63,9 @@ TASK_SPECS: Dict[LLMTask, TaskSpec] = {
     # headroom than grading a whole architecture answer.
     LLMTask.DESIGN_REVIEW_GRADING:    TaskSpec(Capability.TEXT_JSON, 20.0, 180.0),
     LLMTask.RECORDING_ANALYSIS:       TaskSpec(Capability.AUDIO_JSON, 45.0, 600.0),
+    # Several sections of prose in one response -- the longest text output any
+    # task asks for, so it gets more headroom than grading does.
+    LLMTask.TOPIC_GUIDE_DRAFTING:     TaskSpec(Capability.TEXT_JSON, 40.0, 420.0),
     LLMTask.EMBEDDING:                TaskSpec(Capability.EMBEDDING, 10.0, 60.0),
 }
 

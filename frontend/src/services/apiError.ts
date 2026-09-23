@@ -46,6 +46,12 @@ function isRequestFailure(error: ErrorShape | undefined): boolean {
   return error.isAxiosError === true || Boolean(error.code) || 'request' in error;
 }
 
+/** A request that never got an answer: the server is not there, or not reachable. */
+export function isUnreachable(err: unknown): boolean {
+  const error = (typeof err === 'object' && err !== null ? err : undefined) as ErrorShape | undefined;
+  return !error?.response && isRequestFailure(error);
+}
+
 /**
  * Pydantic prefixes anything raised from a custom validator, so a message
  * written to be read by a person arrives as "Value error, Say what you would
@@ -106,3 +112,17 @@ export function apiErrorMessage(err: unknown, fallback: string): string {
 
   return fallback;
 }
+
+/**
+ * The sentence for a screen that could not load.
+ *
+ * Says what failed, why when the server said, and that nothing was changed --
+ * because "Failed to load" alone leaves a learner wondering whether whatever
+ * they did last went through. Retry is the screen's to offer.
+ */
+export function loadFailed(what: string, err: unknown): string {
+  const why = apiErrorMessage(err, '').trim();
+  const sentence = why && !/[.!?]$/.test(why) ? `${why}.` : why;
+  return `${what}.${sentence ? ` ${sentence}` : ''} Nothing was changed.`;
+}
+

@@ -6,7 +6,7 @@ import json
 from typing import List, Optional
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import ResourceNotFoundException
+from app.core.exceptions import ResourceNotFoundException, ConflictException
 from app.core.logging_config import logger
 from app.llm.gateway import LLMGateway
 from app.llm.types import LLMTask
@@ -25,6 +25,7 @@ from app.schemas.design_review import (
     DesignReviewSummary,
     SubmitReviewAttemptRequest,
 )
+from app.llm.prompts import as_material
 
 VALID_VERDICTS = {"named", "partial", "missed"}
 
@@ -114,6 +115,28 @@ class DesignReviewService:
         self.attempt_repo.create(attempt)
         return self._attempt_response(attempt, review)
 
+    def regrade_attempt(self, attempt_id: int) -> DesignReviewAttemptResponse:
+        """Grade again an attempt that was committed without a verdict.
+
+        The choice and the reasoning are the learner's and are not touched; only
+        the verdict is sought again. A graded attempt is refused -- its verdict is
+        the record of that reasoning, and a new verdict belongs to a new attempt.
+        """
+        attempt = self.attempt_repo.get_by_id(attempt_id)
+        if not attempt:
+            raise ResourceNotFoundException("DesignReviewAttempt", attempt_id)
+        if attempt.grading_status == "graded":
+            raise ConflictException(
+                "This attempt already has a verdict. Try the review again to be graded again."
+            )
+        verdict, feedback, status = self._grade(attempt.review, attempt.choice, attempt.justification or "")
+        attempt.grading_status = status
+        attempt.axis_verdict = verdict
+        attempt.feedback = feedback
+        self.db.commit()
+        self.db.refresh(attempt)
+        return self._attempt_response(attempt, attempt.review)
+
     def get_attempt(self, attempt_id: int) -> DesignReviewAttemptResponse:
         attempt = self.attempt_repo.get_by_id(attempt_id)
         if not attempt:
@@ -192,7 +215,7 @@ WHAT A STRONG ANSWER WOULD ASK BEFORE COMMITTING:
 {review.elicit_answer}
 
 THE CANDIDATE {CHOICE_DESCRIPTIONS.get(choice, "responded")} AND REASONED:
-"{justification}"
+{as_material("reasoning", justification, "the candidate")}
 
 YOUR ONLY QUESTION: does their reasoning identify the axis above?
 
@@ -291,5 +314,6 @@ Return ONLY valid JSON:
                 deciding_axis=review.deciding_axis,
                 reveal=review.reveal,
                 elicit_answer=review.elicit_answer,
+                axis_label=review.axis_label,
             ) if review else None,
         )

@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from app.llm.gateway import LLMGateway
 from app.llm.types import LLMTask
+from app.llm.prompts import as_material
 
 # The built-in provider's registry name. Deliberately not a vendor name: which
 # vendor actually answers is resolved per call from user configuration, so
@@ -53,9 +54,11 @@ CONTENT_CATEGORIES_BY_ROUND: Dict[str, list] = {
 }
 
 
-class QuestionContext(TypedDict):
+class QuestionContext(TypedDict, total=False):
     round_type: str
     question_text: str
+    prepared_answer: Optional[str]
+    key_talking_points: Optional[list]
 
 
 class RecordingAnalysisProvider(Protocol):
@@ -70,7 +73,8 @@ class RecordingAnalysisProvider(Protocol):
         """Returns (parsed_result, error_msg). parsed_result, when present, has
         keys: transcript (str), communication_scores (list), filler_word_count
         (int|None), summary (str), content_scores (list, empty if no
-        question_context was given), content_summary (str|None). Never raises."""
+        question_context was given), content_summary (str|None),
+        answer_comparison (dict|None). Never raises."""
         ...
 
 
@@ -109,6 +113,9 @@ class GatewayAudioProvider:
             for c in COMMUNICATION_CATEGORIES
         )
 
+        comparison_instructions = ""
+        comparison_json_field = ""
+
         if question_context:
             round_type = question_context["round_type"]
             question_text = question_context["question_text"]
@@ -121,7 +128,7 @@ class GatewayAudioProvider:
 This recording is a spoken answer to the following interview question (round: {round_type}):
 
 INTERVIEW QUESTION:
-{question_text}
+{as_material("question", question_text, "the learner")}
 
 In addition to delivery, also grade the CONTENT of the answer -- whether it
 actually addresses the question well, using the categories below. Grade
@@ -132,7 +139,39 @@ generic, score it low and say so directly, don't be diplomatically vague.
   "content_scores": [
 {content_block}
   ],
-  "content_summary": "<2-4 sentence honest assessment of the answer's content/substance>\""""
+  "content_summary": "<2-4 sentence honest assessment of the answer's content/substance>"
+"""
+
+            prep_ans = question_context.get("prepared_answer")
+            key_pts = question_context.get("key_talking_points")
+            if prep_ans or key_pts:
+                pts_str = "\n".join(f"- {pt}" for pt in key_pts) if key_pts else "(None specified)"
+                comparison_instructions = f"""
+The learner prepared a target model answer / key talking points for this question:
+
+PREPARED TARGET ANSWER:
+{as_material("prepared_answer", prep_ans or "(None provided)", "the learner")}
+
+KEY TALKING POINTS TO HIT:
+{pts_str}
+
+Compare what was actually spoken in the recording (the verbatim transcript) against their prepared answer and key talking points:
+1. For each key talking point (and key themes from the prepared answer), evaluate whether it was "covered", "partial", or "missed", providing verbatim evidence or noting what was omitted.
+2. Calculate an alignment_score (integer 0-100) representing how faithfully they delivered their prepared substantive points.
+3. In gap_analysis, state specific metrics, actions, or outcomes from their prepared answer that were left out.
+4. In unplanned_additions, note tangents or rambling that was not in their plan (or null if concise).
+5. In coaching_tips, provide 2-3 concrete recommendations to improve their answer for their next take.
+"""
+                comparison_json_field = f""",
+  "answer_comparison": {{
+    "alignment_score": <0-100 integer representing content alignment>,
+    "key_point_matches": [
+      {{"point": "<the key talking point or theme>", "status": "<covered|partial|missed>", "evidence": "<quote from transcript or explanation of omission>"}}
+    ],
+    "gap_analysis": "<specific points or metrics from the prepared answer omitted in the recording>",
+    "unplanned_additions": "<unplanned tangents or rambling, or null if focused>",
+    "coaching_tips": "<2-3 actionable improvements for the next take>"
+  }}"""
         else:
             content_instructions = ""
             content_json_field = ""
@@ -141,7 +180,7 @@ generic, score it low and say so directly, don't be diplomatically vague.
 someone practicing a spoken interview answer, then transcribe it and grade
 their DELIVERY -- clarity, pacing, structure, filler-word usage, confidence,
 and conciseness (HOW they communicated, not what they said).
-{content_instructions}
+{content_instructions}{comparison_instructions}
 Grade honestly and specifically -- reference concrete moments in the
 recording, do not give generic praise. If the delivery is rambling, unclear,
 or full of filler words, say so directly.
@@ -153,9 +192,10 @@ Respond ONLY in this exact JSON format, no other text:
 {communication_block}
   ],
   "filler_word_count": <integer count of "um", "uh", "like", "you know", etc.>,
-  "summary": "<2-4 sentence honest overall assessment of the delivery>"{content_json_field}
+  "summary": "<2-4 sentence honest overall assessment of the delivery>"{content_json_field}{comparison_json_field}
 }}
 """
+
 
 
 _PROVIDERS: Dict[str, RecordingAnalysisProvider] = {}

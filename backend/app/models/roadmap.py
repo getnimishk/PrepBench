@@ -47,6 +47,24 @@ class Roadmap(Base):
     # Provenance for imported roadmaps, e.g. "Apache_Kafka_Mastery_Roadmap.xlsx".
     source_filename = Column(String(300), nullable=True)
 
+    # Which preparation this roadmap belongs to.
+    #
+    # Nullable, and existing roadmaps are deliberately left NULL rather than
+    # matched to a subject by title words. Nothing in the old schema recorded
+    # which preparation a roadmap served, so any backfill would be a guess of
+    # exactly the kind that put another preparation's questions into a PSM I
+    # mock (see Question.subject_id).
+    #
+    # An unassigned roadmap is shown in its own labelled group rather than
+    # hidden: the learner imported it, and losing it from view would be worse
+    # than saying plainly that it is not linked yet.
+    subject_id = Column(
+        Integer,
+        ForeignKey("subjects.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     # Both nullable, and both required before any schedule can be projected.
     # When either is missing the schedule endpoint reports *why* it is
     # unavailable rather than inventing an anchor date or a study pace.
@@ -163,3 +181,87 @@ class RoadmapResource(Base):
     created_at = Column(DateTime, default=_utc_now_naive)
 
     roadmap = relationship("Roadmap", back_populates="resources")
+
+
+class TopicDemonstration(Base):
+    """One attempt to meet a topic's success criterion unprompted.
+
+    The evidence a topic's completion rests on. Written *before* the learner sees
+    the standard -- revealing it first turns retrieval into recognition -- and
+    then self-graded against the success criterion.
+
+    Append-only. Each row carries the spaced-recheck state as it stood *after*
+    that attempt, so the newest row is the current state and no earlier row is
+    ever rewritten. A history that can be edited is not evidence.
+    """
+
+    __tablename__ = "topic_demonstrations"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+
+    # CASCADE, unlike the SET NULL used for preparations: a demonstration of a
+    # topic that no longer exists is not evidence of anything.
+    topic_id = Column(
+        Integer, ForeignKey("roadmap_topics.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+
+    response_text = Column(Text, nullable=False)
+
+    # not_yet | partial | yes
+    self_grade = Column(String(10), nullable=False)
+
+    # SM-2 state after this attempt.
+    repetition = Column(Integer, nullable=False, default=0)
+    interval_days = Column(Integer, nullable=False, default=1)
+    ease_factor = Column(Float, nullable=False, default=2.5)
+    next_recheck_at = Column(DateTime, nullable=False)
+
+    created_at = Column(DateTime, nullable=False, default=_utc_now_naive)
+
+    topic = relationship("RoadmapTopic")
+
+
+class TopicGuideSection(Base):
+    """One section of a topic's study guide.
+
+    Drafted by the configured AI, or written by the learner, and always editable.
+    `source` records who wrote the text so the page can say so honestly: content a
+    model produced is labelled as such, and stays labelled once the learner has
+    edited it, rather than passing as authoritative reference material.
+
+    Reading a section is recorded (`read_at`) because it is a real thing that
+    happened, but it is deliberately not evidence of anything. A topic is still
+    completed only by demonstrating it against its success criterion.
+    """
+
+    __tablename__ = "topic_guide_sections"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    topic_id = Column(
+        Integer, ForeignKey("roadmap_topics.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    order_index = Column(Integer, nullable=False, default=0)
+
+    title = Column(String(200), nullable=False)
+    body = Column(Text, nullable=False)
+    example = Column(Text, nullable=True)
+    common_mistake = Column(Text, nullable=True)
+
+    # A question to check understanding, and the answer to compare against after
+    # the learner has written theirs.
+    check_question = Column(Text, nullable=True)
+    check_answer = Column(Text, nullable=True)
+
+    # "ai" | "learner". Who wrote it originally; `edited_at` says whether the
+    # learner has since changed it.
+    source = Column(String(10), nullable=False, default="learner")
+    # Which provider and model produced an AI draft, for provenance.
+    generated_by = Column(String(200), nullable=True)
+    edited_at = Column(DateTime, nullable=True)
+
+    read_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, nullable=False, default=_utc_now_naive)
+    updated_at = Column(DateTime, nullable=False, default=_utc_now_naive, onupdate=_utc_now_naive)

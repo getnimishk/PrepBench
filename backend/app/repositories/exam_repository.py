@@ -31,6 +31,11 @@ class ExamRepository:
             .first()
         )
 
+    def delete_session(self, session: ExamSession) -> None:
+        """Removes the session and, through the relationship's cascade, its answers."""
+        self.db.delete(session)
+        self.db.commit()
+
     def create_session(self, session: ExamSession) -> ExamSession:
         self.db.add(session)
         self.db.commit()

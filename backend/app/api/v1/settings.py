@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.schemas.settings import AppSettingsSchema
+from app.schemas.settings import AppSettingsSchema, AppSettingsUpdate
 from app.services.settings_service import SettingsService
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
@@ -18,7 +18,13 @@ def get_settings(db: Session = Depends(get_db)):
 
 
 @router.put("", response_model=AppSettingsSchema)
-def update_settings(obj_in: AppSettingsSchema, db: Session = Depends(get_db)):
+def update_settings(obj_in: AppSettingsUpdate, db: Session = Depends(get_db)):
+    """Change the settings. Only the fields sent are changed.
+
+    It used to replace the whole row with the body, defaults included, so any
+    caller that sent part of the record -- the theme toggle, a trigger switch --
+    quietly reset everything it did not mention.
+    """
     return SettingsService(db).update_settings(obj_in)
 
 

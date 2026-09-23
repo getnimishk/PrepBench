@@ -3,7 +3,7 @@
 # Commercial use requires a separate licence from the copyright holder.
 
 from typing import List, Optional
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import func
 from app.models.practice_recording import PracticeRecording
 from app.models.recording_analysis import RecordingAnalysis
@@ -21,6 +21,8 @@ class PracticeRecordingRepository:
         duration_seconds: Optional[int],
         file_size_bytes: int,
         interview_question_id: Optional[int] = None,
+        session_id: Optional[int] = None,
+        plan_note: Optional[str] = None,
     ) -> PracticeRecording:
         obj = PracticeRecording(
             title=title,
@@ -29,6 +31,8 @@ class PracticeRecordingRepository:
             duration_seconds=duration_seconds,
             file_size_bytes=file_size_bytes,
             interview_question_id=interview_question_id,
+            session_id=session_id,
+            plan_note=plan_note,
         )
         self.db.add(obj)
         self.db.commit()
@@ -38,9 +42,24 @@ class PracticeRecordingRepository:
     def get_by_id(self, recording_id: int) -> Optional[PracticeRecording]:
         return self.db.query(PracticeRecording).filter(PracticeRecording.id == recording_id).first()
 
-    def get_all(self, skip: int = 0, limit: int = 100) -> List[PracticeRecording]:
+    def get_all(
+        self, skip: int = 0, limit: int = 100, interview_question_id: Optional[int] = None
+    ) -> List[PracticeRecording]:
+        # Each row's analysis summary is read by the list, so the analyses come in
+        # one query rather than one per recording -- and without their transcripts,
+        # which the list never shows and which run to tens of thousands of characters.
+        query = self.db.query(PracticeRecording).options(
+            selectinload(PracticeRecording.analysis).load_only(
+                RecordingAnalysis.recording_id,
+                RecordingAnalysis.analysis_status,
+                RecordingAnalysis.content_scores,
+                RecordingAnalysis.communication_scores,
+            )
+        )
+        if interview_question_id is not None:
+            query = query.filter(PracticeRecording.interview_question_id == interview_question_id)
         return (
-            self.db.query(PracticeRecording)
+            query
             .order_by(PracticeRecording.id.desc())
             .offset(skip)
             .limit(limit)

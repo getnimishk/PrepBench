@@ -3,240 +3,157 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React, { useEffect, useState } from 'react';
-import {
-  Box, Card, CardContent, Typography, Button, Chip, Alert,
-  CircularProgress, LinearProgress, IconButton,
-  Accordion, AccordionSummary, AccordionDetails
-} from '@mui/material';
-import { Mic, Square, Trash2, Sparkles, ChevronDown } from 'lucide-react';
-import {
-  getRecordings, uploadRecording, deleteRecording, getRecordingAudioUrl,
-  analyzeRecording, getRecordingAnalysis,
-} from '../services/api';
-import { PracticeRecording, RecordingAnalysis } from '../types/recording';
-import { useAudioRecorder } from '../hooks/useAudioRecorder';
-import { CategoryScoreList } from '../components/common/CategoryScoreList';
-import { apiErrorMessage } from '../services/apiError';
+import { Link as RouterLink } from 'react-router-dom';
+import { Alert, Box, Button, IconButton, LinearProgress, Tooltip } from '@mui/material';
+import { Trash2 } from 'lucide-react';
+import { deleteRecording, getRecordings } from '../services/api';
+import { PracticeRecording } from '../types/recording';
+import { apiErrorMessage, loadFailed } from '../services/apiError';
+import { Actions, Detail, PageHead, Panel, PanelHead, Pill, Row, Section, Sub, type Tone } from '../components/ui/primitives';
 
-const formatElapsed = (seconds: number): string => {
-  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-  const s = (seconds % 60).toString().padStart(2, '0');
-  return `${m}:${s}`;
+/**
+ * Recordings: every take kept on this machine, as the prototype lists them --
+ * the take, when and how long, its content and delivery, and the way into it.
+ *
+ * The prototype also draws three "example takes" under the real ones, to show
+ * what a filled library looks like. They are not drawn here: rows that look
+ * like the learner's own work and are not would be invented evidence, even
+ * labelled.
+ */
+
+const clock = (seconds: number | null | undefined) => {
+  if (seconds == null) return null;
+  const s = Math.max(0, Math.round(seconds));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+
+const when = (iso: string) => {
+  const d = new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(iso) ? iso : `${iso}Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  const days = Math.floor((Date.now() - d.getTime()) / 86_400_000);
+  return days <= 0 ? 'Today' : days === 1 ? 'Yesterday' : `${days} days ago`;
+};
+
+const STATUS: Record<string, { label: string; tone: Tone }> = {
+  analyzed: { label: 'Analysed', tone: 'success' },
+  error: { label: 'Analysis failed', tone: 'danger' },
+  unavailable: { label: 'Not graded', tone: 'neutral' },
 };
 
 export const RecordingsPage: React.FC = () => {
   const [recordings, setRecordings] = useState<PracticeRecording[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-
-
-  const [uploading, setUploading] = useState(false);
-
-  const [analyses, setAnalyses] = useState<Record<number, RecordingAnalysis>>({});
-  const [analyzingId, setAnalyzingId] = useState<number | null>(null);
-  const [analyzeErrors, setAnalyzeErrors] = useState<Record<number, string>>({});
-
-  const [uploadError, setUploadError] = useState<string | null>(null);
-
-  const handleRecordingStopped = async (blob: Blob, elapsedSeconds: number) => {
-    setUploadError(null);
-    setUploading(true);
-    try {
-      await uploadRecording(blob, `Practice Recording ${new Date().toLocaleString()}`, elapsedSeconds);
-      fetchRecordings();
-    } catch (err) {
-      setUploadError(apiErrorMessage(err, 'Failed to save recording. Please try again.'));
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const { isRecording, elapsed, recordError, start: handleStartRecording, stop: handleStopRecording } = useAudioRecorder(handleRecordingStopped);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const fetchRecordings = () => {
     setLoading(true);
     setFetchError(null);
-    getRecordings({ limit: 100 })
-      .then((res) => {
-        setRecordings(res.items);
-        // Feedback that already exists is shown, not offered.
-        //
-        // There was a "Check for existing analysis" button on every row: a
-        // cache probe, presented to the learner as something to decide. It
-        // existed only because the page never looked. Nobody opens a practice
-        // recording wondering whether the application has already read it.
-        res.items.forEach((r) => {
-          getRecordingAnalysis(r.id)
-            .then((a) => setAnalyses((prev) => ({ ...prev, [r.id]: a })))
-            .catch(() => { /* none yet, which is a normal state */ });
-        });
-      })
-      .catch(() => setFetchError('Failed to load recordings. Please check backend connection.'))
+    getRecordings({ limit: 200 })
+      .then((res) => setRecordings(res.items))
+      .catch((err) => setFetchError(loadFailed('Could not load your recordings', err)))
       .finally(() => setLoading(false));
   };
 
   useEffect(fetchRecordings, []);
 
-  const handleDelete = async (id: number) => {
-    await deleteRecording(id);
-    setRecordings((prev) => prev.filter((r) => r.id !== id));
-  };
-
-  const handleAnalyze = async (id: number) => {
-    setAnalyzingId(id);
-    setAnalyzeErrors((prev) => ({ ...prev, [id]: '' }));
+  const handleDelete = async (recording: PracticeRecording) => {
+    setDeleteError(null);
     try {
-      const result = await analyzeRecording(id);
-      setAnalyses((prev) => ({ ...prev, [id]: result }));
+      await deleteRecording(recording.id);
+      setRecordings((prev) => prev.filter((r) => r.id !== recording.id));
     } catch (err) {
-      setAnalyzeErrors((prev) => ({
-        ...prev,
-        [id]: apiErrorMessage(err, 'Failed to analyze recording.'),
-      }));
-    } finally {
-      setAnalyzingId(null);
+      setDeleteError(apiErrorMessage(err, `Could not delete ${recording.title}. Nothing was changed.`));
     }
   };
 
   return (
-    <Box sx={{ maxWidth: 900, pb: 8 }}>
-      <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>Practice Recordings</Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-        Record yourself answering a practice question out loud, listen back, and optionally get AI feedback on your delivery.
-      </Typography>
+    <Box>
+      <PageHead
+        eyebrow="Interview practice"
+        title="Recordings"
+        sub="Every take stays available for comparison. Content and delivery are kept separate so a strong story is not hidden by a nervous delivery."
+        actions={(
+          <>
+            <Button component={RouterLink} to="/interview-practice/library" variant="outlined">Question library</Button>
+            <Button component={RouterLink} to="/interview-practice" variant="contained" color="ink">Record a new take</Button>
+          </>
+        )}
+      />
 
-      <Card sx={{ mb: 4, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
-        <CardContent sx={{ textAlign: 'center', py: 4 }}>
-          {(recordError || uploadError) && <Alert severity="error" sx={{ mb: 3, textAlign: 'left' }}>{recordError || uploadError}</Alert>}
-          {isRecording && (
-            <Typography variant="h3" sx={{ fontWeight: 800, mb: 2, color: 'error.main' }}>
-              {formatElapsed(elapsed)}
-            </Typography>
+      {deleteError && <Alert severity="error" sx={{ mt: 2 }} onClose={() => setDeleteError(null)}>{deleteError}</Alert>}
+
+      <Section>
+        <Panel component="section" aria-labelledby="your-takes">
+          <PanelHead eyebrow="This machine" title="Your takes" titleId="your-takes" />
+
+          {fetchError && (
+            <Alert severity="error" action={<Button color="inherit" size="small" onClick={fetchRecordings}>Retry</Button>}>
+              {fetchError}
+            </Alert>
           )}
-          {uploading ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-              <CircularProgress />
-              <Typography color="text.secondary">Saving recording…</Typography>
+
+          {loading ? (
+            <LinearProgress aria-label="Loading recordings" />
+          ) : recordings.length === 0 && !fetchError ? (
+            // The prototype's .drop: a dashed empty area with the way to fill it.
+            <Box
+              sx={{
+                p: '36px', borderRadius: '12px', border: '2px dashed', borderColor: 'pb.dash',
+                bgcolor: 'pb.surface2', textAlign: 'center',
+              }}
+            >
+              <Box component="b" sx={{ display: 'block' }}>No takes yet</Box>
+              <Sub sx={{ mt: '4px', mb: 0, mx: 'auto' }}>A recorded answer appears here with its analysis.</Sub>
+              <Actions sx={{ justifyContent: 'center', mt: '14px' }}>
+                <Button component={RouterLink} to="/interview-practice" variant="contained" color="ink">
+                  Record your first take
+                </Button>
+              </Actions>
             </Box>
-          ) : isRecording ? (
-            <Button
-              variant="contained"
-              color="error"
-              size="large"
-              startIcon={<Square size={20} />}
-              onClick={handleStopRecording}
-              sx={{ borderRadius: '100px', px: 4, py: 1.5, boxShadow: 'none' }}
-            >
-              Stop Recording
-            </Button>
           ) : (
-            <Button
-              variant="contained"
-              size="large"
-              startIcon={<Mic size={20} />}
-              onClick={handleStartRecording}
-              sx={{ borderRadius: '100px', px: 4, py: 1.5, boxShadow: 'none' }}
-            >
-              Start Recording
-            </Button>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* The "Analysis provider:" dropdown stood here, listing model vendors
-          for the learner to choose between mid-flow. Which company's model
-          transcribes an answer is a configuration decision, not a step in
-          practising an interview, and it lives in Settings -> AI Providers
-          with every other one. The server resolves the default itself when no
-          name is sent. */}
-
-      <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>Your Recordings</Typography>
-
-      {fetchError && (
-        <Alert severity="error" action={<Button color="inherit" size="small" onClick={fetchRecordings}>Retry</Button>} sx={{ mb: 3 }}>
-          {fetchError}
-        </Alert>
-      )}
-
-      {loading ? (
-        <LinearProgress />
-      ) : recordings.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">No recordings yet. Record your first practice answer above.</Typography>
-      ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {recordings.map((r) => {
-            const analysis = analyses[r.id];
-            const analyzeError = analyzeErrors[r.id];
-            return (
-              <Card key={r.id} sx={{ border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{r.title}</Typography>
-                    <IconButton size="small" onClick={() => handleDelete(r.id)} aria-label={`Delete ${r.title}`}>
-                      <Trash2 size={18} />
-                    </IconButton>
-                  </Box>
-
-                  <audio controls src={getRecordingAudioUrl(r.id)} style={{ width: '100%', marginBottom: 12 }} />
-
-                  {!analysis && !analyzeError && (
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Button
-                        size="small"
-                        startIcon={analyzingId === r.id ? <CircularProgress size={14} color="inherit" /> : <Sparkles size={16} />}
-                        onClick={() => handleAnalyze(r.id)}
-                        disabled={analyzingId === r.id}
-                        variant="outlined"
-                      >
-                        {analyzingId === r.id ? 'Analyzing…' : 'Analyze'}
+            recordings.map((r) => {
+              const status = r.analysis_status ? STATUS[r.analysis_status] : null;
+              const facts = [
+                when(r.created_at),
+                clock(r.duration_seconds),
+                r.content_percent != null ? `content ${Math.round(r.content_percent)}%` : null,
+                r.delivery_percent != null ? `delivery ${Math.round(r.delivery_percent)}%` : null,
+              ].filter(Boolean).join(' · ');
+              return (
+                <Row
+                  key={r.id}
+                  title={(
+                    <Box component={RouterLink} to={`/recordings/${r.id}`} sx={{ color: 'inherit', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
+                      {r.title}
+                    </Box>
+                  )}
+                  detail={facts || undefined}
+                  middle={<Pill tone={status?.tone ?? 'neutral'}>{status?.label ?? 'Not analysed'}</Pill>}
+                  action={(
+                    <Actions sx={{ gap: '4px', flexWrap: 'nowrap' }}>
+                      <Button component={RouterLink} to={`/recordings/${r.id}`} variant="outlined" aria-label={`Open ${r.title}`}>
+                        Open
                       </Button>
-                    </Box>
+                      <Tooltip title="Delete this take">
+                        <IconButton size="small" color="error" onClick={() => void handleDelete(r)} aria-label={`Delete ${r.title}`}>
+                          <Trash2 size={16} />
+                        </IconButton>
+                      </Tooltip>
+                    </Actions>
                   )}
-
-                  {analyzeError && <Alert severity="warning" sx={{ mt: 1 }}>{analyzeError}</Alert>}
-
-                  {analysis && analysis.analysis_status !== 'analyzed' && (
-                    <Alert severity={analysis.analysis_status === 'unavailable' ? 'info' : 'warning'} sx={{ mt: 1 }}>
-                      {analysis.analysis_status === 'unavailable'
-                        ? 'Not analyzed -- no AI provider is configured for analysis.'
-                        : `Analysis failed: ${analysis.analysis_error}`}
-                    </Alert>
-                  )}
-
-                  {analysis && analysis.analysis_status === 'analyzed' && (
-                    <Box sx={{ mt: 2 }}>
-                      {analysis.summary && <Alert severity="info" sx={{ mb: 2 }}>{analysis.summary}</Alert>}
-
-                      {analysis.filler_word_count !== null && (
-                        <Chip
-                          label={`${analysis.filler_word_count} filler words`}
-                          size="small"
-                          sx={{ mb: 2 }}
-                        />
-                      )}
-
-                      <Box sx={{ mb: 2 }}>
-                        <CategoryScoreList scores={analysis.communication_scores} />
-                      </Box>
-
-                      {analysis.transcript && (
-                        <Accordion sx={{ boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
-                          <AccordionSummary expandIcon={<ChevronDown size={18} />}>
-                            <Typography variant="body2" sx={{ fontWeight: 600 }}>Transcript</Typography>
-                          </AccordionSummary>
-                          <AccordionDetails>
-                            <Typography variant="body2" color="text.secondary">{analysis.transcript}</Typography>
-                          </AccordionDetails>
-                        </Accordion>
-                      )}
-                    </Box>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </Box>
-      )}
+                />
+              );
+            })
+          )}
+          {recordings.length > 0 && (
+            <Detail sx={{ mt: '10px' }}>
+              Each row is an audio file on this machine plus, where one was run, one analysis from the configured
+              provider. Audio is never uploaded anywhere else.
+            </Detail>
+          )}
+        </Panel>
+      </Section>
     </Box>
   );
 };

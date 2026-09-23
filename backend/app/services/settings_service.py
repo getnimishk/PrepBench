@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.logging_config import logger
 from app.llm.bootstrap import import_env_provider_if_absent
 from app.repositories.settings_repository import SettingsRepository
-from app.schemas.settings import AppSettingsSchema
+from app.schemas.settings import AppSettingsSchema, AppSettingsUpdate
 from app.utils.seed_interview_questions import seed_interview_questions
 from app.utils.seed_system_design_prompts import seed_system_design_prompts
 from app.utils.seed_design_reviews import seed_design_reviews
@@ -22,8 +22,13 @@ class SettingsService:
     def get_settings(self) -> AppSettingsSchema:
         return AppSettingsSchema.model_validate(self.repo.get_or_create())
 
-    def update_settings(self, obj_in: AppSettingsSchema) -> AppSettingsSchema:
-        return AppSettingsSchema.model_validate(self.repo.update(obj_in.model_dump()))
+    def update_settings(self, obj_in: AppSettingsUpdate) -> AppSettingsSchema:
+        changes = obj_in.model_dump(exclude_unset=True)
+        if "notification_triggers" in changes:
+            # Merged, so switching one trigger does not reset the others.
+            current = AppSettingsSchema.model_validate(self.repo.get_or_create()).notification_triggers
+            changes["notification_triggers"] = {**current, **changes["notification_triggers"]}
+        return AppSettingsSchema.model_validate(self.repo.update(changes))
 
     def reset_application(self) -> dict:
         """

@@ -21,16 +21,44 @@ LEARNER = "learner"
 TEST = "test"
 
 
+def session_belongs_to(subject: Subject):
+    """The filter clause for "this exam session belongs to this preparation".
+
+    By subject_id where set, falling back to exact certification equality so that
+    sessions recorded before preparations existed still resolve. A skill has no
+    certification string, so only the id applies.
+
+    One definition, because three readers depend on agreeing: the readiness mocks
+    below, Home's daily goal and the review queue. It was written out twice before
+    the review queue needed it; a third copy is how the goal ends up saying
+    "nothing due" while the queue lists another preparation's mistakes.
+    """
+    if subject.certification:
+        return (
+            (ExamSession.subject_id == subject.id)
+            | (ExamSession.certification == subject.certification)
+        )
+    return ExamSession.subject_id == subject.id
+
+
 class SubjectRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def get_all(self) -> List[Subject]:
-        return (
-            self.db.query(Subject)
-            .order_by(Subject.display_order.asc(), Subject.name.asc())
-            .all()
-        )
+    def get_all(self, include_archived: bool = True) -> List[Subject]:
+        """Every preparation, archived ones included by default.
+
+        The default is `True` and that is a compatibility decision, not a
+        preference: five callers reach this through `getSubjects()` with no
+        arguments -- Home, the Practice hub, Analytics, Exam Setup and the
+        subject page -- and flipping it would silently remove rows from all of
+        them. The picker asks for `include_archived=False`; everything else keeps
+        seeing what it saw.
+        """
+        query = self.db.query(Subject)
+        if not include_archived:
+            query = query.filter(Subject.is_archived.is_(False))
+        return query.order_by(Subject.display_order.asc(), Subject.name.asc()).all()
 
     def get_by_id(self, subject_id: int) -> Optional[Subject]:
         return self.db.query(Subject).filter(Subject.id == subject_id).first()
@@ -44,12 +72,69 @@ class SubjectRepository:
     def count(self) -> int:
         return self.db.query(func.count(Subject.id)).scalar() or 0
 
+    def get_by_name(self, name: str) -> Optional[Subject]:
+        return self.db.query(Subject).filter(Subject.name == name).first()
+
+    def get_by_certification(
+        self, certification: str, exclude_id: Optional[int] = None
+    ) -> Optional[Subject]:
+        """The preparation already claiming this certification string, if any.
+
+        `exclude_id` lets an update check for a *different* holder without
+        tripping over the row being updated.
+        """
+        query = self.db.query(Subject).filter(Subject.certification == certification)
+        if exclude_id is not None:
+            query = query.filter(Subject.id != exclude_id)
+        return query.first()
+
+    def slugs_starting_with(self, prefix: str) -> Set[str]:
+        """Existing slugs sharing a prefix, for de-duplicating a derived one."""
+        return {
+            r[0]
+            for r in self.db.query(Subject.slug).filter(Subject.slug.like(f"{prefix}%")).all()
+            if r[0]
+        }
+
     def create(self, **kwargs) -> Subject:
         subject = Subject(**kwargs)
         self.db.add(subject)
         self.db.commit()
         self.db.refresh(subject)
         return subject
+
+    def save(self, subject: Subject) -> Subject:
+        self.db.commit()
+        self.db.refresh(subject)
+        return subject
+
+    def delete(self, subject: Subject) -> None:
+        """Removes the row only.
+
+        The preparation's questions and evidence are removed by SubjectService
+        before this is called, explicitly and in a reported order. They are not
+        left to `ondelete` -- every subject_id FK in this schema is SET NULL, and
+        an irreversible action the learner typed a name to confirm should read as
+        code rather than as a schema side effect.
+        """
+        self.db.delete(subject)
+        self.db.commit()
+
+    def get_mock_sessions(self, subject: Subject, limit: int = 20) -> List[ExamSession]:
+        """Submitted mocks for a preparation, newest first, for its history."""
+        taken_at = func.coalesce(ExamSession.end_time, ExamSession.start_time)
+        return (
+            self.db.query(ExamSession)
+            .filter(
+                ExamSession.session_kind == MOCK,
+                ExamSession.source == LEARNER,
+                ExamSession.status == ExamStatus.COMPLETED,
+                session_belongs_to(subject),
+            )
+            .order_by(taken_at.desc(), ExamSession.id.desc())
+            .limit(limit)
+            .all()
+        )
 
     # ---- the readiness query ----------------------------------------
 
@@ -74,13 +159,7 @@ class SubjectRepository:
             ExamSession.status == ExamStatus.COMPLETED,
             ExamSession.score_percentage.isnot(None),
         )
-        if subject.certification:
-            query = query.filter(
-                (ExamSession.subject_id == subject.id)
-                | (ExamSession.certification == subject.certification)
-            )
-        else:
-            query = query.filter(ExamSession.subject_id == subject.id)
+        query = query.filter(session_belongs_to(subject))
 
         sessions = query.order_by(ExamSession.start_time.asc()).all()
         if not sessions:
