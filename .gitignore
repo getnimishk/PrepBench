@@ -53,8 +53,12 @@ frontend/dist/
 .DS_Store
 Thumbs.db
 
-# Claude Code config (tool-specific, not project source)
+# Claude Code config and instructions -- local to each machine, not project
+# source. CLAUDE.md carries session-to-session notes and standing instructions
+# for whoever's working on this machine; it isn't meant to be reviewed as a
+# diff or shared through the repo.
 .claude/
+CLAUDE.md
 
 # Coverage artifacts
 .coverage
