@@ -1,7 +1,7 @@
 # Lakehouse Lab — PRD
 
 **Status:** Draft for review · **Date:** 2026-09-23 · **Owner:** Nimish Kanungo
-**Where it lives:** Learning Lab (`/lab`) → new sandbox at `/lab/lakehouse`. This is the "Databricks architecture" domain that `docs/wiki/Chart-Sandbox.md` already lists as next.
+**Where it lives:** Learning Lab (`/lab`) → `/databricks-sandbox`. This is the "Databricks architecture" domain that `docs/wiki/Chart-Sandbox.md` already lists as next. It takes over the existing placeholder card in `LearningLabPage.tsx` (`path: '/databricks-sandbox'`, `live: false`), and it follows the top-level route convention set by `/chart-sandbox`. The nav key is `'databricks-sandbox'`, as `navigation.ts` already anticipates. It's wired in using the `add-learning-lab-sandbox` skill.
 
 ---
 
@@ -133,7 +133,7 @@ After each outcome, the learner writes acceptance criteria. Deterministic checks
 - [ ] **Before shipping, a person verifies it on Databricks Free Edition.** Until then the export is marked "unverified". We don't claim it works without having run it.
 
 **P0-11 · Standard PrepBench shipping bar**
-- [ ] `/lab/lakehouse` is added to `responsive.spec.ts`, `accessibility.spec.ts` and `navigation.spec.ts`, plus a Lab hub card and a `navigation.ts` entry.
+- [ ] `/databricks-sandbox` is added to the `ROUTES` arrays in `responsive.spec.ts`, `accessibility.spec.ts` and `navigation.spec.ts`. The placeholder hub card is set to `live: true`, and the `navigation.ts` entry and `SECTION_RULES` entry are added. `Sidebar.test.tsx`'s link count, `navigation.test.ts` and `LearningLabPage.test.tsx` are updated, following the `add-learning-lab-sandbox` skill.
 - [ ] axe is clean in light and dark. No horizontal scroll at 390px. No hex colours. Every font size uses `pxToRem`, including SVG text scaled by `textScale`.
 - [ ] Headings go h1 → h2 → h3. Any count assertions affected by the new card or nav entry are updated.
 
