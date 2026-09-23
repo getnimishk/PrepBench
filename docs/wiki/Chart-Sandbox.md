@@ -1,6 +1,8 @@
 # Chart Sandbox
 
-At `/chart-sandbox`. A delivery simulator for people who have to **explain** agile metrics, not just read them.
+At `/chart-sandbox`, reachable directly or from the **Learning Lab** hub at `/lab`. It is the first of what the Learning Lab is built to hold — one simulation sandbox per domain of professional metrics, each teaching by the same loop (predict, manipulate, observe, explain). Agile Metrics is live; Databricks architecture and financial modelling are the next domains planned. Adding one is: a card in `LearningLabPage.tsx`, a rail entry in `navigation.ts`, a route in `App.tsx`, and the page itself.
+
+This page covers the Agile Metrics sandbox: a delivery simulator for people who have to **explain** agile metrics, not just read them.
 
 Most chart tutorials show you a picture and tell you what it means. The problem is that the picture was drawn to illustrate the lesson, so you learn to recognise a shape rather than to reason about a system. The sandbox inverts this: there is one executable model, all 27 views read from it, and you can only produce a shape by producing the conditions that cause it.
 
