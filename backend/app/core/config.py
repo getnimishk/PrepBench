@@ -28,6 +28,21 @@ class Settings(BaseSettings):
     # SQLite Database Configuration
     DATABASE_PATH: Path = DATA_DIR / "exam_simulator.db"
     SQLALCHEMY_DATABASE_URI: str = f"sqlite:///{DATABASE_PATH}"
+
+    # Whether importing app.main may create tables, run the lightweight
+    # migrations and run the seeders. True for every real boot -- that startup
+    # work is how a fresh install gets a schema and how an existing one gets
+    # upgraded, so nothing in the product may turn it off.
+    #
+    # The test suite turns it off (backend/tests/conftest.py), because both
+    # halves of it reached the learner's own database. `create_all` runs at
+    # import time and app.main is imported to get `app`, so merely collecting
+    # tests wrote to it; and the seeders build their own SessionLocal(), which
+    # app.dependency_overrides cannot reach, so TestClient's lifespan seeded
+    # it too. Phase 2 was additive and lost nothing, but a later step that
+    # drops or rewrites a column would have run against real learner data
+    # during `pytest`. See tests/test_real_database_isolation.py.
+    RUN_STARTUP_DB_INIT: bool = True
     
     # Default Question Bank Path (falls back to the repo-local copy in app/data)
     DEFAULT_QUESTION_BANK_PATH: Path = BASE_DIR / "app" / "data" / "PSM_I_Question_Bank.json"

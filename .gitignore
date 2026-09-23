@@ -19,10 +19,15 @@ backend/data/.llm_secrets.json
 backend/data/.llm_secret_key
 
 # Databases
-backend/data/*.db
-backend/data/*.db-journal
-backend/data/*.db-wal
-backend/data/*.db-shm
+#
+# Repo-wide rather than backend/data only. A stray exam_simulator.db turned up
+# at the repo root, where the old pattern did not reach it, so git offered it
+# for commit like source. The application only ever writes to backend/data, so
+# a .db anywhere else is an accident by definition and none is tracked.
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 
 # Models this machine's Ollama catalogue sync discovered. The shipped
 # catalogue is backend/app/data/local_models.json, tracked; this is local state.
