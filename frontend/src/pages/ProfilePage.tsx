@@ -189,7 +189,7 @@ export const ProfilePage: React.FC = () => {
               {stats.study_hours != null && stats.study_hours > 0 && (
                 <Metric
                   value={`${stats.study_hours}h`}
-                  label="study completed"
+                  label="planned hours completed"
                 />
               )}
             </Box>

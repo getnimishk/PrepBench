@@ -27,7 +27,12 @@ function watchConsole(page: Page, where: () => string): string[] {
 }
 
 async function landed(page: Page, route: string) {
-  await expect(page.locator('main h1').first(), `${route} has a heading`).toBeVisible();
+  // 15s, not the 5s default: Vite's dev server compiles a route on its first
+  // visit, and a page that has never been hit before in this run can occasionally
+  // take longer than 5s to serve -- not a broken screen, just an uncompiled one.
+  // This crawl visits every screen once each, so the first visit is the common
+  // case, not the exception.
+  await expect(page.locator('main h1').first(), `${route} has a heading`).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole('heading', { name: NOT_FOUND }), `${route} is a real page`).toHaveCount(0);
   await page.waitForLoadState('networkidle');
 }
