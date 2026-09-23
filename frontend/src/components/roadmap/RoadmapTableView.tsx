@@ -13,6 +13,12 @@ import { RoadmapPhase, RoadmapTopic, RoadmapTopicStatus } from '../../types/road
 import { Detail, Eyebrow, Panel, PanelHead, Pill, Section, type Tone } from '../ui/primitives';
 import { NARROW_QUERY } from '../../theme/tokens';
 
+/** Read by screen readers, not drawn. */
+const VISUALLY_HIDDEN = {
+  border: 0, clip: 'rect(0 0 0 0)', height: '1px', margin: '-1px', overflow: 'hidden',
+  padding: 0, position: 'absolute', top: 0, left: 0, whiteSpace: 'nowrap', width: '1px',
+} as const;
+
 export type StatusFilter = 'all' | RoadmapTopicStatus;
 
 interface Props {
@@ -154,7 +160,9 @@ export const RoadmapTableView: React.FC<Props> = ({
                         <TableCell sx={{ width: 64 }}>Hours</TableCell>
                         <TableCell sx={{ width: 170 }}>Status</TableCell>
                         <TableCell sx={{ width: 44, textAlign: 'center' }}>Notes</TableCell>
-                        <TableCell sx={{ width: 72 }} aria-label="Open" />
+                        <TableCell sx={{ width: 72 }}>
+                          <Box component="span" sx={VISUALLY_HIDDEN}>Open</Box>
+                        </TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
