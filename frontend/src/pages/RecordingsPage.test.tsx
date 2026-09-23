@@ -4,196 +4,105 @@
 
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { RecordingsPage } from './RecordingsPage';
+import type { PracticeRecording } from '../types/recording';
+
+// Recording, playback, analysis and the transcript live on the record and
+// results screens, which have their own tests. This page is the library: every
+// take kept on this machine, and the way into each.
 
 const mockGetRecordings = vi.fn();
-const mockUpload = vi.fn();
 const mockDelete = vi.fn();
-const mockGetProviders = vi.fn();
-const mockAnalyze = vi.fn();
-const mockGetAnalysis = vi.fn();
 
 vi.mock('../services/api', () => ({
   getRecordings: (...args: any[]) => mockGetRecordings(...args),
-  uploadRecording: (...args: any[]) => mockUpload(...args),
   deleteRecording: (...args: any[]) => mockDelete(...args),
-  getRecordingAudioUrl: (id: number) => `/api/v1/recordings/${id}/audio`,
-  getRecordingProviders: (...args: any[]) => mockGetProviders(...args),
-  analyzeRecording: (...args: any[]) => mockAnalyze(...args),
-  getRecordingAnalysis: (...args: any[]) => mockGetAnalysis(...args),
 }));
 
-// jsdom implements neither getUserMedia nor MediaRecorder -- fake both so the
-// "start/stop recording" flow can be exercised without a real microphone.
-class FakeMediaRecorder {
-  static instances: FakeMediaRecorder[] = [];
-  ondataavailable: ((e: { data: Blob }) => void) | null = null;
-  onstop: (() => void) | null = null;
-  constructor(public stream: any, public options: any) {
-    FakeMediaRecorder.instances.push(this);
-  }
-  start() {}
-  stop() {
-    this.ondataavailable?.({ data: new Blob(['fake-audio'], { type: 'audio/webm' }) });
-    this.onstop?.();
-  }
-}
+const take = (over: Partial<PracticeRecording> = {}): PracticeRecording => ({
+  id: 7, title: 'Tell me about yourself', mime_type: 'audio/webm', duration_seconds: 95, file_size_bytes: 2048,
+  interview_question_id: 3, created_at: new Date().toISOString(),
+  analysis_status: 'analyzed', content_percent: 79.4, delivery_percent: 68,
+  ...over,
+});
+
+const renderPage = () => render(<MemoryRouter><RecordingsPage /></MemoryRouter>);
 
 beforeEach(() => {
   vi.clearAllMocks();
-  FakeMediaRecorder.instances = [];
-  (globalThis as any).MediaRecorder = FakeMediaRecorder;
-
-  Object.defineProperty(globalThis.navigator, 'mediaDevices', {
-    value: {
-      getUserMedia: vi.fn().mockResolvedValue({
-        getTracks: () => [{ stop: vi.fn() }],
-      }),
-    },
-    configurable: true,
-  });
-
-  mockGetRecordings.mockResolvedValue({ items: [], skip: 0, limit: 100 });
-  mockGetProviders.mockResolvedValue([{ name: 'gemini', is_available: true }]);
+  mockGetRecordings.mockResolvedValue({ items: [], total: 0, skip: 0, limit: 200 });
 });
 
 describe('RecordingsPage', () => {
-  it('records and uploads audio when start/stop is clicked', async () => {
-    const user = userEvent.setup();
-    mockUpload.mockResolvedValue({ id: 1, title: 'Test', mime_type: 'audio/webm', duration_seconds: 1, file_size_bytes: 10, interview_question_id: null, created_at: '' });
+  it('lists each take with when, how long, its content and delivery, and the way into it', async () => {
+    mockGetRecordings.mockResolvedValue({ items: [take()], total: 1, skip: 0, limit: 200 });
+    renderPage();
 
-    render(<RecordingsPage />);
-    await waitFor(() => expect(screen.getByRole('button', { name: /start recording/i })).toBeInTheDocument());
-
-    await user.click(screen.getByRole('button', { name: /start recording/i }));
-    await waitFor(() => expect(screen.getByRole('button', { name: /stop recording/i })).toBeInTheDocument());
-
-    await user.click(screen.getByRole('button', { name: /stop recording/i }));
-
-    await waitFor(() => expect(mockUpload).toHaveBeenCalled());
+    const takes = await screen.findByRole('region', { name: 'Your takes' });
+    expect(within(takes).getByRole('link', { name: 'Tell me about yourself' })).toHaveAttribute('href', '/recordings/7');
+    expect(within(takes).getByText('Today · 1:35 · content 79% · delivery 68%')).toBeInTheDocument();
+    expect(within(takes).getByText('Analysed')).toBeInTheDocument();
+    expect(within(takes).getByRole('link', { name: 'Open Tell me about yourself' })).toHaveAttribute('href', '/recordings/7');
   });
 
-  it('regression: the freeform library flow never passes an interview_question_id', async () => {
-    // Interview Practice reuses uploadRecording's 4th (interviewQuestionId)
-    // param -- this page must keep calling it with exactly 3 args (or an
-    // explicit undefined), proving this flow stays freeform/unlinked even
-    // after Interview Practice added that param to the shared function.
-    const user = userEvent.setup();
-    mockUpload.mockResolvedValue({ id: 2, title: 'Test', mime_type: 'audio/webm', duration_seconds: 1, file_size_bytes: 10, interview_question_id: null, created_at: '' });
-
-    render(<RecordingsPage />);
-    await waitFor(() => expect(screen.getByRole('button', { name: /start recording/i })).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /start recording/i }));
-    await waitFor(() => expect(screen.getByRole('button', { name: /stop recording/i })).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /stop recording/i }));
-
-    await waitFor(() => expect(mockUpload).toHaveBeenCalled());
-    const call = mockUpload.mock.calls[0];
-    expect(call[3]).toBeUndefined();
-  });
-
-  it('renders past recordings with a working audio player', async () => {
+  it('never shows a score for a take that was not analysed, and says why', async () => {
     mockGetRecordings.mockResolvedValue({
-      items: [{ id: 5, title: 'My Practice Answer', mime_type: 'audio/webm', duration_seconds: 30, file_size_bytes: 1000, created_at: '' }],
-      skip: 0,
-      limit: 100,
+      items: [
+        take({ id: 1, title: 'Failed one', analysis_status: 'error', content_percent: null, delivery_percent: null }),
+        take({ id: 2, title: 'No provider', analysis_status: 'unavailable', content_percent: null, delivery_percent: null }),
+        take({ id: 3, title: 'Never run', analysis_status: null, content_percent: null, delivery_percent: null }),
+      ],
+      total: 3, skip: 0, limit: 200,
     });
+    renderPage();
 
-    render(<RecordingsPage />);
-    await waitFor(() => expect(screen.getByText('My Practice Answer')).toBeInTheDocument());
-
-    const audioEl = document.querySelector('audio');
-    expect(audioEl).toBeTruthy();
-    expect(audioEl?.getAttribute('src')).toBe('/api/v1/recordings/5/audio');
+    expect(await screen.findByText('Analysis failed')).toBeInTheDocument();
+    expect(screen.getByText('Not graded')).toBeInTheDocument();
+    expect(screen.getByText('Not analysed')).toBeInTheDocument();
+    expect(screen.queryByText(/content \d/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/%/)).not.toBeInTheDocument();
   });
 
-  it('shows no score UI when analysis is unavailable', async () => {
+  it('shows an empty library as empty, with the way to fill it and no example takes', async () => {
+    renderPage();
+
+    expect(await screen.findByText('No takes yet')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Record your first take' })).toHaveAttribute('href', '/interview-practice');
+    // The prototype's "example takes" are not drawn: rows that look like the
+    // learner's own work and are not would be invented evidence.
+    expect(screen.queryByRole('link', { name: /^Open / })).not.toBeInTheDocument();
+  });
+
+  it('says the library could not be read rather than calling it empty, and retries', async () => {
     const user = userEvent.setup();
-    mockGetRecordings.mockResolvedValue({
-      items: [{ id: 5, title: 'My Practice Answer', mime_type: 'audio/webm', duration_seconds: 30, file_size_bytes: 1000, created_at: '' }],
-      skip: 0,
-      limit: 100,
-    });
-    mockAnalyze.mockResolvedValue({
-      id: 1, recording_id: 5, provider: 'gemini', transcript: null,
-      communication_scores: [], filler_word_count: null, summary: null,
-      analysis_status: 'unavailable', analysis_error: null, created_at: '',
-    });
+    mockGetRecordings.mockRejectedValueOnce({ isAxiosError: true, request: {} })
+      .mockResolvedValue({ items: [take()], total: 1, skip: 0, limit: 200 });
+    renderPage();
 
-    render(<RecordingsPage />);
-    await waitFor(() => expect(screen.getByText('My Practice Answer')).toBeInTheDocument());
-
-    await user.click(screen.getByRole('button', { name: /^analyze$/i }));
-
-    await waitFor(() => expect(screen.getByText(/not analyzed/i)).toBeInTheDocument());
-    expect(screen.queryByText(/filler words/i)).not.toBeInTheDocument();
+    expect(await screen.findByText(/Could not load your recordings/)).toBeInTheDocument();
+    expect(screen.queryByText('No takes yet')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByRole('link', { name: 'Tell me about yourself' })).toBeInTheDocument();
   });
 
-  /**
-   * Which company's model transcribes an answer is a configuration decision,
-   * not a step in practising an interview.
-   *
-   * An "Analysis provider:" dropdown listed model vendors for the learner to
-   * pick between mid-flow, next to a "Check for existing analysis" button --
-   * a cache probe presented as something to decide, which existed only
-   * because the page never looked.
-   */
-  it('shows feedback that already exists instead of offering to look for it', async () => {
-    mockGetRecordings.mockResolvedValue({ items: [{
-      id: 7, title: 'Why us?', mime_type: 'audio/webm', duration_seconds: 42,
-      file_size_bytes: 1000, created_at: '2026-09-01T10:00:00',
-    }] });
-    mockGetAnalysis.mockResolvedValue({
-      recording_id: 7, analysis_status: 'analyzed',
-      summary: 'Clear and well paced.', transcript: 'We build...',
-      communication_scores: [], filler_word_count: 3,
-    });
-    render(<RecordingsPage />);
-
-    expect(await screen.findByText('Clear and well paced.')).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: /Check for existing analysis/i })
-    ).not.toBeInTheDocument();
-  });
-
-  it('never asks the learner to pick an AI vendor', async () => {
-    mockGetRecordings.mockResolvedValue({ items: [{
-      id: 7, title: 'Why us?', mime_type: 'audio/webm', duration_seconds: 42,
-      file_size_bytes: 1000, created_at: '2026-09-01T10:00:00',
-    }] });
-    mockGetAnalysis.mockRejectedValue(new Error('none yet'));
-    render(<RecordingsPage />);
-
-    await screen.findByText('Why us?');
-    expect(screen.queryByText(/Analysis provider/i)).not.toBeInTheDocument();
-    expect(mockGetProviders).not.toHaveBeenCalled();
-  });
-
-  it('shows transcript and scores when analyzed', async () => {
+  it('deletes a take, and says so when the delete did not happen', async () => {
     const user = userEvent.setup();
     mockGetRecordings.mockResolvedValue({
-      items: [{ id: 5, title: 'My Practice Answer', mime_type: 'audio/webm', duration_seconds: 30, file_size_bytes: 1000, created_at: '' }],
-      skip: 0,
-      limit: 100,
+      items: [take(), take({ id: 8, title: 'Why this role' })], total: 2, skip: 0, limit: 200,
     });
-    mockAnalyze.mockResolvedValue({
-      id: 1, recording_id: 5, provider: 'gemini',
-      transcript: 'This is what I said out loud.',
-      communication_scores: [{ category: 'Clarity', score: 8, max_score: 10, feedback: 'Very clear.' }],
-      filler_word_count: 2,
-      summary: 'Solid delivery overall.',
-      analysis_status: 'analyzed', analysis_error: null, created_at: '',
-    });
+    mockDelete.mockResolvedValueOnce(undefined).mockRejectedValueOnce({ isAxiosError: true, request: {} });
+    renderPage();
 
-    render(<RecordingsPage />);
-    await waitFor(() => expect(screen.getByText('My Practice Answer')).toBeInTheDocument());
+    await user.click(await screen.findByRole('button', { name: 'Delete Tell me about yourself' }));
+    expect(mockDelete).toHaveBeenCalledWith(7);
+    expect(await screen.findByRole('link', { name: 'Why this role' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Tell me about yourself' })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /^analyze$/i }));
-
-    await waitFor(() => expect(screen.getByText('Solid delivery overall.')).toBeInTheDocument());
-    expect(screen.getByText('Clarity')).toBeInTheDocument();
-    expect(screen.getByText('2 filler words')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Delete Why this role' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Could not/);
+    expect(screen.getByRole('link', { name: 'Why this role' })).toBeInTheDocument();
   });
 });

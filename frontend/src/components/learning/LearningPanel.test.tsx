@@ -2,15 +2,14 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Attempt } from '../../types/learning';
 import { LearningPanel } from './LearningPanel';
 import { CHALLENGE_BY_ID } from '../../services/learning/challenges';
 import { CONCEPTS } from '../../services/learning/concepts';
 import { recommendNext } from '../../services/learning/recommendations';
-import { clearAttempts } from '../../services/learning/attempts';
 
 // The guided loop, tested where it can actually break.
 //
@@ -33,15 +32,15 @@ function panelFor(challengeId: string, over: Partial<Parameters<typeof LearningP
     },
     conceptSeen: true,
     onApplyScenario: vi.fn(),
-    onAttemptSaved: (a: Attempt) => saved.push(a),
+    onAttemptSaved: (a: Attempt): Promise<unknown> | void => {
+      saved.push(a);
+    },
     onSkip: vi.fn(),
     ...over,
   };
   render(<LearningPanel {...props} />);
   return { challenge, saved, props };
 }
-
-beforeEach(() => clearAttempts());
 
 describe('the guided loop', () => {
   it('leads with the question, and keeps the referent within reach', async () => {
@@ -85,16 +84,34 @@ describe('the guided loop', () => {
     expect(screen.queryByText(concept.targetRelationship!)).not.toBeInTheDocument();
   });
 
-  it('has the sandbox running the challenge scenario before the question is answered', () => {
+  it('has the sandbox running the scenario a reading question is about before it is answered', () => {
     // The ACT step: the learner watches the real model respond, not a picture
-    // of one. It used to be tied to dismissing the orientation card, which
-    // made the sandbox's state depend on a button whose only job was to get
-    // out of the way.
-    const { challenge, props } = panelFor('wip-first-prediction', { conceptSeen: false });
+    // of one. A question about reading a chart needs the chart showing.
+    const { challenge, props } = panelFor('throughput-reading', { conceptSeen: false });
+    expect(challenge.type).toBe('reading');
 
     expect(props.onApplyScenario).toHaveBeenCalledWith(challenge.scenario);
     expect(screen.getByText(challenge.prompt)).toBeInTheDocument();
     // Named in the learner's terms rather than as a taxonomy chip.
+    expect(screen.getByText(/The sandbox is running:/)).toBeInTheDocument();
+  });
+
+  it('runs the change a prediction is about only after the prediction is committed', async () => {
+    // Predict, commit, then manipulate and observe. With the changed model on
+    // screen while the question is open, the answer would sit beside it and
+    // the prediction would record nothing.
+    const user = userEvent.setup();
+    const { challenge, props } = panelFor('wip-first-prediction');
+    expect(challenge.type).toBe('prediction');
+    const apply = vi.mocked(props.onApplyScenario);
+
+    expect(apply).toHaveBeenCalledWith('baseline');
+    expect(apply).not.toHaveBeenCalledWith(challenge.scenario);
+    expect(screen.getByText(/Predict first; then it runs:/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: challenge.options[0].text }));
+
+    expect(apply).toHaveBeenLastCalledWith(challenge.scenario);
     expect(screen.getByText(/The sandbox is running:/)).toBeInTheDocument();
   });
 
@@ -196,5 +213,108 @@ describe('what a new learner meets first', () => {
 
     expect(challenge.type).toBe('recognition');
     expect(screen.getByText(challenge.prompt)).toBeInTheDocument();
+  });
+});
+
+describe('the experiment and the explanation', () => {
+  const experiment = () => ({
+    manipulation: { wip: { from: 4, to: 8 } },
+    observed: {
+      cycleTime: { label: 'Cycle time', before: 5.2, after: 9.1, unit: 'days', precision: 1 },
+      throughput: { label: 'Realised throughput', before: 11.5, after: 11.5, unit: 'items/sprint', precision: 1 },
+    },
+  });
+
+  it('keeps what the sandbox showed at the moment of commitment, and shows those numbers', async () => {
+    const user = userEvent.setup();
+    const observe = vi.fn(experiment);
+    const { challenge, saved } = panelFor('wip-first-prediction', { observe });
+
+    // Nothing is read before the learner commits.
+    expect(observe).not.toHaveBeenCalled();
+    expect(screen.queryByText('What actually happened')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: challenge.options[0].text }));
+
+    // Read for the scenario the question is about, which runs only now.
+    expect(observe).toHaveBeenCalledTimes(1);
+    expect(observe).toHaveBeenCalledWith(challenge.scenario);
+    expect(saved[0].prediction).toBe(challenge.options[0].id);
+    expect(saved[0].manipulation).toEqual({ wip: { from: 4, to: 8 } });
+    expect(saved[0].observed?.cycleTime.after).toBe(9.1);
+
+    expect(screen.getByText('What actually happened')).toBeInTheDocument();
+    expect(screen.getByText('Cycle time rose from 5.2 to 9.1 days')).toBeInTheDocument();
+    // What stayed put is named once, not listed as if it were news.
+    expect(screen.getByText('Unchanged: Realised throughput')).toBeInTheDocument();
+    expect(screen.getByText(/Changed from the baseline: WIP limit 4 → 8 items/)).toBeInTheDocument();
+  });
+
+  it('says so in one line when nothing was changed and nothing moved', async () => {
+    const user = userEvent.setup();
+    const still = () => ({
+      observed: {
+        cycleTime: { label: 'Cycle time', before: 4, after: 4, unit: 'days', precision: 1 },
+        throughput: { label: 'Realised throughput', before: 10.1, after: 10.1, unit: 'items/sprint', precision: 1 },
+      },
+    });
+    const { challenge } = panelFor('throughput-reading', { observe: still });
+    await user.click(screen.getByRole('button', { name: challenge.options[0].text }));
+
+    const happened = screen.getByLabelText('What actually happened');
+    expect(happened).toHaveTextContent('Nothing was changed from the baseline.');
+    expect(happened).toHaveTextContent('None of the headline figures moved.');
+    expect(screen.queryByText(/stayed at/)).not.toBeInTheDocument();
+  });
+
+  it('claims nothing happened when there was no experiment to read', async () => {
+    const user = userEvent.setup();
+    const { challenge } = panelFor('wip-first-prediction');
+    await user.click(screen.getByRole('button', { name: challenge.options[0].text }));
+    expect(screen.queryByText('What actually happened')).not.toBeInTheDocument();
+  });
+
+  it('saves the learner\'s own explanation with the attempt, and does not score it', async () => {
+    const user = userEvent.setup();
+    const { challenge, saved } = panelFor('wip-first-prediction', { observe: experiment });
+    await user.click(screen.getByRole('button', { name: challenge.options[0].text }));
+
+    const save = screen.getByRole('button', { name: 'Save explanation' });
+    expect(save).toBeDisabled();
+
+    await user.type(screen.getByLabelText('Your explanation'), 'More WIP queues behind the bottleneck.');
+    await user.click(save);
+
+    await waitFor(() => expect(screen.getByText('Saved with this attempt. Not scored.')).toBeInTheDocument());
+    const last = saved[saved.length - 1];
+    expect(last.explanationText).toBe('More WIP queues behind the bottleneck.');
+    // The prediction travels unchanged with it.
+    expect(last.prediction).toBe(saved[0].prediction);
+    expect(last.committedAt).toBe(saved[0].committedAt);
+    expect(screen.getByRole('button', { name: 'Save new wording' })).toBeDisabled();
+  });
+
+  it('says an unsaved answer does not count yet, and saves it on request', async () => {
+    const user = userEvent.setup();
+    const attempts: Attempt[] = [];
+    const onAttemptSaved = vi.fn((a: Attempt) => {
+      attempts.push(a);
+      return attempts.length === 1
+        ? Promise.reject({ response: { data: { detail: 'Database is locked.' } } })
+        : Promise.resolve();
+    });
+    const { challenge } = panelFor('wip-first-prediction', { onAttemptSaved });
+
+    await user.click(screen.getByRole('button', { name: challenge.options[0].text }));
+
+    const alert = (await screen.findByText(/Your answer was not saved, so it does not count yet/)).closest('[role="alert"]')!;
+    expect(alert).toHaveTextContent('Database is locked.');
+
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+
+    await waitFor(() => expect(screen.queryByText(/Your answer was not saved/)).not.toBeInTheDocument());
+    // The same attempt, not a second one.
+    expect(attempts[1].attemptId).toBe(attempts[0].attemptId);
+    expect(attempts[1].prediction).toBe(attempts[0].prediction);
   });
 });

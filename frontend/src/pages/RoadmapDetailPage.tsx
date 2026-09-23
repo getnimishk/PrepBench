@@ -3,31 +3,44 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useLocation, useParams } from 'react-router-dom';
 import {
-  Box, Typography, Tabs, Tab, LinearProgress, Alert, Button,
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
+  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Tab, Table, TableBody, TableCell,
+  TableContainer, TableHead, TableRow, Tabs, TextField, Typography,
 } from '@mui/material';
-import { ArrowLeft, CalendarDays } from 'lucide-react';
 import {
   getRoadmap, getRoadmapSchedule, updateRoadmapTopic, updateRoadmap,
 } from '../services/api';
 import {
   RoadmapDetail, RoadmapSchedule, RoadmapTopic, RoadmapTopicStatus,
 } from '../types/roadmap';
-import { RoadmapTableView } from '../components/roadmap/RoadmapTableView';
+import { RoadmapTableView, type StatusFilter } from '../components/roadmap/RoadmapTableView';
 import { RoadmapJourneyView } from '../components/roadmap/RoadmapJourneyView';
 import { RoadmapGanttView } from '../components/roadmap/RoadmapGanttView';
-import { formatPercentage, progressCaption, hoursCaption } from '../components/roadmap/progressDisplay';
-
-import { apiErrorMessage } from '../services/apiError';
+import { formatPercentage } from '../components/roadmap/progressDisplay';
+import { apiErrorMessage, loadFailed } from '../services/apiError';
+import { LoadingState } from '../components/common/States';
+import { Bar, BigFigure, Detail, Eyebrow, Grid, PageHead, Panel, Section } from '../components/ui/primitives';
+import { MONO_STACK } from '../theme/tokens';
 
 type ViewTab = 'table' | 'journey' | 'gantt' | 'resources';
 
+const hours = (h: number) => (Number.isInteger(h) ? `${h}h` : `${h.toFixed(1)}h`);
+
+/**
+ * One roadmap: the prototype's syllabus, with its phase overview, the schedule
+ * and the reference tables as tabs of the same page.
+ *
+ * The four panels at the top are the prototype's -- progress, phases, effort,
+ * weekly budget. They replaced a single line and bar that had in turn replaced
+ * three KPI cards reading 0%, 0% and an em dash on an unstarted roadmap. What
+ * made those cards wrong is kept out of these: a figure that cannot be computed
+ * says why ("Not set", "Some topics have no estimate") rather than showing a
+ * zero, and the progress is "marked done", the learner's own record, not a
+ * measurement.
+ */
 export const RoadmapDetailPage: React.FC = () => {
   const { roadmapId } = useParams<{ roadmapId: string }>();
-  const navigate = useNavigate();
   const id = roadmapId ? parseInt(roadmapId, 10) : 0;
 
   const [roadmap, setRoadmap] = useState<RoadmapDetail | null>(null);
@@ -37,9 +50,17 @@ export const RoadmapDetailPage: React.FC = () => {
   const [actionError, setActionError] = useState<string | null>(null);
   const [tab, setTab] = useState<ViewTab>('table');
   const [busyTopicId, setBusyTopicId] = useState<number | null>(null);
+  const [phaseFilter, setPhaseFilter] = useState<'all' | number>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
   const [notesTopic, setNotesTopic] = useState<RoadmapTopic | null>(null);
   const [notesDraft, setNotesDraft] = useState('');
+
+  // "Plan saved." from the editor, shown once on arrival.
+  const location = useLocation();
+  const [notice, setNotice] = useState<string | null>(
+    (location.state as { notice?: string } | null)?.notice ?? null,
+  );
 
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [startDate, setStartDate] = useState('');
@@ -58,7 +79,7 @@ export const RoadmapDetailPage: React.FC = () => {
       })
       .catch((err) => {
         console.error(err);
-        setFetchError('Failed to load this roadmap. Please check backend connection.');
+        setFetchError(loadFailed('Could not load this roadmap', err));
       })
       .finally(() => setLoading(false));
   }, [id]);
@@ -68,8 +89,8 @@ export const RoadmapDetailPage: React.FC = () => {
   }, [load]);
 
   const refreshQuietly = async () => {
-    // Re-fetch without flipping the page back into its loading skeleton --
-    // a status change shouldn't blank the table the user is working in.
+    // Re-fetch without flipping the page back into its loading state -- a
+    // status change shouldn't blank the table the user is working in.
     try {
       const [detail, sched] = await Promise.all([getRoadmap(id), getRoadmapSchedule(id)]);
       setRoadmap(detail);
@@ -119,105 +140,120 @@ export const RoadmapDetailPage: React.FC = () => {
   };
 
   if (!id) return <Alert severity="error">Invalid roadmap id.</Alert>;
-  if (loading) return <LinearProgress />;
+  if (loading) return <LoadingState label="Loading this roadmap…" />;
 
   if (fetchError) {
     return (
-      <Box sx={{ maxWidth: 800, mt: 4 }}>
-        <Alert severity="error" action={<Button color="inherit" size="small" onClick={load}>Retry</Button>}>
-          {fetchError}
-        </Alert>
-      </Box>
+      <Alert severity="error" action={<Button color="inherit" size="small" onClick={load}>Retry</Button>}>
+        {fetchError}
+      </Alert>
     );
   }
 
   if (!roadmap) return <Alert severity="error">Roadmap #{id} not found.</Alert>;
 
-  const pct = roadmap.progress.completion_percentage;
-  const hours = hoursCaption(roadmap.progress);
+  const p = roadmap.progress;
+  const pct = p.completion_percentage;
+  const phaseCount = roadmap.phases.length;
+  const phasesWithTopics = roadmap.phases.filter((ph) => ph.topics.length > 0).length;
+  const totalHours = p.total_estimated_hours;
+  const perTopic = totalHours != null && p.total_topics > 0 ? totalHours / p.total_topics : null;
 
   return (
     <Box>
       {actionError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError(null)}>{actionError}</Alert>}
+      {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice(null)}>{notice}</Alert>}
 
-      <Button startIcon={<ArrowLeft size={16} />} onClick={() => navigate('/roadmaps')} sx={{ mb: 1 }}>
-        All roadmaps
-      </Button>
-
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
-        <Box>
-          <Typography variant="h4" sx={{ fontWeight: 600 }}>{roadmap.title}</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {progressCaption(roadmap.progress)}
-          </Typography>
-        </Box>
-        <Button variant="outlined" startIcon={<CalendarDays size={16} />} onClick={() => setScheduleOpen(true)}>
-          Schedule settings
-        </Button>
-      </Box>
-
-      {/* One line and one bar.
-          Three bordered KPI cards stood here -- Topics complete, Hours
-          complete, Projected finish -- and on a roadmap nobody has started
-          two of them read 0% and the third read an em dash. It was the last
-          KPI gallery in the product, on the page that least needed one: this
-          screen already has a 45-row table with a status control and a notes
-          field on every line, and it does not need a summary of a table the
-          reader is about to scroll through.
-
-          Nothing is lost. The percentage is the bar, the hours and the
-          projection are the sentence, and a projection that cannot be
-          computed is left out rather than rendered as a dash -- but an
-          hours figure that cannot be computed still says why, because
-          "nothing to measure" is information. */}
-      <Box sx={{ mt: 2, mb: 3, maxWidth: 520 }}>
-        {pct !== null && (
-          <LinearProgress
-            variant="determinate"
-            value={pct}
-            color={pct >= 100 ? 'success' : 'primary'}
-            sx={{ height: 6, borderRadius: 5 }}
-          />
+      <PageHead
+        eyebrow="Roadmap"
+        title={roadmap.title}
+        sub={`${roadmap.source_filename ?? 'Built here'} · every topic carries a learning objective and a success criterion, which is what marks it complete.`}
+        actions={(
+          <>
+            <Button variant="outlined" component={RouterLink} to="/roadmaps">← All roadmaps</Button>
+            <Button variant="outlined" onClick={() => setTab('journey')}>Phase overview</Button>
+            <Button variant="outlined" component={RouterLink} to={`/roadmaps/${id}/edit`}>Edit plan</Button>
+            {roadmap.resources.length > 0 && (
+              <Button variant="outlined" onClick={() => setTab('resources')}>
+                Reference tables ({roadmap.resources.length})
+              </Button>
+            )}
+          </>
         )}
-        <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
-          {[
-            // "of the topics you have marked done", not "of the topics".
-            //
-            // A roadmap is the one place in this product where the number is
-            // the learner's own record rather than a measurement, and it sits
-            // three clicks from a readiness verdict computed from six timed
-            // papers. Both are useful; a reader who cannot tell them apart is
-            // owed the distinction, and one clause is the whole cost of it.
-            // There is no automatic evidence to attach here and none is
-            // invented: these roadmaps carry no questions in the bank, and
-            // guessing which question belongs to "Agentic evaluation harnesses"
-            // would be a claim with nothing behind it.
-            pct !== null ? `${formatPercentage(pct)} of the topics marked done` : null,
-            // Null means at least one topic has no estimate, so an hours
-            // figure would be measuring only part of the roadmap. Said, not
-            // omitted: "nothing to measure" is information, and dropping the
-            // clause would leave a reader assuming the hours simply were not
-            // interesting.
-            hours ?? 'Some topics have no hours estimate',
-            schedule?.projected_end_date
-              ? `on track to finish ${schedule.projected_end_date}`
-              : null,
-            roadmap.weekly_hours_budget ? `${roadmap.weekly_hours_budget}h a week` : null,
-          ].filter(Boolean).join(' · ')}
-        </Typography>
-      </Box>
+      />
 
-      <Tabs value={tab} onChange={(_, value) => setTab(value)} sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tab label="Table" value="table" />
-        <Tab label="Journey" value="journey" />
+      <Section>
+        <Grid columns={4}>
+          <Panel>
+            <Eyebrow>Progress</Eyebrow>
+            <BigFigure size={26}>{p.completed_count} / {p.total_topics}</BigFigure>
+            {/* An empty bar would read as "0% done"; with nothing to measure, none. */}
+            {pct !== null && (
+              <Bar
+                value={pct}
+                label={`${formatPercentage(pct)} of the topics marked done`}
+                color={pct >= 100 ? 'success' : 'primary'}
+                sx={{ mt: '9px' }}
+              />
+            )}
+            <Detail sx={{ mt: '7px' }}>
+              {pct !== null ? `${formatPercentage(pct)} marked done` : 'No topics to count'}
+              {p.in_progress_count > 0 ? ` · ${p.in_progress_count} in progress` : ''}
+            </Detail>
+          </Panel>
+          <Panel>
+            <Eyebrow>Phases</Eyebrow>
+            <BigFigure size={26}>{phaseCount}</BigFigure>
+            <Detail>{phasesWithTopics === phaseCount ? 'every one with topics' : `${phasesWithTopics} with topics`}</Detail>
+          </Panel>
+          <Panel>
+            <Eyebrow>Estimated effort</Eyebrow>
+            <BigFigure size={26}>{totalHours != null ? hours(totalHours) : '—'}</BigFigure>
+            <Detail>
+              {perTopic != null
+                ? `${perTopic.toFixed(1)}h per topic average`
+                // Null means at least one topic has no estimate, so a total would
+                // measure only part of the roadmap. Said, not omitted.
+                : 'Some topics have no hours estimate'}
+            </Detail>
+          </Panel>
+          <Panel>
+            <Eyebrow>Weekly budget</Eyebrow>
+            <BigFigure size={26}>{roadmap.weekly_hours_budget ? `${roadmap.weekly_hours_budget}h` : 'Not set'}</BigFigure>
+            <Detail>
+              {schedule?.projected_end_date
+                ? `on track to finish ${schedule.projected_end_date}`
+                : roadmap.weekly_hours_budget
+                  ? 'add a start date to project a finish date'
+                  : 'set one to project a finish date'}
+            </Detail>
+            <Button variant="outlined" sx={{ mt: '9px' }} onClick={() => setScheduleOpen(true)}>
+              {roadmap.weekly_hours_budget ? 'Change budget' : 'Set budget'}
+            </Button>
+          </Panel>
+        </Grid>
+      </Section>
+
+      <Tabs
+        value={tab}
+        onChange={(_, value) => setTab(value)}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+        aria-label="Roadmap views"
+        sx={{ mt: '22px', borderBottom: 1, borderColor: 'divider' }}
+      >
+        <Tab label="Syllabus" value="table" />
+        <Tab label="Phase overview" value="journey" />
         <Tab label="Schedule" value="gantt" />
         {roadmap.resources.length > 0 && (
-          <Tab label={`Reference (${roadmap.resources.length})`} value="resources" />
+          <Tab label={`Reference tables (${roadmap.resources.length})`} value="resources" />
         )}
       </Tabs>
 
       {tab === 'table' && (
         <RoadmapTableView
+          roadmapId={id}
           phases={roadmap.phases}
           onStatusChange={handleStatusChange}
           busyTopicId={busyTopicId}
@@ -225,13 +261,23 @@ export const RoadmapDetailPage: React.FC = () => {
             setNotesTopic(topic);
             setNotesDraft(topic.evidence_notes || '');
           }}
+          phaseFilter={phaseFilter}
+          onPhaseFilterChange={setPhaseFilter}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
         />
       )}
 
       {tab === 'journey' && (
-        <Box sx={{ mt: 3 }}>
-          <RoadmapJourneyView phases={roadmap.phases} />
-        </Box>
+        <RoadmapJourneyView
+          roadmapId={id}
+          phases={roadmap.phases}
+          onOpenPhase={(phaseId) => {
+            setPhaseFilter(phaseId);
+            setStatusFilter('all');
+            setTab('table');
+          }}
+        />
       )}
 
       {tab === 'gantt' && schedule && (
@@ -239,43 +285,49 @@ export const RoadmapDetailPage: React.FC = () => {
       )}
 
       {tab === 'resources' && (
-        <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
           {roadmap.resources.map((resource) => (
-            <Box key={resource.id}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>{resource.title}</Typography>
-              <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 3 }}>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      {resource.columns.map((column) => (
-                        <TableCell key={column} sx={{ fontWeight: 700 }}>{column}</TableCell>
-                      ))}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {resource.rows.map((row, index) => (
-                      <TableRow key={index}>
-                        {row.map((cell, cellIndex) => (
-                          <TableCell key={cellIndex}>
-                            <Typography variant="body2" sx={{ fontFamily: cellIndex > 0 ? 'monospace' : undefined, fontSize: '0.8rem' }}>
-                              {cell}
-                            </Typography>
-                          </TableCell>
-                        ))}
+            <Section key={resource.id}>
+              <Panel component="section" aria-labelledby={`resource-${resource.id}`}>
+                <Eyebrow>Sheet</Eyebrow>
+                <Typography variant="h5" component="h2" id={`resource-${resource.id}`} sx={{ mb: '12px' }}>
+                  {resource.title}
+                </Typography>
+                <TableContainer sx={{ overflowX: 'auto' }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        {resource.columns.map((column) => <TableCell key={column}>{column}</TableCell>)}
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Box>
+                    </TableHead>
+                    <TableBody>
+                      {resource.rows.map((row, index) => (
+                        <TableRow key={index}>
+                          {row.map((cell, cellIndex) => (
+                            <TableCell
+                              key={cellIndex}
+                              sx={cellIndex > 0
+                                ? { fontFamily: MONO_STACK, fontSize: (t) => t.typography.pxToRem(11), color: 'text.secondary' }
+                                : { fontWeight: 700 }}
+                            >
+                              {cell}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Panel>
+            </Section>
           ))}
         </Box>
       )}
 
       <Dialog open={!!notesTopic} onClose={() => setNotesTopic(null)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Evidence & notes</DialogTitle>
+        <DialogTitle>Evidence & notes</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
             {notesTopic?.title}
           </Typography>
           {notesTopic?.success_criteria && (
@@ -290,16 +342,16 @@ export const RoadmapDetailPage: React.FC = () => {
             onChange={(e) => setNotesDraft(e.target.value)}
           />
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setNotesTopic(null)}>Cancel</Button>
+        <DialogActions>
+          <Button variant="outlined" onClick={() => setNotesTopic(null)}>Cancel</Button>
           <Button variant="contained" onClick={handleSaveNotes}>Save</Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={scheduleOpen} onClose={() => setScheduleOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Schedule settings</DialogTitle>
+        <DialogTitle>Schedule settings</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
             The timeline is projected from your estimated hours and how much you study each week —
             both are needed to draw it.
           </Typography>
@@ -320,8 +372,8 @@ export const RoadmapDetailPage: React.FC = () => {
             }}
           />
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setScheduleOpen(false)}>Cancel</Button>
+        <DialogActions>
+          <Button variant="outlined" onClick={() => setScheduleOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleSaveSchedule}>Save</Button>
         </DialogActions>
       </Dialog>

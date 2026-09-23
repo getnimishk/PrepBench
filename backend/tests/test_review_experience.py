@@ -34,12 +34,13 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.api.v1.review import DAILY_REVIEW_CAP, review_queue
+from app.api.v1.review import DAILY_REVIEW_CAP, VERIFIED_WINDOW_DAYS, _check_outcomes, review_counts, review_queue
 from app.core.database import Base, register_sqlite_pragmas
 from app.models.exam_answer import ConfidenceLevel, ExamAnswer
 from app.models.exam_session import ExamSession, ExamStatus
 from app.models.option import QuestionOption
 from app.models.question import Question
+from app.models.review_check import ReviewCheck
 from app.models.spaced_repetition import SpacedRepetition
 from app.repositories.spaced_repetition_repository import SpacedRepetitionRepository
 from app.repositories.subject_repository import LEARNER, MOCK
@@ -209,9 +210,33 @@ def test_the_cap_cannot_be_argued_upwards_by_the_caller(db):
     """
     import inspect
 
+    from app.api.v1.review import MAX_REVIEW_DAILY_CAP
+
+    # Half one: the route itself refuses anything above the hard ceiling.
     param = inspect.signature(review_queue).parameters["limit"]
     bounds = {type(m).__name__: getattr(m, type(m).__name__.lower()) for m in param.default.metadata}
-    assert bounds == {"Ge": 1, "Le": DAILY_REVIEW_CAP}
+    assert bounds == {"Ge": 1, "Le": MAX_REVIEW_DAILY_CAP}
+
+
+def test_the_queue_never_serves_more_than_the_learners_own_cap(db):
+    """Half two: the handler clamps to the stored review_daily_cap.
+
+    The cap became a setting in Phase 4, and a setting the route could be argued
+    past would be a default wearing a limit's clothes. Asking for 150 when the
+    cap is 7 returns 7.
+    """
+    from app.repositories.settings_repository import SettingsRepository
+
+    _mock_with_misses(db, 40, NOW - timedelta(days=3))
+    SettingsRepository(db).update({"review_daily_cap": 7})
+    try:
+        queue = review_queue(limit=150, db=db)
+        assert len(queue.items) == 7
+
+        fewer = review_queue(limit=3, db=db)
+        assert len(fewer.items) == 3, "a caller may still ask for fewer"
+    finally:
+        SettingsRepository(db).update({"review_daily_cap": DAILY_REVIEW_CAP})
 
 
 # ---- 5. repeated missed items ------------------------------------------
@@ -407,7 +432,13 @@ def test_the_queue_reports_the_remainder_without_ever_asking_for_it_back(db):
     _mock_with_misses(db, 50, NOW - timedelta(days=5))
     queue = review_queue(limit=DAILY_REVIEW_CAP, db=db)
 
-    assert set(queue.model_dump().keys()) == {"items", "remaining", "total_unreviewed"}
+    # spaced_due is another count -- what the spaced schedule has brought round --
+    # and needs_retry / verified_recently count what the checks showed, over a
+    # stated window. They keep the rule: numbers, never a deadline or a target.
+    assert set(queue.model_dump().keys()) == {
+        "items", "remaining", "total_unreviewed", "spaced_due",
+        "needs_retry", "verified_recently", "verified_window_days",
+    }
     assert queue.remaining == 30
 
 
@@ -481,3 +512,79 @@ def test_refetching_the_queue_offers_the_same_check(db):
         offered.add(queue.items[0].check.question_id)
 
     assert len(offered) == 1, f"the check changed between fetches: {sorted(offered)}"
+
+
+# ---- the navigation's badge --------------------------------------------
+
+
+def test_the_badge_counts_what_the_queue_counts_without_building_the_queue(db):
+    """The sidebar's number and the Review page must never disagree.
+
+    It is read on every screen, so it counts instead of assembling items; and it
+    counts past the day's cap, the way the queue's own total does.
+    """
+    _mock_with_misses(db, DAILY_REVIEW_CAP + 5, NOW - timedelta(days=2))
+    _due(db, 3)
+
+    counts = review_counts(db=db)
+    queue = review_queue(limit=DAILY_REVIEW_CAP, db=db)
+
+    assert counts.unreviewed == queue.total_unreviewed == DAILY_REVIEW_CAP + 5
+    assert counts.spaced_due == queue.spaced_due == 3
+
+
+def test_the_badge_has_nothing_to_count_on_an_empty_install(db):
+    counts = review_counts(db=db)
+    assert (counts.unreviewed, counts.spaced_due) == (0, 0)
+
+
+def test_the_badge_for_an_unknown_preparation_is_not_found():
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    assert TestClient(app).get("/api/v1/review/counts", params={"subject_id": 999999}).status_code == 404
+
+
+# ---- what the checks have shown -------------------------------------------
+
+
+def _check(db, answer, passed, at):
+    db.add(ReviewCheck(
+        answer_id=answer.id, question_id=answer.question_id,
+        selected_option_ids=[], passed=passed, created_at=at,
+    ))
+    db.commit()
+
+
+def test_needs_retry_and_verified_count_each_miss_by_its_latest_check(db):
+    """A failure then a pass is a pass; a pass then a failure needs a retry; a
+    pass older than the window is not "recent"; a miss never checked is neither."""
+    session = _mock_with_misses(db, 5, NOW - timedelta(days=2))
+    a, b, c, d, _never_checked = db.query(ExamAnswer).filter(ExamAnswer.session_id == session.id).order_by(ExamAnswer.id).all()
+    _check(db, a, False, NOW - timedelta(days=1))
+    _check(db, a, True, NOW)                                   # failed, then transferred
+    _check(db, b, True, NOW - timedelta(days=1))
+    _check(db, b, False, NOW)                                  # passed, then slipped
+    _check(db, c, False, NOW)                                  # not yet
+    _check(db, d, True, NOW - timedelta(days=VERIFIED_WINDOW_DAYS + 5))   # long ago
+
+    needs_retry, verified = _check_outcomes(db, None, now=NOW)
+    assert needs_retry == 2
+    assert verified == 1
+
+
+def test_the_queue_reports_check_outcomes_in_its_own_scope(db):
+    session = _mock_with_misses(db, 2, NOW - timedelta(days=1))
+    first, second = db.query(ExamAnswer).filter(ExamAnswer.session_id == session.id).order_by(ExamAnswer.id).all()
+    _check(db, first, False, datetime.now(UTC).replace(tzinfo=None))
+    _check(db, second, True, datetime.now(UTC).replace(tzinfo=None))
+
+    body = review_queue(limit=None, subject_id=None, db=db)
+    assert body.needs_retry == 1
+    assert body.verified_recently == 1
+    assert body.verified_window_days == VERIFIED_WINDOW_DAYS
+
+
+def test_an_empty_install_has_no_check_outcomes(db):
+    body = review_queue(limit=None, subject_id=None, db=db)
+    assert (body.needs_retry, body.verified_recently) == (0, 0)

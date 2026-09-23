@@ -90,9 +90,8 @@ describe('RoadmapListPage', () => {
     renderPage();
 
     await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
-    expect(screen.getByText('30%')).toBeInTheDocument();
-    expect(screen.getByText(/3 of 10 done/i)).toBeInTheDocument();
-    expect(screen.getByText('10h of 40h')).toBeInTheDocument();
+    expect(screen.getByText(/3 of 10 complete/)).toHaveTextContent(/· 30% · 10h of 40h/);
+    expect(screen.getByRole('progressbar', { name: /30% of the topics marked done/ })).toBeInTheDocument();
   });
 
   it('renders an em-dash and no progress bar when a roadmap has nothing to measure', async () => {
@@ -110,8 +109,8 @@ describe('RoadmapListPage', () => {
     renderPage();
 
     await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
-    expect(screen.getByText('—')).toBeInTheDocument();
-    expect(screen.queryByText('0%')).not.toBeInTheDocument();
+    expect(screen.getByText('No topics yet')).toBeInTheDocument();
+    expect(screen.queryByText(/0%/)).not.toBeInTheDocument();
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
   });
 
@@ -178,7 +177,7 @@ describe('RoadmapListPage', () => {
     mockGetRoadmaps.mockRejectedValue(new Error('network error'));
     renderPage();
 
-    await waitFor(() => expect(screen.getByText(/Failed to load roadmaps/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Could not load your roadmaps\..*Nothing was changed\./i)).toBeInTheDocument());
     mockGetRoadmaps.mockResolvedValue([]);
     await user.click(screen.getByRole('button', { name: /retry/i }));
     await waitFor(() => expect(screen.getByText(/No roadmaps yet/i)).toBeInTheDocument());

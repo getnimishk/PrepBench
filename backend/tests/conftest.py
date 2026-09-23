@@ -4,9 +4,22 @@
 
 import os
 import sqlite3
+import tempfile
 from pathlib import Path
 
 import pytest
+
+# Before anything imports the app: recordings made by the tests go to a throwaway
+# folder, never beside the learner's own recordings in backend/data/recordings.
+os.environ.setdefault(
+    "PREPBENCH_RECORDINGS_DIR", tempfile.mkdtemp(prefix="prepbench-test-recordings-")
+)
+
+# And the provider secret store, for the same reason: creating a provider with an
+# API key wrote the fake key into the learner's own .llm_secrets.json.
+os.environ.setdefault(
+    "PREPBENCH_SECRETS_DIR", tempfile.mkdtemp(prefix="prepbench-test-secrets-")
+)
 
 # ---------------------------------------------------------------------------
 # Everything in this block runs before the first `app.*` import, and has to.

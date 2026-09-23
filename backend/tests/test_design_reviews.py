@@ -82,6 +82,20 @@ def test_submitting_an_attempt_returns_the_reveal():
     assert body["choice"] == "A"
 
 
+def test_the_reveal_names_the_axis_in_a_word_only_once_committed():
+    """The short label heads the result screen. It is part of the answer, so it
+    travels with the reveal and never with the review itself."""
+    item = client.get(f"{BASE}?limit=500").json()["items"][0]
+    detail = client.get(f"{BASE}/{item['id']}").json()
+    assert "axis_label" not in detail
+
+    body = _submit(item["id"]).json()
+    expected = next(r["axis_label"] for r in SEED_DESIGN_REVIEWS if r["title"] == item["title"])
+    assert body["reveal"]["axis_label"] == expected
+    latest = client.get(f"{BASE}/{item['id']}/latest-attempt").json()
+    assert latest["reveal"]["axis_label"] == expected
+
+
 def test_ask_first_is_a_first_class_answer():
     """Refusing to choose until you know something is frequently the correct
     professional move, so it is a stored choice rather than a special case."""
@@ -493,3 +507,35 @@ def test_axis_filter_narrows_practice_to_one_decision():
     items = client.get(f"{BASE}?axis_label=Cost&limit=500").json()["items"]
     assert items
     assert {r["axis_label"] for r in items} == {"Cost"}
+
+
+# ---- grading again ---------------------------------------------------------
+
+
+def test_an_ungraded_attempt_can_be_graded_later_without_changing_what_was_said(monkeypatch):
+    """The plan's rule for unavailable AI: "Not Graded" with a way to retry."""
+    clear_env_provider(monkeypatch)
+    committed = client.post(f"{BASE}/attempts", json={
+        "review_id": _any_review_id(),
+        "choice": "A",
+        "justification": "Write volume decides it; ask how many events per second at peak.",
+    }).json()
+    assert committed["grading_status"] == "not_graded"
+
+    # Still no provider: nothing is invented.
+    still = client.post(f"{BASE}/attempts/{committed['id']}/grade").json()
+    assert still["grading_status"] == "not_graded" and still["axis_verdict"] is None
+
+    set_env_provider(monkeypatch)
+    patch_gateway_transport(monkeypatch, fake_gemini_text_response({
+        "verdict": "named", "feedback": "You named write volume, which is the axis.",
+    }))
+    graded = client.post(f"{BASE}/attempts/{committed['id']}/grade")
+    assert graded.status_code == 200, graded.text
+    body = graded.json()
+    assert body["axis_verdict"] == "named"
+    assert body["choice"] == "A"
+    assert body["justification"] == committed["justification"]
+
+    assert client.post(f"{BASE}/attempts/{committed['id']}/grade").status_code == 409
+    assert client.post(f"{BASE}/attempts/999999/grade").status_code == 404

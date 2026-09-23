@@ -24,7 +24,7 @@ vi.mock('../services/api', () => ({
 const SUBJECT = {
   id: 1, name: 'Scrum / PSM I', slug: 'psm-i', kind: 'certification' as const,
   pass_mark: 85, exam_question_count: 80, exam_minutes: 60,
-  has_exam_profile: true, question_count: 500,
+  has_exam_profile: true, is_archived: false, display_order: 100, question_count: 500,
   readiness: {
     state: 'almost_there' as const, mock_count: 6, pass_mark: 85,
     recent_scores: [87.5], latest_taken_at: null, is_stale: false, domains: [],
@@ -112,7 +112,7 @@ describe('ExamReviewPage', () => {
     // prevent -- and it used to paint the page red for failing one.
     renderPage();
 
-    expect(await screen.findByText('33%')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: '33% this session' })).toBeInTheDocument();
     expect(screen.getByText(/not scored against a pass mark/i)).toBeInTheDocument();
     expect(screen.getByText(/does not move your readiness/i)).toBeInTheDocument();
     expect(screen.getByText(/1 of 3 correct/)).toBeInTheDocument();
@@ -183,10 +183,11 @@ describe('ExamReviewPage', () => {
 
     const read = await screen.findByRole('button', { name: /Read the \d+ you got wrong/ });
     expect(read.className).toMatch(/MuiButton-contained/);
-
-    for (const label of ['Home', 'Practise again', 'PDF report', 'Excel report']) {
-      expect(screen.getByRole('button', { name: label }).className)
-        .toMatch(/MuiButton-text/);
+    // The only filled control on the page; the reports are text links.
+    expect(document.querySelectorAll('.MuiButton-contained')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Practise again' }).className).toMatch(/MuiButton-outlined/);
+    for (const label of ['PDF report', 'Excel report']) {
+      expect(screen.getByRole('button', { name: label }).className).toMatch(/MuiButton-text/);
     }
   });
 
@@ -248,7 +249,7 @@ describe('ExamReviewPage', () => {
     mockGetExamDetails.mockRejectedValue(new Error('network error'));
     renderPage();
 
-    await waitFor(() => expect(screen.getByText(/Failed to load exam review details/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Could not load this review\..*Nothing was changed\./i)).toBeInTheDocument());
 
     mockGetExamDetails.mockResolvedValue(makeExamDetail());
     await user.click(screen.getByRole('button', { name: /retry/i }));

@@ -3,11 +3,9 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React from 'react';
-import {
-  Box, Card, CardContent, Typography, LinearProgress, Stack, Chip, Button,
-} from '@mui/material';
-import { Target } from 'lucide-react';
+import { Box, Button, Typography } from '@mui/material';
 import { DesignReviewAnalytics } from '../../types/designReview';
+import { Bar, Detail, Eyebrow, Panel, PanelHead, Pill, Section } from '../ui/primitives';
 
 interface AxisPerformancePanelProps {
   analytics: DesignReviewAnalytics;
@@ -39,91 +37,67 @@ export const AxisPerformancePanel: React.FC<AxisPerformancePanelProps> = ({
     // not the substance of the message.
     if (analytics.total_attempts === 0) return null;
     return (
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-          Which decisions you spot
-        </Typography>
-        <Typography variant="body2" sx={{ mt: 0.5, color: 'text.secondary' }}>
-          Your answers are saved. None have been graded yet, so there is
-          nothing to report on which factors you tend to miss.{' '}
-          <Box component="a" href="/settings" sx={{ color: 'primary.main' }}>
-            Set up grading
-          </Box>
-          .
-        </Typography>
-      </Box>
+      <Section>
+        <Panel soft component="section" aria-label="Which decisions you spot">
+          <Eyebrow>Which decisions you spot</Eyebrow>
+          <Detail sx={{ mt: '4px' }}>
+            Your answers are saved. None have been graded yet, so there is
+            nothing to report on which factors you tend to miss.{' '}
+            <Box component="a" href="/settings/ai" sx={{ color: 'primary.main' }}>
+              Set up grading
+            </Box>
+            .
+          </Detail>
+        </Panel>
+      </Section>
     );
   }
 
   return (
-    <Card sx={{ mb: 3 }}>
-      <CardContent>
-        <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-          Which decisions you spot
-        </Typography>
+    <Section>
+      <Panel component="section" aria-label="Which decisions you spot">
+        <PanelHead
+          eyebrow="Which decisions you spot"
+          title={weakest ? (
+            <>
+              You miss <strong>{weakest.axis_label}</strong> most — named it in{' '}
+              {weakest.named} of {weakest.attempts} graded{' '}
+              {weakest.attempts === 1 ? 'attempt' : 'attempts'}.
+            </>
+          ) : 'Every axis you have met, by how often you named it'}
+          aside={weakest && onPractiseAxis ? (
+            <Button variant="outlined" onClick={() => onPractiseAxis(weakest.axis_label)}>
+              Practise {weakest.axis_label}
+            </Button>
+          ) : undefined}
+        />
 
-        {weakest && (
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 1.5,
-              mt: 1,
-              mb: 2.5,
-            }}
-          >
-            <Target size={20} style={{ marginTop: 2, flexShrink: 0 }} />
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 600, lineHeight: 1.35 }}>
-                You miss <strong>{weakest.axis_label}</strong> most — named it in{' '}
-                {weakest.named} of {weakest.attempts} graded{' '}
-                {weakest.attempts === 1 ? 'attempt' : 'attempts'}.
-              </Typography>
-              {onPractiseAxis && (
-                <Button
-                  size="small"
-                  sx={{ mt: 0.5, ml: -1 }}
-                  onClick={() => onPractiseAxis(weakest.axis_label)}
-                >
-                  Practise {weakest.axis_label}
-                </Button>
-              )}
-            </Box>
-          </Box>
-        )}
-
-        <Stack spacing={1.5}>
+        <Box sx={{ display: 'grid', gap: '12px' }}>
           {byAxis.map((axis) => {
             const rate = axis.named_rate ?? 0;
             return (
               <Box key={axis.axis_label}>
-                <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.25 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, flexGrow: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'baseline', gap: '8px', mb: '4px' }}>
+                  <Typography variant="body1" component="span" sx={{ fontWeight: 600, flexGrow: 1 }}>
                     {axis.axis_label}
                   </Typography>
-                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                    named {axis.named}/{axis.attempts}
-                  </Typography>
-                  {axis.partial > 0 && (
-                    <Chip size="small" variant="outlined" label={`${axis.partial} partial`} />
-                  )}
+                  <Detail component="span">named {axis.named}/{axis.attempts}</Detail>
+                  {axis.partial > 0 && <Pill tone="warning">{axis.partial} partial</Pill>}
                 </Box>
-                <LinearProgress
-                  variant="determinate"
+                <Bar
                   value={pct(rate)}
+                  label={`${axis.axis_label}: named ${axis.named} of ${axis.attempts}`}
                   color={rate >= 0.7 ? 'success' : rate >= 0.4 ? 'warning' : 'error'}
-                  sx={{ height: 6, borderRadius: 3 }}
                 />
               </Box>
             );
           })}
-        </Stack>
+        </Box>
 
-        <Typography variant="caption" sx={{ display: 'block', mt: 2, color: 'text.secondary' }}>
-          {analytics.reviews_completed} of {analytics.reviews_available} reviews attempted ·{' '}
-          {graded} graded
-        </Typography>
-      </CardContent>
-    </Card>
+        <Detail sx={{ mt: '12px' }}>
+          {analytics.reviews_completed} of {analytics.reviews_available} reviews attempted · {graded} graded
+        </Detail>
+      </Panel>
+    </Section>
   );
 };

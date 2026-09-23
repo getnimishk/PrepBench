@@ -2,13 +2,14 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import { describe, it, expect, beforeAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { ChartSandboxPage } from './ChartSandboxPage';
 import { CHALLENGES } from '../services/learning/challenges';
-import { clearAttempts } from '../services/learning/attempts';
+import type { WireLearningAttempt } from '../types/learning';
+import * as api from '../services/api';
 import { chartsInFamily } from '../services/metrics/charts';
 import { DEFAULT_PARAMS, formatParamValue, paramSpec } from '../services/metrics/params';
 import { FIRST_EXPERIMENT, chooseTarget } from '../services/metrics/experiments';
@@ -48,6 +49,33 @@ vi.mock('../components/sandbox/ChartPrimitives', () => ({
     return <div data-testid="chart" data-primitive={primitive} />;
   },
 }));
+
+// The learning attempts API, as a small in-memory server that keeps the one
+// rule the page depends on: a prediction, once recorded, is not replaced.
+const server: WireLearningAttempt[] = [];
+
+vi.mock('../services/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../services/api')>()),
+  getLearningAttempts: vi.fn(async () => server.map((a) => ({ ...a }))),
+  startLearningAttempt: vi.fn(async (body: WireLearningAttempt) => {
+    const existing = server.find((a) => a.attempt_uid === body.attempt_uid);
+    if (existing) return { ...existing };
+    server.push({ ...body });
+    return { ...body };
+  }),
+  patchLearningAttempt: vi.fn(async (uid: string, body: Record<string, unknown>) => {
+    const row = server.find((a) => a.attempt_uid === uid)!;
+    if (row.committed_at && body.prediction) throw { response: { data: { detail: 'Already committed.' } } };
+    Object.assign(row, body);
+    return { ...row };
+  }),
+}));
+
+beforeEach(() => {
+  server.length = 0;
+  vi.mocked(api.getLearningAttempts).mockClear();
+  vi.mocked(api.patchLearningAttempt).mockClear();
+});
 
 const lastPayloadFor = (viewId: string) =>
   [...rendered].reverse().find((r) => r.viewId === viewId);
@@ -482,7 +510,9 @@ describe('ChartSandboxPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Run experiment' }));
 
-    const card = screen.getByText('Cycle time', { selector: 'h6' }).closest(
+    // Each chart card's title is a heading under the family's, so it can be
+    // found the way a screen reader moves through the page.
+    const card = screen.getByRole('heading', { name: 'Cycle time', level: 3 }).closest(
       '.MuiCard-root',
     ) as HTMLElement;
     expect(card).not.toBeNull();
@@ -646,9 +676,9 @@ describe('ChartSandboxPage', () => {
   // unmounted the result step in the tick that produced it.
 
   it('shows what the model does after a prediction, and holds it there', async () => {
-    clearAttempts();
     const user = userEvent.setup();
     renderPage();
+    await screen.findByRole('group', { name: 'Your prediction' });
 
     const shown = CHALLENGES.find((c) => screen.queryByText(c.prompt));
     expect(shown).toBeDefined();
@@ -670,9 +700,9 @@ describe('ChartSandboxPage', () => {
   });
 
   it('moves on only when the learner says so', async () => {
-    clearAttempts();
     const user = userEvent.setup();
     renderPage();
+    await screen.findByRole('group', { name: 'Your prediction' });
 
     const shown = CHALLENGES.find((c) => screen.queryByText(c.prompt));
     // A right answer earns the explanation too -- the panel just has no
@@ -686,6 +716,93 @@ describe('ChartSandboxPage', () => {
 
     await waitFor(() => expect(screen.queryByText('You said')).not.toBeInTheDocument());
     // Onward to another question, not to a dead end.
-    expect(screen.getByText(/The sandbox is running:/)).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Your prediction' })).toBeInTheDocument();
+  });
+
+  // ---- the evidence is kept ---------------------------------------------
+
+  it('keeps the prediction, what the model showed and the explanation on the server', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole('group', { name: 'Your prediction' });
+
+    const shown = CHALLENGES.find((c) => screen.queryByText(c.prompt))!;
+    const option = shown.options[0];
+    await user.click(screen.getByRole('button', { name: option.text }));
+
+    // What actually happened is read from the model, and says what was changed.
+    const happened = screen.getByLabelText('What actually happened');
+    expect(happened).toHaveTextContent(/Changed from the baseline|Nothing was changed from the baseline/);
+
+    await waitFor(() => expect(server[0]?.committed_at).toBeTruthy());
+    expect(server).toHaveLength(1);
+    expect(server[0].prediction).toBe(option.id);
+    expect(server[0].observed).toBeTruthy();
+    expect(Object.keys(server[0].observed!)).toContain('cycleTime');
+
+    await user.type(screen.getByLabelText('Your explanation'), 'Work queues behind the constraint.');
+    await user.click(screen.getByRole('button', { name: 'Save explanation' }));
+
+    await waitFor(() => expect(server[0].explanation_text).toBe('Work queues behind the constraint.'));
+    // Still one attempt, and its prediction was never resent.
+    expect(server).toHaveLength(1);
+    const bodies = vi.mocked(api.patchLearningAttempt).mock.calls.map(([, body]) => body);
+    expect(bodies.filter((b) => 'prediction' in b)).toHaveLength(1);
+  });
+
+  it('asks for nothing until the history has loaded, and says so when it cannot', async () => {
+    vi.mocked(api.getLearningAttempts).mockRejectedValueOnce({ response: { data: { detail: 'Server unavailable.' } } });
+    const user = userEvent.setup();
+    renderPage();
+
+    const alert = await screen.findByText(/Your sandbox history could not be loaded, so questions are paused/);
+    expect(alert).toHaveTextContent('Server unavailable.');
+    expect(screen.queryByRole('group', { name: 'Your prediction' })).not.toBeInTheDocument();
+    // The charts still work.
+    expect(screen.getAllByTestId('chart').length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('group', { name: 'Your prediction' })).toBeInTheDocument();
+  });
+
+  it('keeps a prediction question at the baseline until the prediction is in, then runs the change', async () => {
+    // WIP recognition already settled, so the map's WIP entry opens the first
+    // prediction rather than the recognition task.
+    server.push({
+      attempt_uid: 'settled-wip-recognition',
+      challenge_id: 'wip-recognition',
+      concept_id: 'wip',
+      scenario_fingerprint: '',
+      mode: 'guided',
+      started_at: '2026-09-01T09:00:00',
+      committed_at: '2026-09-01T09:00:30',
+      completed_at: '2026-09-01T09:00:31',
+      prediction: CHALLENGES.find((c) => c.id === 'wip-recognition')!.correctOptionId,
+      correct: true,
+      hint_count: 0,
+    });
+    const prediction = CHALLENGES.find((c) => c.id === 'wip-first-prediction')!;
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole('group', { name: 'Your prediction' });
+
+    await user.click(screen.getByRole('button', { name: /How you are getting on/ }));
+    await user.click(screen.getByRole('button', { name: /Concept map/ }));
+    await user.click(screen.getByRole('button', { name: /^(Start|Practise) Work in progress \(WIP\)$/ }));
+
+    expect(await screen.findByText(prediction.prompt)).toBeInTheDocument();
+    // Nothing has been changed yet: the answer is not on screen beside the question.
+    expect(screen.getByText(/Predict first; then it runs:/)).toBeInTheDocument();
+    expect(screen.getAllByText('Every assumption at its declared default').length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole('button', { name: prediction.options[0].text }));
+
+    // Now the change runs, and what is kept is that run.
+    await waitFor(() => expect(screen.queryByText('Every assumption at its declared default')).not.toBeInTheDocument());
+    await waitFor(() => expect(server.find((a) => a.challenge_id === prediction.id)?.committed_at).toBeTruthy());
+    const kept = server.find((a) => a.challenge_id === prediction.id)!;
+    expect(kept.manipulation).toEqual({ wip: { from: DEFAULT_PARAMS.wip, to: 8 } });
+    expect(kept.observed).toBeTruthy();
   });
 });
+

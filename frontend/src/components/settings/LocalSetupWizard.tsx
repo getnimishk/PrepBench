@@ -11,11 +11,11 @@ import {
 } from '@mui/material';
 import {
   Search, HardDrive, Download, Terminal, Copy, Check, ExternalLink,
-  CheckCircle2, AlertTriangle, FileDown,
+  CheckCircle2, AlertTriangle, FileDown, RefreshCw,
 } from 'lucide-react';
 import {
   detectLocalRunners, getSystemInfo, getLocalModelOptions, getLocalRunners,
-  buildLauncherScript, createLLMProvider, verifyLLMProvider,
+  buildLauncherScript, createLLMProvider, verifyLLMProvider, refreshLocalModels,
 } from '../../services/api';
 import {
   DetectedRunner, SystemInfo, LocalModelOption, RunnerInfo, LLMVerifyResult,
@@ -56,7 +56,7 @@ const CommandBlock: React.FC<{ command: string }> = ({ command }) => (
   >
     <Box
       component="code"
-      sx={{ flexGrow: 1, fontFamily: 'monospace', fontSize: '0.78rem', overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}
+      sx={{ flexGrow: 1, fontFamily: 'monospace', fontSize: (t) => t.typography.pxToRem(12.48), overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}
     >
       {command}
     </Box>
@@ -88,6 +88,24 @@ export const LocalSetupWizard: React.FC<Props> = ({ open, onClose, onConnected }
 
   const [connecting, setConnecting] = useState(false);
   const [verifyResult, setVerifyResult] = useState<LLMVerifyResult | null>(null);
+
+  const [refreshingCatalog, setRefreshingCatalog] = useState(false);
+  const [catalogRefreshNote, setCatalogRefreshNote] = useState<string | null>(null);
+
+  const handleRefreshCatalog = async () => {
+    setRefreshingCatalog(true);
+    setCatalogRefreshNote(null);
+    try {
+      const res = await refreshLocalModels();
+      const updatedModels = await getLocalModelOptions();
+      setModels(updatedModels);
+      setCatalogRefreshNote(res.message);
+    } catch (err) {
+      setCatalogRefreshNote(apiErrorMessage(err, 'Could not refresh model catalogue.'));
+    } finally {
+      setRefreshingCatalog(false);
+    }
+  };
 
   const runner = runners.find((r) => r.key === runnerKey);
   const model = models.find((m) => m.id === modelId);
@@ -210,7 +228,6 @@ export const LocalSetupWizard: React.FC<Props> = ({ open, onClose, onConnected }
               startIcon={detecting ? <CircularProgress size={14} color="inherit" /> : <Search size={16} />}
               onClick={handleDetect}
               disabled={detecting}
-              sx={{ borderRadius: '100px', fontWeight: 700 }}
             >
               {detecting ? 'Scanning…' : 'Scan this machine'}
             </Button>
@@ -245,17 +262,43 @@ export const LocalSetupWizard: React.FC<Props> = ({ open, onClose, onConnected }
               </Alert>
             )}
 
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                Recommended models ({models.length})
+              </Typography>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={refreshingCatalog ? <CircularProgress size={12} /> : <RefreshCw size={14} />}
+                onClick={handleRefreshCatalog}
+                disabled={refreshingCatalog}
+              >
+                {refreshingCatalog ? 'Checking Ollama…' : 'Check for new models'}
+              </Button>
+            </Box>
+
+            {catalogRefreshNote && (
+              <Alert severity="info" sx={{ mb: 2 }} onClose={() => setCatalogRefreshNote(null)}>
+                {catalogRefreshNote}
+              </Alert>
+            )}
+
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               {models.map((m) => {
                 const selected = m.id === modelId;
                 return (
                   <Box
                     key={m.id}
+                    component="button"
+                    type="button"
+                    aria-pressed={selected}
                     onClick={() => { setModelId(m.id); setError(null); }}
                     sx={{
                       border: '2px solid', borderColor: selected ? 'primary.main' : 'divider',
                       borderRadius: '10px', p: 2, cursor: 'pointer',
                       opacity: m.fits === false ? 0.55 : 1,
+                      width: '100%', textAlign: 'left', font: 'inherit', color: 'inherit', bgcolor: 'transparent',
+                      '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
@@ -287,7 +330,7 @@ export const LocalSetupWizard: React.FC<Props> = ({ open, onClose, onConnected }
                         href={m.download_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mt: 1, fontSize: '0.85rem' }}
+                        sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mt: 1, fontSize: (t) => t.typography.pxToRem(13.6) }}
                       >
                         <Download size={14} /> Open the download page <ExternalLink size={12} />
                       </Link>
@@ -321,7 +364,7 @@ export const LocalSetupWizard: React.FC<Props> = ({ open, onClose, onConnected }
                   href={runner.download_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, fontSize: '0.9rem' }}
+                  sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, fontSize: (t) => t.typography.pxToRem(14.4) }}
                 >
                   <Download size={15} /> Get {runner.label} <ExternalLink size={12} />
                 </Link>
@@ -366,7 +409,6 @@ export const LocalSetupWizard: React.FC<Props> = ({ open, onClose, onConnected }
                       size="small"
                       startIcon={<FileDown size={16} />}
                       onClick={handleDownloadScript}
-                      sx={{ borderRadius: '100px' }}
                     >
                       Save as a start script
                     </Button>
@@ -404,7 +446,6 @@ export const LocalSetupWizard: React.FC<Props> = ({ open, onClose, onConnected }
               onClick={handleConnect}
               disabled={connecting}
               startIcon={connecting ? <CircularProgress size={14} color="inherit" /> : <CheckCircle2 size={16} />}
-              sx={{ borderRadius: '100px', fontWeight: 700 }}
             >
               {connecting ? 'Checking…' : 'Connect and test'}
             </Button>
@@ -430,7 +471,6 @@ export const LocalSetupWizard: React.FC<Props> = ({ open, onClose, onConnected }
           variant="contained"
           disabled={step === STEPS.length - 1}
           onClick={() => setStep((s) => s + 1)}
-          sx={{ fontWeight: 700 }}
         >
           Next
         </Button>

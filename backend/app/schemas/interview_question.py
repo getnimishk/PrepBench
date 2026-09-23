@@ -12,6 +12,8 @@ class InterviewQuestionBase(BaseModel):
     round_type: InterviewRoundType
     question_text: str
     category: Optional[str] = None
+    prepared_answer: Optional[str] = None
+    key_talking_points: Optional[List[str]] = None
 
 
 class InterviewQuestionCreate(InterviewQuestionBase):
@@ -23,6 +25,9 @@ class InterviewQuestionResponse(InterviewQuestionBase):
     id: int
     is_ai_generated: bool
     created_at: datetime
+    # How many takes of this question have been recorded. Filled by the list
+    # endpoint; 0 elsewhere rather than a guess.
+    practice_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -30,6 +35,8 @@ class InterviewQuestionResponse(InterviewQuestionBase):
 class InterviewQuestionUpdate(BaseModel):
     question_text: Optional[str] = None
     category: Optional[str] = None
+    prepared_answer: Optional[str] = None
+    key_talking_points: Optional[List[str]] = None
 
 
 class InterviewQuestionImportResult(BaseModel):
@@ -53,3 +60,11 @@ class GenerateInterviewQuestionRequest(BaseModel):
 class RoundTypeInfo(BaseModel):
     value: str
     label: str
+    # Guidance for answering this round -- see services/interview_rounds.py.
+    # Defaults keep the shape valid for any caller that builds one bare.
+    target_min_seconds: int = 0
+    target_max_seconds: int = 0
+    thinking_seconds: int = 0
+    plan_prompt: str = ""
+    listening_for: str = ""
+    content_categories: List[str] = []

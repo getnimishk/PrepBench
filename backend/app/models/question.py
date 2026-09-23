@@ -4,7 +4,7 @@
 
 import enum
 from datetime import datetime, UTC
-from sqlalchemy import Column, Integer, String, Text, DateTime, Enum, JSON, Boolean
+from sqlalchemy import Column, Integer, String, Text, DateTime, Enum, JSON, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -36,6 +36,29 @@ class Question(Base):
     subtopic = Column(String(150), index=True, nullable=True)
     certification = Column(String(150), index=True, nullable=False, default="General Prep")
     source = Column(String(200), nullable=True)
+
+    # Which preparation owns this question.
+    #
+    # The authoritative answer, and the reason this column exists: ownership
+    # used to be inferred from the `certification` string above by matching
+    # words. ExamEngine ORed an ILIKE for every token of the subject's
+    # certification name across BOTH certification AND domain, so
+    # "PSM I - Professional Scrum Master" pulled in anything whose domain
+    # merely contained "Master" -- a Databricks question landed in a PSM I
+    # mock, which tests/test_preparation_isolation.py demonstrates.
+    #
+    # NULL is a real state, not a gap to be filled. A question that belongs to
+    # no preparation (the default certification is "General Prep") stays
+    # unowned, because inventing an owner is the failure this column removes.
+    #
+    # SET NULL rather than CASCADE: deleting a preparation must not delete the
+    # learner's questions. Matches exam_sessions.subject_id.
+    subject_id = Column(
+        Integer,
+        ForeignKey("subjects.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     
     tags = Column(JSON, default=list)  # List of string tags
     

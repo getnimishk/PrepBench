@@ -29,12 +29,12 @@ from app.models.exam_session import ExamSession, ExamStatus
 from app.models.practice_recording import PracticeRecording
 from app.models.recording_analysis import RecordingAnalysis
 from app.models.roadmap import RoadmapTopic, RoadmapTopicStatus
-from app.models.question import Question
 from app.models.spaced_repetition import SpacedRepetition
 from app.models.subject import Subject
 from app.models.system_design_attempt import SystemDesignAttempt
 from app.models.system_design_prompt import SystemDesignPrompt
-from app.repositories.subject_repository import SubjectRepository, LEARNER, MOCK
+from app.repositories.question_repository import QuestionRepository
+from app.repositories.subject_repository import SubjectRepository, LEARNER, MOCK, session_belongs_to
 from app.services import readiness as readiness_rules
 
 
@@ -65,6 +65,28 @@ class FormatCoverage:
     detail: str
 
 
+def _rubric_percent(scores) -> Optional[float]:
+    """A rubric's scores as one percentage, or None if there is nothing to add up.
+
+    Each entry is {category, score, max_score}. An empty or malformed list is
+    None rather than 0: a rubric that produced no scores has not scored the
+    learner at zero.
+    """
+    if not scores:
+        return None
+    earned = 0.0
+    possible = 0.0
+    for entry in scores:
+        try:
+            earned += float(entry.get("score", 0))
+            possible += float(entry.get("max_score", 10) or 0)
+        except (AttributeError, TypeError, ValueError):
+            continue
+    if possible <= 0:
+        return None
+    return round(100.0 * earned / possible, 1)
+
+
 def _graded_clause(total: int, graded: int) -> str:
     """How much of that work actually came back with feedback.
 
@@ -88,11 +110,17 @@ class HomeService:
     def __init__(self, db: Session):
         self.db = db
         self.subjects = SubjectRepository(db)
+        self.questions = QuestionRepository(db)
 
     # ---- resume -----------------------------------------------------
 
-    def get_resumable(self) -> Optional[dict]:
+    def get_resumable(self, subject: Optional[Subject] = None) -> Optional[dict]:
         """The session you are actually in the middle of, if there is one.
+
+        For one preparation when `subject` is given, by the same ownership rule as
+        its mocks and its review queue. Unscoped, Home and Practice for PSM I
+        offered "Continue" on a Databricks drill, which opened the other
+        preparation's runner under a picker that still said PSM I.
 
         Surfaced above everything on Home, because stopping mid-session
         should not be a decision the learner has to make again from scratch.
@@ -106,22 +134,24 @@ class HomeService:
         turns the most prominent action on the page into stale debt.
         """
         cutoff = _now() - timedelta(days=RESUMABLE_WITHIN_DAYS)
-        session = (
-            self.db.query(ExamSession)
-            .filter(
-                ExamSession.status.in_([ExamStatus.IN_PROGRESS, ExamStatus.PAUSED]),
-                ExamSession.source == LEARNER,
-                ExamSession.start_time >= cutoff,
-            )
-            .order_by(ExamSession.start_time.desc())
-            .first()
+        query = self.db.query(ExamSession).filter(
+            ExamSession.status.in_([ExamStatus.IN_PROGRESS, ExamStatus.PAUSED]),
+            ExamSession.source == LEARNER,
+            ExamSession.start_time >= cutoff,
         )
+        if subject is not None:
+            query = query.filter(session_belongs_to(subject))
+        session = query.order_by(ExamSession.start_time.desc()).first()
         if not session:
             return None
 
+        # By the wall clock from the start, as the runner's timer counts and as the
+        # server enforces the limit. time_spent_seconds is only summed at submit,
+        # so it said a paper left open for an hour still had its whole time left.
         remaining = None
         if session.time_allowed_seconds:
-            remaining = max(0, session.time_allowed_seconds - (session.time_spent_seconds or 0))
+            elapsed = (_now() - session.start_time).total_seconds()
+            remaining = max(0, int(session.time_allowed_seconds - elapsed))
 
         return {
             "session_id": session.id,
@@ -131,6 +161,151 @@ class HomeService:
             "total": session.total_questions,
             "seconds_remaining": remaining,
             "started_at": session.start_time,
+        }
+
+    # ---- the two standing daily goals -------------------------------
+    #
+    # Derived, never stored. Each number is recomputed from the rows that caused
+    # it, so a goal cannot drift from the evidence it summarises -- a stored
+    # "reviewed today: 6" counter is one missed increment away from lying.
+    #
+    # Deliberately not a quota. The certification goal is min(cap, what the
+    # schedule actually has due), so on a day with nothing due the goal is zero
+    # and that is reported as the system working rather than as a missed day.
+    #
+    # "Today" is the learner's local calendar day. Timestamps are stored as naive
+    # UTC, and the boundary comes from timeutils rather than date(created_at) in
+    # SQL, which would put midnight in the wrong place for anyone not on UTC.
+
+    INTERVIEW_DAILY_TARGET = 1
+
+    def daily_goals(self, subject: Optional[Subject]) -> dict:
+        return {
+            "certification": self._certification_goal(subject) if subject else None,
+            "interview": self._interview_goal(),
+        }
+
+    def _certification_goal(self, subject: Subject) -> dict:
+        from app.core.timeutils import local_day_start_as_naive_utc
+        from app.repositories.settings_repository import SettingsRepository
+
+        day_start = local_day_start_as_naive_utc()
+        cap = SettingsRepository(self.db).get_or_create().review_daily_cap or 20
+
+        # Still waiting: the review queue for this preparation.
+        due = self.unreviewed_count(subject)
+
+        # Already done today. Counted from exam_answers.reviewed_at rather than
+        # from review_checks, because a miss with no suitable check question is
+        # marked reviewed without a check row -- counting checks would under-report
+        # exactly the reviews that had nothing to verify against.
+        reviewed_today = (
+            self.db.query(func.count(ExamAnswer.id))
+            .join(ExamSession, ExamSession.id == ExamAnswer.session_id)
+            .filter(
+                ExamSession.session_kind == MOCK,
+                ExamSession.source == LEARNER,
+                ExamAnswer.is_correct.is_(False),
+                ExamAnswer.reviewed_at.isnot(None),
+                ExamAnswer.reviewed_at >= day_start,
+                self._session_belongs_to(subject),
+            )
+            .scalar()
+        ) or 0
+
+        # Today's work is what is still due plus what was already done; the goal
+        # is that, capped. So the cap can make a day smaller but never larger
+        # than the schedule says.
+        target = min(cap, due + reviewed_today)
+        done = min(reviewed_today, target)
+        queued_beyond_today = max(0, due + reviewed_today - target)
+
+        if target == 0:
+            state = "nothing_due"
+        elif done >= target:
+            state = "done"
+        elif done > 0:
+            state = "in_progress"
+        else:
+            state = "not_started"
+
+        readiness = readiness_rules.compute(
+            self.subjects.get_mock_results(subject),
+            pass_mark=subject.pass_mark,
+            has_exam_profile=subject.has_exam_profile,
+        )
+
+        return {
+            "subject_id": subject.id,
+            "subject_name": subject.name,
+            "target": target,
+            "done": done,
+            "remaining": target - done,
+            "due_for_review": due,
+            "queued_beyond_today": queued_beyond_today,
+            "daily_cap": cap,
+            "state": state,
+            # From readiness, so Home can only ever name a weak area the
+            # readiness rules would also name. None when there is no evidence to
+            # call anything weak -- never a guess.
+            "weakest_area": readiness.weakest_domain,
+        }
+
+    def _interview_goal(self) -> dict:
+        from app.core.timeutils import local_day_start_as_naive_utc
+        from app.models.interview_question import InterviewQuestion, InterviewRoundType
+
+        day_start = local_day_start_as_naive_utc()
+
+        recorded_today = (
+            self.db.query(func.count(PracticeRecording.id))
+            .filter(PracticeRecording.created_at >= day_start)
+            .scalar()
+        ) or 0
+        target = self.INTERVIEW_DAILY_TARGET
+        done = min(recorded_today, target)
+
+        latest = (
+            self.db.query(RecordingAnalysis)
+            .filter(RecordingAnalysis.analysis_status == "analyzed")
+            .order_by(RecordingAnalysis.created_at.desc(), RecordingAnalysis.id.desc())
+            .first()
+        )
+
+        # The round practised longest ago -- or never. Stated as exactly that and
+        # not as a "recommendation": there is no model of which round has gone
+        # stale, and calling a recency sort a recommendation would claim a
+        # judgement the product does not make. Never-practised rounds come first,
+        # in the enum's own order so the answer is stable from one visit to the
+        # next.
+        last_by_round = dict(
+            self.db.query(InterviewQuestion.round_type, func.max(PracticeRecording.created_at))
+            .join(PracticeRecording, PracticeRecording.interview_question_id == InterviewQuestion.id)
+            .group_by(InterviewQuestion.round_type)
+            .all()
+        )
+        never = [r for r in InterviewRoundType if r not in last_by_round]
+        if never:
+            longest_since = never[0]
+        elif last_by_round:
+            longest_since = min(last_by_round, key=lambda r: last_by_round[r])
+        else:
+            longest_since = None
+
+        return {
+            "target": target,
+            "done": done,
+            "remaining": target - done,
+            "recorded_today": recorded_today,
+            "state": "done" if done >= target else "not_started",
+            # Percentages of the rubric, or None. None whenever no answer has
+            # been analysed -- an AI that was unavailable has produced no signal,
+            # and reporting 0% would blame the learner for a missing API key.
+            "latest_content_signal": _rubric_percent(latest.content_scores) if latest else None,
+            "latest_delivery_signal": _rubric_percent(latest.communication_scores) if latest else None,
+            "latest_analysed_at": latest.created_at if latest else None,
+            "longest_since_round": longest_since.value if longest_since else None,
+            "longest_since_round_never_practised": bool(never) if longest_since else False,
         }
 
     # ---- the counts that appear beside a subject --------------------
@@ -156,17 +331,21 @@ class HomeService:
             query = query.filter(self._session_belongs_to(subject))
         return query.scalar() or 0
 
-    def due_for_review_count(self) -> int:
+    def due_for_review_count(self, subject: Optional[Subject] = None) -> int:
         """Questions the spaced-repetition engine has scheduled for today.
 
         The engine has existed in the codebase with no route, no navigation
         entry and no registration. This is the first thing that reads it.
+
+        Scoped to a preparation when one is given, through the same repository
+        rule the spaced drill uses. Unscoped, Review offered a memory drill for a
+        preparation with nothing due, and the engine then refused it.
         """
-        return (
-            self.db.query(func.count(SpacedRepetition.id))
-            .filter(SpacedRepetition.next_review_date <= _now())
-            .scalar()
-        ) or 0
+        from app.repositories.spaced_repetition_repository import SpacedRepetitionRepository
+
+        return SpacedRepetitionRepository(self.db).count_due(
+            _now(), subject.id if subject is not None else None
+        )
 
     def mock_totals(self) -> dict:
         """Headline numbers that count mocks alone.
@@ -255,7 +434,19 @@ class HomeService:
 
         # Analysed answers, not recordings: a take you never had looked at is
         # not interview practice, it is an audio file.
-        analysed = self.db.query(func.count(RecordingAnalysis.id)).scalar() or 0
+        #
+        # Filtered to analysis_status == "analyzed", matching the System Design
+        # count above it, which filters to "graded". This used to count every
+        # RecordingAnalysis row -- including "error" and "unavailable", which are
+        # the rows written when analysis FAILED -- so a single failed analysis
+        # was reported as "1 analysed answer" while Home's interview goal, reading
+        # the same table correctly, said nothing had been analysed. The comment
+        # above was right about the intent; the query did not do it.
+        analysed = (
+            self.db.query(func.count(RecordingAnalysis.id))
+            .filter(RecordingAnalysis.analysis_status == "analyzed")
+            .scalar()
+        ) or 0
         if analysed:
             out.append({
                 "key": "interview",
@@ -281,12 +472,8 @@ class HomeService:
         return out
 
     def _session_belongs_to(self, subject: Subject):
-        if subject.certification:
-            return (
-                (ExamSession.subject_id == subject.id)
-                | (ExamSession.certification == subject.certification)
-            )
-        return ExamSession.subject_id == subject.id
+        # The shared definition -- see subject_repository.session_belongs_to.
+        return session_belongs_to(subject)
 
     # ---- coverage ---------------------------------------------------
 
@@ -294,13 +481,15 @@ class HomeService:
         """Every practice format for a subject, including the empty ones."""
         out: List[FormatCoverage] = []
 
-        question_count = 0
-        if subject.certification:
-            question_count = (
-                self.db.query(func.count(Question.id))
-                .filter(Question.certification == subject.certification)
-                .scalar()
-            ) or 0
+        # Question.subject_id, which is the column ExamEngine draws from.
+        #
+        # Counting by `certification` string instead reported 0 for every skill
+        # subject -- a skill has no certification name to match -- and for any
+        # preparation whose questions were bound by id. `can_mock` below is
+        # computed from this number, so a count that disagrees with the engine
+        # produces a surface that offers an exam the engine then refuses, or
+        # hides one it would have run.
+        question_count = self.questions.count_for_subject(subject.id)
 
         mocks = len(self.subjects.get_mock_results(subject)) if subject.certification else 0
 
@@ -439,23 +628,26 @@ class HomeService:
         """
         return f"{floor(value + 0.5):.0f}%"
 
-    def activity(self, limit: int = 40) -> List[dict]:
+    def activity(self, limit: int = 40, subject: Optional[Subject] = None) -> List[dict]:
         """One timeline across every format.
 
         Replaces the separate Exam History and System Design History pages.
         Two of four practice modes had their own history page and the other
         two had none, so nowhere answered "what have I been doing".
+
+        With `subject`, only that preparation's exam sessions. Design reviews,
+        system design and interview recordings belong to no preparation yet, so a
+        scoped timeline leaves them out rather than filing them under one.
         """
         items: List[dict] = []
 
-        for s in (
-            self.db.query(ExamSession)
-            .filter(
-                ExamSession.status == ExamStatus.COMPLETED,
-                ExamSession.source == LEARNER,
-            )
-            .order_by(ExamSession.start_time.desc()).limit(limit).all()
-        ):
+        sessions = self.db.query(ExamSession).filter(
+            ExamSession.status == ExamStatus.COMPLETED,
+            ExamSession.source == LEARNER,
+        )
+        if subject is not None:
+            sessions = sessions.filter(session_belongs_to(subject))
+        for s in sessions.order_by(ExamSession.start_time.desc()).limit(limit).all():
             items.append({
                 "kind": "mock" if s.session_kind == MOCK else "drill",
                 "at": s.end_time or s.start_time,
@@ -464,6 +656,9 @@ class HomeService:
                            else "not scored"),
                 "href": f"/exam-review/{s.id}",
             })
+
+        if subject is not None:
+            return items[:limit]
 
         for a in (
             self.db.query(DesignReviewAttempt)

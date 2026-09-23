@@ -75,6 +75,8 @@ export interface DesignReviewReveal {
   deciding_axis: string;
   reveal: string;
   elicit_answer: string;
+  /** The axis in a word or two ("Cost"), for a heading. */
+  axis_label?: string | null;
 }
 
 export interface DesignReviewAttempt {

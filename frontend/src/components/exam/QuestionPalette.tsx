@@ -3,7 +3,8 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React, { useMemo } from 'react';
-import { Box, Typography, Button, Paper, Grid } from '@mui/material';
+import { Box, ButtonBase } from '@mui/material';
+import { Detail, Eyebrow, Panel } from '../ui/primitives';
 
 interface PaletteAnswer {
   question_id: number;
@@ -17,14 +18,22 @@ interface Props {
   questionIdsOrder: number[];
   answers: PaletteAnswer[];
   onSelectIndex: (index: number) => void;
+  id?: string;
 }
 
+/**
+ * The prototype's question palette: one square a question, green once
+ * answered, amber while flagged, the current one ringed in the accent. Each
+ * square says all of that in words as well, for a screen reader and for anyone
+ * who cannot tell the colours apart.
+ */
 export const QuestionPalette: React.FC<Props> = ({
   totalQuestions,
   currentIndex,
   questionIdsOrder,
   answers,
   onSelectIndex,
+  id,
 }) => {
   const answerMap = useMemo(() => {
     const map = new Map<number, PaletteAnswer>();
@@ -32,91 +41,38 @@ export const QuestionPalette: React.FC<Props> = ({
     return map;
   }, [answers]);
 
-  const getStatusColor = (idx: number) => {
-    const qid = questionIdsOrder[idx];
-    const ans = answerMap.get(qid);
-    if (!ans) return { bgcolor: 'transparent', borderColor: 'divider', color: 'text.primary', isFlagged: false, isAnswered: false };
-    
-    const isAnswered = ans.selected_option_ids && ans.selected_option_ids.length > 0;
-    const isFlagged = Boolean(ans.is_flagged);
-
-    if (isAnswered) {
-      return { bgcolor: 'action.selected', borderColor: 'primary.main', color: 'primary.main', isFlagged, isAnswered: true };
-    }
-    return { bgcolor: 'transparent', borderColor: 'divider', color: 'text.primary', isFlagged, isAnswered: false };
-  };
-
   return (
-    <Paper sx={{ p: 2, height: 'max-content', position: 'sticky', top: 80, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
-      <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>
-        Question Navigator
-      </Typography>
-      <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Box sx={{ width: 12, height: 12, borderRadius: '2px', borderLeft: '2px solid #6366F1', bgcolor: 'rgba(99,102,241,0.16)' }} />
-          <Typography variant="caption">Answered</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: 'error.main' }} />
-          <Typography variant="caption">Flagged</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Box sx={{ width: 12, height: 12, borderRadius: '2px', border: '1px solid', borderColor: 'divider' }} />
-          <Typography variant="caption">Unanswered</Typography>
-        </Box>
-      </Box>
-
-      <Grid container spacing={1}>
+    <Panel id={id} component="section" aria-label="Question palette" sx={{ mt: '14px' }}>
+      <Eyebrow component="h2">Question palette</Eyebrow>
+      <Detail sx={{ mt: '4px' }}>Green is answered, amber is flagged. Pick one to go to it.</Detail>
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(38px, 1fr))', gap: '5px', mt: '10px' }}>
         {Array.from({ length: totalQuestions }).map((_, idx) => {
-          const status = getStatusColor(idx);
-          const isCurrent = idx === currentIndex;
+          const ans = answerMap.get(questionIdsOrder[idx]);
+          const answered = !!ans && ans.selected_option_ids?.length > 0;
+          const flagged = !!ans?.is_flagged;
+          const current = idx === currentIndex;
+          const tone = flagged ? 'warning' : answered ? 'success' : null;
           return (
-            <Grid
+            <ButtonBase
               key={idx}
-              size={{
-                xs: 3,
-                sm: 2.4
-              }}>
-              <Button
-                disableElevation
-                onClick={() => onSelectIndex(idx)}
-                aria-label={`Question ${idx + 1}, ${status.isAnswered ? 'answered' : 'unanswered'}${status.isFlagged ? ', flagged' : ''}${isCurrent ? ', current' : ''}`}
-                  sx={{
-                  minWidth: 0,
-                  width: '100%',
-                  height: 40,
-                  fontWeight: isCurrent ? 800 : 600,
-                  position: 'relative',
-                  borderRadius: 2,
-                  bgcolor: status.bgcolor,
-                  color: status.color,
-                  border: '1px solid',
-                  borderColor: isCurrent ? 'primary.main' : status.borderColor,
-                  borderWidth: isCurrent ? '2px' : '1px',
-                  boxShadow: 'none',
-                  '&:hover': { opacity: 0.9, borderColor: 'primary.light' }
-                }}
-              >
-                {idx + 1}
-                {status.isFlagged && (
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      top: -4,
-                      right: -4,
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      bgcolor: 'error.main',
-                      boxShadow: 'none'
-                    }}
-                  />
-                )}
-              </Button>
-            </Grid>
+              onClick={() => onSelectIndex(idx)}
+              aria-label={`Question ${idx + 1}, ${answered ? 'answered' : 'unanswered'}${flagged ? ', flagged' : ''}${current ? ', current' : ''}`}
+              aria-current={current ? 'step' : undefined}
+              sx={{
+                aspectRatio: '1', minWidth: 0, borderRadius: '6px', fontSize: (t) => t.typography.pxToRem(10), fontWeight: 750,
+                border: current ? '2px solid' : '1px solid',
+                borderColor: current ? 'primary.main' : 'divider',
+                bgcolor: tone ? `pb.${tone}Soft` : 'background.paper',
+                color: tone ? `pb.${tone}` : 'text.secondary',
+                '&:hover': { borderColor: 'primary.main' },
+                '&.Mui-focusVisible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: '1px' },
+              }}
+            >
+              {idx + 1}
+            </ButtonBase>
           );
         })}
-      </Grid>
-    </Paper>
+      </Box>
+    </Panel>
   );
 };

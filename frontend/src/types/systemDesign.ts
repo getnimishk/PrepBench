@@ -30,7 +30,9 @@ export interface GeneratePromptRequest {
 
 export interface SubmitAttemptRequest {
   prompt_id: number;
-  answer_text: string;
+  /** For a caller without sections. When sections are sent the server builds this. */
+  answer_text?: string;
+  sections?: Record<string, string>;
   target_role?: string;
   time_spent_seconds?: number;
 }
@@ -41,6 +43,8 @@ export interface SystemDesignAttempt {
   id: number;
   prompt_id: number;
   answer_text: string;
+  /** Null for an answer submitted before answers had sections. */
+  sections?: Record<string, string> | null;
   target_role?: string;
   overall_score: number | null;
   category_scores: CategoryScore[];

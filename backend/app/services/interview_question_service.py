@@ -21,6 +21,33 @@ from app.schemas.interview_question import (
     GenerateInterviewQuestionRequest,
     RoundTypeInfo,
 )
+from app.llm.prompts import as_material
+
+def practice_counts(db, question_ids=None) -> dict:
+    """{question_id: (takes recorded, when last taken)} for these questions.
+
+    One grouped query, used by the library's "answered N times" and by a session's
+    least-practised-first order, so the two can never disagree about what is new.
+    """
+    from sqlalchemy import func
+
+    from app.models.practice_recording import PracticeRecording
+
+    query = (
+        db.query(
+            PracticeRecording.interview_question_id,
+            func.count(PracticeRecording.id),
+            func.max(PracticeRecording.created_at),
+        )
+        .filter(PracticeRecording.interview_question_id.isnot(None))
+    )
+    if question_ids is not None:
+        if not question_ids:
+            return {}
+        query = query.filter(PracticeRecording.interview_question_id.in_(question_ids))
+    rows = query.group_by(PracticeRecording.interview_question_id).all()
+    return {qid: (int(n or 0), last) for qid, n, last in rows}
+
 
 ROUND_TYPE_LABELS = {
     InterviewRoundType.HR_SCREENING: "HR Screening",
@@ -39,8 +66,14 @@ class InterviewQuestionService:
     def list_questions(self, skip: int = 0, limit: int = 100, filter_params: Optional[InterviewQuestionFilter] = None) -> dict:
         items = self.repo.get_all(skip=skip, limit=limit, filter_params=filter_params)
         total = self.repo.count(filter_params=filter_params)
+        counts = practice_counts(self.db, [q.id for q in items])
         return {
-            "items": [InterviewQuestionResponse.model_validate(q) for q in items],
+            "items": [
+                InterviewQuestionResponse.model_validate(q).model_copy(
+                    update={"practice_count": counts.get(q.id, (0, None))[0]}
+                )
+                for q in items
+            ],
             "total": total,
             "skip": skip,
             "limit": limit,
@@ -64,7 +97,22 @@ class InterviewQuestionService:
             raise ResourceNotFoundException("InterviewQuestion", question_id)
 
     def list_round_types(self) -> list:
-        return [RoundTypeInfo(value=rt.value, label=ROUND_TYPE_LABELS[rt]) for rt in InterviewRoundType]
+        from app.services.interview_rounds import content_categories_for, rule_for
+
+        out = []
+        for rt in InterviewRoundType:
+            rule = rule_for(rt.value)
+            out.append(RoundTypeInfo(
+                value=rt.value,
+                label=ROUND_TYPE_LABELS[rt],
+                target_min_seconds=rule["target_seconds"][0],
+                target_max_seconds=rule["target_seconds"][1],
+                thinking_seconds=rule["thinking_seconds"],
+                plan_prompt=rule["plan_prompt"],
+                listening_for=rule["listening_for"],
+                content_categories=content_categories_for(rt.value),
+            ))
+        return out
 
     def get_distinct_categories(self, round_type: Optional[str] = None) -> list:
         return self.repo.get_distinct_categories(round_type=round_type)
@@ -122,7 +170,8 @@ class InterviewQuestionService:
 
     def _build_generation_prompt(self, round_type: InterviewRoundType, topic: Optional[str]) -> str:
         round_label = ROUND_TYPE_LABELS[round_type]
-        topic_clause = f' focused on the topic/theme "{topic}"' if topic else ""
+        topic_clause = f" focused on the topic/theme below" if topic else ""
+        topic_block = f"\n\n{as_material('topic', topic, 'the learner')}" if topic else ""
 
         round_guidance = {
             InterviewRoundType.HR_SCREENING: "a recruiter/HR screening call -- covering motivation, fit, logistics, or background, not technical depth",
@@ -132,7 +181,7 @@ class InterviewQuestionService:
         }[round_type]
 
         return f"""Generate one realistic interview question for {round_guidance}{topic_clause}.
-This is for the "{round_label}" round of a job interview.
+This is for the "{round_label}" round of a job interview.{topic_block}
 
 Respond ONLY in this exact JSON format, no other text:
 {{

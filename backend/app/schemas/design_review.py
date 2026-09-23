@@ -124,6 +124,8 @@ class DesignReviewReveal(BaseModel):
     deciding_axis: str
     reveal: str
     elicit_answer: str
+    # The axis in a word or two ("Cost"), for a heading. The sentence above is the answer.
+    axis_label: Optional[str] = None
 
 
 class DesignReviewFilter(BaseModel):

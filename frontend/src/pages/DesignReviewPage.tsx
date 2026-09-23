@@ -3,15 +3,13 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import {
-  Box, Card, CardContent, Typography, Grid, Button, Chip, Alert,
-  CircularProgress, TextField, Stack, Divider, Radio,
-} from '@mui/material';
-import { ArrowLeft, HelpCircle } from 'lucide-react';
+import { Link as RouterLink, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Alert, Box, Button, Radio, TextField, Typography } from '@mui/material';
 import {
   getDesignReview,
+  getDesignReviews,
   getLatestDesignReviewAttempt,
+  regradeDesignReviewAttempt,
   submitDesignReviewAttempt,
 } from '../services/api';
 import {
@@ -21,39 +19,56 @@ import {
   DesignReviewDetail,
 } from '../types/designReview';
 import { DesignFlow } from '../components/learning/DesignFlow';
-import { apiErrorMessage } from '../services/apiError';
+import { apiErrorMessage, loadFailed } from '../services/apiError';
+import { CHOICE_LABELS, capitalise, domainLabel } from '../services/designReviewText';
+import { LoadingState } from '../components/common/States';
+import {
+  Actions, Detail, Eyebrow, Grid, Note, PageHead, Panel, Pill, Section, type Tone,
+} from '../components/ui/primitives';
 
-const CHOICE_LABELS: Record<DesignReviewChoice, string> = {
-  A: 'Option A',
-  B: 'Option B',
-  ask_first: 'Neither — I would ask first',
-};
+/**
+ * One design review: two defensible architectures for one requirement, or the
+ * question that has to be asked first.
+ *
+ * Before committing, the page is the prototype's decision sheet -- the brief,
+ * both options side by side, "ask first", and the reasoning. After, it is the
+ * prototype's analysis: the deciding axis, whether the reasoning named it, and
+ * each option's holds / breaks / cost, which were withheld until now because
+ * they are the reasoning the learner is here to do.
+ */
 
 /**
  * The verdict is about the reasoning, not the choice, so the wording says so.
  * "Missed the axis" rather than "Wrong": the option they picked may well have
  * been the one a strong candidate picks.
  */
-const VERDICTS: Record<string, { label: string; color: 'success' | 'warning' | 'error' }> = {
-  named: { label: 'You named the deciding axis', color: 'success' },
-  partial: { label: 'Partly there', color: 'warning' },
-  missed: { label: 'Missed the axis', color: 'error' },
+const VERDICTS: Record<string, { label: string; short: string; tone: Tone }> = {
+  named: { label: 'You named the deciding axis', short: 'Named', tone: 'success' },
+  partial: { label: 'Partly there', short: 'Partial', tone: 'warning' },
+  missed: { label: 'Missed the axis', short: 'Missed', tone: 'danger' },
 };
 
 export const DesignReviewPage: React.FC = () => {
   const { reviewId } = useParams<{ reviewId: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const id = Number(reviewId);
+  // "Review again" from the list: a fresh commit, not the last one's reveal.
+  const again = searchParams.has('again');
 
   const [review, setReview] = useState<DesignReviewDetail | null>(null);
   const [attempt, setAttempt] = useState<DesignReviewAttempt | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   const [choice, setChoice] = useState<DesignReviewChoice | null>(null);
   const [justification, setJustification] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [regrading, setRegrading] = useState(false);
+  const [regradeError, setRegradeError] = useState<string | null>(null);
+  const [findingNext, setFindingNext] = useState(false);
   // Reset on a retry, so the second attempt is timed from when it started
   // rather than from when the page was opened.
   const [startedAt, setStartedAt] = useState(() => Date.now());
@@ -63,7 +78,17 @@ export const DesignReviewPage: React.FC = () => {
     setLoading(true);
     setLoadError(null);
 
-    Promise.all([getDesignReview(id), getLatestDesignReviewAttempt(id).catch(() => null)])
+    // Another review is another exercise. The page stays mounted when only the
+    // id in the address changes, so without this "Next review" opened on the
+    // previous review's reveal, with nothing left to commit.
+    setAttempt(null);
+    setChoice(null);
+    setJustification('');
+    setSubmitError(null);
+    setRegradeError(null);
+    setStartedAt(Date.now());
+
+    Promise.all([getDesignReview(id), again ? Promise.resolve(null) : getLatestDesignReviewAttempt(id).catch(() => null)])
       .then(([detail, latest]) => {
         if (cancelled) return;
         setReview(detail);
@@ -75,15 +100,15 @@ export const DesignReviewPage: React.FC = () => {
           setJustification(latest.justification);
         }
       })
-      .catch(() => {
-        if (!cancelled) setLoadError('Failed to load this design review.');
+      .catch((err) => {
+        if (!cancelled) setLoadError(loadFailed('Could not load this design review', err));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
 
     return () => { cancelled = true; };
-  }, [id]);
+  }, [id, again, loadAttempt]);
 
   const canSubmit = useMemo(
     () => choice !== null && justification.trim().length > 0 && !submitting,
@@ -102,6 +127,7 @@ export const DesignReviewPage: React.FC = () => {
         time_spent_seconds: Math.round((Date.now() - startedAt) / 1000),
       });
       setAttempt(result);
+      window.scrollTo?.({ top: 0, behavior: 'smooth' });
     } catch (err) {
       setSubmitError(apiErrorMessage(err, 'Could not save your answer.'));
     } finally {
@@ -109,16 +135,46 @@ export const DesignReviewPage: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  // Seek a verdict for reasoning committed while no provider could grade it.
+  const regrade = async () => {
+    if (!attempt) return;
+    setRegrading(true);
+    setRegradeError(null);
+    try {
+      setAttempt(await regradeDesignReviewAttempt(attempt.id));
+    } catch (err) {
+      setRegradeError(apiErrorMessage(err, 'Grading did not run. Your answer is still saved.'));
+    } finally {
+      setRegrading(false);
+    }
+  };
+
+  // The next exercise: the first review not attempted yet, then simply the next
+  // one along, so "Next review" always goes somewhere rather than back to a list.
+  const nextReview = async () => {
+    setFindingNext(true);
+    try {
+      const { items } = await getDesignReviews({ limit: 500 });
+      const others = items.filter((r) => r.id !== id);
+      const fresh = others.find((r) => !r.attempted);
+      const after = others.find((r) => r.id > id) ?? others[0];
+      const target = fresh ?? after;
+      navigate(target ? `/design-reviews/${target.id}` : '/design-reviews');
+    } catch {
+      navigate('/design-reviews');
+    } finally {
+      setFindingNext(false);
+    }
+  };
+
+  if (loading) return <LoadingState label="Loading this design review…" />;
 
   if (loadError || !review) {
-    return <Alert severity="error">{loadError ?? 'Design review not found.'}</Alert>;
+    return (
+      <Alert severity="error" action={loadError ? <Button color="inherit" size="small" onClick={() => setLoadAttempt((n) => n + 1)}>Retry</Button> : undefined}>
+        {loadError ?? 'Design review not found.'}
+      </Alert>
+    );
   }
 
   const revealed = attempt !== null;
@@ -142,269 +198,297 @@ export const DesignReviewPage: React.FC = () => {
     setJustification('');
     setSubmitError(null);
     setStartedAt(Date.now());
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo?.({ top: 0, behavior: 'smooth' });
   };
 
-  const renderOption = (option: DesignOption) => {
-    const selected = choice === option.label;
+  const context = `${domainLabel(review.domain)} · Difficulty ${capitalise(review.difficulty)}`;
+  const options = (
+    <Grid template="repeat(2, minmax(0,1fr))" aria-label="Options">
+      {review.options.map((option) => (
+        <OptionCard
+          key={option.id}
+          option={option}
+          selected={choice === option.label}
+          revealed={revealed}
+          onSelect={() => setChoice(option.label)}
+        />
+      ))}
+    </Grid>
+  );
+
+  if (!revealed || !attempt) {
     return (
-      <Card
-        variant="outlined"
-        onClick={() => !revealed && setChoice(option.label)}
-        sx={{
-          height: '100%',
-          cursor: revealed ? 'default' : 'pointer',
-          borderColor: selected ? 'primary.main' : 'divider',
-          borderWidth: selected ? 2 : 1,
-        }}
-      >
-        <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-            {/* The radio is the control, not decoration beside one. It used
-                to be an unlabelled `<Radio checked>` with no onChange inside
-                a div carrying the click handler: the primary choice of the
-                whole exercise could not be reached by keyboard and announced
-                nothing. */}
-            {!revealed && (
-              <Radio
-                checked={selected}
-                onChange={() => setChoice(option.label)}
-                name="design-review-choice"
-                value={option.label}
-                size="small"
-                sx={{ p: 0, mt: 0.25 }}
-                slotProps={{ input: { 'aria-label': `Option ${option.label}: ${option.name}` } }}
-              />
-            )}
-            <Box>
-              <Typography variant="overline" sx={{ color: 'primary.main', lineHeight: 1 }}>
-                Option {option.label}
-              </Typography>
-              <Typography variant="h6" sx={{ fontWeight: 600, lineHeight: 1.25 }}>
-                {option.name}
-              </Typography>
+      <Box>
+        <PageHead
+          eyebrow={`Design Review · ${context}`}
+          title={review.title}
+          actions={<Button variant="outlined" onClick={() => navigate('/design-reviews')}>← All reviews</Button>}
+        />
+
+        <Panel component="section" aria-label="The brief" sx={{ borderLeft: '4px solid', borderLeftColor: 'primary.main' }}>
+          <Eyebrow sx={{ color: 'primary.main' }}>The brief</Eyebrow>
+          <Typography sx={{ fontSize: (t) => t.typography.pxToRem(15), lineHeight: 1.55, mt: '6px' }}>{review.brief}</Typography>
+        </Panel>
+
+        <Section>{options}</Section>
+
+        {/* Option C: sometimes the right answer is refusing to choose until you know more. */}
+        <Box
+          onClick={() => setChoice('ask_first')}
+          sx={(t) => ({
+            ...choiceSx(t, choice === 'ask_first'),
+            mt: '14px', display: 'flex', alignItems: 'flex-start', gap: '10px', p: '12px 16px',
+          })}
+        >
+          <Radio
+            checked={choice === 'ask_first'}
+            onChange={() => setChoice('ask_first')}
+            name="design-review-choice"
+            value="ask_first"
+            size="small"
+            sx={{ p: '2px', mt: '-1px' }}
+            slotProps={{ input: { 'aria-label': 'Neither — I would ask something first' } }}
+          />
+          <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+            <Box component="strong" sx={{ display: 'block', fontSize: (t) => t.typography.pxToRem(13), color: 'primary.main' }}>
+              Option C · Neither — I would ask something first
             </Box>
+            <Detail sx={{ mt: '2px' }}>
+              Neither option can be committed responsibly yet. Name the question that would settle it.
+            </Detail>
           </Box>
+          {choice === 'ask_first' && <Detail component="span" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>✓ Selected</Detail>}
+        </Box>
 
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            {option.summary}
-          </Typography>
-
-          <DesignFlow stages={option.flow} />
-
-          <Box component="ul" sx={{ pl: 2.5, m: 0, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {option.key_choices.map((kc) => (
-              <Typography key={kc} component="li" variant="body2">{kc}</Typography>
-            ))}
-          </Box>
-
-          {/* Holds/breaks/cost are the reveal, not the question -- showing them
-              up front would hand over the reasoning the learner is here to do. */}
-          {revealed && (
-            <>
-              <Divider />
-              <Stack spacing={1}>
-                <Box>
-                  <Typography variant="overline" sx={{ color: 'success.main' }}>Holds when</Typography>
-                  <Typography variant="body2">{option.holds_when}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="overline" sx={{ color: 'warning.main' }}>Breaks when</Typography>
-                  <Typography variant="body2">{option.breaks_when}</Typography>
-                </Box>
-                <Box>
-                  <Typography variant="overline" sx={{ color: 'text.secondary' }}>Rough cost</Typography>
-                  <Typography variant="body2">{option.rough_cost}</Typography>
-                </Box>
-              </Stack>
-            </>
-          )}
-        </CardContent>
-      </Card>
+        <Section>
+          <Panel component="section" aria-label="Your reasoning">
+            <Box
+              component="label"
+              htmlFor="design-review-reasoning"
+              sx={{ display: 'block', mb: '6px', fontSize: (t) => t.typography.pxToRem(11), fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary' }}
+            >
+              Your decision rationale
+            </Box>
+            <TextField
+              id="design-review-reasoning"
+              fullWidth
+              multiline
+              minRows={3}
+              placeholder={
+                // "Neither" is only a strong answer when it names the question,
+                // and the server enforces that -- so say so before they submit
+                // rather than rejecting them afterwards.
+                choice === 'ask_first'
+                  ? 'What would you ask? Name the question that would settle it.'
+                  : 'Two or three sentences. What is this decision actually about?'
+              }
+              value={justification}
+              onChange={(e) => setJustification(e.target.value)}
+            />
+            {submitError && <Alert severity="error" sx={{ mt: '12px' }}>{submitError}</Alert>}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', mt: '16px', flexWrap: 'wrap' }}>
+              <Button variant="outlined" onClick={() => navigate('/design-reviews')}>Cancel</Button>
+              <Button variant="contained" onClick={handleSubmit} disabled={!canSubmit}>
+                {submitting ? 'Saving…' : 'Commit decision & reveal the deciding axis →'}
+              </Button>
+            </Box>
+          </Panel>
+        </Section>
+      </Box>
     );
-  };
+  }
+
+  const verdict = attempt.axis_verdict ? VERDICTS[attempt.axis_verdict] : null;
+  const notGraded = attempt.grading_status === 'not_graded';
+  const askedFirst = attempt.choice === 'ask_first';
+  const axisLabel = attempt.reveal?.axis_label;
 
   return (
     <Box>
-      <Button
-        startIcon={<ArrowLeft size={16} />}
-        onClick={() => navigate('/design-reviews')}
-        sx={{ mb: 2 }}
+      <PageHead
+        eyebrow={`Design Review · Analysis · ${context}`}
+        title={axisLabel ? `The deciding axis was ${axisLabel}` : 'The deciding axis'}
+        sub={review.title}
+        actions={(
+          <>
+            <Button variant="outlined" onClick={() => navigate('/design-reviews')}>← All reviews</Button>
+            <Button variant="outlined" onClick={retry}>Change decision</Button>
+            <Button variant="contained" color="ink" disabled={findingNext} onClick={nextReview}>
+              {findingNext ? 'Finding one…' : 'Next review →'}
+            </Button>
+          </>
+        )}
+      />
+
+      <Panel
+        component="section"
+        aria-label="Your decision"
+        sx={{ borderLeft: '5px solid', borderLeftColor: askedFirst ? 'success.main' : 'primary.main' }}
       >
-        All design reviews
-      </Button>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+          <Box sx={{ minWidth: 0 }}>
+            <Eyebrow sx={{ color: askedFirst ? 'success.main' : 'primary.main' }}>Your selection · {CHOICE_LABELS[attempt.choice]}</Eyebrow>
+            {/* Never a zero. An attempt that was not graded has no verdict at
+                all, and says so rather than blaming the learner for a missing
+                API key. */}
+            <Typography variant="h5" component="h2" sx={{ mt: '4px' }}>
+              {verdict ? verdict.label : notGraded ? 'Your reasoning has not been judged' : 'Waiting for a verdict'}
+            </Typography>
+          </Box>
+          {verdict
+            ? <Pill tone={verdict.tone}>{verdict.short}</Pill>
+            : notGraded && <Pill>Not graded</Pill>}
+        </Box>
 
-      <Typography variant="h4" sx={{ fontWeight: 600, mb: 2 }}>
-        {review.title}
-      </Typography>
+        {attempt.reveal && (
+          <Box sx={{ mt: '16px' }}>
+            <Eyebrow>The deciding axis</Eyebrow>
+            <Typography sx={{ fontSize: (t) => t.typography.pxToRem(16), fontWeight: 800, lineHeight: 1.4, mt: '4px' }}>
+              {attempt.reveal.deciding_axis}
+            </Typography>
+          </Box>
+        )}
+        {attempt.feedback && <Detail sx={{ mt: '8px', fontSize: (t) => t.typography.pxToRem(13), lineHeight: 1.6 }}>{attempt.feedback}</Detail>}
 
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="overline" sx={{ color: 'text.secondary' }}>The brief</Typography>
-          <Typography variant="body1" sx={{ mt: 0.5 }}>{review.brief}</Typography>
-        </CardContent>
-      </Card>
+        {notGraded && (
+          <Note sx={{ mt: '14px' }}>
+            No AI provider could judge your reasoning, so there is no verdict — the reveal below is the same
+            either way. Set one up, then grade it again.
+            <Actions sx={{ mt: '10px' }}>
+              <Button component={RouterLink} to="/settings/ai" variant="outlined" size="small">AI settings</Button>
+              <Button variant="contained" color="ink" size="small" disabled={regrading} onClick={regrade}>
+                {regrading ? 'Grading…' : 'Grade again'}
+              </Button>
+            </Actions>
+          </Note>
+        )}
+        {regradeError && <Alert severity="error" sx={{ mt: '12px' }}>{regradeError}</Alert>}
+      </Panel>
 
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        {review.options.map((option) => (
-          <Grid key={option.id} size={{ xs: 12, md: 6 }}>
-            {renderOption(option)}
-          </Grid>
-        ))}
-      </Grid>
+      {attempt.reveal && (
+        <>
+          {/* Compare, side by side: what you committed to, and what the strongest
+              answer was listening for. The learning is in the difference. */}
+          <Section>
+            <Panel component="section" aria-label="Compare your reasoning">
+              <Eyebrow>Compare your reasoning</Eyebrow>
+              <Grid template="repeat(2, minmax(0,1fr))" sx={{ mt: '10px' }}>
+                <Box>
+                  <Typography variant="subtitle2" component="h3">You said · {CHOICE_LABELS[attempt.choice]}</Typography>
+                  <Typography variant="body1" sx={{ mt: '4px', whiteSpace: 'pre-line' }}>{attempt.justification}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" component="h3">The strongest answer asks</Typography>
+                  <Typography variant="body1" sx={{ mt: '4px', whiteSpace: 'pre-line' }}>{attempt.reveal.elicit_answer}</Typography>
+                </Box>
+              </Grid>
+            </Panel>
+          </Section>
 
-      {!revealed && (
-        <Card
-          variant="outlined"
-          onClick={() => setChoice('ask_first')}
-          sx={{
-            mb: 3,
-            cursor: 'pointer',
-            borderColor: choice === 'ask_first' ? 'primary.main' : 'divider',
-            borderWidth: choice === 'ask_first' ? 2 : 1,
-          }}
-        >
-          <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1.5 }}>
-            <Radio
-              checked={choice === 'ask_first'}
-              onChange={() => setChoice('ask_first')}
-              name="design-review-choice"
-              value="ask_first"
-              size="small"
-              sx={{ p: 0 }}
-              slotProps={{
-                input: { 'aria-label': 'Neither — I would ask something first' },
-              }}
-            />
-            <HelpCircle size={18} />
-            <Box>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                Neither — I would ask something first
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                Sometimes the right answer is refusing to choose until you know more. Say what you would ask.
-              </Typography>
-            </Box>
-          </CardContent>
-        </Card>
+          <Section>
+            <Panel component="section" aria-label="What separates them">
+              <Eyebrow>What separates them</Eyebrow>
+              <Typography variant="body1" sx={{ mt: '6px', whiteSpace: 'pre-line' }}>{attempt.reveal.reveal}</Typography>
+            </Panel>
+          </Section>
+        </>
       )}
 
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-            {revealed ? 'What you said' : 'Why?'}
-          </Typography>
-          <TextField
-            fullWidth
-            multiline
-            minRows={3}
-            placeholder={
-              // "Neither" is only a strong answer when it names the question,
-              // and the server enforces that -- so say so before they submit
-              // rather than rejecting them afterwards.
-              choice === 'ask_first'
-                ? 'What would you ask? Name the question that would settle it.'
-                : 'Two or three sentences. What is this decision actually about?'
-            }
-            value={justification}
-            onChange={(e) => setJustification(e.target.value)}
-            disabled={revealed}
-            sx={{ mt: 1 }}
-          />
-          {submitError && <Alert severity="error" sx={{ mt: 2 }}>{submitError}</Alert>}
-          {!revealed && (
-            <Button
-              variant="contained"
-              onClick={handleSubmit}
-              disabled={!canSubmit}
-              sx={{ mt: 2 }}
-            >
-              {submitting ? 'Saving…' : 'Commit and see the reveal'}
-            </Button>
-          )}
-        </CardContent>
-      </Card>
+      <Section>{options}</Section>
 
-      {revealed && attempt?.reveal && (
-        <>
-          <Card sx={{ mb: 2, borderLeft: '4px solid', borderLeftColor: 'primary.main' }}>
-            <CardContent>
-              <Typography variant="overline" sx={{ color: 'primary.main' }}>
-                The deciding axis
-              </Typography>
-              <Typography variant="h6" sx={{ fontWeight: 600, mt: 0.5 }}>
-                {attempt.reveal.deciding_axis}
-              </Typography>
-              <Stack direction="row" spacing={1} sx={{ mt: 1.5, flexWrap: 'wrap', gap: 1 }}>
-                <Chip size="small" label={`You chose: ${CHOICE_LABELS[attempt.choice]}`} />
-                {/* Never a zero. An attempt that was not graded has no verdict
-                    at all, and says so rather than blaming the learner for a
-                    missing API key. */}
-                {attempt.grading_status === 'not_graded' && (
-                  <Chip size="small" variant="outlined" label="Not graded" />
-                )}
-                {attempt.axis_verdict && (
-                  <Chip
-                    size="small"
-                    color={VERDICTS[attempt.axis_verdict].color}
-                    label={VERDICTS[attempt.axis_verdict].label}
-                  />
-                )}
-              </Stack>
-
-              {attempt.feedback && (
-                <Typography variant="body2" sx={{ mt: 1.5, color: 'text.secondary' }}>
-                  {attempt.feedback}
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card sx={{ mb: 2 }}>
-            <CardContent>
-              <Typography variant="overline" sx={{ color: 'text.secondary' }}>What separates them</Typography>
-              <Typography variant="body1" sx={{ mt: 0.5, whiteSpace: 'pre-line' }}>
-                {attempt.reveal.reveal}
-              </Typography>
-            </CardContent>
-          </Card>
-
-          <Card sx={{ mb: 2, borderLeft: '4px solid', borderLeftColor: 'success.main' }}>
-            <CardContent>
-              <Typography variant="overline" sx={{ color: 'success.main' }}>
-                What the strongest answer asks
-              </Typography>
-              <Typography variant="body1" sx={{ mt: 0.5, whiteSpace: 'pre-line' }}>
-                {attempt.reveal.elicit_answer}
-              </Typography>
-            </CardContent>
-          </Card>
-
-          {review.concepts.length > 0 && (
-            <Card sx={{ mb: 2 }}>
-              <CardContent>
-                <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-                  Vocabulary this review used
-                </Typography>
-                <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', gap: 1 }}>
-                  {review.concepts.map((c) => (
-                    <Chip key={c} size="small" label={c} variant="outlined" />
-                  ))}
-                </Stack>
-              </CardContent>
-            </Card>
-          )}
-
-          <Stack direction="row" spacing={1} sx={{ mt: 3, flexWrap: 'wrap', rowGap: 1 }}>
-            <Button variant="contained" onClick={retry} sx={{ borderRadius: '100px', boxShadow: 'none' }}>
-              Try again
-            </Button>
-            <Button variant="outlined" onClick={() => navigate('/design-reviews')} sx={{ borderRadius: '100px' }}>
-              Another review
-            </Button>
-          </Stack>
-        </>
+      {review.concepts.length > 0 && (
+        <Section>
+          <Panel soft component="section" aria-label="Vocabulary this review used">
+            <Eyebrow>Vocabulary this review used</Eyebrow>
+            <Actions sx={{ mt: '8px', gap: '6px' }}>
+              {review.concepts.map((c) => <Pill key={c}>{c}</Pill>)}
+            </Actions>
+          </Panel>
+        </Section>
       )}
     </Box>
   );
 };
+
+/** The prototype's .choice: a bordered card that takes the accent when chosen. */
+const choiceSx = (t: import('@mui/material').Theme, selected: boolean) => ({
+  borderRadius: '10px',
+  border: '1px solid',
+  borderColor: selected ? t.palette.primary.main : t.palette.divider,
+  bgcolor: selected ? (t.palette as { pb?: { accentSoft: string } }).pb?.accentSoft ?? 'transparent' : t.palette.background.paper,
+  boxShadow: selected ? `inset 0 0 0 1px ${t.palette.primary.main}` : 'none',
+  cursor: 'pointer',
+  transition: 'border-color .15s ease, background-color .15s ease',
+  '&:hover': { borderColor: t.palette.primary.main },
+});
+
+const OptionCard: React.FC<{
+  option: DesignOption;
+  selected: boolean;
+  revealed: boolean;
+  onSelect: () => void;
+}> = ({ option, selected, revealed, onSelect }) => (
+  <Box
+    component="article"
+    aria-label={`Option ${option.label}: ${option.name}`}
+    onClick={() => !revealed && onSelect()}
+    sx={(t) => ({
+      ...choiceSx(t, selected && !revealed),
+      ...(revealed ? { cursor: 'default', '&:hover': {} } : {}),
+      p: '16px', display: 'flex', flexDirection: 'column', gap: '10px', minWidth: 0,
+    })}
+  >
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        {/* The radio is the control, not decoration beside one: the choice of
+            the whole exercise has to be reachable by keyboard and announce itself. */}
+        {!revealed && (
+          <Radio
+            checked={selected}
+            onChange={onSelect}
+            name="design-review-choice"
+            value={option.label}
+            size="small"
+            // 24px, WCAG 2.2's smallest target.
+            sx={{ p: '2px' }}
+            slotProps={{ input: { 'aria-label': `Option ${option.label}: ${option.name}` } }}
+          />
+        )}
+        <Pill tone="accent" sx={{ fontWeight: 800 }}>Option {option.label}</Pill>
+      </Box>
+      {selected && !revealed && <Detail component="span" sx={{ fontWeight: 700 }}>✓ Selected</Detail>}
+    </Box>
+
+    <Box>
+      <Typography component="h2" sx={{ fontSize: (t) => t.typography.pxToRem(15), fontWeight: 800, lineHeight: 1.3 }}>{option.name}</Typography>
+      <Detail sx={{ mt: '4px', lineHeight: 1.45 }}>{option.summary}</Detail>
+    </Box>
+
+    <DesignFlow stages={option.flow} />
+
+    <Box component="ul" sx={{ pl: '18px', m: 0, display: 'grid', gap: '3px' }}>
+      {option.key_choices.map((kc) => (
+        <Typography key={kc} component="li" variant="body2">{kc}</Typography>
+      ))}
+    </Box>
+
+    {/* Holds/breaks/cost are the reveal, not the question -- showing them
+        up front would hand over the reasoning the learner is here to do. */}
+    {revealed && (
+      <Box sx={{ display: 'grid', gap: '8px', pt: '10px', borderTop: '1px solid', borderColor: 'divider' }}>
+        <Box>
+          <Eyebrow sx={{ color: 'success.main' }}>Holds when</Eyebrow>
+          <Typography variant="body2" sx={{ mt: '2px' }}>{option.holds_when}</Typography>
+        </Box>
+        <Box>
+          <Eyebrow sx={{ color: 'error.main' }}>Breaks when</Eyebrow>
+          <Typography variant="body2" sx={{ mt: '2px' }}>{option.breaks_when}</Typography>
+        </Box>
+        <Box>
+          <Eyebrow>Rough cost</Eyebrow>
+          <Typography variant="body2" sx={{ mt: '2px' }}>{option.rough_cost}</Typography>
+        </Box>
+      </Box>
+    )}
+  </Box>
+);

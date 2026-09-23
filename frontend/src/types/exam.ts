@@ -57,6 +57,44 @@ export interface ExamDetail extends ExamSession {
   questions: Question[];
 }
 
+/** What an exam request would draw from, before anything is created. */
+export interface ExamPreview {
+  can_start: boolean;
+  /** The engine's own refusal, when it would refuse. */
+  reason?: string | null;
+  available: number;
+  will_draw: number;
+  /** The matching pool by the learner's evidence: exclusive, in this order. */
+  previously_missed: number;
+  due_for_review: number;
+  never_attempted: number;
+  answered_correctly: number;
+  /** Mocks only; empty for a drill. */
+  domain_plan?: DomainPlanItem[];
+}
+
+/** Which of a preparation's questions a session may draw from. */
+export type QuestionSource = 'all' | 'not_recent' | 'unseen';
+
+/** For a mock: each domain's size in the pool and its share of the paper. */
+export interface DomainPlanItem {
+  domain: string;
+  available: number;
+  will_draw: number;
+}
+
+/** One submitted mock, judged against the preparation's own pass mark. */
+export interface MockHistoryItem {
+  session_id: number;
+  title: string;
+  taken_at: string;
+  score_percentage?: number | null;
+  passed?: boolean | null;
+  correct_count: number;
+  total_questions: number;
+  time_spent_seconds: number;
+}
+
 export interface ExamCreateRequest {
   title?: string;
   exam_mode: ExamMode;
@@ -80,6 +118,8 @@ export interface ExamCreateRequest {
   session_kind?: SessionKind;
   /** Which subject this session belongs to, so readiness can find it. */
   subject_id?: number;
+  /** A mock's one real choice: the whole bank, nothing recent, or nothing seen. */
+  question_source?: QuestionSource;
 }
 
 export interface SaveAnswerRequest {
@@ -90,4 +130,6 @@ export interface SaveAnswerRequest {
   is_flagged: boolean;
   is_bookmarked: boolean;
   user_notes?: string;
+  /** Where the learner is, so a reload resumes there. */
+  current_question_index?: number;
 }

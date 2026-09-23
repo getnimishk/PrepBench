@@ -5,7 +5,6 @@
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.spaced_repetition import SpacedRepetition
@@ -48,20 +47,57 @@ class SpacedRepetitionRepository:
         self.db.flush()
         return item
 
-    def count_due(self, now: datetime) -> int:
-        return (
-            self.db.query(func.count(SpacedRepetition.id))
-            .filter(SpacedRepetition.next_review_date <= now)
-            .scalar() or 0
+    def _due_query(
+        self, now: datetime, subject_id: Optional[int] = None, domain: Optional[str] = None
+    ):
+        query = self.db.query(SpacedRepetition.question_id).filter(
+            SpacedRepetition.next_review_date <= now
         )
+        if subject_id is not None or domain is not None:
+            # By the question's own preparation -- the column an exam for that
+            # preparation draws from, so the count and the drill cannot disagree.
+            from app.models.question import Question
 
-    def due_question_ids(self, now: datetime) -> List[int]:
-        return [
-            row[0]
-            for row in self.db.query(SpacedRepetition.question_id)
+            query = query.join(Question, Question.id == SpacedRepetition.question_id)
+            if subject_id is not None:
+                query = query.filter(Question.subject_id == subject_id)
+            if domain is not None:
+                query = query.filter(Question.domain == domain)
+        return query
+
+    def due_items(
+        self,
+        now: datetime,
+        subject_id: Optional[int] = None,
+        limit: Optional[int] = None,
+        domain: Optional[str] = None,
+    ) -> List[SpacedRepetition]:
+        """Due schedule entries with their questions, most overdue first."""
+        from app.models.question import Question
+
+        query = (
+            self.db.query(SpacedRepetition)
+            .join(Question, Question.id == SpacedRepetition.question_id)
             .filter(SpacedRepetition.next_review_date <= now)
-            .all()
-        ]
+        )
+        if subject_id is not None:
+            query = query.filter(Question.subject_id == subject_id)
+        if domain is not None:
+            query = query.filter(Question.domain == domain)
+        query = query.order_by(SpacedRepetition.next_review_date.asc(), SpacedRepetition.id.asc())
+        if limit is not None:
+            query = query.limit(limit)
+        return query.all()
+
+    def due_question_ids(
+        self, now: datetime, subject_id: Optional[int] = None, domain: Optional[str] = None
+    ) -> List[int]:
+        return [row[0] for row in self._due_query(now, subject_id, domain).all()]
+
+    def count_due(
+        self, now: datetime, subject_id: Optional[int] = None, domain: Optional[str] = None
+    ) -> int:
+        return self._due_query(now, subject_id, domain).count()
 
     def commit(self) -> None:
         self.db.commit()

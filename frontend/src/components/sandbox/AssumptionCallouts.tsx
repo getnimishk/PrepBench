@@ -147,7 +147,7 @@ const ArithmeticChips: React.FC<{ items: RankedCoupling[] }> = ({ items }) => (
           variant="outlined"
           icon={<Calculator size={12} />}
           label={c.uiLabel}
-          sx={{ height: 22, fontSize: '0.68rem' }}
+          sx={{ minHeight: 22, fontSize: (t) => t.typography.pxToRem(10.88) }}
         />
       </Tooltip>
     ))}

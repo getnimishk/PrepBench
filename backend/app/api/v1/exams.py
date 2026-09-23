@@ -5,7 +5,9 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.schemas.exam import ExamCreateRequest, SaveAnswerRequest, ExamSessionResponse, ExamDetailResponse
+from app.schemas.exam import (
+    ExamCreateRequest, ExamDetailResponse, ExamPreviewResponse, ExamSessionResponse, SaveAnswerRequest,
+)
 from app.services.exam_engine import ExamEngine
 
 router = APIRouter(prefix="/exams", tags=["Exams Engine"])
@@ -14,6 +16,18 @@ router = APIRouter(prefix="/exams", tags=["Exams Engine"])
 def start_exam(req: ExamCreateRequest, db: Session = Depends(get_db)):
     engine = ExamEngine(db)
     return engine.create_exam(req)
+
+
+@router.post("/preview", response_model=ExamPreviewResponse)
+def preview_exam(req: ExamCreateRequest, db: Session = Depends(get_db)):
+    """The same request as starting an exam, answered without starting one.
+
+    Practice shows it as the filters change, so "Custom practice must actually
+    change the session composition" is something the learner can watch happen.
+    A refusal comes back as 200 with can_start false: it is an answer to the
+    question asked, not a failed request.
+    """
+    return ExamEngine(db).preview_exam(req)
 
 # There is no GET /exams. It returned every session with every answer
 # embedded -- fifty sessions of eighty answers in one payload -- and its only
@@ -30,6 +44,12 @@ def get_exam_details(session_id: int, db: Session = Depends(get_db)):
 def save_answer(session_id: int, req: SaveAnswerRequest, db: Session = Depends(get_db)):
     engine = ExamEngine(db)
     return engine.save_answer(session_id, req)
+
+@router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+def discard_exam(session_id: int, db: Session = Depends(get_db)):
+    """Discard an unfinished session. 409 for a submitted one, which is evidence."""
+    ExamEngine(db).discard_exam(session_id)
+
 
 @router.post("/{session_id}/finish", response_model=ExamDetailResponse)
 def finish_exam(session_id: int, db: Session = Depends(get_db)):

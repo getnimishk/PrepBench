@@ -15,6 +15,10 @@ class SystemDesignAttempt(Base):
     prompt_id = Column(Integer, ForeignKey("system_design_prompts.id", ondelete="CASCADE"), nullable=False, index=True)
 
     answer_text = Column(Text, nullable=False)
+    # The answer as written, by section (see services/system_design_sections.py).
+    # NULL for an attempt submitted before sections existed; answer_text is the
+    # whole answer either way, and it is what the grader read.
+    sections = Column(JSON, nullable=True)
     target_role = Column(String(200), nullable=True)
 
     overall_score = Column(Float, nullable=True)  # 0-100, null while ungraded

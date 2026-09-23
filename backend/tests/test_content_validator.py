@@ -33,6 +33,10 @@ def test_question_validator_with_content_validation_fallback():
             difficulty=QuestionDifficulty.EASY,
             domain="Agile & Scrum",
             topic="Daily Scrum",
+            # Given an explanation so it is a genuinely clean question: what this
+            # test is about is the AI fallback, and a question with no explanation
+            # now carries its own (unrelated) warning.
+            explanation="The Daily Scrum is a 15-minute event regardless of Sprint length.",
             options=[
                 QuestionOptionCreate(option_text="15 minutes", is_correct=True, order_index=0),
                 QuestionOptionCreate(option_text="30 minutes", is_correct=False, order_index=1),

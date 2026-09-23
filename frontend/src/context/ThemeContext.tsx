@@ -2,59 +2,164 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
-import { ThemeProvider, createTheme, CssBaseline, Theme } from '@mui/material';
+import React, { createContext, useCallback, useContext, useState, useMemo, useEffect, useRef } from 'react';
+import { ThemeProvider, CssBaseline } from '@mui/material';
 import { getSettings, updateSettings } from '../services/api';
-import { AppSettings } from '../types/settings';
-
-// MD3 surface-container tiers: dark-mode surfaces get progressively
-// *lighter* as they elevate (never a drop shadow, which barely reads on
-// dark backgrounds) -- light mode mirrors this with progressively
-// slightly-dimmer tiers off white.
-declare module '@mui/material/styles' {
-  interface Palette {
-    surfaceContainerLow: Palette['primary'];
-    surfaceContainer: Palette['primary'];
-    surfaceContainerHigh: Palette['primary'];
-  }
-  interface PaletteOptions {
-    surfaceContainerLow?: PaletteOptions['primary'];
-    surfaceContainer?: PaletteOptions['primary'];
-    surfaceContainerHigh?: PaletteOptions['primary'];
-  }
-}
+import { AppSettings, ThemePreference } from '../types/settings';
+import { buildTheme } from '../theme/theme';
 
 type ThemeMode = 'dark' | 'light';
 
+/** The display and behaviour preferences, as applied. */
+export interface Preferences {
+  theme: ThemePreference;
+  textSize: 'standard' | 'large';
+  reduceMotion: 'system' | 'always';
+  shortcutsEnabled: boolean;
+}
+
 interface ThemeContextType {
+  /** The mode actually on screen: `system` resolved against the OS. */
   mode: ThemeMode;
   toggleTheme: () => void;
-  setThemeMode: (mode: ThemeMode) => void;
+  setThemeMode: (mode: ThemePreference) => void;
+  preferences: Preferences;
+  /**
+   * Apply preferences now and save them. Rejects when the server refuses, having
+   * put the previous values back -- a preference that looks applied and was not
+   * saved would silently undo itself on the next reload.
+   */
+  updatePreferences: (changes: Partial<Preferences>) => Promise<void>;
+  /** Whether the saved preferences have been read from the server yet. */
+  preferencesStatus: 'loading' | 'ready' | 'failed';
+  reloadPreferences: () => void;
+}
+
+const DEFAULT_PREFERENCES: Preferences = {
+  theme: 'light',
+  textSize: 'standard',
+  reduceMotion: 'system',
+  shortcutsEnabled: true,
+};
+
+// The last preferences applied in this browser, so the first paint of a page
+// already uses them. They are the server's to keep; this copy only stops a
+// dark-mode learner getting a flash of white on every load while the settings
+// request is on its way -- a flash that is also a problem for anyone light
+// sensitive. The server's answer always wins when it arrives.
+const PREFERENCES_CACHE_KEY = 'prepbench.displayPreferences';
+
+function cachedPreferences(): Preferences {
+  try {
+    const raw = globalThis.localStorage?.getItem(PREFERENCES_CACHE_KEY);
+    if (!raw) return DEFAULT_PREFERENCES;
+    const parsed = JSON.parse(raw) as Partial<Preferences>;
+    return {
+      theme: parsed.theme === 'dark' || parsed.theme === 'system' ? parsed.theme : 'light',
+      textSize: parsed.textSize === 'large' ? 'large' : 'standard',
+      reduceMotion: parsed.reduceMotion === 'always' ? 'always' : 'system',
+      shortcutsEnabled: parsed.shortcutsEnabled !== false,
+    };
+  } catch {
+    return DEFAULT_PREFERENCES;
+  }
+}
+
+function cachePreferences(p: Preferences): void {
+  try {
+    globalThis.localStorage?.setItem(PREFERENCES_CACHE_KEY, JSON.stringify(p));
+  } catch {
+    // A browser that refuses storage just paints the default first.
+  }
 }
 
 const ThemeContext = createContext<ThemeContextType>({
   mode: 'light',
   toggleTheme: () => {},
   setThemeMode: () => {},
+  preferences: DEFAULT_PREFERENCES,
+  updatePreferences: async () => {},
+  // Outside a provider there is nothing to wait for.
+  preferencesStatus: 'ready',
+  reloadPreferences: () => {},
 });
 
 export const useThemeMode = () => useContext(ThemeContext);
 
-export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [mode, setMode] = useState<ThemeMode>('light');
-  // The rest of the stored settings, kept so the toggle can write the theme
-  // back without clobbering them: PUT /settings replaces the whole record.
-  const [stored, setStored] = useState<AppSettings | null>(null);
+const toWire = (p: Partial<Preferences>): Partial<AppSettings> => ({
+  ...(p.theme !== undefined ? { theme: p.theme } : {}),
+  ...(p.textSize !== undefined ? { text_size: p.textSize } : {}),
+  ...(p.reduceMotion !== undefined ? { reduce_motion: p.reduceMotion } : {}),
+  ...(p.shortcutsEnabled !== undefined ? { shortcuts_enabled: p.shortcutsEnabled } : {}),
+});
 
+const fromWire = (s: AppSettings): Preferences => ({
+  theme: s.theme === 'dark' || s.theme === 'system' ? s.theme : 'light',
+  textSize: s.text_size === 'large' ? 'large' : 'standard',
+  reduceMotion: s.reduce_motion === 'always' ? 'always' : 'system',
+  shortcutsEnabled: s.shortcuts_enabled !== false,
+});
+
+/** Whether the OS asks for dark, followed as it changes. */
+function useSystemDark(): boolean {
+  const query = typeof window !== 'undefined' && window.matchMedia
+    ? window.matchMedia('(prefers-color-scheme: dark)')
+    : null;
+  const [dark, setDark] = useState(query?.matches ?? false);
   useEffect(() => {
+    if (!query) return undefined;
+    const onChange = (e: MediaQueryListEvent) => setDark(e.matches);
+    query.addEventListener?.('change', onChange);
+    return () => query.removeEventListener?.('change', onChange);
+  }, [query]);
+  return dark;
+}
+
+export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [preferences, setPreferences] = useState<Preferences>(cachedPreferences);
+  useEffect(() => { cachePreferences(preferences); }, [preferences]);
+  const systemDark = useSystemDark();
+  const mode: ThemeMode = preferences.theme === 'system'
+    ? (systemDark ? 'dark' : 'light')
+    : preferences.theme;
+
+
+
+  const [preferencesStatus, setPreferencesStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
+  const reloadPreferences = useCallback(() => {
+    setPreferencesStatus('loading');
     getSettings()
       .then((s) => {
-        setStored(s);
-        if (s?.theme && (s.theme === 'dark' || s.theme === 'light')) {
-          setMode(s.theme as ThemeMode);
-        }
+        if (s) setPreferences(fromWire(s));
+        setPreferencesStatus('ready');
       })
-      .catch(console.error);
+      .catch((err) => {
+        console.error(err);
+        setPreferencesStatus('failed');
+      });
+  }, []);
+
+  useEffect(() => {
+    reloadPreferences();
+  }, [reloadPreferences]);
+
+  const current = useRef(preferences);
+  useEffect(() => { current.current = preferences; }, [preferences]);
+
+  const updatePreferences = useCallback(async (changes: Partial<Preferences>) => {
+    // What these keys held before, so a refusal puts back exactly them and
+    // not a change made to something else in the meantime.
+    const before = Object.fromEntries(
+      (Object.keys(changes) as (keyof Preferences)[]).map((k) => [k, current.current[k]]),
+    ) as Partial<Preferences>;
+    setPreferences((now) => ({ ...now, ...changes }));
+    try {
+      // Only what changed is sent; the server changes only what it is sent.
+      await updateSettings(toWire(changes));
+    } catch (err) {
+      setPreferences((now) => ({ ...now, ...before }));
+      throw err;
+    }
   }, []);
 
   /**
@@ -67,228 +172,29 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
    * ignored or misremembered pressing it. Settings has always persisted on
    * Save; the two now agree.
    */
-  const persist = (next: ThemeMode) => {
-    setMode(next);
-    setStored((prev) => (prev ? { ...prev, theme: next } : prev));
-    updateSettings({ ...(stored ?? {}), theme: next }).catch(console.error);
-  };
-
+  // The toggle picks the opposite of what is on screen, as an explicit choice:
+  // flipping while following the system means "not what the system says".
   const toggleTheme = () => {
-    persist(mode === 'dark' ? 'light' : 'dark');
+    updatePreferences({ theme: mode === 'dark' ? 'light' : 'dark' }).catch(console.error);
   };
 
-  // Settings drives this after its own save, so it must not write back --
-  // that would be a second PUT of the record Settings has just written.
-  const setThemeMode = (newMode: ThemeMode) => {
-    setMode(newMode);
-    setStored((prev) => (prev ? { ...prev, theme: newMode } : prev));
+  // For a screen that has already saved the theme itself: applies it without a
+  // second write.
+  const setThemeMode = (newMode: ThemePreference) => {
+    setPreferences((current) => ({ ...current, theme: newMode }));
   };
 
+  // The prototype's stylesheet, as a theme: its tokens, its type scale and the
+  // shapes of its controls. See theme/theme.ts.
   const theme = useMemo(
-    () =>
-      createTheme({
-        palette: {
-          mode,
-          primary: {
-            main: mode === 'dark' ? '#A8C7FA' : '#0B57D0',
-            dark: mode === 'dark' ? '#0B57D0' : '#001D35',
-          },
-          secondary: {
-            main: mode === 'dark' ? '#93CCFF' : '#00639B',
-          },
-          background: {
-            default: mode === 'dark' ? '#131314' : '#F8F9FA',
-            paper: mode === 'dark' ? '#1E1F22' : '#FFFFFF',
-          },
-          text: {
-            primary: mode === 'dark' ? '#E3E3E3' : '#1F1F1F',
-            secondary: mode === 'dark' ? '#C4C7C5' : '#444746',
-          },
-          success: {
-            main: mode === 'dark' ? '#8FDF8D' : '#146C2E',
-          },
-          error: {
-            main: mode === 'dark' ? '#F2B8B5' : '#B3261E',
-          },
-          warning: {
-            main: mode === 'dark' ? '#FFB4A1' : '#8F4C38',
-          },
-          info: {
-            main: mode === 'dark' ? '#93CCFF' : '#00639B',
-          },
-          divider: mode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)',
-          surfaceContainerLow: { main: mode === 'dark' ? '#1A1A1C' : '#F3F4F6' },
-          surfaceContainer: { main: mode === 'dark' ? '#1E1F22' : '#FFFFFF' },
-          surfaceContainerHigh: { main: mode === 'dark' ? '#26272B' : '#F8F9FA' },
-          // MUI's action.* opacities ARE Material's state-layer mechanism, just
-          // defaulted quite faint (hover 4%). Tuned to the real MD3 spec values
-          // so hover/selected/focus are actually visible without resorting to
-          // glow, scale, or brightness effects on interactive elements.
-          action: {
-            hoverOpacity: 0.08,
-            selectedOpacity: 0.08,
-            focusOpacity: 0.12,
-          },
-        },
-        typography: {
-          fontFamily: "'Roboto', 'Helvetica', 'Arial', sans-serif",
-          button: { textTransform: 'none', fontWeight: 500 },
-        },
-        shape: {
-          borderRadius: 12,
-        },
-        components: {
-          MuiCssBaseline: {
-            styleOverrides: {
-              body: ({ theme }: { theme: Theme }) => ({
-                minHeight: '100vh',
-                backgroundColor: theme.palette.background.default,
-              }),
-            },
-          },
-          // Where the keyboard is.
-          //
-          // Every control in the product is a real button or link with a
-          // real accessible name, and focus moved through them correctly --
-          // it was simply invisible. The theme sets boxShadow: none on
-          // buttons and nothing replaced MUI's own focus affordance, so
-          // :focus-visible computed to no outline, no shadow and no
-          // background change on the sidebar, the theme toggle, the primary
-          // action, the tabs and the chips alike.
-          //
-          // ButtonBase is the one place worth saying it: Button, IconButton,
-          // Tab, clickable Chip, ListItemButton, MenuItem and ToggleButton
-          // all render through it. :focus-visible rather than :focus, so a
-          // mouse click does not leave a ring behind it.
-          MuiButtonBase: {
-            styleOverrides: {
-              root: ({ theme }: { theme: Theme }) => ({
-                '&:focus-visible': {
-                  outline: `2px solid ${theme.palette.primary.main}`,
-                  outlineOffset: 2,
-                },
-              }),
-            },
-          },
-          MuiButton: {
-            styleOverrides: {
-              root: {
-                textTransform: 'none',
-                fontWeight: 500,
-                borderRadius: 100, // Pill shaped MD3
-                boxShadow: 'none',
-                transition: 'background-color 0.2s ease',
-                '&:hover': {
-                  boxShadow: 'none',
-                },
-              },
-              // `containedPrimary` was removed as a style-override key in MUI
-              // v9. Dropped rather than ported to the `variants` API because it
-              // set boxShadow:none on the button and its hover -- exactly what
-              // `root` above already sets for every variant.
-            },
-          },
-          MuiCard: {
-            styleOverrides: {
-              root: ({ theme }: { theme: Theme }) => ({
-                borderRadius: 12,
-                boxShadow: 'none',
-                border: `1px solid ${mode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)'}`,
-                backgroundImage: 'none',
-                backgroundColor: theme.palette.surfaceContainer.main,
-              }),
-            },
-          },
-          MuiPaper: {
-            styleOverrides: {
-              root: {
-                backgroundImage: 'none',
-              },
-            },
-          },
-          MuiChip: {
-            styleOverrides: {
-              root: {
-                borderRadius: 8,
-                fontWeight: 500,
-              },
-            },
-          },
-          MuiTooltip: {
-            styleOverrides: {
-              tooltip: ({ theme }: { theme: Theme }) => ({
-                backgroundColor: theme.palette.surfaceContainer.main,
-                border: `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)'}`,
-                borderRadius: 8,
-                color: mode === 'dark' ? '#E3E3E3' : '#1F1F1F',
-                boxShadow: '0px 1px 2px rgba(0,0,0,0.1)',
-              }),
-            },
-          },
-          MuiLinearProgress: {
-            styleOverrides: {
-              root: {
-                borderRadius: 10,
-                height: 8,
-                backgroundColor: mode === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)',
-              },
-            },
-          },
-          MuiAccordion: {
-            styleOverrides: {
-              root: {
-                backgroundImage: 'none',
-                borderRadius: '12px !important',
-                border: `1px solid ${mode === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)'}`,
-                '&:before': {
-                  display: 'none',
-                },
-              },
-            },
-          },
-          MuiDialog: {
-            styleOverrides: {
-              paper: ({ theme }: { theme: Theme }) => ({
-                borderRadius: 28,
-                border: 'none',
-                backgroundImage: 'none',
-                backgroundColor: theme.palette.surfaceContainer.main,
-                boxShadow: '0px 4px 24px rgba(0,0,0,0.1)',
-              }),
-            },
-          },
-          MuiTableRow: {
-            styleOverrides: {
-              root: {
-                '&:hover': {
-                  backgroundColor: mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
-                },
-              },
-            },
-          },
-          MuiOutlinedInput: {
-            styleOverrides: {
-              root: {
-                borderRadius: 12,
-              },
-            },
-          },
-          MuiMenuItem: {
-            styleOverrides: {
-              root: {
-                borderRadius: 8,
-              },
-            },
-          },
-        },
-      }),
-    [mode]
+    () => buildTheme({ mode, textSize: preferences.textSize, reduceMotion: preferences.reduceMotion }),
+    [mode, preferences.textSize, preferences.reduceMotion],
   );
 
   return (
-    <ThemeContext.Provider value={{ mode, toggleTheme, setThemeMode }}>
+    <ThemeContext.Provider value={{ mode, toggleTheme, setThemeMode, preferences, updatePreferences, preferencesStatus, reloadPreferences }}>
       <ThemeProvider theme={theme}>
-        <CssBaseline />
+        <CssBaseline enableColorScheme />
         {children}
       </ThemeProvider>
     </ThemeContext.Provider>

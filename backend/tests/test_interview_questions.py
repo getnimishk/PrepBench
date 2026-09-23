@@ -291,3 +291,28 @@ def test_delete_question_with_linked_recording_does_not_error():
         assert survived.interview_question_id is None, "Recording's question link should be cleared, not dangling."
     finally:
         db.close()
+
+
+def test_update_question_saves_prepared_answer_and_talking_points():
+    created = client.post("/api/v1/interview-questions/import", data={
+        "default_round_type": "behavioral",
+        "text": "Tell me about a time you led a project.",
+    }).json()
+    assert created["imported_count"] == 1
+    listing = client.get("/api/v1/interview-questions?round_type=behavioral&limit=500").json()
+    qid = next(q["id"] for q in listing["items"] if q["question_text"] == "Tell me about a time you led a project.")
+
+    res = client.put(f"/api/v1/interview-questions/{qid}", json={
+        "prepared_answer": "Situation: Legacy migration with tight deadline.\nAction: Formed cross-functional task force.\nResult: 40% latency reduction.",
+        "key_talking_points": ["40% latency reduction", "Cross-functional task force of 6", "Zero downtime deploy"],
+    })
+    assert res.status_code == 200
+    body = res.json()
+    assert "Situation: Legacy migration" in body["prepared_answer"]
+    assert len(body["key_talking_points"]) == 3
+    assert "Zero downtime deploy" in body["key_talking_points"]
+
+    refetched = client.get(f"/api/v1/interview-questions/{qid}").json()
+    assert refetched["prepared_answer"] == body["prepared_answer"]
+    assert refetched["key_talking_points"] == ["40% latency reduction", "Cross-functional task force of 6", "Zero downtime deploy"]
+

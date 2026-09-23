@@ -4,7 +4,7 @@
 
 import enum
 from datetime import datetime, UTC
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, Enum
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, Enum, JSON
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -23,6 +23,11 @@ class InterviewQuestion(Base):
     round_type = Column(Enum(InterviewRoundType), nullable=False, index=True)
     question_text = Column(Text, nullable=False)
     category = Column(String(150), nullable=True)  # e.g. "Leadership", "Motivation & Fit"
+
+    # The learner's saved prepared answer / model outline (e.g. STAR notes)
+    # and essential key talking points/metrics to hit during practice.
+    prepared_answer = Column(Text, nullable=True)
+    key_talking_points = Column(JSON, nullable=True)  # list of strings
 
     is_ai_generated = Column(Boolean, default=False, nullable=False, server_default="0")
     source_topic = Column(String(200), nullable=True)

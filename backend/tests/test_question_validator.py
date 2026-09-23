@@ -21,6 +21,10 @@ def test_question_validator_basic_rules():
             domain="Scrum",
             topic="Roles",
             certification="PSM I",
+            # A clean question has an explanation. Without one it now carries a
+            # warning (asserted below), because a miss with nothing to read about
+            # why is a review with nothing in it.
+            explanation="The Scrum Master ensures the event takes place and is kept within its timebox.",
             options=[
                 QuestionOptionCreate(option_text="Option A", is_correct=True),
                 QuestionOptionCreate(option_text="Option B", is_correct=False),
@@ -29,6 +33,16 @@ def test_question_validator_basic_rules():
         res_valid = validator.validate_question(valid_q, 1)
         assert res_valid.status == "valid"
         assert len(res_valid.issues) == 0
+
+        # 1b. The same question with no explanation still imports -- a warning,
+        # never an error -- and says what to do about it.
+        no_explanation = valid_q.model_copy(update={"explanation": None, "text": valid_q.text + " (no explanation)"})
+        res_no_expl = validator.validate_question(no_explanation, 2)
+        assert res_no_expl.status == "warning"
+        expl_issues = [i for i in res_no_expl.issues if i.field == "explanation"]
+        assert len(expl_issues) == 1
+        assert expl_issues[0].severity == "warning"
+        assert expl_issues[0].action
 
         # 2. Invalid Question - Single choice with 2 correct answers
         invalid_q = QuestionCreate(

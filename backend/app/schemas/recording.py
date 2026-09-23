@@ -15,7 +15,15 @@ class PracticeRecordingResponse(BaseModel):
     duration_seconds: Optional[int] = None
     file_size_bytes: int
     interview_question_id: Optional[int] = None
+    session_id: Optional[int] = None
+    plan_note: Optional[str] = None
     created_at: datetime
+    # Filled by the list endpoint, so takes can be compared without a request
+    # per take. None until analysed, and the percentages stay None unless the
+    # analysis succeeded -- an unavailable provider is not a score of zero.
+    analysis_status: Optional[str] = None
+    content_percent: Optional[float] = None
+    delivery_percent: Optional[float] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -25,6 +33,20 @@ class RecordingCommunicationScore(BaseModel):
     score: float
     max_score: float = 10.0
     feedback: str
+
+
+class KeyPointMatch(BaseModel):
+    point: str
+    status: str  # "covered", "partial", "missed"
+    evidence: str
+
+
+class AnswerComparison(BaseModel):
+    alignment_score: int  # 0-100
+    key_point_matches: List[KeyPointMatch] = []
+    gap_analysis: Optional[str] = None
+    unplanned_additions: Optional[str] = None
+    coaching_tips: Optional[str] = None
 
 
 class RecordingAnalysisResponse(BaseModel):
@@ -37,6 +59,7 @@ class RecordingAnalysisResponse(BaseModel):
     summary: Optional[str] = None
     content_scores: List[RecordingCommunicationScore] = []
     content_summary: Optional[str] = None
+    answer_comparison: Optional[AnswerComparison] = None
     analysis_status: str
     analysis_error: Optional[str] = None
     created_at: datetime

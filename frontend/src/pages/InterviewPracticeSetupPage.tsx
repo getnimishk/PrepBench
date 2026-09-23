@@ -2,114 +2,118 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
-  Box, Typography, Grid, TextField, MenuItem, Button, Alert, CircularProgress,
-  Collapse, Stack, Divider, IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
+  Alert, Box, Button, CircularProgress, Collapse, Tab, Tabs, TextField, Typography,
 } from '@mui/material';
-import { Sparkles, Upload, Pencil, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
 import {
   getInterviewRoundTypes,
   getInterviewQuestions,
-  getInterviewQuestionCategories,
+  getRecordings,
   generateInterviewQuestion,
-  updateInterviewQuestion,
-  deleteInterviewQuestion,
 } from '../services/api';
 import { InterviewQuestion, RoundTypeInfo, InterviewRoundType } from '../types/interviewQuestion';
-import { InterviewQuestionImportModal } from '../components/interview/InterviewQuestionImportModal';
-import { apiErrorMessage } from '../services/apiError';
+import { apiErrorMessage, loadFailed } from '../services/apiError';
+import { formatClock, practisedLabel } from '../services/interviewText';
+import { LoadingState } from '../components/common/States';
+import { Actions, Detail, Grid, PageHead, Panel, PanelHead, Pill, Section } from '../components/ui/primitives';
 
 /**
- * Being interviewed, rather than configuring an interview.
+ * The Interview Practice Studio: every question in the bank, by round, each a
+ * card with the one way in -- record a take. The prototype's studio.
  *
- * The page used to open on five icon tiles -- pick a round -- and then, once
- * you had, a button that took you to a random question sight unseen, above a
- * wall of category chips, above a grid of question cards each carrying an
- * edit pencil and a delete bin. Two decisions and a content-management
- * surface before anyone said a word out loud.
+ * A whole session -- several questions, least-practised first, on its own
+ * screen -- is one click away, and so is the question library, where the bank is
+ * edited and imported. "Just talk" records with no question, and a new question
+ * can be written by the configured AI and saved to the bank first.
  *
- * It now opens on a question, because that is the thing an interview
- * consists of. The round is a quiet row above it, the question bank and its
- * editing tools are behind a disclosure, and generating a new question is
- * behind another. Nothing about providers or models appears anywhere: the
- * failure message names Settings and stops.
+ * Interview practice belongs to no preparation: it is shared across all of them,
+ * as the prototype has it, and Home's interview goal counts it once.
  */
+
+type RoundTab = 'all' | InterviewRoundType;
+
+/** The round's shape and window, as the card's footer: "Situation → action → result · 01:30–03:00". */
+const footerFor = (round: RoundTypeInfo | undefined, question: InterviewQuestion): string => {
+  const parts: string[] = [];
+  if (round?.target_min_seconds != null && round.target_max_seconds != null) {
+    parts.push(`${formatClock(round.target_min_seconds)}–${formatClock(round.target_max_seconds)}`);
+  }
+  parts.push(practisedLabel(question.practice_count ?? 0));
+  return parts.join(' · ');
+};
+
 export const InterviewPracticeSetupPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [roundTypes, setRoundTypes] = useState<RoundTypeInfo[]>([]);
-  const [selectedRound, setSelectedRound] = useState<InterviewRoundType | 'general' | ''>('');
+  const [roundsError, setRoundsError] = useState<string | null>(null);
+  const [roundsAttempt, setRoundsAttempt] = useState(0);
 
-  const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [questions, setQuestions] = useState<InterviewQuestion[] | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [questionsAttempt, setQuestionsAttempt] = useState(0);
+  const [recordingCount, setRecordingCount] = useState<number | null>(null);
 
-  // Which of the round's questions is on offer. Bumped by "a different one".
-  const [offset, setOffset] = useState(0);
+  const [tab, setTab] = useState<RoundTab>('all');
 
+  const [genRound, setGenRound] = useState<InterviewRoundType | ''>('');
   const [genTopic, setGenTopic] = useState('');
   const [genOpen, setGenOpen] = useState(false);
-  const [browseOpen, setBrowseOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
-  const [importOpen, setImportOpen] = useState(false);
-  const [editingQuestion, setEditingQuestion] = useState<InterviewQuestion | null>(null);
-  const [editText, setEditText] = useState('');
-  const [editCategory, setEditCategory] = useState('');
-  const [editSaving, setEditSaving] = useState(false);
-  const [editError, setEditError] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  useEffect(() => {
+    setRoundsError(null);
+    getInterviewRoundTypes()
+      .then(setRoundTypes)
+      .catch((err) => setRoundsError(loadFailed('Could not load the interview rounds', err)));
+  }, [roundsAttempt]);
 
   useEffect(() => {
-    getInterviewRoundTypes()
-      .then((types) => {
-        setRoundTypes(types);
-        // Land on a round so the page opens on a question. Choosing between
-        // five tiles is not the skill being practised.
-        if (types.length > 0) setSelectedRound((cur) => cur || types[0].value);
-      })
-      .catch(() => {});
+    setFetchError(null);
+    setQuestions(null);
+    getInterviewQuestions({ limit: 500 })
+      // Least-practised first, so the top of each round is what is new.
+      .then((res) => setQuestions([...res.items].sort((a, b) => (a.practice_count ?? 0) - (b.practice_count ?? 0))))
+      .catch((err) => {
+        setQuestions([]);
+        setFetchError(loadFailed('Could not load interview questions', err));
+      });
+  }, [questionsAttempt]);
+
+  // Supporting detail for the "Recordings library" button: left unsaid, not zero, when unreadable.
+  useEffect(() => {
+    getRecordings({ limit: 200 })
+      .then((res) => setRecordingCount(res.items.length))
+      .catch(() => setRecordingCount(null));
   }, []);
 
-  const refetchQuestions = () => {
-    if (!selectedRound || selectedRound === 'general') return;
-    setLoading(true);
-    setFetchError(null);
-    getInterviewQuestionCategories(selectedRound).then(setCategories).catch(() => {});
-    getInterviewQuestions({
-      round_type: selectedRound,
-      category: categoryFilter || undefined,
-      limit: 100,
-    })
-      .then((res) => setQuestions(res.items))
-      .catch(() => setFetchError('Failed to load questions. Please check backend connection.'))
-      .finally(() => setLoading(false));
-  };
+  const byRound = useMemo(() => {
+    const map = new Map<InterviewRoundType, RoundTypeInfo>();
+    roundTypes.forEach((r) => map.set(r.value, r));
+    return map;
+  }, [roundTypes]);
 
-  useEffect(() => {
-    refetchQuestions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedRound, categoryFilter]);
+  const shown = (questions ?? []).filter((q) => tab === 'all' || q.round_type === tab);
 
-  const handleSelectRound = (round: InterviewRoundType | 'general') => {
-    setSelectedRound(round);
-    setCategoryFilter('');
-    setOffset(0);
-    setGenerateError(null);
+  const randomPractice = () => {
+    const pool = shown.length > 0 ? shown : questions ?? [];
+    if (pool.length === 0) return;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    navigate(`/interview-practice/${pick.id}/record`);
   };
 
   const handleGenerate = async () => {
-    if (!selectedRound || selectedRound === 'general') return;
+    const round = genRound || (tab !== 'all' ? tab : roundTypes[0]?.value);
+    if (!round) return;
     setGenerateError(null);
     setGenerating(true);
     try {
       const question = await generateInterviewQuestion({
-        round_type: selectedRound,
+        round_type: round,
         topic: genTopic || undefined,
         // Always persisted. The un-saved path produced a question with id 0
         // that could not be practised, and then said so -- a control whose
@@ -125,323 +129,197 @@ export const InterviewPracticeSetupPage: React.FC = () => {
       setGenerateError(apiErrorMessage(
         err,
         'AI question generation is unavailable. Set up a provider in Settings -> AI Providers, '
-        + 'or pick a question from the bank below.'
+        + 'or pick a question from the library.'
       ));
     } finally {
       setGenerating(false);
     }
   };
 
-  const handleOpenEdit = (e: React.MouseEvent, q: InterviewQuestion) => {
-    e.stopPropagation();
-    setEditingQuestion(q);
-    setEditText(q.question_text);
-    setEditCategory(q.category || '');
-    setEditError(null);
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editingQuestion) return;
-    setEditSaving(true);
-    setEditError(null);
-    try {
-      await updateInterviewQuestion(editingQuestion.id, {
-        question_text: editText,
-        category: editCategory || undefined,
-      });
-      setEditingQuestion(null);
-      refetchQuestions();
-    } catch (err) {
-      setEditError(apiErrorMessage(err, 'Failed to save changes.'));
-    } finally {
-      setEditSaving(false);
-    }
-  };
-
-  const handleDelete = async (e: React.MouseEvent, questionId: number) => {
-    e.stopPropagation();
-    if (!window.confirm('Delete this question? This cannot be undone.')) return;
-    setDeletingId(questionId);
-    try {
-      await deleteInterviewQuestion(questionId);
-      setQuestions((prev) => prev.filter((q) => q.id !== questionId));
-    } catch {
-      setFetchError('Failed to delete question. Please try again.');
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
-  const offered = questions.length > 0 ? questions[offset % questions.length] : null;
-  const isGeneral = selectedRound === 'general';
+  const count = (round: RoundTab) =>
+    (questions ?? []).filter((q) => round === 'all' || q.round_type === round).length;
 
   return (
-    <Box sx={{ maxWidth: 680, pb: 8 }}>
-      <Typography variant="h4" sx={{ fontWeight: 600, mb: 3 }}>Interview practice</Typography>
-
-      {/* The round, as a quiet row rather than five icon tiles. */}
-      <Stack direction="row" sx={{ gap: 0.5, flexWrap: 'wrap', mb: 4 }}>
-        {[...roundTypes.map((rt) => ({ value: rt.value as InterviewRoundType | 'general', label: rt.label })),
-          { value: 'general' as const, label: 'Just talk' }].map((rt) => (
-            <Button
-              key={rt.value}
-              size="small"
-              onClick={() => handleSelectRound(rt.value)}
-              sx={{
-                textTransform: 'none',
-                borderRadius: '100px',
-                px: 1.5,
-                color: selectedRound === rt.value ? 'primary.main' : 'text.secondary',
-                bgcolor: selectedRound === rt.value ? 'action.hover' : 'transparent',
-                fontWeight: selectedRound === rt.value ? 600 : 400,
-              }}
-              aria-pressed={selectedRound === rt.value}
-            >
-              {rt.label}
+    <Box>
+      <PageHead
+        eyebrow="Interview preparation"
+        title="Interview Practice Studio"
+        sub="Practice spoken answers to real engineering and behavioral questions. Content structure and vocal delivery are analysed separately."
+        actions={(
+          <>
+            <Button variant="contained" onClick={randomPractice} disabled={!questions || questions.length === 0}>
+              ● Quick random practice
             </Button>
-          ))}
-      </Stack>
-
-      {fetchError && <Alert severity="error" sx={{ mb: 3 }}>{fetchError}</Alert>}
-
-      {isGeneral ? (
-        <Box sx={{ mb: 6 }}>
-          <Typography variant="body1" sx={{ mb: 2, color: 'text.secondary' }}>
-            No question — record whatever you want to practise saying.
-          </Typography>
-          <Button
-            variant="contained"
-            disableElevation
-            onClick={() => navigate('/interview-practice/general/record')}
-            sx={{ borderRadius: '100px', fontWeight: 600, textTransform: 'none' }}
-          >
-            Record
-          </Button>
-        </Box>
-      ) : loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
-      ) : offered ? (
-        <Box sx={{ mb: 6 }}>
-          {/* The question is the interview. It is the largest thing on the
-              page for the same reason the readiness verdict is the largest
-              thing on Home. */}
-          <Typography variant="h5" sx={{ fontWeight: 500, lineHeight: 1.45, maxWidth: 620 }}>
-            “{offered.question_text}”
-          </Typography>
-          <Stack direction="row" sx={{ mt: 3, gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-            <Button
-              variant="contained"
-              disableElevation
-              onClick={() => navigate(`/interview-practice/${offered.id}/record`)}
-              sx={{ borderRadius: '100px', fontWeight: 600, textTransform: 'none' }}
-            >
-              Record
+            <Button component={RouterLink} to="/recordings" variant="outlined">
+              Recordings library{recordingCount != null ? ` (${recordingCount >= 200 ? '200+' : recordingCount})` : ''}
             </Button>
-            {questions.length > 1 && (
-              <Button
-                size="small"
-                onClick={() => setOffset((o) => o + 1)}
-                sx={{ textTransform: 'none' }}
-              >
-                A different one
-              </Button>
-            )}
-            {offered.category && (
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                {offered.category}
-              </Typography>
-            )}
-          </Stack>
-        </Box>
-      ) : (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 5 }}>
-          No questions in this round yet. Import some, or have one written below.
-        </Typography>
-      )}
-
-      {!isGeneral && (
-        <>
-          {/* The bank and its editing tools. Browsing, editing, deleting and
-              importing are all content maintenance, and none of them belong
-              in front of somebody about to speak. */}
-          <Button
-            size="small"
-            onClick={() => setBrowseOpen((o) => !o)}
-            endIcon={browseOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            aria-expanded={browseOpen}
-            sx={{ textTransform: 'none' }}
-          >
-            Browse questions
-          </Button>
-          <Collapse in={browseOpen} unmountOnExit>
-            <Box sx={{ mt: 2, mb: 4 }}>
-              {categories.length > 0 && (
-                <TextField
-                  select
-                  size="small"
-                  label="Category"
-                  value={categoryFilter}
-                  onChange={(e) => { setCategoryFilter(e.target.value); setOffset(0); }}
-                  sx={{ mb: 2, minWidth: 240 }}
-                >
-                  <MenuItem value="">All categories</MenuItem>
-                  {categories.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
-                </TextField>
-              )}
-
-              <Stack divider={<Divider />}>
-                {questions.map((q) => (
-                  <Stack
-                    key={q.id}
-                    direction="row"
-                    sx={{ alignItems: 'center', gap: 1, py: 0.5 }}
-                  >
-                    <Box
-                      component="button"
-                      type="button"
-                      onClick={() => navigate(`/interview-practice/${q.id}/record`)}
-                      sx={{
-                        flexGrow: 1, minWidth: 0, textAlign: 'left', font: 'inherit', border: 0,
-                        bgcolor: 'transparent', color: 'text.primary', cursor: 'pointer', py: 1,
-                        '&:hover': { color: 'primary.main' },
-                        '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main' },
-                      }}
-                    >
-                      <Typography variant="body2">{q.question_text}</Typography>
-                      {q.category && (
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                          {q.category}
-                        </Typography>
-                      )}
-                    </Box>
-                    <IconButton
-                      size="small"
-                      aria-label={`Edit ${q.question_text}`}
-                      onClick={(e) => handleOpenEdit(e, q)}
-                    >
-                      <Pencil size={15} />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      aria-label={`Delete ${q.question_text}`}
-                      onClick={(e) => handleDelete(e, q.id)}
-                      disabled={deletingId === q.id}
-                    >
-                      {deletingId === q.id ? <CircularProgress size={15} /> : <Trash2 size={15} />}
-                    </IconButton>
-                  </Stack>
-                ))}
-              </Stack>
-
-              <Button
-                size="small"
-                startIcon={<Upload size={15} />}
-                onClick={() => setImportOpen(true)}
-                sx={{ textTransform: 'none', mt: 2 }}
-              >
-                Import questions
-              </Button>
-            </Box>
-          </Collapse>
-
-          <Box>
             <Button
-              size="small"
-              onClick={() => setGenOpen((o) => !o)}
-              endIcon={genOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              aria-expanded={genOpen}
-              sx={{ textTransform: 'none' }}
+              component={RouterLink}
+              to={`/interview-practice/setup${tab !== 'all' ? `?round=${tab}` : ''}`}
+              variant="outlined"
             >
-              Write me a new one
+              Set up a session
             </Button>
-            <Collapse in={genOpen} unmountOnExit>
-              <Box sx={{ mt: 2 }}>
-                {generateError && <Alert severity="warning" sx={{ mb: 2 }}>{generateError}</Alert>}
-                <Grid container spacing={2} sx={{ alignItems: 'center' }}>
-                  <Grid size={{ xs: 12, sm: 8 }}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Topic (optional)"
-                      placeholder="e.g. leadership, stakeholder management"
-                      value={genTopic}
-                      onChange={(e) => setGenTopic(e.target.value)}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <Button
-                      fullWidth
-                      variant="outlined"
-                      startIcon={generating
-                        ? <CircularProgress size={16} color="inherit" />
-                        : <Sparkles size={16} />}
-                      onClick={handleGenerate}
-                      disabled={generating}
-                      sx={{ borderRadius: '100px', textTransform: 'none' }}
-                    >
-                      {generating ? 'Writing…' : 'Write it'}
-                    </Button>
-                  </Grid>
-                </Grid>
-              </Box>
-            </Collapse>
-          </Box>
-        </>
-      )}
-
-      <Button
-        size="small"
-        onClick={() => navigate('/recordings')}
-        sx={{ textTransform: 'none', mt: 4, display: 'block' }}
-      >
-        Past recordings
-      </Button>
-
-      {/* Controlled by importOpen, so it does not need a second guard. */}
-      <InterviewQuestionImportModal
-        open={importOpen}
-        onClose={() => setImportOpen(false)}
-        onSuccess={refetchQuestions}
-        roundTypes={roundTypes}
-        // '' and 'general' are not real rounds; the modal wants one or nothing.
-        defaultRoundType={
-          selectedRound && selectedRound !== 'general' ? selectedRound : undefined
-        }
+            <Button component={RouterLink} to="/interview-practice/library" variant="outlined">
+              Question library
+            </Button>
+          </>
+        )}
       />
 
-      <Dialog open={!!editingQuestion} onClose={() => setEditingQuestion(null)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 600 }}>Edit question</DialogTitle>
-        <DialogContent>
-          {editError && <Alert severity="error" sx={{ mb: 2 }}>{editError}</Alert>}
-          <TextField
-            fullWidth
-            multiline
-            rows={3}
-            label="Question Text"
-            value={editText}
-            onChange={(e) => setEditText(e.target.value)}
-            sx={{ mb: 2, mt: 1 }}
-          />
-          <TextField
-            fullWidth
-            label="Category (optional)"
-            value={editCategory}
-            onChange={(e) => setEditCategory(e.target.value)}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEditingQuestion(null)} sx={{ textTransform: 'none' }}>Cancel</Button>
-          <Button
-            variant="contained"
-            disableElevation
-            onClick={handleSaveEdit}
-            disabled={editSaving || !editText.trim()}
-            sx={{ borderRadius: '100px', textTransform: 'none' }}
-          >
-            {editSaving ? 'Saving…' : 'Save'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {roundsError && (
+        <Alert
+          severity="error"
+          sx={{ mt: 2 }}
+          action={<Button color="inherit" size="small" onClick={() => setRoundsAttempt((n) => n + 1)}>Retry</Button>}
+        >
+          {roundsError}
+        </Alert>
+      )}
+      {fetchError && (
+        <Alert
+          severity="error"
+          sx={{ mt: 2 }}
+          action={<Button color="inherit" size="small" onClick={() => setQuestionsAttempt((n) => n + 1)}>Retry</Button>}
+        >
+          {fetchError}
+        </Alert>
+      )}
+
+      <Tabs
+        value={tab}
+        onChange={(_, v: RoundTab) => setTab(v)}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+        aria-label="Interview rounds"
+        sx={{ mt: '22px', mb: '20px', borderBottom: 1, borderColor: 'divider' }}
+      >
+        <Tab value="all" label={`All questions (${count('all')})`} />
+        {roundTypes.map((r) => <Tab key={r.value} value={r.value} label={`${r.label} (${count(r.value)})`} />)}
+      </Tabs>
+
+      {questions === null ? (
+        <LoadingState label="Loading interview questions…" />
+      ) : shown.length === 0 && !fetchError ? (
+        <Panel>
+          <Detail>
+            No questions in this round yet.{' '}
+            <Box component={RouterLink} to="/interview-practice/library" sx={{ color: 'primary.main' }}>Import some in the library</Box>,
+            or have one written below.
+          </Detail>
+        </Panel>
+      ) : (
+        <Grid template="repeat(2, minmax(0,1fr))" aria-label="Questions">
+          {shown.map((q) => {
+            const round = byRound.get(q.round_type);
+            return (
+              <Panel
+                key={q.id}
+                component="article"
+                aria-label={q.question_text}
+                sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderLeft: '4px solid', borderLeftColor: 'primary.main' }}
+              >
+                <Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', mb: '8px' }}>
+                    <Pill tone="accent">{round?.label ?? q.round_type}</Pill>
+                    <Detail component="span" sx={{ fontWeight: 600, fontSize: (t) => t.typography.pxToRem(11) }}>{q.category ?? 'General'}</Detail>
+                  </Box>
+                  <Typography variant="h6" component="h2" sx={{ lineHeight: 1.4, mt: '4px', mb: '12px' }}>
+                    “{q.question_text}”
+                  </Typography>
+                </Box>
+                <Box
+                  sx={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px',
+                    mt: '14px', pt: '12px', borderTop: '1px solid', borderColor: 'divider',
+                  }}
+                >
+                  <Detail component="span">{footerFor(round, q)}</Detail>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={() => navigate(`/interview-practice/${q.id}/record`)}
+                    aria-label={`Record a take: ${q.question_text}`}
+                  >
+                    ● Record take →
+                  </Button>
+                </Box>
+              </Panel>
+            );
+          })}
+        </Grid>
+      )}
+
+      <Section>
+        <Grid columns={2}>
+          <Panel component="section" aria-labelledby="just-talk">
+            <PanelHead
+              eyebrow="No question"
+              title="Just talk"
+              titleId="just-talk"
+              aside={<Button variant="outlined" onClick={() => navigate('/interview-practice/general/record')}>Record</Button>}
+            />
+            <Detail>Record whatever you want to practise saying. The delivery is analysed the same way.</Detail>
+          </Panel>
+
+          {/* A question is written for a round, so there is nothing to offer
+              while the rounds themselves could not be read. */}
+          {!roundsError && (
+          <Panel soft component="section" aria-labelledby="write-one">
+            <PanelHead
+              eyebrow="AI"
+              title="Write me a new one"
+              titleId="write-one"
+              aside={(
+                <Button
+                  variant="outlined"
+                  onClick={() => setGenOpen((o) => !o)}
+                  endIcon={genOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  aria-expanded={genOpen}
+                >
+                  {genOpen ? 'Close' : 'Write a question'}
+                </Button>
+              )}
+            />
+            <Detail>A question written by the configured AI, saved to the bank, and opened to record.</Detail>
+            <Collapse in={genOpen} unmountOnExit>
+              <Box sx={{ mt: '12px' }}>
+                {generateError && <Alert severity="warning" sx={{ mb: 2 }}>{generateError}</Alert>}
+                <Actions>
+                  <TextField
+                    select
+                    label="Round"
+                    value={genRound || (tab !== 'all' ? tab : roundTypes[0]?.value ?? '')}
+                    onChange={(e) => setGenRound(e.target.value as InterviewRoundType)}
+                    slotProps={{ select: { native: true } }}
+                    sx={{ minWidth: 170 }}
+                  >
+                    {roundTypes.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                  </TextField>
+                  <TextField
+                    label="Topic (optional)"
+                    placeholder="e.g. leadership, stakeholder management"
+                    value={genTopic}
+                    onChange={(e) => setGenTopic(e.target.value)}
+                    sx={{ flex: '1 1 200px' }}
+                  />
+                  <Button
+                    variant="contained"
+                    color="ink"
+                    startIcon={generating ? <CircularProgress size={16} color="inherit" /> : <Sparkles size={16} />}
+                    onClick={handleGenerate}
+                    disabled={generating || roundTypes.length === 0}
+                  >
+                    {generating ? 'Writing…' : 'Write it'}
+                  </Button>
+                </Actions>
+              </Box>
+            </Collapse>
+          </Panel>
+          )}
+        </Grid>
+      </Section>
     </Box>
   );
 };

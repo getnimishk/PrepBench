@@ -10,7 +10,7 @@ from app.services.recording_analysis_providers import DEFAULT_PROVIDER_NAME
 from app.core.config import DATA_DIR
 
 client = TestClient(app)
-RECORDINGS_DIR = DATA_DIR / "recordings"
+from app.core.config import RECORDINGS_DIR
 
 
 def _upload(title="Test Recording", content=b"FAKE_AUDIO_BYTES_FOR_TEST", interview_question_id=None):
@@ -283,3 +283,57 @@ def test_analyze_linked_recording_communication_rubric_unaffected_by_question(mo
     assert body["filler_word_count"] == 3
 
     client.delete(f"/api/v1/recordings/{recording['id']}")
+
+
+def test_analyze_recording_with_prepared_answer_gets_comparison(monkeypatch):
+    fake = _FakeProvider(DEFAULT_PROVIDER_NAME, available=True, result={
+        "transcript": "I led a cross-functional team of 6 engineers and reduced latency by 40%.",
+        "communication_scores": [{"category": "Clarity", "score": 9, "max_score": 10, "feedback": "Crisp delivery."}],
+        "filler_word_count": 0,
+        "summary": "Great delivery.",
+        "content_scores": [{"category": "STAR Structure", "score": 8, "max_score": 10, "feedback": "Good STAR."}],
+        "content_summary": "Hit the core metrics cleanly.",
+        "answer_comparison": {
+            "alignment_score": 90,
+            "key_point_matches": [
+                {"point": "Reduced latency by 40%", "status": "covered", "evidence": "reduced latency by 40%"},
+                {"point": "Team of 6 engineers", "status": "covered", "evidence": "team of 6 engineers"},
+                {"point": "Zero downtime deploy", "status": "missed", "evidence": "Did not mention zero downtime deploy"},
+            ],
+            "gap_analysis": "Omitted the zero-downtime deployment constraint.",
+            "unplanned_additions": None,
+            "coaching_tips": "Mention the zero-downtime aspect in your Action step to demonstrate risk mitigation.",
+        },
+    })
+    _register_fake(monkeypatch, fake)
+
+    # Create question with prepared answer and key talking points
+    q_res = client.post("/api/v1/interview-questions/import", data={
+        "default_round_type": "behavioral",
+        "text": "Tell me about a high-scale deployment.",
+    })
+    qid = client.get("/api/v1/interview-questions?round_type=behavioral&limit=500").json()["items"][0]["id"]
+    client.put(f"/api/v1/interview-questions/{qid}", json={
+        "prepared_answer": "S: System was lagging. A: Led team of 6 to optimize DB and deploy with zero downtime. R: 40% latency drop.",
+        "key_talking_points": ["Reduced latency by 40%", "Team of 6 engineers", "Zero downtime deploy"],
+    })
+
+    recording = _upload(title="Prep Comparison Test", interview_question_id=qid)
+    res = client.post(f"/api/v1/recordings/{recording['id']}/analyze", json={})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["analysis_status"] == "analyzed"
+    assert body["answer_comparison"] is not None
+    assert body["answer_comparison"]["alignment_score"] == 90
+    assert len(body["answer_comparison"]["key_point_matches"]) == 3
+    assert body["answer_comparison"]["key_point_matches"][0]["status"] == "covered"
+    assert body["answer_comparison"]["key_point_matches"][2]["status"] == "missed"
+    assert "zero-downtime" in body["answer_comparison"]["gap_analysis"]
+
+    # Verify fake provider received prepared_answer and key_talking_points in question_context
+    assert fake.last_question_context is not None
+    assert "prepared_answer" in fake.last_question_context
+    assert len(fake.last_question_context["key_talking_points"]) == 3
+
+    client.delete(f"/api/v1/recordings/{recording['id']}")
+

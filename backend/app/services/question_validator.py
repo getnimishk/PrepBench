@@ -3,6 +3,7 @@
 # Commercial use requires a separate licence from the copyright holder.
 
 import re
+import bisect
 import difflib
 from typing import List, Set, Dict, Optional
 from sqlalchemy.orm import Session
@@ -20,6 +21,24 @@ NUMBER_WORDS = {
     "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8
 }
 
+# What to do about an issue, by the field it is on.
+#
+# Each message already says what is wrong; this says how to fix it. Keyed by field
+# rather than written at each of the thirty-odd call sites, so every issue --
+# including ones added later -- gets an action, and one issue on the same field
+# never tells the learner something contradictory to another.
+DEFAULT_ACTIONS: Dict[str, str] = {
+    "text": "Rewrite the question text as a complete question, and remove any leftover placeholders or unclosed code blocks.",
+    "options": "Give the question at least two distinct, non-blank choices, and remove letter or position labels such as 'A)' or 'all of the above'.",
+    "is_correct": "Mark which choice is correct.",
+    "question_type": "Set the question type to match how many choices are marked correct: single choice for one, multiple choice for several.",
+    "explanation": "Add an explanation of why the answer is right, and make sure it names the same correct option as the answer key.",
+    "duplicate": "Remove this row if it is the same question, or reword it if it is a genuinely different one.",
+    "difficulty": "Use easy, medium or hard.",
+    "row": "Fix the row in your file and validate it again.",
+}
+
+
 class QuestionValidator:
     def __init__(self, db: Optional[Session] = None, enable_content_validator: bool = True):
         self.db = db
@@ -30,7 +49,7 @@ class QuestionValidator:
             ]
         else:
             self.existing_texts = []
-        self.existing_hashes: Set[str] = {self._normalize(t) for t in self.existing_texts if t}
+        self.index_existing(self.existing_texts)
         
         # Instantiate ContentValidator (LLM + RAG Grounding Engine)
         self.content_validator: Optional[ContentValidator] = None
@@ -41,6 +60,23 @@ class QuestionValidator:
                     self.content_validator = cv
             except Exception:
                 self.content_validator = None
+
+    def index_existing(self, texts: List[str]) -> None:
+        """Normalise the bank once, and order it by length.
+
+        The near-duplicate check used to normalise every question in the bank
+        again for every row being imported -- ten million regex passes for a
+        2,000-row file against a 5,000-question bank, close to a minute. The
+        normalised texts do not change during a validation, and the length
+        pre-filter below can be answered by a binary search over sorted lengths.
+        """
+        self.existing_texts = list(texts)
+        norms = [self._normalize(t) for t in self.existing_texts]
+        self.existing_hashes: Set[str] = {n for n in norms if n}
+        # (length, position in the bank, normalised text). Position is kept so the
+        # comparisons still run in bank order and the first match is the same one.
+        self._by_length = sorted((len(n), position, n) for position, n in enumerate(norms) if n)
+        self._lengths = [entry[0] for entry in self._by_length]
 
     @staticmethod
     def _normalize(text: str) -> str:
@@ -220,6 +256,18 @@ class QuestionValidator:
                             message=f"Explanation claims Option {ref_letter} is correct, but Option {ref_letter} is marked incorrect in the answer key."
                         ))
 
+        # A question with no explanation still imports -- plenty of banks arrive
+        # without them -- but it is worth saying, because the review loop depends on
+        # it: a miss is only worth reviewing if there is something to read about why
+        # the answer is right.
+        if not (q.explanation and q.explanation.strip()):
+            issues.append(ValidationErrorItem(
+                severity="warning",
+                field="explanation",
+                error_category="content",
+                message="No explanation. If this question is missed, the review will have nothing to show about why the answer is right.",
+            ))
+
         # 5. Intra-Batch & Database Deduplication & Fuzzy Similarity
         norm_q = self._normalize(text_clean)
         if norm_q:
@@ -246,15 +294,22 @@ class QuestionValidator:
             else:
                 # Check fuzzy similarity against database questions with length ratio pre-filter
                 len_norm_q = len(norm_q)
-                for existing_text in self.existing_texts:
-                    existing_norm = self._normalize(existing_text)
-                    if not existing_norm:
-                        continue
+                # Only lengths the pre-filter could pass, widened by one each way
+                # so rounding never drops a candidate; the exact test still runs.
+                lo = bisect.bisect_left(self._lengths, int(len_norm_q * 0.85) - 1)
+                hi = bisect.bisect_right(self._lengths, int(len_norm_q / 0.85) + 1)
+                matcher = difflib.SequenceMatcher(None, norm_q, "")
+                for _, _, existing_norm in sorted(self._by_length[lo:hi], key=lambda entry: entry[1]):
                     len_ext = len(existing_norm)
                     if abs(len_norm_q - len_ext) / max(len_norm_q, len_ext, 1) > 0.15:
                         continue
 
-                    ratio = difflib.SequenceMatcher(None, norm_q, existing_norm).ratio()
+                    matcher.set_seq2(existing_norm)
+                    # Both are upper bounds on ratio(), so skipping on them never
+                    # changes which question is found or the similarity reported.
+                    if matcher.real_quick_ratio() < 0.85 or matcher.quick_ratio() < 0.85:
+                        continue
+                    ratio = matcher.ratio()
                     if ratio >= 0.85:
                         issues.append(ValidationErrorItem(
                             severity="warning",
@@ -288,7 +343,12 @@ class QuestionValidator:
                 if content_issue:
                     issues.append(content_issue)
 
+        for issue in issues:
+            if issue.action is None:
+                issue.action = DEFAULT_ACTIONS.get(issue.field)
+
         has_error = any(i.severity == "error" for i in issues)
+        has_warning = has_warning or any(i.severity == "warning" for i in issues)
         status = "error" if has_error else ("warning" if (has_warning or human_review_required) else "valid")
 
         return ValidatedQuestionItem(

@@ -20,6 +20,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { Detail, Eyebrow, PageHead, Panel } from '../components/ui/primitives';
 import { ChevronDown, ChevronRight, EyeOff, GraduationCap, Compass, Map } from 'lucide-react';
 import type { FamilyId, ScenarioParams, Stage, TierId } from '../types/agileMetrics';
 import { CHART_VIEWS, FAMILIES, chartsInFamily } from '../services/metrics/charts';
@@ -38,9 +39,17 @@ import { WhatChanged } from '../components/sandbox/WhatChanged';
 import { ScenarioState } from '../components/sandbox/ScenarioState';
 import { LearningPanel } from '../components/learning/LearningPanel';
 import { ProgressPanel } from '../components/learning/ProgressPanel';
+import { RecentExperiments } from '../components/learning/RecentExperiments';
 import { ConceptMap } from '../components/learning/ConceptMap';
 import type { Attempt, ConceptId, ScenarioId } from '../types/learning';
-import { loadAttempts, saveAttempt } from '../services/learning/attempts';
+import {
+  fetchAttempts,
+  importBrowserHistory,
+  recordAttempt as storeAttempt,
+  upsertAttempt,
+} from '../services/learning/attempts';
+import { experimentFor, recordExperiment } from '../services/learning/experiment';
+import { apiErrorMessage } from '../services/apiError';
 import { recommendNext } from '../services/learning/recommendations';
 import { hasHistory, probeProgress } from '../services/learning/placement';
 import { CHALLENGE_BY_ID, challengesForConcept } from '../services/learning/challenges';
@@ -136,7 +145,43 @@ export const ChartSandboxPage: React.FC = () => {
   // exactly as it has always been, and a learner can switch at any point. The
   // difference is what the page points at, never what it permits.
   const [mode, setMode] = useState<'learn' | 'explore'>('learn');
-  const [attempts, setAttempts] = useState<Attempt[]>(() => loadAttempts());
+  // The learner's attempts, from the server. Questions wait for them: a
+  // recommendation made from an empty history would place a returning learner
+  // back at the start.
+  const [attempts, setAttempts] = useState<Attempt[]>([]);
+  const [history, setHistory] = useState<
+    | { state: 'loading' }
+    | { state: 'ready'; notImported: number }
+    | { state: 'failed'; error: string }
+  >({ state: 'loading' });
+  const [historyLoad, setHistoryLoad] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    setHistory({ state: 'loading' });
+    (async () => {
+      // Anything this browser recorded before the server kept attempts comes
+      // across first, so the history read next includes it.
+      let notImported = 0;
+      try {
+        notImported = (await importBrowserHistory()).failed;
+      } catch {
+        // Kept in the browser for next time; reading the history still works.
+      }
+      try {
+        const list = await fetchAttempts();
+        if (cancelled) return;
+        setAttempts(list);
+        setHistory({ state: 'ready', notImported });
+      } catch (err) {
+        if (!cancelled) {
+          setHistory({ state: 'failed', error: apiErrorMessage(err, 'The server did not respond.') });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [historyLoad]);
   const [seenConcepts, setSeenConcepts] = useState<Set<string>>(() => new Set());
   const [skipped, setSkipped] = useState<Set<string>>(() => new Set());
   const [showMap, setShowMap] = useState(false);
@@ -311,9 +356,13 @@ export const ChartSandboxPage: React.FC = () => {
     // Pinned first: the recommender is about to move, and the panel is about
     // to show what this answer meant.
     setPinnedChallenge(attempt.challengeId);
-    setAttempts(saveAttempt(attempt));
     setSeenConcepts((seen) => new Set(seen).add(attempt.conceptId));
     setChosenChallenge(null);
+    // Counted once the server has it, not before: progress that disappears on
+    // reload was never progress. A failure is the panel's to show.
+    return storeAttempt(attempt).then((stored) => {
+      setAttempts((all) => upsertAttempt(all, stored));
+    });
   };
 
   const openConcept = (conceptId: ConceptId) => {
@@ -341,6 +390,14 @@ export const ChartSandboxPage: React.FC = () => {
     // they finally moved a slider.
     setParams({ ...paramsFor(scenario), sprints: params.sprints });
   };
+
+  // What the experiment showed. A named scenario is run directly rather than
+  // read off the page, because the page has not re-rendered with it yet at the
+  // moment of commitment; otherwise it is exactly what is on screen.
+  const observeExperiment = (scenario?: ScenarioId) =>
+    scenario
+      ? experimentFor({ ...paramsFor(scenario), sprints: params.sprints })
+      : recordExperiment(params, baseline, outcomes);
 
   const views = chartsInFamily(activeFamily);
   const familyMeta = FAMILIES.find((f) => f.id === activeFamily)!;
@@ -378,18 +435,15 @@ export const ChartSandboxPage: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ mb: 1.5 }}>
-        {/* h4/600, which is what every other page title in the product is.
-            It was h5/700 -- smaller and heavier than its neighbours, the one
-            signal that most makes a page read as belonging to a different
-            application. */}
-        <Typography variant="h4" sx={{ fontWeight: 600, mb: 0.5 }}>
-          Chart Sandbox
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Change one thing. See what happens everywhere.
-        </Typography>
-      </Box>
+      {/* The prototype's head for this instrument. The body under it is the
+          real sandbox -- a baseline team, eighteen charts and the prediction
+          loop -- where the prototype drew a single illustrative experiment. */}
+      <PageHead
+        eyebrow="Engineering learning instrument"
+        title="Chart Sandbox"
+        sub="Prediction → manipulation → observation → explanation. The controls serve the learning loop rather than becoming the lesson."
+        sx={{ mb: '14px' }}
+      />
 
       {/* The prediction comes first. This page used to open on a mode
           toggle, a concept map switch, a blind-mode switch, a placement
@@ -400,12 +454,41 @@ export const ChartSandboxPage: React.FC = () => {
           here should be thinking about the metric, not operating the
           simulator, and the taxonomy is now at the bottom under a
           disclosure where someone curious about it can find it. */}
-      {mode === 'learn' && shown ? (
+      {mode === 'learn' && history.state === 'ready' && history.notImported > 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {history.notImported === 1
+            ? 'One earlier answer saved only in this browser could not be moved into your history.'
+            : `${history.notImported} earlier answers saved only in this browser could not be moved into your history.`}{' '}
+          They are still in this browser, and will be tried again next time.
+        </Alert>
+      )}
+
+      {mode === 'learn' && history.state === 'loading' ? (
+        <Paper variant="outlined" sx={{ p: 2, mb: 2 }} role="status">
+          <Typography variant="body2" color="text.secondary">
+            Loading your sandbox history…
+          </Typography>
+        </Paper>
+      ) : mode === 'learn' && history.state === 'failed' ? (
+        <Alert
+          severity="error"
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" size="small" onClick={() => setHistoryLoad((n) => n + 1)}>
+              Try again
+            </Button>
+          }
+        >
+          Your sandbox history could not be loaded, so questions are paused. {history.error} The
+          charts below still work.
+        </Alert>
+      ) : mode === 'learn' && shown ? (
         <LearningPanel
           key={shown.challengeId}
           recommendation={shown}
           conceptSeen={seenConcepts.has(shown.conceptId)}
           onApplyScenario={applyLearningScenario}
+          observe={observeExperiment}
           onAttemptSaved={recordAttempt}
           onSkip={() => {
             // Fired by both Skip (before answering) and Next (after reading
@@ -432,13 +515,13 @@ export const ChartSandboxPage: React.FC = () => {
       />
       )}
 
-      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+      <Panel sx={{ p: '18px', mb: 2 }}>
         <Stack
           direction="row"
           sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: controlsOpen ? 1.5 : 0 }}
         >
           <Box sx={{ minWidth: 0 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+            <Typography variant="subtitle2" component="h2" sx={{ fontWeight: 700 }}>
               Scenario
             </Typography>
             {/* What the run is currently made of, so a closed panel is a
@@ -454,7 +537,7 @@ export const ChartSandboxPage: React.FC = () => {
             onClick={() => setControlsOpen((open) => !open)}
             endIcon={controlsOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             aria-expanded={controlsOpen}
-            sx={{ textTransform: 'none', flexShrink: 0 }}
+            sx={{ flexShrink: 0 }}
           >
             {controlsOpen ? 'Hide controls' : 'Adjust assumptions'}
           </Button>
@@ -466,7 +549,7 @@ export const ChartSandboxPage: React.FC = () => {
         <Collapse in={controlsOpen} unmountOnExit>
           <ScenarioControls params={params} onChange={setParams} onCommit={collapseOnce} />
         </Collapse>
-      </Paper>
+      </Panel>
 
       {/* Everything about how the sandbox is taught rather than what it
           teaches. Reachable, never in the way. */}
@@ -476,7 +559,6 @@ export const ChartSandboxPage: React.FC = () => {
           onClick={() => setApparatusOpen((o) => !o)}
           endIcon={apparatusOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           aria-expanded={apparatusOpen}
-          sx={{ textTransform: 'none' }}
         >
           How you are getting on
         </Button>
@@ -550,6 +632,8 @@ export const ChartSandboxPage: React.FC = () => {
         <ProgressPanel attempts={attempts} focusConceptId={recommendation?.conceptId} />
       )}
 
+      {mode === 'learn' && history.state === 'ready' && <RecentExperiments attempts={attempts} />}
+
       {mode === 'learn' && showMap && (
         <ConceptMap
           attempts={attempts}
@@ -566,7 +650,7 @@ export const ChartSandboxPage: React.FC = () => {
         // which is a programming error rather than user input -- so it says
         // what broke instead of asking the user to fix it.
         <Alert severity="error" sx={{ mb: 2 }}>
-          <Typography variant="subtitle2">
+          <Typography variant="subtitle2" component="p">
             These parameters cannot produce a meaningful chart
           </Typography>
           {violations.map((v) => (
@@ -594,6 +678,8 @@ export const ChartSandboxPage: React.FC = () => {
           borderBottom: 1,
           borderColor: 'divider',
           mb: 1,
+          minWidth: 0,
+          maxWidth: '100%',
         }}
       >
       <Tooltip arrow title={TIERS.find((t) => t.id === tier)!.blurb}>
@@ -602,7 +688,10 @@ export const ChartSandboxPage: React.FC = () => {
         exclusive
         value={tier}
         onChange={(_, next: TierId | null) => next && changeTier(next)}
-        sx={{ flexShrink: 0, mb: 0.5 }}
+        sx={{
+          flexShrink: 0, mb: 0.5, maxWidth: '100%',
+          '@media (max-width:768px)': { width: '100%', '& .MuiToggleButton-root': { flex: 1, px: 1, fontSize: (t) => t.typography.pxToRem(12) } },
+        }}
       >
         {TIERS.map((t) => {
           // Without this, a change that reached DORA or reliability is
@@ -622,7 +711,7 @@ export const ChartSandboxPage: React.FC = () => {
                   size="small"
                   color="warning"
                   label={unseen}
-                  sx={{ height: 18, minWidth: 18, fontSize: '0.6rem' }}
+                  sx={{ minHeight: 18, minWidth: 18, fontSize: (t) => t.typography.pxToRem(9.6) }}
                 />
               )}
             </ToggleButton>
@@ -636,7 +725,7 @@ export const ChartSandboxPage: React.FC = () => {
         onChange={(_, next: FamilyId) => openFamily(next)}
         variant="scrollable"
         scrollButtons="auto"
-        sx={{ flexGrow: 1, minWidth: 0, minHeight: 44 }}
+        sx={{ flexGrow: 1, minWidth: 0, maxWidth: '100%', minHeight: 44 }}
       >
         {familiesInTier.map((f) => {
           const moved = movement.countByFamily.get(f.id) ?? 0;
@@ -661,7 +750,7 @@ export const ChartSandboxPage: React.FC = () => {
                       color={seen ? 'default' : 'warning'}
                       variant={seen ? 'outlined' : 'filled'}
                       label={`${moved} moved`}
-                      sx={{ height: 18, fontSize: '0.6rem' }}
+                      sx={{ minHeight: 18, fontSize: (t) => t.typography.pxToRem(9.6) }}
                     />
                   )}
                 </Stack>
@@ -685,7 +774,6 @@ export const ChartSandboxPage: React.FC = () => {
               size="small"
               color="warning"
               onClick={() => goToFamily(nextSurprise.id)}
-              sx={{ textTransform: 'none' }}
             >
               Open {nextSurprise.label}
             </Button>
@@ -722,20 +810,12 @@ export const ChartSandboxPage: React.FC = () => {
                 spacing={1}
                 sx={{ alignItems: 'baseline', flexWrap: 'wrap', rowGap: 0.5, mb: 1 }}
               >
-                <Typography
-                  variant="caption"
-                  sx={{
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.6,
-                    fontWeight: 700,
-                    color: 'text.primary',
-                  }}
-                >
+                <Eyebrow sx={{ m: 0, color: 'text.primary', fontWeight: 800 }}>
                   {stageMeta.label}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
+                </Eyebrow>
+                <Detail component="span">
                   {stageMeta.blurb}
-                </Typography>
+                </Detail>
               </Stack>
 
         <Box
@@ -761,6 +841,7 @@ export const ChartSandboxPage: React.FC = () => {
                 variant="outlined"
                 sx={{
                   minWidth: 0,
+                  borderRadius: '13px',
                   // Declared in the inventory, not special-cased by id. The
                   // CFD teaches by band thickness and horizontal distance,
                   // and neither is legible in a third of a row.
@@ -779,7 +860,7 @@ export const ChartSandboxPage: React.FC = () => {
                   >
                     <Box sx={{ minWidth: 0 }}>
                       <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                        <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 700 }}>
                           {view.canonicalName}
                         </Typography>
                         {/* Derived from the data, not from the inventory. It is
@@ -789,7 +870,7 @@ export const ChartSandboxPage: React.FC = () => {
                             size="small"
                             color="warning"
                             label={payload.headline}
-                            sx={{ height: 20, fontSize: '0.62rem' }}
+                            sx={{ minHeight: 20, fontSize: (t) => t.typography.pxToRem(9.92) }}
                           />
                         )}
                       </Stack>
@@ -809,7 +890,7 @@ export const ChartSandboxPage: React.FC = () => {
                           size="small"
                           label={lineage.label}
                           variant="outlined"
-                          sx={{ height: 20, fontSize: '0.65rem' }}
+                          sx={{ minHeight: 20, fontSize: (t) => t.typography.pxToRem(10.4) }}
                         />
                       </Tooltip>
                       {moved && (
@@ -817,7 +898,7 @@ export const ChartSandboxPage: React.FC = () => {
                           size="small"
                           color="warning"
                           label="moved"
-                          sx={{ height: 18, fontSize: '0.6rem' }}
+                          sx={{ minHeight: 18, fontSize: (t) => t.typography.pxToRem(9.6) }}
                         />
                       )}
                     </Stack>
@@ -880,7 +961,7 @@ export const ChartSandboxPage: React.FC = () => {
                       mt: 1,
                       '& > summary': {
                         cursor: 'pointer',
-                        fontSize: '0.75rem',
+                        fontSize: (t) => t.typography.pxToRem(12),
                         color: 'text.secondary',
                         userSelect: 'none',
                       },

@@ -26,6 +26,7 @@ import base64
 import json
 import os
 import uuid
+from pathlib import Path
 from typing import Optional, Tuple
 
 from app.core.config import DATA_DIR, settings
@@ -37,8 +38,14 @@ FILE_SCHEME = "file:"
 
 KEYRING_SERVICE = "PrepBench"
 
-_SECRET_STORE_PATH = DATA_DIR / ".llm_secrets.json"
-_SECRET_KEY_PATH = DATA_DIR / ".llm_secret_key"
+# Where the file fallback keeps its store. Overridable so a test run cannot write
+# into the learner's own: the suite used to add its fake keys to the real
+# .llm_secrets.json beside their database.
+SECRETS_DIR = Path(os.environ.get("PREPBENCH_SECRETS_DIR") or DATA_DIR)
+SECRETS_DIR.mkdir(parents=True, exist_ok=True)
+
+_SECRET_STORE_PATH = SECRETS_DIR / ".llm_secrets.json"
+_SECRET_KEY_PATH = SECRETS_DIR / ".llm_secret_key"
 
 
 # ---- keyring (optional dependency) -----------------------------------

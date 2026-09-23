@@ -3,18 +3,22 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Alert, Box, Button, CircularProgress, Divider, Stack, Typography,
+  Alert, Box, Button, Stack, Typography,
 } from '@mui/material';
 import {
-  getActivity, getHomeSummary, getReviewQueue, markAnswerReviewed,
-  startExam, submitReviewCheck,
+  getActivity, getReviewQueue, markAnswerReviewed, submitReviewCheck,
 } from '../services/api';
-import { ActivityItem, HomeSummary } from '../types/subject';
+import { usePreparation } from '../context/PreparationContext';
+import { ActivityItem } from '../types/subject';
 import { CheckResult, ReviewItem, ReviewQueue } from '../types/review';
-import { apiErrorMessage } from '../services/apiError';
 import { Explanation } from '../components/common/Explanation';
+import { loadFailed } from '../services/apiError';
+import { LoadingState } from '../components/common/States';
+import {
+  BigFigure, Detail, Eyebrow, Grid, PageHead, Panel, PanelHead, Pill, Row, Section, Sub,
+} from '../components/ui/primitives';
 
 /**
  * What to understand from what you got wrong.
@@ -51,28 +55,54 @@ const HISTORY_PREVIEW = 8;
 
 export const ReviewPage: React.FC = () => {
   const navigate = useNavigate();
+  // The picked preparation's mistakes, schedule and sessions. Unscoped, a learner
+  // switched to one with nothing due saw "nothing due" on Home and then another
+  // preparation's mistakes here.
+  const { selectedId, selected } = usePreparation();
   const [queue, setQueue] = useState<ReviewQueue | null>(null);
-  const [summary, setSummary] = useState<HomeSummary | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
-  // How far through today's set, and which of them have been marked read.
+  // Whether the reader is open, how far through today's set, and which of them
+  // have been marked read.
+  const [started, setStarted] = useState(false);
   const [index, setIndex] = useState(0);
+  // "?start=1": arriving from a "Start review" elsewhere opens the reader
+  // directly, rather than on a second "Start review".
+  const [searchParams] = useSearchParams();
+  const startOnArrival = searchParams.get('start') === '1';
   const [done, setDone] = useState<ReviewItem[]>([]);
   const [checks, setChecks] = useState<boolean[]>([]);
-  const [starting, setStarting] = useState(false);
 
   useEffect(() => {
-    Promise.all([getReviewQueue(), getHomeSummary(), getActivity(HISTORY_PREVIEW)])
-      .then(([q, h, a]) => { setQueue(q); setSummary(h); setActivity(a); })
-      .catch(() => setError('Failed to load your review.'))
-      .finally(() => setLoading(false));
-  }, []);
+    let cancelled = false;
+    // Another preparation is another queue, so the session starts over.
+    setLoading(true);
+    setError(null);
+    setStarted(false);
+    setIndex(0);
+    setDone([]);
+    setChecks([]);
+    Promise.all([getReviewQueue(selectedId), getActivity(HISTORY_PREVIEW, selectedId)])
+      .then(([q, a]) => {
+        if (cancelled) return;
+        setQueue(q);
+        setActivity(a);
+        if (startOnArrival && q.items.length > 0) setStarted(true);
+      })
+      .catch((err) => { if (!cancelled) setError(loadFailed('Could not load your review queue', err)); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+    // Read once per queue: arriving is the request, not the address staying put.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, loadAttempt]);
 
   const items = queue?.items ?? [];
-  const current = items[index] ?? null;
-  const finished = !loading && items.length > 0 && index >= items.length;
+  const current = started ? items[index] ?? null : null;
+  const finished = started && !loading && items.length > 0 && index >= items.length;
+  const spacedDue = queue?.spaced_due ?? 0;
 
   const advance = async (item: ReviewItem, checkPassed?: boolean) => {
     setDone((d) => [...d, item]);
@@ -90,122 +120,155 @@ export const ReviewPage: React.FC = () => {
     }
   };
 
-  const startMemoryReview = async () => {
-    setStarting(true);
-    setError(null);
-    try {
-      const session = await startExam({
-        title: 'Due for review',
-        exam_mode: 'spaced_repetition',
-        total_questions: 20,
-        passing_percentage: 70,
-        randomize_questions: true,
-        session_kind: 'drill',
-      });
-      navigate(`/exam/${session.id}`);
-    } catch (err) {
-      setError(apiErrorMessage(err, 'Could not start the review.'));
-    } finally {
-      setStarting(false);
-    }
+  const startAt = (i: number) => {
+    setIndex(i);
+    setStarted(true);
   };
 
   if (loading) {
-    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}><CircularProgress /></Box>;
+    return <LoadingState label="Loading your review queue…" />;
   }
 
+  // "Every wrong answer has been read" is only true of mocks that exist. With
+  // none, it credits reading that never happened.
+  const emptyLine = selected && !selected.has_exam_profile
+    ? `Nothing to review here. Review reads the wrong answers from mocks, and ${selected.name} has no exam to sit.`
+    : selected && (selected.readiness?.mock_count ?? 0) === 0
+      ? `Nothing to review yet. Review reads the wrong answers from mocks, and you have not sat one for ${selected.name}.`
+      : 'Nothing to review. Every wrong answer from your mocks has been read.';
+
   return (
-    <Box sx={{ maxWidth: 720 }}>
-      <Typography variant="h4" sx={{ fontWeight: 600, mb: 0.5 }}>Review</Typography>
-      <Typography variant="body2" sx={{ color: 'text.secondary', mb: 5 }}>
-        Reading a miss is what changes the next score. Answering another new question is not.
-      </Typography>
+    <Box>
+      <PageHead
+        eyebrow={selected?.name}
+        title="Review Queue"
+        sub="Miss → understand → verify → schedule. Review is a learning loop, not a history list."
+      />
 
-      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 3 }} action={<Button color="inherit" size="small" onClick={() => setLoadAttempt((n) => n + 1)}>Retry</Button>}>{error}</Alert>}
 
-      {current && (
-        <ReviewCard
-          key={current.answer_id}
-          item={current}
-          position={index + 1}
-          total={items.length}
-          onNext={(passed) => advance(current, passed)}
-        />
+      {queue && (
+        <Section>
+          <Grid columns={3}>
+            <Panel>
+              <Eyebrow>Due today</Eyebrow>
+              <BigFigure>{items.length + spacedDue}</BigFigure>
+              <Detail>
+                {items.length} {items.length === 1 ? 'miss' : 'misses'} to read · {spacedDue} from memory
+              </Detail>
+            </Panel>
+            <Panel>
+              <Eyebrow>Needs retry</Eyebrow>
+              <BigFigure>{queue.needs_retry ?? 0}</BigFigure>
+              <Detail>concepts whose last check did not transfer</Detail>
+            </Panel>
+            <Panel>
+              <Eyebrow>Verified</Eyebrow>
+              <BigFigure>{queue.verified_recently ?? 0}</BigFigure>
+              <Detail>
+                strengthened in the last {queue.verified_window_days || 30} days
+              </Detail>
+            </Panel>
+          </Grid>
+        </Section>
       )}
 
-      {finished && (
-        <Finished done={done} checks={checks} remaining={queue?.remaining ?? 0} />
+      {started && (current || finished) ? (
+        <Section>
+          <Panel component="section" aria-label="Today's review">
+            {current && (
+              <ReviewCard
+                key={current.answer_id}
+                item={current}
+                position={index + 1}
+                total={items.length}
+                onNext={(passed) => advance(current, passed)}
+              />
+            )}
+            {finished && (
+              <Finished done={done} checks={checks} remaining={queue?.remaining ?? 0} />
+            )}
+          </Panel>
+        </Section>
+      ) : (
+        !error && queue && (
+          <Section>
+            <Panel component="section" aria-labelledby="todays-queue">
+              <PanelHead
+                eyebrow="Today’s queue"
+                title="What needs another retrieval attempt?"
+                titleId="todays-queue"
+                aside={items.length > 0 && (
+                  <Button variant="contained" color="ink" onClick={() => startAt(0)}>Start review</Button>
+                )}
+              />
+              {items.length === 0 && spacedDue === 0 && <Sub sx={{ mb: 0 }}>{emptyLine}</Sub>}
+              {items.map((item, i) => (
+                <Row
+                  key={item.answer_id}
+                  title={item.domain}
+                  detail={`${item.question_text.length > 90 ? `${item.question_text.slice(0, 90)}…` : item.question_text} · ${item.session_title}`
+                    + `${item.check ? ' · verification check ready' : ' · no second question to check'}`}
+                  middle={<Pill tone="warning">Due</Pill>}
+                  action={(
+                    <Button variant="outlined" onClick={() => startAt(i)} aria-label={`${item.check ? 'Check' : 'Read'} miss ${i + 1}: ${item.domain}`}>
+                      {item.check ? 'Check' : 'Read'}
+                    </Button>
+                  )}
+                />
+              ))}
+              {/* Spaced repetition is a different thing from reading a miss, and
+                  it starts on one click rather than through a setup form: "start
+                  today's review" used to open a configuration screen, which is not
+                  what the button said it would do. It opens the card runner, where
+                  the answer is recalled before it is shown. */}
+              {spacedDue > 0 && (
+                <Row
+                  title="From memory"
+                  detail={`${spacedDue} question${spacedDue === 1 ? '' : 's'} the schedule has brought round again, to check they stayed learnt`}
+                  middle={<Pill>Queued</Pill>}
+                  action={<Button variant="outlined" onClick={() => navigate('/practice/spaced?from=review')}>Review from memory</Button>}
+                />
+              )}
+              {(queue.remaining ?? 0) > 0 && (
+                <Detail sx={{ mt: '10px' }}>
+                  {queue.remaining} older {queue.remaining === 1 ? 'one is' : 'ones are'} behind today’s set. They will be here tomorrow.
+                </Detail>
+              )}
+            </Panel>
+          </Section>
+        )
       )}
 
-      {/* Only when the queue actually came back. With the backend down this
-          used to print "Every wrong answer from your mocks has been read"
-          under the failure notice -- a claim about the learner's evidence,
-          made without any, and the most flattering one available. */}
-      {!current && !finished && !error && (
-        <Box sx={{ mb: 5 }}>
-          <Typography variant="body1">
-            Nothing to review. Every wrong answer from your mocks has been read.
-          </Typography>
-        </Box>
-      )}
-
-      {/* Spaced repetition is a different thing from reading a miss, and it
-          starts on one click rather than through a setup form: "start today's
-          review" used to open a configuration screen, which is not what the
-          button said it would do. */}
-      {(summary?.due_for_review ?? 0) > 0 && (
-        <Box sx={{ mt: 6 }}>
-          <Typography variant="overline" sx={{ color: 'text.secondary' }}>From memory</Typography>
-          <Typography variant="body2" sx={{ mt: 0.5, mb: 1.5, color: 'text.secondary' }}>
-            Questions the schedule has brought round again, to check they stayed learnt.
-          </Typography>
-          <Button
-            variant="outlined"
-            disabled={starting}
-            onClick={startMemoryReview}
-            sx={{ borderRadius: '100px', textTransform: 'none' }}
-          >
-            {starting ? 'Starting…' : 'Start a memory drill'}
-          </Button>
-        </Box>
-      )}
-
-      <Box sx={{ mt: 7 }}>
-        <Typography variant="overline" sx={{ color: 'text.secondary' }}>Everything you have done</Typography>
-        <Stack sx={{ mt: 0.5 }} divider={<Divider />}>
+      <Section>
+        <Panel component="section" aria-labelledby="review-history">
+          {/* Scoped with the rest of the page. Only exam sessions belong to a
+              preparation today, so the other formats are left to their own pages
+              rather than filed under this one. */}
+          <PanelHead
+            eyebrow="History"
+            title={selected ? `Your ${selected.name} sessions` : 'Everything you have done'}
+            titleId="review-history"
+            aside={<Button variant="text" onClick={() => navigate('/analytics')}>Insights</Button>}
+          />
+          {activity.length === 0 && <Detail>No sessions yet.</Detail>}
           {activity.map((item, i) => (
-            <Box
+            <Row
               key={`${item.kind}-${i}`}
-              component="button"
-              type="button"
-              aria-label={`${item.title} — ${item.detail}`}
-              onClick={() => navigate(item.href)}
-              sx={{
-                display: 'flex', alignItems: 'baseline', gap: 2, py: 1.1, width: '100%',
-                textAlign: 'left', font: 'inherit', border: 0, bgcolor: 'transparent',
-                color: 'text.primary', cursor: 'pointer',
-                '&:hover': { bgcolor: 'action.hover' },
-                '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main' },
-              }}
-            >
-              <Typography variant="caption" sx={{ width: 56, flexShrink: 0, color: 'text.secondary' }}>
-                {item.at
-                  ? new Date(item.at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
-                  : ''}
-              </Typography>
-              <Typography variant="body2" sx={{ flexGrow: 1, minWidth: 0 }}>{item.title}</Typography>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>{item.detail}</Typography>
-            </Box>
+              title={item.title}
+              detail={[
+                item.at ? new Date(item.at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : null,
+                item.detail,
+              ].filter(Boolean).join(' · ')}
+              action={(
+                <Button variant="outlined" onClick={() => navigate(item.href)} aria-label={`${item.title} — ${item.detail}`}>
+                  Open
+                </Button>
+              )}
+            />
           ))}
-        </Stack>
-        <Button
-          size="small"
-          onClick={() => navigate('/analytics')}
-          sx={{ mt: 1.5, textTransform: 'none' }}
-        >
-          Insights
-        </Button>
-      </Box>
+        </Panel>
+      </Section>
     </Box>
   );
 };
@@ -238,11 +301,9 @@ const ReviewCard: React.FC<{
 
   return (
     <Box>
-      <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-        Review today · {position} of {total}
-      </Typography>
+      <Eyebrow>Review today · {position} of {total}</Eyebrow>
 
-      <Typography variant="body1" sx={{ mt: 1.5, fontSize: 18, lineHeight: 1.6 }}>
+      <Typography variant="body1" sx={{ mt: 1.5, fontSize: (t) => t.typography.pxToRem(16), fontWeight: 600, lineHeight: 1.55 }}>
         {item.question_text}
       </Typography>
 
@@ -277,7 +338,7 @@ const ReviewCard: React.FC<{
                 {o.is_correct ? '✓' : picked ? '✕' : ''}
               </Typography>
               <Box sx={{ minWidth: 0 }}>
-                <Typography variant="body2" sx={{ lineHeight: 1.55 }}>
+                <Typography variant="body1" sx={{ lineHeight: 1.55 }}>
                   {o.text}
                   {/* Stated in words as well as marked, so the distinction
                       does not rest on a colour or a glyph. */}
@@ -300,7 +361,7 @@ const ReviewCard: React.FC<{
 
       {item.explanation && (
         <Box sx={{ mt: 3.5 }}>
-          <Typography variant="overline" sx={{ color: 'text.secondary' }}>Why</Typography>
+          <Eyebrow>Why</Eyebrow>
           <Box sx={{ mt: 0.5 }}>
             <Explanation text={item.explanation} />
           </Box>
@@ -311,12 +372,7 @@ const ReviewCard: React.FC<{
         ? <Check item={item} position={position} total={total} onNext={onNext} />
         : (
           <Stack direction="row" sx={{ mt: 3.5, alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-            <Button
-              variant="contained"
-              disableElevation
-              onClick={() => onNext()}
-              sx={{ borderRadius: '100px', fontWeight: 600, textTransform: 'none' }}
-            >
+            <Button variant="contained" onClick={() => onNext()}>
               {position === total ? 'Done' : 'Next'}
             </Button>
             {/* Said, rather than silently skipped. A concept with one question
@@ -390,15 +446,13 @@ const Check: React.FC<{
 
   return (
     <Box sx={{ mt: 4, pt: 3.5, borderTop: 1, borderColor: 'divider' }}>
-      <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-        Check
-      </Typography>
-      <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5, mb: 2 }}>
+      <Eyebrow>Check</Eyebrow>
+      <Typography variant="body1" sx={{ color: 'text.secondary', mt: 0.5, mb: 2 }}>
         A different question on the same idea. Reading an explanation is not the same
         as being able to use it.
       </Typography>
 
-      <Typography variant="body1" sx={{ fontSize: 17, lineHeight: 1.6 }}>
+      <Typography variant="body1" sx={{ fontSize: (t) => t.typography.pxToRem(16), fontWeight: 600, lineHeight: 1.55 }}>
         {check.question_text}
         {check.is_multiple && (
           <Typography component="span" variant="caption" sx={{ color: 'text.secondary' }}>
@@ -427,7 +481,7 @@ const Check: React.FC<{
               sx={{
                 display: 'flex', gap: 1.5, alignItems: 'baseline', textAlign: 'left',
                 width: '100%', font: 'inherit', cursor: result ? 'default' : 'pointer',
-                px: 1.75, py: 1, borderRadius: 2,
+                px: 1.75, py: 1, borderRadius: '9px',
                 border: 1,
                 borderColor: isRight
                   ? 'success.main'
@@ -449,7 +503,7 @@ const Check: React.FC<{
               >
                 {result == null ? (isPicked ? '•' : '') : isRight ? '✓' : isWrongPick ? '✕' : ''}
               </Typography>
-              <Typography variant="body2" sx={{ lineHeight: 1.55 }}>
+              <Typography variant="body1" sx={{ lineHeight: 1.55 }}>
                 {o.text}
                 {/* Stated as well as marked, so the reading never rests on a
                     colour or a glyph. */}
@@ -495,22 +549,11 @@ const Check: React.FC<{
 
       <Stack direction="row" sx={{ mt: 3.5, alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
         {result == null ? (
-          <Button
-            variant="contained"
-            disableElevation
-            disabled={picked.length === 0 || submitting}
-            onClick={submit}
-            sx={{ borderRadius: '100px', fontWeight: 600, textTransform: 'none' }}
-          >
+          <Button variant="contained" disabled={picked.length === 0 || submitting} onClick={submit}>
             {submitting ? 'Checking…' : 'Check'}
           </Button>
         ) : (
-          <Button
-            variant="contained"
-            disableElevation
-            onClick={() => onNext(result.passed)}
-            sx={{ borderRadius: '100px', fontWeight: 600, textTransform: 'none' }}
-          >
+          <Button variant="contained" onClick={() => onNext(result.passed)}>
             {position === total ? 'Done' : 'Next'}
           </Button>
         )}
@@ -552,7 +595,7 @@ const Finished: React.FC<{
 
   return (
     <Box>
-      <Typography variant="h6" sx={{ fontWeight: 600 }}>
+      <Typography variant="h5" component="h2">
         That is today&apos;s review read.
       </Typography>
 

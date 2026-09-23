@@ -2,13 +2,16 @@
 # Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 # Commercial use requires a separate licence from the copyright holder.
 
-from typing import Optional
+from typing import Annotated, Literal, Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.schemas.question import QuestionCreate, QuestionUpdate, QuestionResponse, QuestionFilter, QuestionBulkDeleteRequest
+from app.schemas.question import (
+    QuestionBankSummary, QuestionCreate, QuestionUpdate, QuestionResponse, QuestionFilter, QuestionBulkDeleteRequest,
+)
+from app.services.question_evidence import bank_summary
 from app.services.question_service import QuestionService
-from app.models.question import QuestionDifficulty
+from app.models.question import QuestionDifficulty, QuestionType
 
 from app.schemas.research import QuestionResearchResponse
 from app.services.content_validator import ContentValidator
@@ -23,8 +26,17 @@ def list_questions(
     domain: Optional[str] = None,
     topic: Optional[str] = None,
     certification: Optional[str] = None,
+    subject_id: Optional[int] = None,
     difficulty: Optional[QuestionDifficulty] = None,
+    question_type: Optional[QuestionType] = None,
     is_reviewed: Optional[bool] = None,
+    outcome: Annotated[Optional[Literal["missed", "due", "correct", "unattempted"]], Query(
+        description="Only questions your answers put here: missed at least once, due on the spaced "
+                    "schedule, right every time, or never answered.",
+    )] = None,
+    include_evidence: Annotated[bool, Query(
+        description="Add each question's evidence: answers, correct answers, missed, due.",
+    )] = False,
     db: Session = Depends(get_db)
 ):
     filter_params = QuestionFilter(
@@ -32,16 +44,38 @@ def list_questions(
         domain=domain,
         topic=topic,
         certification=certification,
+        subject_id=subject_id,
         difficulty=difficulty,
-        is_reviewed=is_reviewed
+        question_type=question_type,
+        is_reviewed=is_reviewed,
+        outcome=outcome,
     )
     service = QuestionService(db)
-    return service.list_questions(skip=skip, limit=limit, filter_params=filter_params)
+    return service.list_questions(
+        skip=skip, limit=limit, filter_params=filter_params, include_evidence=include_evidence,
+    )
+
+
+@router.get("/summary", response_model=QuestionBankSummary)
+def get_question_bank_summary(
+    subject_id: Annotated[Optional[int], Query(
+        description="Only this preparation's questions. Omit for the whole bank.",
+    )] = None,
+    db: Session = Depends(get_db),
+):
+    """The Question Bank's figures: questions and how many were attempted, answers
+    recorded and how many were right, questions due, and questions missed."""
+    return bank_summary(db, subject_id)
 
 @router.get("/filters", response_model=dict)
-def get_question_filters(db: Session = Depends(get_db)):
+def get_question_filters(
+    subject_id: Annotated[Optional[int], Query(
+        description="Only the values this preparation's questions use. Omit for every bank's.",
+    )] = None,
+    db: Session = Depends(get_db),
+):
     service = QuestionService(db)
-    return service.get_filters()
+    return service.get_filters(subject_id)
 
 @router.get("/{question_id}", response_model=QuestionResponse)
 def get_question(question_id: int, db: Session = Depends(get_db)):

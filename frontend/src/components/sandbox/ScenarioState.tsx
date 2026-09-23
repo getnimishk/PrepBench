@@ -35,7 +35,7 @@ const StateChip: React.FC<{ label: string; active?: boolean }> = ({ label, activ
     label={label}
     color={active ? 'primary' : 'default'}
     variant={active ? 'filled' : 'outlined'}
-    sx={{ height: 20, fontSize: '0.6rem', fontWeight: 700, letterSpacing: 0.5 }}
+    sx={{ minHeight: 20, fontSize: (t) => t.typography.pxToRem(9.6), fontWeight: 700, letterSpacing: 0.5 }}
   />
 );
 
@@ -92,7 +92,7 @@ export const ScenarioState: React.FC<Props> = ({ params, baseline, atBaseline, o
           startIcon={<RotateCcw size={14} />}
           disabled={atBaseline}
           onClick={onReset}
-          sx={{ textTransform: 'none', flexShrink: 0 }}
+          sx={{ flexShrink: 0 }}
         >
           Reset
         </Button>

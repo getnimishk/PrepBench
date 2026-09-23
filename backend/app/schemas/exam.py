@@ -2,13 +2,19 @@
 # Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 # Commercial use requires a separate licence from the copyright holder.
 
-from typing import List, Optional
+from typing import List, Literal, Optional
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from app.models.exam_session import ExamMode, ExamStatus
 from app.repositories.subject_repository import MOCK, DRILL
 from app.models.exam_answer import ConfidenceLevel
 from app.schemas.question import QuestionResponse
+
+# Which of a preparation's questions a session may draw from.
+#   all        -- every question in the bank
+#   not_recent -- nothing answered in the last RECENTLY_SEEN_DAYS days
+#   unseen     -- nothing answered before, ever
+QuestionSource = Literal["all", "not_recent", "unseen"]
 
 class ExamCreateRequest(BaseModel):
     title: Optional[str] = "Exam Session"
@@ -40,6 +46,11 @@ class ExamCreateRequest(BaseModel):
     # no certification -- could never own one.
     subject_id: Optional[int] = None
 
+    # The one choice a mock leaves to the learner. Drawing only questions they
+    # have not answered gives a harder and more honest reading, because a
+    # remembered answer is not a known one.
+    question_source: QuestionSource = "all"
+
     @field_validator("session_kind")
     @classmethod
     def known_session_kind(cls, v):
@@ -61,6 +72,9 @@ class SaveAnswerRequest(BaseModel):
     is_flagged: bool = False
     is_bookmarked: bool = False
     user_notes: Optional[str] = None
+    # Where the learner is in the paper, so a reload resumes there rather than
+    # at question one. Optional: a client that does not send it changes nothing.
+    current_question_index: Optional[int] = Field(default=None, ge=0)
 
 class ExamAnswerResponse(BaseModel):
     id: int
@@ -80,6 +94,52 @@ class ExamAnswerResponse(BaseModel):
     reviewed_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+class ExamPreviewResponse(BaseModel):
+    """What an exam request would draw from, before anything is created.
+
+    Counts only. `reason` is the engine's own refusal when it would refuse, so
+    the learner reads it before pressing Start instead of after.
+    """
+    can_start: bool
+    reason: Optional[str] = None
+    # Questions matching the selection, and how many a session would take.
+    available: int
+    will_draw: int
+    # The matching pool by the learner's own evidence. Exclusive, in this order:
+    # missed at least once, due on the spaced schedule, never attempted, and
+    # answered correctly every time so far.
+    previously_missed: int
+    due_for_review: int
+    never_attempted: int
+    answered_correctly: int
+    # For a mock only: how many each domain has, and how many the paper will
+    # take from it. Empty for a drill, which draws at random.
+    domain_plan: List["DomainPlanItem"] = []
+
+
+class DomainPlanItem(BaseModel):
+    domain: str
+    available: int
+    will_draw: int
+
+
+class MockHistoryItem(BaseModel):
+    """One sat mock, for a preparation's history.
+
+    `passed` is judged against the preparation's pass mark, not the threshold
+    stored on the session -- the same rule the result page uses, so a paper
+    cannot read as a pass in one place and a fail in the other.
+    """
+    session_id: int
+    title: str
+    taken_at: datetime
+    score_percentage: Optional[float] = None
+    passed: Optional[bool] = None
+    correct_count: int
+    total_questions: int
+    time_spent_seconds: int
+
 
 class ExamSessionResponse(BaseModel):
     id: int
@@ -115,3 +175,6 @@ class ExamSessionResponse(BaseModel):
 
 class ExamDetailResponse(ExamSessionResponse):
     questions: List[QuestionResponse] = []
+
+
+ExamPreviewResponse.model_rebuild()

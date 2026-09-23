@@ -120,9 +120,9 @@ export const ConceptCard: React.FC<Props> = ({ concept, onContinue, continueLabe
           <Button
             variant="contained"
             size="small"
-            disableElevation
+
             onClick={onContinue}
-            sx={{ mt: 1.5, textTransform: 'none' }}
+            sx={{ mt: 1.5 }}
           >
             {continueLabel ?? 'Got it — show me'}
           </Button>

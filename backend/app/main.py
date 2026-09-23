@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import Base, engine, apply_lightweight_migrations, SessionLocal
+from app.core.chunked_body import ChunkedBodyMiddleware
 from app.api.v1.router import api_router
 from app.core.logging_config import logger
 from app.utils.seed_system_design_prompts import seed_system_design_prompts
@@ -108,6 +109,12 @@ async def log_requests(request, call_next):
     response = await call_next(request)
     logger.debug(f"<-- Response Status: {response.status_code} for {request.method} {request.url.path}")
     return response
+
+# Added last, so it is the outermost layer and splits the body every other layer
+# produced. It makes a large response closed mid-read less likely to lose its
+# tail; the fix for the Vite proxy is its kept-alive connections -- see
+# app/core/chunked_body.py and frontend/vite.config.ts.
+app.add_middleware(ChunkedBodyMiddleware)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 

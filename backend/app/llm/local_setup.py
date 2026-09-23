@@ -72,6 +72,12 @@ def list_runners() -> List[dict]:
     return [{"key": key, **value} for key, value in runners.items()]
 
 
+def refresh_catalogue_from_ollama() -> Tuple[bool, int, int, str]:
+    """Fetches latest models from Ollama library and updates custom catalogue."""
+    from app.llm.ollama_catalogue_sync import sync_ollama_catalogue
+    return sync_ollama_catalogue()
+
+
 def get_runner(key: str) -> Optional[dict]:
     runner = load_catalogue().get("runners", {}).get(key)
     return {"key": key, **runner} if runner else None

@@ -292,6 +292,45 @@ export interface Attempt {
   transfer?: boolean;
   hintCount: number;
   durationMs?: number;
+
+  /** What was changed from the baseline when the prediction was committed. */
+  manipulation?: Record<string, { from: number; to: number }>;
+  /** What the model then showed, per headline outcome: before and after. */
+  observed?: Record<string, ObservedOutcome>;
+  /** The learner's own account of why it moved. Their words, never graded. */
+  explanationText?: string;
+}
+
+export interface ObservedOutcome {
+  label: string;
+  before: number;
+  after: number;
+  unit: string;
+  precision: number;
+  percent?: boolean;
+}
+
+/** An attempt as the server sends it: snake_case, null for "not established". */
+export interface WireLearningAttempt {
+  attempt_uid: string;
+  challenge_id: string;
+  concept_id: string;
+  scenario_fingerprint: string;
+  mode: string;
+  started_at: string;
+  committed_at?: string | null;
+  completed_at?: string | null;
+  prediction?: string | null;
+  explanation_mechanisms?: string[];
+  selected_alternative_ids?: string[];
+  rubric_coverage?: Record<string, boolean>;
+  correct?: boolean | null;
+  transfer?: boolean | null;
+  hint_count: number;
+  duration_ms?: number | null;
+  manipulation?: Record<string, { from: number; to: number }> | null;
+  observed?: Record<string, ObservedOutcome> | null;
+  explanation_text?: string | null;
 }
 
 /** Mastery states. Deliberately labels, not a single unvalidated score. */

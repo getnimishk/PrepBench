@@ -46,3 +46,43 @@ export interface DashboardOverview {
   spaced_repetition_due_count: number;
   recent_exams: RecentExamItem[];
 }
+
+/** A topic group inside one area, with the answers behind its figure. */
+export interface DomainTopicItem {
+  topic: string;
+  answers: number;
+  correct: number;
+  accuracy_percentage: number;
+}
+
+export interface DomainQuestionItem {
+  id: number;
+  text: string;
+  topic: string;
+  /** unseen: never answered. missed: answered wrong at least once. correct: never wrong. */
+  state: 'unseen' | 'missed' | 'correct';
+  times_answered: number;
+  times_correct: number;
+  due: boolean;
+}
+
+/** One area of one preparation, from every answer given in it (drills included). */
+export interface DomainDetail {
+  subject_id: number;
+  domain: string;
+  answers: number;
+  correct: number;
+  /** Null, never 0, when nothing in the area has been answered. */
+  accuracy_percentage: number | null;
+  question_count: number;
+  attempted_questions: number;
+  missed_questions: number;
+  due_now: number;
+  /** Wrong answers from mocks here that are still in the review queue. */
+  unreviewed_misses: number;
+  min_answers_per_topic: number;
+  topics: DomainTopicItem[];
+  /** Missed first, then due, then unseen, then correct. At most `questions_limit`. */
+  questions: DomainQuestionItem[];
+  questions_limit: number;
+}

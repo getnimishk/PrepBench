@@ -3,15 +3,21 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React from 'react';
-import { Paper, Typography, Box, Divider, Link } from '@mui/material';
-import { CheckCircle2, XCircle, Info, Link as LinkIcon } from 'lucide-react';
+import { Box, Link } from '@mui/material';
 import { Question } from '../../types/question';
+import { Detail, Eyebrow, Good } from '../ui/primitives';
+import { Explanation } from '../common/Explanation';
 
 interface Props {
   question: Question;
   selectedOptionIds: number[];
 }
 
+/**
+ * After a practice answer: whether it was right, why, and why each wrong option
+ * is wrong. The options themselves are already marked above -- the right ones
+ * green, a wrong pick red -- so this does not list them all a second time.
+ */
 export const ExplanationDrawer: React.FC<Props> = ({ question, selectedOptionIds }) => {
   if (selectedOptionIds.length === 0) return null;
 
@@ -21,63 +27,55 @@ export const ExplanationDrawer: React.FC<Props> = ({ question, selectedOptionIds
     new Set(selectedOptionIds).size === selectedOptionIds.length &&
     correctOptionIds.every((id) => selectedOptionIds.includes(id));
 
+  const whyWrong = question.options
+    .map((opt, idx) => ({ opt, letter: String.fromCharCode(65 + idx) }))
+    .filter(({ opt }) => !opt.is_correct && opt.explanation_why_incorrect);
+
   return (
-    <Paper sx={{ p: 2.5, mt: 3, borderLeft: 6, borderColor: isCorrect ? 'success.main' : 'error.main' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-        {isCorrect ? (
-          <CheckCircle2 color="#34D399" size={24} />
-        ) : (
-          <XCircle color="#FB7185" size={24} />
-        )}
-        <Typography variant="h6" color={isCorrect ? 'success.main' : 'error.main'} sx={{ fontWeight: 800 }}>
-          {isCorrect ? 'Correct Answer!' : 'Incorrect Answer'}
-        </Typography>
-      </Box>
+    <Box component="section" aria-label="Explanation" sx={{ mt: '18px', pt: '16px', borderTop: '1px solid', borderColor: 'divider' }}>
+      {isCorrect ? (
+        <Good role="status">Correct.</Good>
+      ) : (
+        <Box
+          role="status"
+          sx={{
+            p: '12px 13px', borderRadius: '9px', border: '1px solid', borderColor: 'error.main',
+            bgcolor: 'pb.dangerSoft', color: 'error.main',
+          }}
+        >
+          Not this time. The right answer is marked above.
+        </Box>
+      )}
 
-      {/* Main Explanation */}
       {question.explanation && (
-        <Box sx={{ mb: 2 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Info size={16} /> Detailed Explanation
-          </Typography>
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-line', color: 'text.secondary' }}>
-            {question.explanation}
-          </Typography>
+        <Box sx={{ mt: '16px' }}>
+          <Eyebrow>Explanation</Eyebrow>
+          <Box sx={{ mt: '8px' }}><Explanation text={question.explanation} variant="body1" /></Box>
         </Box>
       )}
 
-      <Divider sx={{ my: 1.5 }} />
-
-      {/* Option Distractor Analysis */}
-      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-        Distractor Analysis & Option Breakdown:
-      </Typography>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {question.options.map((opt, idx) => (
-          <Box key={opt.id !== undefined ? `opt-id-${opt.id}-${idx}` : `opt-idx-${idx}`} sx={{ p: 1.5, borderRadius: 1.5, bgcolor: opt.is_correct ? 'rgba(16,185,129,0.15)' : 'action.hover', opacity: opt.is_correct ? 0.9 : 0.85 }}>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              {String.fromCharCode(65 + idx)}. {opt.option_text} {opt.is_correct ? '✓ [Correct]' : '✗ [Incorrect]'}
-            </Typography>
-            {opt.explanation_why_incorrect && !opt.is_correct && (
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                Why incorrect: {opt.explanation_why_incorrect}
-              </Typography>
-            )}
+      {whyWrong.length > 0 && (
+        <Box sx={{ mt: '16px' }}>
+          <Eyebrow>Why the others are wrong</Eyebrow>
+          <Box component="ul" sx={{ m: 0, mt: '8px', pl: 0, listStyle: 'none' }}>
+            {whyWrong.map(({ opt, letter }) => (
+              <Box component="li" key={opt.id ?? letter} sx={{ py: '8px', borderBottom: '1px solid', borderColor: 'divider' }}>
+                <Box component="b" sx={{ fontWeight: 650 }}>{letter}. {opt.option_text}</Box>
+                <Detail sx={{ mt: '2px' }}>{opt.explanation_why_incorrect}</Detail>
+              </Box>
+            ))}
           </Box>
-        ))}
-      </Box>
-
-      {/* Official Reference Link */}
-      {question.reference_url && (
-        <Box sx={{ mt: 2 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <LinkIcon size={14} /> Official Reference:{' '}
-            <Link href={question.reference_url} target="_blank" rel="noopener noreferrer" underline="hover">
-              {question.reference_url}
-            </Link>
-          </Typography>
         </Box>
       )}
-    </Paper>
+
+      {question.reference_url && (
+        <Detail sx={{ mt: '14px' }}>
+          Reference:{' '}
+          <Link href={question.reference_url} target="_blank" rel="noopener noreferrer" underline="hover">
+            {question.reference_url}
+          </Link>
+        </Detail>
+      )}
+    </Box>
   );
 };

@@ -34,6 +34,12 @@ export interface CheckQuestion {
   options: ReviewOption[];
 }
 
+/** How much review is waiting, for the navigation's badge. */
+export interface ReviewCounts {
+  unreviewed: number;
+  spaced_due: number;
+}
+
 export interface CheckResult {
   passed: boolean;
   correct_option_ids: number[];
@@ -60,4 +66,11 @@ export interface ReviewQueue {
   /** What is behind the cap. Reported, never rendered as a debt. */
   remaining: number;
   total_unreviewed: number;
+  /** Questions the spaced schedule has brought round again, in the same scope. */
+  spaced_due: number;
+  /** Misses whose most recent check did not transfer. */
+  needs_retry?: number;
+  /** Misses whose most recent check passed within the window. */
+  verified_recently?: number;
+  verified_window_days?: number;
 }

@@ -3,7 +3,7 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React, { useRef, useEffect, useState } from 'react';
-import { Box, Typography, useTheme } from '@mui/material';
+import { Box, Typography, alpha, useTheme } from '@mui/material';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -17,6 +17,7 @@ import {
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { ScoreTrendPoint } from '../../types/analytics';
+import { usePb } from '../../theme/usePb';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
@@ -25,17 +26,32 @@ interface Props {
   label?: string;
   rollingLabel?: string;
   emptyMessage?: string;
+  /**
+   * What the scores are drawn out of. The data always arrives out of 100; a
+   * surface that states its scores out of ten (System Design) draws them so.
+   */
+  outOf?: 100 | 10;
 }
 
 export const ScoreTrendChart: React.FC<Props> = ({
   trends,
-  label = 'Exam Score %',
-  rollingLabel = '5-Exam Rolling Avg %',
+  label = 'Exam score %',
+  rollingLabel = '5-exam rolling average %',
   emptyMessage = 'Complete an exam to see your score trend here.',
+  outOf = 100,
 }) => {
   const theme = useTheme();
+  const pb = usePb();
   const chartRef = useRef<any>(null);
   const [chartData, setChartData] = useState<any>(null);
+
+  // The prototype's colours: the accent for the scores, a quiet dashed line
+  // for the average under them.
+  const accent = theme.palette.primary.main;
+  const quiet = pb.faint;
+  const scale = (v: number) => (outOf === 10 ? v / 10 : v);
+  const unit = outOf === 10 ? ' / 10' : '%';
+  const figure = (v: number) => (outOf === 10 ? scale(v).toFixed(1) : String(Math.round(v)));
 
   // Backend dates are day-precision only ("Aug 07"), so same-day entries collide.
   // Disambiguate repeated labels with an occurrence suffix; the tooltip title
@@ -46,8 +62,8 @@ export const ScoreTrendChart: React.FC<Props> = ({
     dateOccurrence.set(t.date, seen);
     return seen === 1 ? t.date : `${t.date} (${seen})`;
   });
-  const scores = trends.map((t) => t.score);
-  const rolling = trends.map((t) => t.rolling_avg);
+  const scores = trends.map((t) => scale(t.score));
+  const rolling = trends.map((t) => scale(t.rolling_avg));
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -55,8 +71,8 @@ export const ScoreTrendChart: React.FC<Props> = ({
 
     const ctx = chart.ctx;
     const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-    gradient.addColorStop(0, 'rgba(99, 102, 241, 0.4)');
-    gradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
+    gradient.addColorStop(0, alpha(accent, 0.22));
+    gradient.addColorStop(1, alpha(accent, 0));
 
     setChartData({
       labels,
@@ -64,8 +80,8 @@ export const ScoreTrendChart: React.FC<Props> = ({
         {
           label,
           data: scores,
-          borderColor: '#6366F1',
-          pointBackgroundColor: '#6366F1',
+          borderColor: accent,
+          pointBackgroundColor: accent,
           backgroundColor: gradient,
           fill: true,
           tension: 0.3,
@@ -73,15 +89,16 @@ export const ScoreTrendChart: React.FC<Props> = ({
         {
           label: rollingLabel,
           data: rolling,
-          borderColor: '#D946EF',
-          pointBackgroundColor: '#D946EF',
+          borderColor: quiet,
+          pointBackgroundColor: quiet,
           backgroundColor: 'transparent',
           borderDash: [5, 5],
           tension: 0.3,
         },
       ],
     });
-  }, [trends, label, rollingLabel]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trends, label, rollingLabel, accent, quiet, outOf]);
 
   if (trends.length === 0) {
     return (
@@ -96,27 +113,13 @@ export const ScoreTrendChart: React.FC<Props> = ({
   const defaultData = {
     labels,
     datasets: [
-      {
-        label,
-        data: scores,
-        borderColor: '#6366F1',
-        pointBackgroundColor: '#6366F1',
-        tension: 0.3,
-      },
-      {
-        label: rollingLabel,
-        data: rolling,
-        borderColor: '#D946EF',
-        pointBackgroundColor: '#D946EF',
-        borderDash: [5, 5],
-        tension: 0.3,
-      },
+      { label, data: scores, borderColor: accent, pointBackgroundColor: accent, tension: 0.3 },
+      { label: rollingLabel, data: rolling, borderColor: quiet, pointBackgroundColor: quiet, borderDash: [5, 5], tension: 0.3 },
     ],
   };
 
-  const gridColor = theme.palette.divider;
-  const textColor = theme.palette.text.secondary;
-  const legendColor = theme.palette.text.primary;
+  const gridColor = pb.line;
+  const textColor = pb.muted;
 
   const options = {
     responsive: true,
@@ -124,17 +127,17 @@ export const ScoreTrendChart: React.FC<Props> = ({
     scales: {
       y: {
         min: 0,
-        max: 100,
+        max: outOf,
         grid: { color: gridColor },
         ticks: { color: textColor },
       },
       x: {
-        grid: { color: gridColor },
+        grid: { display: false },
         ticks: { color: textColor },
       },
     },
     plugins: {
-      legend: { labels: { color: legendColor } },
+      legend: { labels: { color: pb.text, boxWidth: 12, boxHeight: 12 } },
       tooltip: {
         callbacks: {
           title: (items: any[]) => {
@@ -147,5 +150,8 @@ export const ScoreTrendChart: React.FC<Props> = ({
     },
   };
 
-  return <Line ref={chartRef} data={chartData || defaultData} options={options} />;
+  const last = trends[trends.length - 1];
+  const described = `${label}: ${trends.length} ${trends.length === 1 ? 'session' : 'sessions'}, latest ${figure(last.score)}${unit}, `
+    + `${rollingLabel} ${figure(last.rolling_avg)}${unit}.`;
+  return <Line ref={chartRef} data={chartData || defaultData} options={options} aria-label={described} role="img" />;
 };

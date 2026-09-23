@@ -150,8 +150,9 @@ def test_an_unfinished_session_is_resumable(db):
         total_questions=80,
         answered_questions=22,
         time_allowed_seconds=3600,
-        time_spent_seconds=1320,
-        start_time=_now(),
+        time_spent_seconds=0,
+        # 22 minutes in, by the clock. time_spent_seconds stays 0 until submit.
+        start_time=_now() - timedelta(seconds=1320),
     )
     db.add(session)
     db.commit()
@@ -160,7 +161,7 @@ def test_an_unfinished_session_is_resumable(db):
     assert resumable is not None
     assert resumable["answered"] == 22
     assert resumable["total"] == 80
-    assert resumable["seconds_remaining"] == 2280
+    assert abs(resumable["seconds_remaining"] - 2280) <= 2
 
 
 # ---- unreviewed answers -----------------------------------------------

@@ -54,13 +54,14 @@ def db(tmp_path):
         engine.dispose()
 
 
-def _question(db, topic):
+def _question(db, topic, subject_id=None):
     q = Question(
         text=f"Q {uuid.uuid4().hex[:8]}",
         question_type="single_choice",
         domain="Scrum Events",
         topic=topic,
         difficulty="medium",
+        subject_id=subject_id,
     )
     db.add(q)
     db.flush()
@@ -69,7 +70,7 @@ def _question(db, topic):
     return q
 
 
-def _sitting(db, kind, answers, source=LEARNER, at=NOW):
+def _sitting(db, kind, answers, source=LEARNER, at=NOW, subject_id=None):
     """One completed session. `answers` is a list of (topic, is_correct)."""
     session = ExamSession(
         title=f"{kind} {at:%d %b}", status=ExamStatus.COMPLETED,
@@ -80,7 +81,7 @@ def _sitting(db, kind, answers, source=LEARNER, at=NOW):
     db.add(session)
     db.flush()
     for topic, correct in answers:
-        q = _question(db, topic)
+        q = _question(db, topic, subject_id)
         db.add(ExamAnswer(
             session_id=session.id, question_id=q.id,
             selected_option_ids=[1], is_correct=correct,
@@ -249,3 +250,55 @@ def test_the_worst_topic_comes_first(db):
     assert [t["topic"] for t in AnalyticsRepository(db).get_weak_topics()] == [
         "Badly stuck", "Halfway", "Nearly there",
     ]
+
+
+# ---- per preparation ------------------------------------------------------
+
+
+def _preparation(db, name):
+    from app.models.subject import Subject, SubjectKind
+
+    subject = Subject(
+        name=name, slug=f"{name.lower()}-{uuid.uuid4().hex[:6]}",
+        kind=SubjectKind.CERTIFICATION, certification=f"{name} cert",
+        pass_mark=70.0, exam_question_count=3, exam_minutes=30,
+    )
+    db.add(subject)
+    db.commit()
+    return subject
+
+
+def test_weak_topics_belong_to_the_preparation_they_were_measured_in(db):
+    """Topic names repeat across banks. One preparation's weakness is not another's.
+
+    Pooled, Home listed a topic from AWS under PSM I, and PSM I's weak-topic drill
+    drew from it.
+    """
+    aws = _preparation(db, "AWS")
+    dbx = _preparation(db, "Databricks")
+    _sitting(db, MOCK, [("Security", False)] * 3, subject_id=aws.id)
+    _sitting(db, MOCK, [("Security", True)] * 3 + [("Delta Lake", False)] * 3, subject_id=dbx.id)
+
+    assert weak(db, subject_id=aws.id) == {"Security"}
+    # 3 of 3 on Security in Databricks. Pooled with AWS's 0 of 3 it was 50%, so the
+    # old list told Databricks to work on a topic it had never missed.
+    assert weak(db, subject_id=dbx.id) == {"Delta Lake"}
+    # Unscoped keeps the old pooled answer, so no existing caller changes.
+    assert weak(db) == {"Security", "Delta Lake"}
+
+
+def test_a_preparation_with_no_weakness_is_told_so_by_name(db):
+    from app.core.exceptions import InvalidExamStateException
+    from app.schemas.exam import ExamCreateRequest
+    from app.services.exam_engine import ExamEngine
+
+    aws = _preparation(db, "AWS")
+    calm = _preparation(db, "Calm")
+    _sitting(db, MOCK, [("Security", False)] * 3, subject_id=aws.id)
+    _question(db, "Security", calm.id)
+    db.commit()
+
+    with pytest.raises(InvalidExamStateException, match="Nothing in Calm is measurably weak"):
+        ExamEngine(db).create_exam(ExamCreateRequest(
+            exam_mode="weak_topic", subject_id=calm.id, total_questions=5,
+        ))

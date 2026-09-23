@@ -23,6 +23,7 @@ from app.schemas.llm_config import (
     TaskBindingInfo,
     TaskBindingUpdate,
     VerifyResult,
+    CatalogRefreshResponse,
 )
 from app.services.llm_config_service import LLMConfigService
 
@@ -68,6 +69,14 @@ def list_local_models(ram_gb: float = None, db: Session = Depends(get_db)):
     recommendations for a different machine.
     """
     return LLMConfigService(db).list_local_models(ram_gb)
+
+
+@router.post("/local/models/refresh", response_model=CatalogRefreshResponse)
+def refresh_local_models(db: Session = Depends(get_db)):
+    """
+    Sync and curate models from the Ollama library into the local custom catalogue.
+    """
+    return LLMConfigService(db).refresh_local_models()
 
 
 @router.get("/local/runners", response_model=List[RunnerInfo])

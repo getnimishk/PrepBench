@@ -6,7 +6,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
-from app.core.exceptions import ResourceNotFoundException
+from app.core.exceptions import ConflictException, InvalidExamStateException, ResourceNotFoundException
 from app.core.logging_config import logger
 from app.llm.gateway import LLMGateway
 from app.llm.types import LLMTask
@@ -31,6 +31,8 @@ from app.schemas.system_design import (
     RecentAttemptItem,
 )
 from app.schemas.analytics import ScoreTrendPoint
+from app.services.system_design_sections import clean_sections, compose_answer
+from app.llm.prompts import as_material
 
 CATEGORIES = [
     "Requirements Clarification",
@@ -183,6 +185,7 @@ Respond ONLY in this exact JSON format, no other text:
             return DraftResponse(
                 prompt_id=prompt_id,
                 answer_text=draft.answer_text or "",
+                sections=draft.sections,
                 target_role=draft.target_role,
                 updated_at=draft.updated_at,
                 exists=True,
@@ -198,6 +201,7 @@ Respond ONLY in this exact JSON format, no other text:
             return DraftResponse(
                 prompt_id=prompt_id,
                 answer_text=previous.answer_text or "",
+                sections=previous.sections,
                 target_role=previous.target_role,
                 updated_at=previous.created_at,
                 exists=True,
@@ -219,7 +223,9 @@ Respond ONLY in this exact JSON format, no other text:
             draft = SystemDesignDraft(prompt_id=prompt_id)
             self.db.add(draft)
 
-        draft.answer_text = req.answer_text or ""
+        sections = clean_sections(req.sections)
+        draft.sections = sections
+        draft.answer_text = compose_answer(sections) if sections is not None else (req.answer_text or "")
         draft.target_role = req.target_role
         self.db.commit()
         self.db.refresh(draft)
@@ -227,6 +233,7 @@ Respond ONLY in this exact JSON format, no other text:
         return DraftResponse(
             prompt_id=prompt_id,
             answer_text=draft.answer_text,
+            sections=draft.sections,
             target_role=draft.target_role,
             updated_at=draft.updated_at,
             exists=True,
@@ -248,13 +255,46 @@ Respond ONLY in this exact JSON format, no other text:
         if not prompt:
             raise ResourceNotFoundException("SystemDesignPrompt", req.prompt_id)
 
+        sections = clean_sections(req.sections)
+        answer_text = compose_answer(sections) if sections is not None else (req.answer_text or "").strip()
+        if not answer_text:
+            raise InvalidExamStateException(
+                "There is nothing to grade yet. Write at least one section before submitting."
+            )
+
         attempt = SystemDesignAttempt(
             prompt_id=req.prompt_id,
-            answer_text=req.answer_text,
+            answer_text=answer_text,
+            sections=sections,
             target_role=req.target_role,
             time_spent_seconds=req.time_spent_seconds,
         )
+        self._apply_grading(attempt, prompt.prompt_text)
+        saved = self.attempt_repo.create(attempt)
+        self._clear_draft(req.prompt_id)
+        return SystemDesignAttemptResponse.model_validate(saved)
 
+    def regrade_attempt(self, attempt_id: int) -> SystemDesignAttemptResponse:
+        """Grade again an attempt that was saved without a grade.
+
+        For an answer submitted with no provider set up, or whose grading failed.
+        A graded attempt is refused: its grade is the record of that answer, and a
+        new grade belongs to a new attempt.
+        """
+        attempt = self.attempt_repo.get_by_id(attempt_id)
+        if not attempt:
+            raise ResourceNotFoundException("SystemDesignAttempt", attempt_id)
+        if attempt.grading_status == "graded":
+            raise ConflictException(
+                "This attempt is already graded. Submit a revised answer to be graded again."
+            )
+        self._apply_grading(attempt, attempt.prompt.prompt_text if attempt.prompt else "")
+        self.db.commit()
+        self.db.refresh(attempt)
+        return SystemDesignAttemptResponse.model_validate(attempt)
+
+    def _apply_grading(self, attempt: SystemDesignAttempt, prompt_text: str) -> None:
+        """Set the grade fields on an attempt: graded, unavailable, or error. Never invented."""
         if not self.gateway.is_available(LLMTask.SYSTEM_DESIGN_GRADING):
             attempt.grading_status = "unavailable"
             attempt.grading_error = (
@@ -266,11 +306,9 @@ Respond ONLY in this exact JSON format, no other text:
             attempt.strengths = []
             attempt.improvements = []
             attempt.summary = None
-            saved = self.attempt_repo.create(attempt)
-            self._clear_draft(req.prompt_id)
-            return SystemDesignAttemptResponse.model_validate(saved)
+            return
 
-        grading_prompt = self._build_grading_prompt(prompt.prompt_text, req.answer_text, req.target_role)
+        grading_prompt = self._build_grading_prompt(prompt_text, attempt.answer_text, attempt.target_role)
         parsed, error_msg = self.gateway.run(LLMTask.SYSTEM_DESIGN_GRADING, grading_prompt).as_tuple()
 
         if not parsed or error_msg:
@@ -282,9 +320,7 @@ Respond ONLY in this exact JSON format, no other text:
             attempt.strengths = []
             attempt.improvements = []
             attempt.summary = None
-            saved = self.attempt_repo.create(attempt)
-            self._clear_draft(req.prompt_id)
-            return SystemDesignAttemptResponse.model_validate(saved)
+            return
 
         category_scores = self._parse_category_scores(parsed.get("category_scores"))
         overall_score = parsed.get("overall_score")
@@ -300,10 +336,6 @@ Respond ONLY in this exact JSON format, no other text:
         attempt.strengths = [str(s) for s in (parsed.get("strengths") or [])]
         attempt.improvements = [str(s) for s in (parsed.get("improvements") or [])]
         attempt.summary = str(parsed.get("summary") or "")
-
-        saved = self.attempt_repo.create(attempt)
-        self._clear_draft(req.prompt_id)
-        return SystemDesignAttemptResponse.model_validate(saved)
 
     def _parse_category_scores(self, raw) -> List[CategoryScore]:
         if not isinstance(raw, list):
@@ -350,7 +382,7 @@ INTERVIEW PROMPT GIVEN TO THE CANDIDATE:
 {prompt_text}
 
 CANDIDATE'S WRITTEN ANSWER:
-{answer_text}
+{as_material("answer", answer_text, "the candidate")}
 
 Grade honestly and specifically -- reference concrete details from their answer,
 do not give generic praise, and call out real gaps a hiring interviewer would flag.

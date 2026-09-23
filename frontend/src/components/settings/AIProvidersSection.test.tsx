@@ -16,6 +16,7 @@ const mockUpdate = vi.fn();
 const mockDelete = vi.fn();
 const mockVerify = vi.fn();
 const mockDetect = vi.fn();
+const mockRefreshLocalModels = vi.fn();
 
 vi.mock('../../services/api', () => ({
   getLLMProfiles: (...a: any[]) => mockGetProfiles(...a),
@@ -26,6 +27,7 @@ vi.mock('../../services/api', () => ({
   verifyLLMProvider: (...a: any[]) => mockVerify(...a),
   getLLMProviderModels: () => Promise.resolve({ models: [], error: null }),
   detectLocalRunners: (...a: any[]) => mockDetect(...a),
+  refreshLocalModels: (...a: any[]) => mockRefreshLocalModels(...a),
   // LocalSetupWizard renders inside this component (closed), and pulls from
   // the same module -- without these the mocked module returns undefined.
   getSystemInfo: () => Promise.resolve({ os_family: 'windows', total_ram_gb: 16, available_ram_gb: 8, usable_for_model_gb: 14 }),
@@ -95,6 +97,8 @@ describe('AIProvidersSection', () => {
     await waitFor(() => expect(screen.getByText('My Llamafile')).toBeInTheDocument());
     expect(screen.getByText('On this machine')).toBeInTheDocument();
     expect(screen.getByText(/qwen3-4b/)).toBeInTheDocument();
+    // One switch per provider, so its name says which one it turns on and off.
+    expect(screen.getByRole('switch', { name: 'Use My Llamafile' })).toBeChecked();
   });
 
   it('never renders an API key, only that one exists and its last four characters', async () => {
@@ -234,5 +238,38 @@ describe('AIProvidersSection', () => {
     await user.click(await screen.findByRole('option', { name: /llamafile/i }));
 
     expect(await within(dialog).findByText(/does not download or run the model for you/i)).toBeInTheDocument();
+  });
+
+  it('checks for new models from Ollama library when button is clicked', async () => {
+    mockRefreshLocalModels.mockResolvedValue({
+      ok: true,
+      models_count: 10,
+      new_models_added: 4,
+      message: 'Catalogue updated: 4 new model(s) discovered from Ollama library.',
+    });
+
+    const user = userEvent.setup();
+    render(<AIProvidersSection />);
+
+    const refreshBtn = await screen.findByRole('button', { name: /check for new models/i });
+    await user.click(refreshBtn);
+
+    expect(mockRefreshLocalModels).toHaveBeenCalled();
+    expect(await screen.findByText(/catalogue updated: 4 new model\(s\) discovered/i)).toBeInTheDocument();
+  });
+});
+
+describe('AIProvidersSection when the providers cannot be read', () => {
+  it('does not say none are set up, and loads on retry', async () => {
+    const user = userEvent.setup();
+    mockGetProviders.mockRejectedValueOnce({ isAxiosError: true, request: {} });
+    render(<AIProvidersSection />);
+
+    expect(await screen.findByText(/Could not load your AI providers\..*Nothing was changed\./)).toBeInTheDocument();
+    expect(screen.queryByText(/no ai provider set up yet/i)).not.toBeInTheDocument();
+
+    mockGetProviders.mockResolvedValue([makeProvider()]);
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('My Llamafile')).toBeInTheDocument();
   });
 });

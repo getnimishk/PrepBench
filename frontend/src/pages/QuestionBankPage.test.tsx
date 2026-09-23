@@ -4,9 +4,11 @@
 
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { QuestionBankPage } from './QuestionBankPage';
+import { QUESTIONS_IMPORTED } from '../context/importLauncherContext';
 import { Question } from '../types/question';
 
 const mockGetQuestions = vi.fn();
@@ -18,6 +20,8 @@ const mockAutoRefineBatch = vi.fn();
 const mockConfirmImportBatch = vi.fn();
 const mockBulkDeleteQuestions = vi.fn();
 const mockGetQuestionFilters = vi.fn();
+const mockGetQuestion = vi.fn();
+const mockGetQuestionBankSummary = vi.fn();
 
 vi.mock('../services/api', () => ({
   getQuestions: (...args: any[]) => mockGetQuestions(...args),
@@ -29,6 +33,8 @@ vi.mock('../services/api', () => ({
   confirmImportBatch: (...args: any[]) => mockConfirmImportBatch(...args),
   bulkDeleteQuestions: (...args: any[]) => mockBulkDeleteQuestions(...args),
   getQuestionFilters: (...args: any[]) => mockGetQuestionFilters(...args),
+  getQuestion: (...args: any[]) => mockGetQuestion(...args),
+  getQuestionBankSummary: (...args: any[]) => mockGetQuestionBankSummary(...args),
 }));
 
 // These child components have their own substantial UI (multi-field forms,
@@ -114,11 +120,12 @@ vi.mock('../components/question_bank/ImportModal', () => ({
 }));
 
 vi.mock('../components/question_bank/QuestionDetailPanel', () => ({
-  QuestionDetailPanel: ({ open, question, onToggleReviewed }: any) =>
+  QuestionDetailPanel: ({ open, question, onToggleReviewed, onClose }: any) =>
     open && question ? (
       <div>
         <div>Detail Panel: {question.text}</div>
         <button onClick={() => onToggleReviewed?.(question)}>Toggle Reviewed</button>
+        <button onClick={() => onClose?.()}>Close Detail</button>
       </div>
     ) : null,
 }));
@@ -143,12 +150,28 @@ function makeQuestion(id: number, text: string): Question {
   };
 }
 
-function renderPage() {
-  return render(<QuestionBankPage />);
+/** The address the page is showing, so a test can see a parameter come and go. */
+const Where: React.FC = () => {
+  const location = useLocation();
+  return <div data-testid="where">{location.pathname}{location.search}</div>;
+};
+
+function renderPage(entry: string | { pathname: string; state: unknown } = '/question-bank') {
+  return render(
+    <MemoryRouter initialEntries={[entry]}>
+      <Routes>
+        <Route path="/question-bank" element={<><QuestionBankPage /><Where /></>} />
+      </Routes>
+    </MemoryRouter>
+  );
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockGetQuestionBankSummary.mockResolvedValue({
+    subject_id: null, questions: 1, attempted: 0, never_attempted: 1, answers: 0, correct_answers: 0,
+    correct_percentage: null, review_due: 0, missed_at_least_once: 0, flagged_reviewed: 0,
+  });
   mockGetQuestionFilters.mockResolvedValue({
     certifications: ['AWS SAA'],
     domains: ['Security'],
@@ -166,7 +189,7 @@ describe('QuestionBankPage', () => {
     expect(mockGetQuestions).toHaveBeenCalledWith(
       expect.objectContaining({ skip: 0, limit: 25 })
     );
-    expect(screen.getByText('1 questions total')).toBeInTheDocument();
+    expect(screen.getByText('1 of 1 questions')).toBeInTheDocument();
   });
 
   it('shows an empty state when no questions match the filters', async () => {
@@ -180,7 +203,7 @@ describe('QuestionBankPage', () => {
     mockGetQuestions.mockRejectedValue(new Error('network error'));
     renderPage();
 
-    await waitFor(() => expect(screen.getByText(/Failed to load questions/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Could not load the Question Bank\..*Nothing was changed\./i)).toBeInTheDocument());
 
     mockGetQuestions.mockResolvedValue({ items: [makeQuestion(1, 'What is IAM?')], total: 1 });
     await user.click(screen.getByRole('button', { name: /retry/i }));
@@ -260,7 +283,7 @@ describe('QuestionBankPage', () => {
     await waitFor(() => expect(screen.getByText('What is IAM?')).toBeInTheDocument());
 
     await user.click(screen.getByRole('button', { name: /clear all/i }));
-    await waitFor(() => expect(screen.getByText('Clear Question Bank?')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Clear the Question Bank?')).toBeInTheDocument());
 
     mockGetQuestions.mockResolvedValue({ items: [], total: 0 });
     await user.click(screen.getByRole('button', { name: /yes, delete all/i }));
@@ -283,7 +306,7 @@ describe('QuestionBankPage', () => {
     await waitFor(() => expect(screen.getByText('1 selected')).toBeInTheDocument());
 
     await user.click(screen.getByRole('button', { name: /delete selected/i }));
-    await waitFor(() => expect(screen.getByText('Delete Selected Questions?')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Delete the selected questions?')).toBeInTheDocument());
 
     mockGetQuestions.mockResolvedValue({ items: [makeQuestion(2, 'What is VPC?')], total: 1 });
     await user.click(screen.getByRole('button', { name: /yes, delete selected/i }));
@@ -297,7 +320,7 @@ describe('QuestionBankPage', () => {
     renderPage();
     await waitFor(() => expect(screen.getByText('What is IAM?')).toBeInTheDocument());
 
-    await user.click(screen.getByRole('button', { name: /bulk import/i }));
+    await user.click(screen.getByRole('button', { name: 'Import' }));
     await waitFor(() => expect(screen.getByText('Import Modal Open')).toBeInTheDocument());
   });
 
@@ -327,14 +350,14 @@ describe('QuestionBankPage', () => {
     renderPage();
     await waitFor(() => expect(screen.getByText('What is IAM?')).toBeInTheDocument());
 
-    await user.click(screen.getByRole('button', { name: /bulk import/i }));
+    await user.click(screen.getByRole('button', { name: 'Import' }));
     await waitFor(() => expect(screen.getByText('Import Modal Open')).toBeInTheDocument());
 
     // Simulates what a real import validate step does: hand staged questions
     // to onOpenAuditStudio. This is the only path that reaches
     // QuestionBankPage's staging/Audit Studio branch at all.
     await user.click(screen.getByRole('button', { name: /simulate staged import/i }));
-    await waitFor(() => expect(screen.getByText(/Pre-Import Audit Studio/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Pre-import audit/i)).toBeInTheDocument());
     expect(screen.getByText('Staged Question From Import')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /auto-refine entire batch/i }));
@@ -353,7 +376,7 @@ describe('QuestionBankPage', () => {
 
     await waitFor(() => expect(mockConfirmImportBatch).toHaveBeenCalled());
     // Staging mode exits (back to the normal bank table) once committed.
-    await waitFor(() => expect(screen.queryByText(/Pre-Import Audit Studio/i)).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText(/Pre-import audit/i)).not.toBeInTheDocument());
   });
 
   it('debounces the search field before refetching with the keyword', async () => {
@@ -363,7 +386,7 @@ describe('QuestionBankPage', () => {
     await waitFor(() => expect(screen.getByText('What is IAM?')).toBeInTheDocument());
 
     mockGetQuestions.mockClear();
-    await user.type(screen.getByPlaceholderText(/search questions/i), 'IAM');
+    await user.type(screen.getByPlaceholderText(/search question text/i), 'IAM');
 
     // Not fired immediately -- the 300ms debounce hasn't elapsed yet.
     expect(mockGetQuestions).not.toHaveBeenCalled();
@@ -371,5 +394,56 @@ describe('QuestionBankPage', () => {
     await waitFor(() => {
       expect(mockGetQuestions).toHaveBeenCalledWith(expect.objectContaining({ keyword: 'IAM' }));
     });
+  });
+
+  it('opens a linked question, and forgets the link once it is closed', async () => {
+    mockGetQuestions.mockResolvedValue({ items: [], total: 0 });
+    mockGetQuestion.mockResolvedValue(makeQuestion(42, 'Who owns the Sprint Backlog?'));
+    renderPage('/question-bank?question=42');
+
+    expect(await screen.findByText('Detail Panel: Who owns the Sprint Backlog?')).toBeInTheDocument();
+    expect(mockGetQuestion).toHaveBeenCalledWith(42);
+    expect(screen.getByTestId('where')).toHaveTextContent('/question-bank?question=42');
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Close Detail' }));
+
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent(/^\/question-bank$/));
+    expect(screen.queryByText('Detail Panel: Who owns the Sprint Backlog?')).not.toBeInTheDocument();
+  });
+
+  it("opens with global search's keyword already applied, so its count and the bank's agree", async () => {
+    mockGetQuestions.mockResolvedValue({ items: [makeQuestion(1, 'Who owns the Sprint Goal?')], total: 1 });
+    renderPage('/question-bank?keyword=Sprint%20Goal');
+
+    await waitFor(() => expect(mockGetQuestions).toHaveBeenCalledWith(expect.objectContaining({ keyword: 'Sprint Goal' })));
+    expect(mockGetQuestions).not.toHaveBeenCalledWith(expect.objectContaining({ keyword: undefined }));
+    expect(screen.getByPlaceholderText(/search question text/i)).toHaveValue('Sprint Goal');
+  });
+
+  it('reloads when questions are imported from the header or Settings', async () => {
+    mockGetQuestions.mockResolvedValue({ items: [makeQuestion(1, 'What is IAM?')], total: 1 });
+    renderPage();
+    await waitFor(() => expect(screen.getByText('What is IAM?')).toBeInTheDocument());
+
+    mockGetQuestions.mockResolvedValue({ items: [makeQuestion(1, 'What is IAM?'), makeQuestion(2, 'Imported just now')], total: 2 });
+    act(() => { window.dispatchEvent(new Event(QUESTIONS_IMPORTED)); });
+
+    expect(await screen.findByText('Imported just now')).toBeInTheDocument();
+  });
+
+  it('opens the audit studio with rows handed over by an import started elsewhere', async () => {
+    mockGetQuestions.mockResolvedValue({ items: [], total: 0 });
+    renderPage({ pathname: '/question-bank', state: { stagedQuestions: [makeQuestion(77, 'Handed over from the header')] } });
+
+    expect(await screen.findByText(/Pre-import audit/i)).toBeInTheDocument();
+    expect(screen.getByText('Handed over from the header')).toBeInTheDocument();
+  });
+
+  it('says so when a linked question cannot be opened', async () => {
+    mockGetQuestions.mockResolvedValue({ items: [], total: 0 });
+    mockGetQuestion.mockRejectedValue({ response: { status: 404, data: { detail: 'Question 42 not found' } } });
+    renderPage('/question-bank?question=42');
+
+    expect(await screen.findByText('Question 42 not found')).toBeInTheDocument();
   });
 });

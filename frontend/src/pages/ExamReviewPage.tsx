@@ -3,19 +3,23 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useParams, useNavigate } from 'react-router-dom';
 import {
-  Box, Card, CardContent, Typography, Grid, Chip, Button,
-  LinearProgress, Paper, Alert, ToggleButton, ToggleButtonGroup
+  Box, Typography, Button, Alert, ToggleButton, ToggleButtonGroup,
 } from '@mui/material';
-import {
-  BookOpen, CheckCircle2, XCircle, Clock, Minus, ArrowLeft, ArrowRight, Flag
-} from 'lucide-react';
 import { getExamDetails, getSubject, markAnswerReviewed } from '../services/api';
 import { Explanation } from '../components/common/Explanation';
+import { SessionBreakdown } from '../components/exam/SessionBreakdown';
 import { ExamDetail } from '../types/exam';
 import { READINESS_LABELS, Subject } from '../types/subject';
 import { blockerSentence, plateauSentence, readySentence } from '../services/readinessText';
+import { loadFailed } from '../services/apiError';
+import { LoadingState } from '../components/common/States';
+import {
+  Detail, Eyebrow, Grid, PageHead, Panel, Pill, Section, Sub, type Tone,
+} from '../components/ui/primitives';
+
+const DIFFICULTY_TONE: Record<string, Tone> = { easy: 'success', medium: 'warning', hard: 'danger' };
 
 export const ExamReviewPage: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -47,7 +51,7 @@ export const ExamReviewPage: React.FC = () => {
       })
       .catch((err) => {
         console.error(err);
-        setFetchError('Failed to load exam review details. Please check backend connection.');
+        setFetchError(loadFailed('Could not load this review', err));
       })
       .finally(() => setLoading(false));
   };
@@ -133,7 +137,7 @@ export const ExamReviewPage: React.FC = () => {
     );
   }
 
-  if (loading) return <LinearProgress />;
+  if (loading) return <LoadingState label="Loading this review…" />;
 
   if (fetchError) {
     return (
@@ -171,343 +175,273 @@ export const ExamReviewPage: React.FC = () => {
   const r = subject?.readiness ?? null;
   const showsVerdict = isMock && r != null && subject?.has_exam_profile === true;
 
+  const pct = Math.round(score);
+  const minutes = Math.round((exam.time_spent_seconds ?? 0) / 60);
+  const evidence = `${exam.correct_count} of ${exam.total_questions} correct`;
+  const time = (exam.time_spent_seconds ?? 0) > 0 ? ` · ${minutes} minutes` : '';
+
   return (
-    <Box sx={{ maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 3 }}>
-      {/* The result, interpreted.
-
-          This was a full-bleed coloured banner carrying four KPI tiles --
-          score, pass mark, correct-of-total, minutes -- above five buttons of
-          equal weight. It reported. Nothing on it said what the paper meant
-          for the only question the product exists to answer, so a learner
-          finishing a mock had to go to Home to find out whether anything had
-          moved, and Home explained it in words this page had never used.
-
-          Now: the number, what it clears, the evidence in one line, and then
-          the verdict in the product's own vocabulary. The tiles are gone
-          because four boxed figures are not four ideas. */}
-      <Box sx={{ maxWidth: 720 }}>
-        <Typography
-          variant="body2"
-          sx={{
-            color: 'text.secondary', letterSpacing: '0.08em',
-            textTransform: 'uppercase', fontSize: 12, fontWeight: 500,
-          }}
-        >
-          {exam.title}
-        </Typography>
-
-        <Typography variant="h2" sx={{ fontWeight: 600, mt: 0.5, letterSpacing: '-0.02em' }}>
-          {Math.round(score)}%
-        </Typography>
-
-        <Typography variant="h6" sx={{ fontWeight: 400, mt: 0.5, color: 'text.secondary' }}>
-          {passMark == null
-            ? 'A drill closes gaps. It is not scored against a pass mark, and it does not move your readiness.'
-            : isPassed
-              ? `above the ${Math.round(passMark)}% pass mark`
-              : `under the ${Math.round(passMark)}% pass mark`}
-        </Typography>
-
-        <Typography variant="body2" sx={{ color: 'text.secondary', mt: 2 }}>
-          {exam.correct_count} of {exam.total_questions} correct
-          {(exam.time_spent_seconds ?? 0) > 0
-            && ` · ${Math.round((exam.time_spent_seconds ?? 0) / 60)} minutes`}
-        </Typography>
-
+    <Box>
+      {/* The result, interpreted: the number, what it clears, the evidence in
+          one line -- then, for a mock, the verdict in the product's own
+          vocabulary. One weighted action: reading the misses is the thing that
+          changes the next score. */}
+      <PageHead
+        eyebrow={exam.title}
+        title={passMark == null ? `${pct}% this session` : `${pct}%`}
+        sub={passMark == null
+          ? `${evidence}${time}. A drill closes gaps. It is not scored against a pass mark, and it does not move your readiness.`
+          : `${evidence}, ${isPassed ? 'above' : 'under'} the ${Math.round(passMark)}% pass mark${time}.`}
+        actions={(
+          <>
+            <Button component={RouterLink} to={isMock ? '/exam-setup' : '/practice'} variant="outlined">
+              ← {isMock ? 'Mock exam' : 'Back to practice'}
+            </Button>
+            <Button variant="outlined" onClick={() => navigate('/practice')}>Practise again</Button>
+            {wrongCount > 0 ? (
+              <Button variant="contained" color="ink" onClick={readTheMisses}>
+                Read the {wrongCount} you got wrong
+              </Button>
+            ) : (
+              <Button component={RouterLink} to="/" variant="contained" color="ink">Home</Button>
+            )}
+          </>
+        )}
+      >
         {storedDiffers && (
           // Shown rather than hidden: the session really was sat with that
-          // threshold, and a learner who remembers the old number deserves
-          // to see where it went instead of wondering why the verdict moved.
-          <Typography variant="caption" sx={{ display: 'block', mt: 1.5, color: 'text.secondary' }}>
+          // threshold, and a learner who remembers the old number deserves to
+          // see where it went instead of wondering why the verdict moved.
+          <Detail sx={{ mb: '10px' }}>
             Sat with a {Math.round(exam.passing_percentage)}% threshold set at the time.
             Judged here against {subject?.name}&apos;s own pass mark of {Math.round(passMark ?? 0)}%,
             which is the bar readiness uses.
-          </Typography>
+          </Detail>
         )}
+        <Box sx={{ display: 'flex', gap: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <Detail component="span">Reports:</Detail>
+          {[
+            { label: 'PDF report', href: `/api/v1/export/pdf/${sid}` },
+            { label: 'Excel report', href: `/api/v1/export/excel/${sid}` },
+          ].map((a) => (
+            <Button
+              key={a.label}
+              size="small"
+              onClick={() => window.open(a.href, '_blank', 'noopener,noreferrer')}
+              sx={{ p: 0, minWidth: 0, minHeight: 0 }}
+            >
+              {a.label}
+            </Button>
+          ))}
+        </Box>
+      </PageHead>
 
-        {/* What the paper did to the verdict, said the way Home says it.
-            One rule, one vocabulary: two surfaces explaining the same
-            verdict differently is the same defect as two surfaces
-            disagreeing about the score. */}
-        {showsVerdict && (
-          <Box sx={{ mt: 5 }}>
-            <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-              Where this leaves you
-            </Typography>
-            <Typography variant="body1" sx={{ mt: 0.5, fontWeight: 500 }}>
+      {/* What the paper did to the verdict, said the way Home says it. One
+          rule, one vocabulary: two surfaces explaining the same verdict
+          differently is the same defect as two surfaces disagreeing about the
+          score. A drill does not move readiness, so it has no verdict here. */}
+      {showsVerdict && (
+        <Section>
+          <Panel soft component="section" aria-labelledby="verdict-heading">
+            <Eyebrow id="verdict-heading" component="h2">Where this leaves you</Eyebrow>
+            <Box component="p" sx={{ m: 0, mt: '8px', fontSize: (t) => t.typography.pxToRem(22), fontWeight: 750, letterSpacing: '-0.02em' }}>
               {r.mock_count === 0 && r.state === 'needs_evaluation'
                 ? 'Not measured yet'
                 : READINESS_LABELS[r.state]}
-            </Typography>
-            <Typography variant="body1" sx={{ mt: 0.75, lineHeight: 1.65 }}>
+            </Box>
+            <Sub sx={{ mb: 0 }}>
               {r.state === 'plateau'
-                ? plateauSentence(r.recent_scores)
+                ? plateauSentence(r.recent_scores, r.rules)
                 : r.blockers[0]
-                  ? blockerSentence(r.blockers[0])
-                  : readySentence(r.pass_mark)}
-            </Typography>
-          </Box>
-        )}
+                  ? blockerSentence(r.blockers[0], r.rules)
+                  : readySentence(r.pass_mark, r.rules)}
+            </Sub>
+          </Panel>
+        </Section>
+      )}
 
-        {/* One dominant action, because it is the one that changes the next
-            score. Everything else is a text link: "Home" and "Excel report"
-            were outlined buttons the same size as this one. */}
-        <Box sx={{ mt: 4 }}>
-          {wrongCount > 0 && (
-            <Button
-              variant="contained"
-              disableElevation
-              startIcon={<BookOpen size={18} />}
-              onClick={readTheMisses}
-              sx={{ borderRadius: '100px', fontWeight: 600, textTransform: 'none' }}
-            >
-              Read the {wrongCount} you got wrong
-            </Button>
-          )}
-          <Box sx={{ display: 'flex', gap: 2.5, mt: wrongCount > 0 ? 2.5 : 0, flexWrap: 'wrap' }}>
-            {[
-              { label: 'Home', go: () => navigate('/') },
-              { label: 'Practise again', go: () => navigate('/practice') },
-              {
-                label: 'PDF report',
-                go: () => window.open(`/api/v1/export/pdf/${sid}`, '_blank', 'noopener,noreferrer'),
-              },
-              {
-                label: 'Excel report',
-                go: () => window.open(`/api/v1/export/excel/${sid}`, '_blank', 'noopener,noreferrer'),
-              },
-            ].map((a) => (
-              <Button
-                key={a.label}
-                size="small"
-                onClick={a.go}
-                sx={{ textTransform: 'none', p: 0, minWidth: 0, color: 'text.secondary' }}
-              >
-                {a.label}
-              </Button>
-            ))}
-          </Box>
-        </Box>
-      </Box>
+      <SessionBreakdown exam={exam} />
 
-      {/* Review Section Header */}
-      <Box ref={reviewRef} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, scrollMarginTop: 16 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>Question Review</Typography>
-        <ToggleButtonGroup
-          value={filter}
-          exclusive
-          onChange={(_, val) => { if (val) { setFilter(val); setCurrentIndex(0); } }}
-          size="small"
-          sx={{ bgcolor: 'background.paper' }}
+      {/* Every question, one at a time: the prototype's answer sheet, opened. */}
+      <Section>
+        <Box
+          ref={reviewRef}
+          sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '12px', scrollMarginTop: 16 }}
         >
-          <ToggleButton value="all" sx={{ px: 2 }}>All ({exam.questions.length})</ToggleButton>
-          <ToggleButton value="incorrect" sx={{ px: 2 }}>Incorrect</ToggleButton>
-          <ToggleButton value="correct" sx={{ px: 2 }}>Correct</ToggleButton>
-          <ToggleButton value="flagged" sx={{ px: 2 }}>Flagged</ToggleButton>
-        </ToggleButtonGroup>
-      </Box>
+          <Box>
+            <Eyebrow>Answer sheet</Eyebrow>
+            <Typography variant="h5" component="h2" sx={{ mt: '6px' }}>Question review</Typography>
+          </Box>
+          <ToggleButtonGroup
+            value={filter}
+            exclusive
+            onChange={(_, val) => { if (val) { setFilter(val); setCurrentIndex(0); } }}
+            size="small"
+          >
+            <ToggleButton value="all">All ({exam.questions.length})</ToggleButton>
+            <ToggleButton value="incorrect">Incorrect</ToggleButton>
+            <ToggleButton value="correct">Correct</ToggleButton>
+            <ToggleButton value="flagged">Flagged</ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
 
-      {filteredQuestions.length === 0 ? (
-        <Alert severity="info">No questions match the current filter.</Alert>
-      ) : (
-        <Grid container spacing={3}>
-          {/* Left Pane: Question Palette */}
-          <Grid
-            size={{
-              xs: 12,
-              md: 3.5,
-              lg: 3
-            }}>
-            <Card sx={{ borderRadius: '12px', boxShadow: 'none', border: '1px solid', borderColor: 'divider', position: 'sticky', top: 80 }}>
-              <CardContent>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, fontWeight: 700 }}>
-                  Questions ({filteredQuestions.length})
+        {filteredQuestions.length === 0 ? (
+          <Alert severity="info" sx={{ mt: '14px' }}>No questions match the current filter.</Alert>
+        ) : (
+          <Grid template="minmax(0, 260px) minmax(0, 1fr)" sx={{ mt: '14px', alignItems: 'start' }}>
+            <Panel sx={{ position: 'sticky', top: 80 }}>
+              <Eyebrow>Questions ({filteredQuestions.length})</Eyebrow>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(38px, 1fr))', gap: '5px', mt: '10px' }}>
+                {filteredQuestions.map((item, idx) => {
+                  const isActive = idx === currentIndex;
+                  const tone = item.isCorrect ? 'success' : item.wasAnswered ? 'danger' : null;
+                  return (
+                    <Box
+                      key={item.q.id}
+                      component="button"
+                      type="button"
+                      onClick={() => setCurrentIndex(idx)}
+                      // The colour says right or wrong; the name has to say it too.
+                      aria-label={`Question ${item.originalIdx + 1}, ${item.isCorrect ? 'correct' : item.wasAnswered ? 'incorrect' : 'not answered'}${item.isFlagged ? ', flagged' : ''}`}
+                      aria-current={isActive ? 'true' : undefined}
+                      sx={{
+                        font: 'inherit', p: 0, position: 'relative', aspectRatio: '1', minWidth: 0,
+                        display: 'grid', placeItems: 'center', borderRadius: '6px', cursor: 'pointer',
+                        fontSize: (t) => t.typography.pxToRem(10), fontWeight: 750,
+                        border: isActive ? '2px solid' : '1px solid',
+                        borderColor: isActive ? 'primary.main' : 'divider',
+                        bgcolor: tone ? `pb.${tone}Soft` : 'background.paper',
+                        color: tone ? `pb.${tone}` : 'text.secondary',
+                        '&:hover': { borderColor: 'primary.main' },
+                        '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
+                      }}
+                    >
+                      {item.originalIdx + 1}
+                      {item.isFlagged && (
+                        <Box sx={{
+                          position: 'absolute', top: -3, right: -3, width: 9, height: 9, borderRadius: '50%',
+                          bgcolor: 'pb.warning', border: '2px solid', borderColor: 'background.paper',
+                        }} />
+                      )}
+                    </Box>
+                  );
+                })}
+              </Box>
+            </Panel>
+
+            {currentQData && (
+              <Panel component="article" aria-label={`Question ${currentQData.originalIdx + 1}`}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', pb: '12px', borderBottom: '1px solid', borderColor: 'divider' }}>
+                  <Typography variant="h6" component="h3">Question {currentQData.originalIdx + 1}</Typography>
+                  <Box sx={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <Pill>{currentQData.q.domain}</Pill>
+                    <Pill tone={DIFFICULTY_TONE[currentQData.q.difficulty] ?? 'neutral'}>{currentQData.q.difficulty}</Pill>
+                    {currentQData.isFlagged && <Pill tone="warning">Flagged</Pill>}
+                  </Box>
+                </Box>
+
+                {currentQData.q.case_study_text && (
+                  <Box sx={{ mt: '14px', p: '12px 13px', borderRadius: '9px', bgcolor: 'surfaceContainerHigh.main' }}>
+                    <Eyebrow>Case study</Eyebrow>
+                    <Box component="p" sx={{ m: 0, mt: '6px' }}>{currentQData.q.case_study_text}</Box>
+                  </Box>
+                )}
+
+                <Typography component="p" sx={{ mt: '14px', fontSize: (t) => t.typography.pxToRem(17), fontWeight: 640, lineHeight: 1.5 }}>
+                  {currentQData.q.text}
                 </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {filteredQuestions.map((item, idx) => {
-                    const isActive = idx === currentIndex;
-                    let bg = 'background.default';
-                    let fg = 'text.primary';
-                    let border = '1px solid';
-                    let borderColor = 'divider';
 
-                    if (item.isCorrect) {
-                      bg = 'success.light'; fg = 'success.contrastText'; borderColor = 'success.main';
-                    } else if (item.wasAnswered) {
-                      bg = 'error.light'; fg = 'error.contrastText'; borderColor = 'error.main';
-                    }
+                {currentQData.q.code_snippet && (
+                  <Box className="code-block" sx={{ mt: '12px' }}>
+                    <pre><code>{currentQData.q.code_snippet}</code></pre>
+                  </Box>
+                )}
 
-                    if (isActive) {
-                      borderColor = 'primary.main';
-                      border = '2px solid';
-                    }
-
+                {/* The prototype's question review: the right option green, a
+                    wrong pick red, each with why. */}
+                <Box component="ul" sx={{ m: 0, mt: '6px', p: 0, listStyle: 'none' }}>
+                  {currentQData.q.options.map((opt, oidx) => {
+                    const wasSelected = opt.id !== undefined && currentQData.answer?.selected_option_ids
+                      ? currentQData.answer.selected_option_ids.includes(opt.id) : false;
+                    const right = opt.is_correct;
+                    const wrongPick = wasSelected && !right;
                     return (
                       <Box
-                        key={item.q.id}
-                        onClick={() => setCurrentIndex(idx)}
+                        component="li"
+                        key={opt.id ?? oidx}
                         sx={{
-                          position: 'relative',
-                          width: 40, height: 40,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          borderRadius: '8px',
-                          bgcolor: bg, color: fg,
-                          border, borderColor,
-                          cursor: 'pointer',
-                          fontWeight: isActive ? 700 : 500,
-                          '&:hover': { opacity: 0.8 }
+                          mt: '8px', p: '13px', borderRadius: '10px', border: '1px solid',
+                          borderColor: right ? 'success.main' : wrongPick ? 'error.main' : 'divider',
+                          bgcolor: right ? 'pb.successSoft' : wrongPick ? 'pb.dangerSoft' : 'background.paper',
                         }}
                       >
-                        {item.originalIdx + 1}
-                        {item.isFlagged && (
-                          <Box sx={{
-                            position: 'absolute', top: -4, right: -4,
-                            width: 12, height: 12, borderRadius: '50%',
-                            bgcolor: 'warning.main', border: '2px solid', borderColor: 'background.paper'
-                          }} />
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                          <Box component="span" sx={{ minWidth: 0, fontWeight: wasSelected || right ? 650 : 400 }}>
+                            {String.fromCharCode(65 + oidx)}. {opt.option_text}
+                          </Box>
+                          <Box sx={{ display: 'flex', gap: '6px', flex: '0 0 auto' }}>
+                            {right && <Pill tone="success">Correct</Pill>}
+                            {wasSelected && <Pill tone={right ? 'success' : 'danger'}>Your answer</Pill>}
+                          </Box>
+                        </Box>
+                        {opt.explanation_why_incorrect && !right && (
+                          <Detail sx={{ mt: '4px' }}>Why incorrect: {opt.explanation_why_incorrect}</Detail>
                         )}
                       </Box>
                     );
                   })}
                 </Box>
-              </CardContent>
-            </Card>
-          </Grid>
 
-          {/* Right Pane: Focused Question View */}
-          <Grid
-            size={{
-              xs: 12,
-              md: 8.5,
-              lg: 9
-            }}>
-            {currentQData && (
-              <Card sx={{ borderRadius: '12px', boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
-                <CardContent sx={{ p: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  
-                  {/* Header: Number & Metadata */}
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                      Question {currentQData.originalIdx + 1}
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Chip label={currentQData.q.domain} size="small" variant="outlined" />
-                      <Chip label={currentQData.q.difficulty} size="small"
-                        color={currentQData.q.difficulty === 'easy' ? 'success' : currentQData.q.difficulty === 'medium' ? 'warning' : 'error'} />
-                      {currentQData.isFlagged && <Chip icon={<Flag size={14} />} label="Flagged" size="small" color="warning" />}
-                    </Box>
+                {currentQData.q.explanation && (
+                  <Box sx={{ mt: '18px' }}>
+                    <Eyebrow>Why</Eyebrow>
+                    {/* Rendered rather than printed: every explanation in the
+                        bank is Markdown, and this showed it raw. */}
+                    <Box sx={{ mt: '8px' }}><Explanation text={currentQData.q.explanation} variant="body1" /></Box>
                   </Box>
+                )}
 
-                  {/* Case Study & Text */}
-                  {currentQData.q.case_study_text && (
-                    <Paper sx={{ p: 2, borderLeft: '4px solid', borderColor: 'secondary.main', bgcolor: 'background.default', boxShadow: 'none' }}>
-                      <Typography variant="caption" color="secondary" sx={{ fontWeight: 700 }}>Case Study</Typography>
-                      <Typography variant="body2" sx={{ mt: 0.5 }}>{currentQData.q.case_study_text}</Typography>
-                    </Paper>
-                  )}
-
-                  <Typography variant="body1" sx={{ fontWeight: 600, fontSize: '1.1rem' }}>
-                    {currentQData.q.text}
-                  </Typography>
-
-                  {currentQData.q.code_snippet && (
-                    <Box className="code-block">
-                      <pre><code>{currentQData.q.code_snippet}</code></pre>
-                    </Box>
-                  )}
-
-                  {/* Options */}
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                    {currentQData.q.options.map((opt, oidx) => {
-                      const wasSelected = opt.id !== undefined && currentQData.answer?.selected_option_ids ? currentQData.answer.selected_option_ids.includes(opt.id) : false;
-                      const isOptCorrect = opt.is_correct;
-                      let bgColor = 'background.default';
-                      let borderColor = 'divider';
-                      
-                      if (isOptCorrect) { bgColor = 'success.light'; borderColor = 'success.main'; }
-                      else if (wasSelected && !isOptCorrect) { bgColor = 'error.light'; borderColor = 'error.main'; }
-
-                      return (
-                        <Box key={opt.id} sx={{ p: 2, borderRadius: '8px', bgcolor: bgColor, border: '1px solid', borderColor, display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-                          <Box sx={{ mt: 0.3 }}>
-                            {isOptCorrect
-                              ? <CheckCircle2 size={20} color="#146C2E" />
-                              : wasSelected
-                              ? <XCircle size={20} color="#B3261E" />
-                              : <Minus size={20} color="#94A3B8" />}
-                          </Box>
-                          <Box>
-                            <Typography variant="body1" sx={{ fontWeight: wasSelected || isOptCorrect ? 700 : 400 }}>
-                              {String.fromCharCode(65 + oidx)}. {opt.option_text}
-                            </Typography>
-                            {opt.explanation_why_incorrect && !isOptCorrect && (
-                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                                Why incorrect: {opt.explanation_why_incorrect}
-                              </Typography>
-                            )}
-                          </Box>
-                        </Box>
-                      );
-                    })}
+                {currentQData.answer?.user_notes && (
+                  <Box sx={{ mt: '16px', p: '12px 13px', borderRadius: '9px', border: '1px solid', borderColor: 'divider' }}>
+                    <Eyebrow>Your notes</Eyebrow>
+                    <Box component="p" sx={{ m: 0, mt: '6px' }}>{currentQData.answer.user_notes}</Box>
                   </Box>
+                )}
 
-                  {/* Official Explanation */}
-                  {currentQData.q.explanation && (
-                    <Box sx={{ pl: 2, borderLeft: '2px solid', borderColor: 'divider' }}>
-                      <Typography variant="overline" sx={{ color: 'text.secondary' }}>Why</Typography>
-                      {/* Rendered rather than printed: every explanation in
-                          the bank is Markdown, and this showed it raw. */}
-                      <Explanation text={currentQData.q.explanation} />
-                    </Box>
-                  )}
-
-                  {/* User Notes */}
-                  {currentQData.answer?.user_notes && (
-                    <Paper sx={{ p: 2, bgcolor: 'background.default', boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>Your Notes</Typography>
-                      <Typography variant="body2" sx={{ mt: 0.5 }}>{currentQData.answer.user_notes}</Typography>
-                    </Paper>
-                  )}
-
-                  {/* Footer Stats */}
-                  <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
+                {((currentQData.answer?.confidence_level && currentQData.answer.confidence_level !== 'not_set')
+                  || currentQData.answer?.time_spent_seconds != null) && (
+                  <Box sx={{ display: 'flex', gap: '6px', mt: '14px', flexWrap: 'wrap' }}>
                     {currentQData.answer?.confidence_level && currentQData.answer.confidence_level !== 'not_set' && (
-                      <Chip label={`Confidence: ${currentQData.answer.confidence_level.toUpperCase()}`} size="small" variant="outlined" />
+                      <Pill>Confidence: {currentQData.answer.confidence_level}</Pill>
                     )}
                     {currentQData.answer?.time_spent_seconds != null && (
-                      <Chip label={`${currentQData.answer.time_spent_seconds}s spent`} size="small" variant="outlined" icon={<Clock size={12} />} />
+                      <Pill>{currentQData.answer.time_spent_seconds}s spent</Pill>
                     )}
                   </Box>
+                )}
 
-                </CardContent>
-
-                {/* Navigation Footer */}
-                <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', borderTop: '1px solid', borderColor: 'divider', bgcolor: 'background.default' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', mt: '18px', pt: '14px', borderTop: '1px solid', borderColor: 'divider' }}>
                   <Button
-                    startIcon={<ArrowLeft />}
+                    variant="outlined"
                     disabled={currentIndex === 0}
                     onClick={() => setCurrentIndex((i) => i - 1)}
-                    sx={{ borderRadius: '100px' }}
                   >
                     Previous
                   </Button>
-                  <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
-                    {currentIndex + 1} of {filteredQuestions.length}
-                  </Typography>
+                  <Detail component="span">{currentIndex + 1} of {filteredQuestions.length}</Detail>
                   <Button
-                    endIcon={<ArrowRight />}
+                    variant="outlined"
                     disabled={currentIndex === filteredQuestions.length - 1}
                     onClick={() => setCurrentIndex((i) => i + 1)}
-                    sx={{ borderRadius: '100px' }}
                   >
                     Next
                   </Button>
                 </Box>
-              </Card>
+              </Panel>
             )}
           </Grid>
-        </Grid>
-      )}
+        )}
+      </Section>
     </Box>
   );
 };

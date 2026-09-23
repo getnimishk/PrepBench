@@ -2,7 +2,7 @@
 # Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 # Commercial use requires a separate licence from the copyright holder.
 
-from typing import List, Optional
+from typing import List, Optional, Literal
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, field_validator, Field, AliasChoices
 from app.models.question import QuestionType, QuestionDifficulty
@@ -30,6 +30,12 @@ class QuestionBase(BaseModel):
     topic: str = "General"
     subtopic: Optional[str] = None
     certification: str = "General Prep"
+    # Which preparation owns the question. Optional on the way in: when it is
+    # omitted the repository resolves it from `certification` by exact match,
+    # which is what keeps every existing caller -- above all the importers,
+    # which know a certification name and not a subject id -- binding correctly
+    # without being changed.
+    subject_id: Optional[int] = None
     source: Optional[str] = None
     # NULL-tolerant because the column is nullable and the response model is
     # not. A single row with tags IS NULL -- which the app never writes, but a
@@ -81,14 +87,46 @@ class QuestionResponse(QuestionBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+class QuestionEvidence(BaseModel):
+    """What the learner's own answers say about one question. See services/question_evidence."""
+    answered: int
+    correct: int
+    missed: bool
+    due: bool
+
+
+class QuestionWithEvidence(QuestionResponse):
+    evidence: QuestionEvidence
+
+
+class QuestionBankSummary(BaseModel):
+    subject_id: Optional[int] = None
+    questions: int
+    attempted: int
+    never_attempted: int
+    answers: int
+    correct_answers: int
+    # Null, never 0, when nothing has been answered.
+    correct_percentage: Optional[float] = None
+    review_due: int
+    missed_at_least_once: int
+    flagged_reviewed: int
+
+
 class QuestionFilter(BaseModel):
     keyword: Optional[str] = None
     domain: Optional[str] = None
     topic: Optional[str] = None
     certification: Optional[str] = None
+    # Scope by preparation. Precise where `certification` is a loose string
+    # match, and additive: omitting it leaves the listing exactly as it was.
+    subject_id: Optional[int] = None
     difficulty: Optional[QuestionDifficulty] = None
+    question_type: Optional[QuestionType] = None
     tag: Optional[str] = None
     is_reviewed: Optional[bool] = None
+    # What the learner's answers say: missed, due, correct or unattempted.
+    outcome: Optional[Literal["missed", "due", "correct", "unattempted"]] = None
 
 class QuestionBulkDeleteRequest(BaseModel):
     ids: List[int]

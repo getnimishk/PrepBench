@@ -206,16 +206,25 @@ def test_unknown_subject_404s():
     assert client.get("/api/v1/subjects/999999999").status_code == 404
 
 
-def test_seeded_subjects_exist_and_only_the_certification_has_an_exam_profile():
-    from tests.conftest import TestingSessionLocal
+def test_seeded_subjects_exist_and_only_the_certification_has_an_exam_profile(tmp_path):
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from app.core.database import Base
     from app.utils.seed_subjects import seed_subjects, SEED_SUBJECTS
 
-    session = TestingSessionLocal()
+    # A fresh install, in a database of its own. The shared test database already
+    # holds subjects other tests made, and the seed ledger rightly declines to add
+    # built-ins to a bank it has no record of -- which made this test pass or fail
+    # depending on what ran before it.
+    engine = create_engine(f"sqlite:///{tmp_path / 'fresh_install.db'}")
+    Base.metadata.create_all(bind=engine)
+    session = sessionmaker(bind=engine)()
     try:
         seed_subjects(session)
         names = SubjectRepository(session).get_existing_names()
     finally:
         session.close()
+        engine.dispose()
 
     for seed in SEED_SUBJECTS:
         assert seed["name"] in names

@@ -2,18 +2,16 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import type { Attempt, ConceptId } from '../../types/learning';
 import { CHALLENGE_BY_ID, CHALLENGES } from './challenges';
 import { fingerprint, paramsFor } from './scenarios';
 import {
   commitPrediction,
   completeAttempt,
-  clearAttempts,
-  loadAttempts,
   parseAttempts,
-  saveAttempt,
   startAttempt,
+  upsertAttempt,
   withHint,
 } from './attempts';
 import { interviewReadiness, masteryFor, masteryMap } from './mastery';
@@ -90,23 +88,14 @@ describe('the attempt lifecycle', () => {
   });
 });
 
-describe('attempt storage', () => {
-  beforeEach(() => clearAttempts());
-
-  it('round-trips an attempt', () => {
-    const attempt = attemptOn('wip-recognition');
-    saveAttempt(attempt);
-    expect(loadAttempts().map((a) => a.attemptId)).toContain(attempt.attemptId);
-  });
-
+describe('attempt history', () => {
   it('replaces by id rather than appending a duplicate', () => {
     const attempt = attemptOn('wip-recognition', { correct: false });
-    saveAttempt(attempt);
-    saveAttempt({ ...attempt, correct: true });
+    const once = upsertAttempt([], attempt);
+    const twice = upsertAttempt(once, { ...attempt, correct: true });
 
-    const stored = loadAttempts().filter((a) => a.attemptId === attempt.attemptId);
-    expect(stored).toHaveLength(1);
-    expect(stored[0].correct).toBe(true);
+    expect(twice).toHaveLength(1);
+    expect(twice[0].correct).toBe(true);
   });
 
   it('discards an unreadable payload instead of throwing', () => {
@@ -119,14 +108,6 @@ describe('attempt storage', () => {
     // ...and a half-written record is dropped without taking the rest with it.
     const good = attemptOn('wip-recognition');
     expect(parseAttempts(JSON.stringify([good, { attemptId: 'partial' }]))).toEqual([good]);
-  });
-
-  it('keeps the session alive when the browser gives us no storage at all', () => {
-    // jsdom provides none, and so does a browser set to block site data. The
-    // alternative is a learner whose every answer vanishes as they give it.
-    const attempt = attemptOn('sandbox-recognition');
-    saveAttempt(attempt);
-    expect(loadAttempts().map((a) => a.attemptId)).toContain(attempt.attemptId);
   });
 });
 

@@ -1,20 +1,26 @@
 :root {
-  font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif;
-  line-height: 1.5;
+  /* The prototype's type: Inter, then the platform's own sans. The 14px base is
+     the body's, set by the theme; the root stays at 16px because every rem size
+     the theme computes assumes it. */
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.48;
   font-weight: 400;
-  color-scheme: dark;
+  /* color-scheme follows the theme: CssBaseline sets it from the palette mode.
+     Fixed to dark here, it gave light pages dark form controls and scrollbars. */
 }
 
-* {
-  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-}
+/* There was a `* { transition: color, background-color, ... }` here. Every
+   element eased its colour, and inherited colour compounds down the tree, so a
+   theme applied on load took well over a second to settle in nested content --
+   for that time text sat at a contrast nobody chose, and the focus ring's
+   box-shadow faded in instead of appearing. Components that animate a hover
+   state declare their own transition. */
 
 html {
   scroll-behavior: smooth;
 }
 
-/* Route/panel entry -- subtle, short, matches MD3 motion guidance
-   (purposeful, not decorative). Referenced by AppLayout's main content area. */
+/* Route/panel entry -- subtle and short. Referenced by AppLayout's main content area. */
 @keyframes fade-in-slide {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
@@ -23,78 +29,52 @@ html {
   animation: fade-in-slide 150ms ease-out;
 }
 
+/* The first paint, before the theme has mounted: the prototype's page colours,
+   so a load does not flash a different surface. The theme takes over at once. */
 body {
   margin: 0;
   padding: 0;
-  background-color: #131314;
-  color: #E3E3E3;
+  background-color: #f6f6f3;
+  color: #171817;
   min-height: 100vh;
   overflow-x: hidden;
   position: relative;
 }
 
-@media (prefers-color-scheme: light) {
+@media (prefers-color-scheme: dark) {
   body {
-    background-color: #F8F9FA;
-    color: #1F1F1F;
+    background-color: #111310;
+    color: #f2f3ee;
   }
 }
 
-/* Custom Scrollbars */
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #A8C7FA;
-  border-radius: 6px;
-  border: 2px solid transparent;
-  background-clip: content-box;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #0B57D0;
-  background-clip: content-box;
-}
-
-@media (prefers-color-scheme: light) {
-  ::-webkit-scrollbar-thumb {
-    background: #0B57D0;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: #001D35;
-  }
-}
+/* The prototype draws the platform's own scrollbars. A styled blue thumb ran
+   the full height of the rail beside the navigation. */
 
 ::selection {
-  background-color: rgba(11, 87, 208, 0.3);
+  background-color: rgba(49, 87, 213, 0.22);
   color: inherit;
 }
 
-code, pre {
-  font-family: 'Roboto Mono', monospace;
+code, pre, kbd, samp {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-/* Standard Code Block */
+/* Standard Code Block -- the prototype's .code */
 .code-block {
-  background: #1E1F22;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
-  padding: 16px;
+  background: #fafaf8;
+  border: 1px solid #dedfd9;
+  border-radius: 9px;
+  padding: 11px 12px;
   overflow-x: auto;
-  font-size: 0.9rem;
-  color: #E3E3E3;
+  font-size: 12px;
+  color: #5f625c;
 }
 
-@media (prefers-color-scheme: light) {
+@media (prefers-color-scheme: dark) {
   .code-block {
-    background: #FFFFFF;
-    border: 1px solid rgba(0, 0, 0, 0.12);
-    color: #1F1F1F;
+    background: #151815;
+    border: 1px solid #2b302b;
+    color: #aeb3aa;
   }
 }

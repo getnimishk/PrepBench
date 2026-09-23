@@ -2,19 +2,36 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Link as RouterLink, useParams, useNavigate } from 'react-router-dom';
+import { Alert, Box, Button, CircularProgress, Typography } from '@mui/material';
 import {
-  Box, Card, CardContent, Typography, Button, Alert,
-  LinearProgress, Divider, List, ListItem, ListItemIcon, ListItemText
-} from '@mui/material';
-import { CheckCircle2, AlertTriangle, ArrowLeft } from 'lucide-react';
-import {
-  getSystemDesignAttempt, getSystemDesignPromptAttempts,
+  getSystemDesignAttempt, getSystemDesignPromptAttempts, regradeSystemDesignAttempt,
   SystemDesignAttemptHistoryItem,
 } from '../services/api';
+import { apiErrorMessage, loadFailed } from '../services/apiError';
+import { SECTIONS } from '../services/systemDesignSections';
 import { SystemDesignAttempt } from '../types/systemDesign';
-import { CategoryScoreList, scoreColor } from '../components/common/CategoryScoreList';
+import { LoadingState } from '../components/common/States';
+import { NARROW_QUERY } from '../theme/tokens';
+import {
+  Bar, BigFigure, Detail, Eyebrow, Grid, PageHead, Panel, PanelHead, Row, Section, Sub,
+} from '../components/ui/primitives';
+
+/**
+ * The result of one written design: the score out of ten, each rubric
+ * dimension on its own, and the one thing to improve next -- the prototype's
+ * results screen -- followed by the answer that was graded and every earlier
+ * attempt at the same prompt.
+ *
+ * An answer that was not graded says so in the title. There is no score on the
+ * screen at all then, rather than a zero or a placeholder that reads as one.
+ */
+
+/** The grader's overall score is out of 100; the rubric dimensions, and this page, count out of ten. */
+const outOfTen = (score100: number) => (score100 / 10).toFixed(1);
+
+const figure = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
 export const SystemDesignResultsPage: React.FC = () => {
   const { attemptId } = useParams<{ attemptId: string }>();
@@ -25,6 +42,15 @@ export const SystemDesignResultsPage: React.FC = () => {
   const [history, setHistory] = useState<SystemDesignAttemptHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [regrading, setRegrading] = useState(false);
+  const [regradeError, setRegradeError] = useState<string | null>(null);
+
+  const loadHistory = useCallback((promptId: number) => {
+    getSystemDesignPromptAttempts(promptId)
+      .then((h) => setHistory(h.items))
+      .catch(() => setHistory([]));
+  }, []);
 
   useEffect(() => {
     if (isNaN(aid) || aid <= 0) return;
@@ -33,124 +59,191 @@ export const SystemDesignResultsPage: React.FC = () => {
     getSystemDesignAttempt(aid)
       .then((a) => {
         setAttempt(a);
-        // History is a second question, so a failure to answer it must not
-        // take the feedback down with it.
-        getSystemDesignPromptAttempts(a.prompt_id)
-          .then((h) => setHistory(h.items))
-          .catch(() => setHistory([]));
+        loadHistory(a.prompt_id);
       })
-      .catch(() => setFetchError('Failed to load results. Please check backend connection.'))
+      .catch((err) => setFetchError(loadFailed('Could not load these results', err)))
       .finally(() => setLoading(false));
-  }, [aid]);
+  }, [aid, loadHistory, loadAttempt]);
+
+  // Grade an answer that was saved without one -- after a provider is set up, or
+  // after grading failed. The answer itself is not touched.
+  const regrade = async () => {
+    if (!attempt) return;
+    setRegrading(true);
+    setRegradeError(null);
+    try {
+      const updated = await regradeSystemDesignAttempt(attempt.id);
+      setAttempt((prev) => ({ ...updated, prompt: updated.prompt ?? prev?.prompt }));
+      loadHistory(updated.prompt_id);
+    } catch (err) {
+      setRegradeError(apiErrorMessage(err, 'Grading did not run. Your answer is still saved.'));
+    } finally {
+      setRegrading(false);
+    }
+  };
 
   if (isNaN(aid) || aid <= 0) {
     return <Alert severity="error">Invalid attempt.</Alert>;
   }
 
-  if (loading) return <LinearProgress />;
+  if (loading) return <LoadingState label="Loading these results…" />;
 
   if (fetchError || !attempt) {
-    return <Alert severity="error">{fetchError || 'Attempt not found.'}</Alert>;
+    return (
+      <Alert severity="error" action={fetchError ? <Button color="inherit" size="small" onClick={() => setLoadAttempt((n) => n + 1)}>Retry</Button> : undefined}>
+        {fetchError || 'Attempt not found.'}
+      </Alert>
+    );
   }
 
-  const notGraded = attempt.grading_status !== 'graded';
+  const graded = attempt.grading_status === 'graded' && attempt.overall_score != null;
+  const reviseHref = `/system-design/${attempt.prompt_id}/answer`;
+  const title = attempt.prompt?.title || 'System design answer';
+  // The lowest-scored rubric category: where the next revision should start.
+  const weakest = attempt.category_scores.length
+    ? attempt.category_scores.reduce((w, c) => (c.score / (c.max_score || 10) < w.score / (w.max_score || 10) ? c : w))
+    : null;
+  const improveNext = attempt.improvements[0] ?? weakest?.feedback ?? null;
+
+  const actions = (
+    <>
+      <Button variant="outlined" onClick={() => navigate('/system-design')}>← System Design</Button>
+      <Button component={RouterLink} to={reviseHref} variant="outlined">Revise your answer</Button>
+      <Button variant="contained" onClick={() => navigate('/system-design')}>Practise another prompt</Button>
+    </>
+  );
 
   return (
-    <Box sx={{ maxWidth: 900, pb: 8 }}>
-      <Button startIcon={<ArrowLeft size={18} />} onClick={() => navigate('/system-design')} sx={{ mb: 2 }}>
-        Back to System Design
-      </Button>
-
-      <Typography variant="h4" sx={{ fontWeight: 600, mb: 1 }}>
-        {attempt.prompt?.title || 'System Design Feedback'}
-      </Typography>
-      {attempt.target_role && (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Graded for: <strong>{attempt.target_role}</strong>
-        </Typography>
+    <Box>
+      {graded ? (
+        <PageHead
+          eyebrow={`System Design · Results · ${title}`}
+          title={`${outOfTen(attempt.overall_score ?? 0)} / 10`}
+          sub={attempt.summary || 'Graded by the configured AI provider against the six-dimension rubric.'}
+          actions={actions}
+        >
+          {attempt.target_role && <Detail>Graded for: <strong>{attempt.target_role}</strong></Detail>}
+        </PageHead>
+      ) : (
+        <PageHead
+          eyebrow={`System Design · Results · ${title}`}
+          title="Not graded"
+          sub={attempt.grading_status === 'unavailable'
+            ? 'This answer was saved but not graded — no AI provider is set up yet. Add one in Settings → AI Providers, then grade it again.'
+            : `Grading failed: ${attempt.grading_error || 'Unknown error'}. Your answer was saved; grade it again when you are ready.`}
+          actions={(
+            <>
+              <Button component={RouterLink} to={reviseHref} variant="outlined">Revise your answer</Button>
+              <Button component={RouterLink} to="/settings/ai" variant="outlined">AI settings</Button>
+              <Button
+                variant="contained"
+                color="ink"
+                disabled={regrading}
+                onClick={regrade}
+                startIcon={regrading ? <CircularProgress size={14} color="inherit" /> : undefined}
+              >
+                {regrading ? 'Grading…' : 'Grade again'}
+              </Button>
+            </>
+          )}
+        />
       )}
 
-      {notGraded ? (
-        <Alert severity={attempt.grading_status === 'unavailable' ? 'info' : 'warning'} sx={{ mb: 3 }}>
-          {attempt.grading_status === 'unavailable'
-            ? 'This answer was saved but not graded — no AI provider is set up yet. Add one in Settings → AI Providers to enable feedback.'
-            : `Grading failed: ${attempt.grading_error || 'Unknown error'}. Your answer was saved; try again later.`}
-        </Alert>
-      ) : (
-        <>
-          {/* Overall score */}
-          <Card sx={{ mb: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
-            <CardContent sx={{ textAlign: 'center', py: 4 }}>
-              <Typography variant="h2" sx={{ fontWeight: 800, color: `${scoreColor(attempt.overall_score || 0)}.main` }}>
-                {Math.round(attempt.overall_score || 0)}%
-              </Typography>
-              <Typography variant="body2" color="text.secondary">Overall Score</Typography>
-            </CardContent>
-          </Card>
+      {regradeError && <Alert severity="error" sx={{ mt: '14px' }}>{regradeError}</Alert>}
 
-          {attempt.summary && (
-            <Alert severity="info" sx={{ mb: 3 }}>{attempt.summary}</Alert>
+      {graded && (
+        <>
+          {attempt.category_scores.length > 0 && (
+            <Section>
+              <Grid columns={3} aria-label="Rubric dimensions">
+                {attempt.category_scores.map((c) => {
+                  const pct = c.max_score > 0 ? (c.score / c.max_score) * 100 : 0;
+                  return (
+                    <Panel key={c.category} component="section" aria-label={c.category}>
+                      <Eyebrow>{c.category}</Eyebrow>
+                      <BigFigure size={28}>{figure(c.score)}</BigFigure>
+                      <Bar value={pct} label={`${c.category}: ${figure(c.score)} of ${c.max_score}`} />
+                      {c.feedback && <Detail sx={{ mt: '8px' }}>{c.feedback}</Detail>}
+                    </Panel>
+                  );
+                })}
+              </Grid>
+            </Section>
           )}
 
-          {/* Category scores */}
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>Category Breakdown</Typography>
-          <Card sx={{ mb: 4, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
-            <CardContent>
-              <CategoryScoreList scores={attempt.category_scores} gap={2} />
-            </CardContent>
-          </Card>
+          {improveNext && (
+            <Section>
+              <Panel component="section" aria-labelledby="improve-next">
+                <Eyebrow>Improve next</Eyebrow>
+                <Typography variant="h5" component="h2" id="improve-next" sx={{ mt: '4px' }}>{improveNext}</Typography>
+                {weakest && (
+                  <Sub sx={{ mb: 0 }}>
+                    Lowest-scored: {weakest.category} at {Math.round((weakest.score / (weakest.max_score || 10)) * 100)}%.
+                  </Sub>
+                )}
+                <Box sx={{ mt: '12px' }}>
+                  <Button component={RouterLink} to={reviseHref} variant="contained" color="ink">Revise your answer</Button>
+                </Box>
+              </Panel>
+            </Section>
+          )}
 
-          <Divider sx={{ mb: 4 }} />
-
-          {/* Strengths / Improvements */}
-          <Box sx={{ display: 'flex', gap: 3, flexDirection: { xs: 'column', sm: 'row' } }}>
-            <Card sx={{ flex: 1, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
-              <CardContent>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>Strengths</Typography>
-                <List dense>
-                  {attempt.strengths.map((s, i) => (
-                    <ListItem key={i} disableGutters>
-                      <ListItemIcon sx={{ minWidth: 32 }}>
-                        <CheckCircle2 size={18} color="#34D399" />
-                      </ListItemIcon>
-                      <ListItemText primary={s} />
-                    </ListItem>
-                  ))}
-                </List>
-              </CardContent>
-            </Card>
-            <Card sx={{ flex: 1, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
-              <CardContent>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>Areas to Improve</Typography>
-                <List dense>
-                  {attempt.improvements.map((s, i) => (
-                    <ListItem key={i} disableGutters>
-                      <ListItemIcon sx={{ minWidth: 32 }}>
-                        <AlertTriangle size={18} color="#FBBF24" />
-                      </ListItemIcon>
-                      <ListItemText primary={s} />
-                    </ListItem>
-                  ))}
-                </List>
-              </CardContent>
-            </Card>
-          </Box>
+          {(attempt.strengths.length > 0 || attempt.improvements.length > 0) && (
+            <Section>
+              <Grid template="repeat(2, minmax(0,1fr))">
+                <Panel component="section" aria-labelledby="strengths">
+                  <PanelHead eyebrow="What held up" title="Strengths" titleId="strengths" />
+                  <Points items={attempt.strengths} mark="✓" tone="success.main" empty="The grader named no strengths." />
+                </Panel>
+                <Panel component="section" aria-labelledby="to-improve">
+                  <PanelHead eyebrow="What to work on" title="Areas to improve" titleId="to-improve" />
+                  <Points items={attempt.improvements} mark="!" tone="warning.main" empty="The grader named nothing to improve." />
+                </Panel>
+              </Grid>
+            </Section>
+          )}
         </>
       )}
 
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-        <Button
-          variant="contained"
-          onClick={() => navigate('/system-design')}
-          sx={{ borderRadius: '100px', boxShadow: 'none', px: 4 }}
-        >
-          Practice Another Prompt
-        </Button>
-      </Box>
+      <Section>
+        <Panel component="section" aria-labelledby="your-answer">
+          <PanelHead eyebrow="Your answer" title={title} titleId="your-answer" />
+          {attempt.sections ? (
+            <Box sx={{ display: 'grid', gap: '14px' }}>
+              {SECTIONS.map((s) => (
+                <Box key={s.key}>
+                  <Typography variant="subtitle2" component="h3">{s.label}</Typography>
+                  <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', mt: '2px', color: attempt.sections?.[s.key] ? 'text.primary' : 'text.secondary' }}>
+                    {attempt.sections?.[s.key] || 'Not written.'}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          ) : (
+            <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>{attempt.answer_text}</Typography>
+          )}
+        </Panel>
+      </Section>
+
       <AttemptHistory items={history} currentId={aid} />
     </Box>
   );
 };
+
+const Points: React.FC<{ items: string[]; mark: string; tone: string; empty: string }> = ({ items, mark, tone, empty }) => (
+  items.length === 0 ? (
+    <Detail>{empty}</Detail>
+  ) : (
+    <Box component="ul" sx={{ listStyle: 'none', p: 0, m: 0, display: 'grid', gap: '8px' }}>
+      {items.map((text, i) => (
+        <Box component="li" key={i} sx={{ display: 'grid', gridTemplateColumns: '18px 1fr', gap: '6px', alignItems: 'baseline' }}>
+          <Box component="span" aria-hidden sx={{ color: tone, fontWeight: 800 }}>{mark}</Box>
+          <Typography variant="body1" component="span">{text}</Typography>
+        </Box>
+      ))}
+    </Box>
+  )
+);
 
 /**
  * Every attempt at this prompt, and what actually changed.
@@ -174,55 +267,43 @@ const AttemptHistory: React.FC<{
   const graded = items.filter((i) => i.overall_score !== null).length;
 
   return (
-    <Box sx={{ mt: 6 }}>
-      <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-        Your attempts at this prompt
-      </Typography>
-
-      <Box sx={{ mt: 1 }}>
-        {items.map((i) => (
-          <Box
-            key={i.attempt_id}
-            sx={{
-              display: 'flex', alignItems: 'baseline', gap: 2, py: 1.1,
-              borderBottom: 1, borderColor: 'divider', flexWrap: 'wrap',
-              fontWeight: i.attempt_id === currentId ? 600 : 400,
-            }}
-          >
-            <Typography variant="body2" sx={{ width: 92, color: 'text.secondary' }}>
-              {new Date(i.created_at).toLocaleDateString(undefined, {
-                day: 'numeric', month: 'short',
-              })}
-            </Typography>
-            <Typography variant="body2" sx={{ flexGrow: 1, fontWeight: 'inherit' }}>
-              {i.attempt_id === currentId ? 'This one' : 'Earlier attempt'}
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{ width: 64, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
-            >
-              {/* Never a zero for an attempt that was never graded. */}
-              {i.overall_score !== null ? `${Math.round(i.overall_score)}%` : 'not graded'}
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{ width: 74, textAlign: 'right', color: 'text.secondary' }}
-            >
-              {i.change_vs_previous === null
-                ? ''
-                : `${i.change_vs_previous > 0 ? '+' : ''}${Math.round(i.change_vs_previous)} pts`}
-            </Typography>
-          </Box>
-        ))}
-      </Box>
-
-      {graded < 2 && (
-        <Typography variant="caption" sx={{ display: 'block', mt: 1.5, color: 'text.secondary' }}>
-          {graded === 0
-            ? 'None of these were graded, so there is nothing to compare yet.'
-            : 'Only one of these was graded, so there is nothing to compare it with yet.'}
-        </Typography>
-      )}
-    </Box>
+    <Section>
+      <Panel component="section" aria-labelledby="attempt-history">
+        <PanelHead eyebrow="History" title="Your attempts at this prompt" titleId="attempt-history" />
+        {items.map((i) => {
+          const current = i.attempt_id === currentId;
+          const change = i.change_vs_previous === null
+            ? null
+            : `${i.change_vs_previous > 0 ? '+' : ''}${(i.change_vs_previous / 10).toFixed(1)}`;
+          return (
+            <Row
+              key={i.attempt_id}
+              // The score stays on a phone too: it is the point of the row.
+              sx={{ [NARROW_QUERY]: { gridTemplateColumns: 'minmax(0,1fr) auto auto', '& > .pb-row-middle': { display: 'grid' } } }}
+              title={current ? 'This one' : 'Earlier attempt'}
+              detail={new Date(i.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+              middle={(
+                // Never a zero for an attempt that was never graded.
+                <Typography variant="body1" component="span" sx={{ fontWeight: current ? 700 : 400, fontVariantNumeric: 'tabular-nums' }}>
+                  {i.overall_score !== null ? `${outOfTen(i.overall_score)} / 10` : 'not graded'}
+                </Typography>
+              )}
+              action={(
+                <Detail component="span" sx={{ minWidth: 44, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                  {change}
+                </Detail>
+              )}
+            />
+          );
+        })}
+        {graded < 2 && (
+          <Detail sx={{ mt: '10px' }}>
+            {graded === 0
+              ? 'None of these were graded, so there is nothing to compare yet.'
+              : 'Only one of these was graded, so there is nothing to compare it with yet.'}
+          </Detail>
+        )}
+      </Panel>
+    </Section>
   );
 };

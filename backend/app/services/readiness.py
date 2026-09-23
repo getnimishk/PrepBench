@@ -50,6 +50,24 @@ PLATEAU_MARGIN = 2.0            # ...and this close to the line
 MIN_QUESTIONS_PER_DOMAIN = 10
 
 
+def rules() -> Dict[str, float]:
+    """The numbers above, for a surface that has to say what would change a verdict.
+
+    Served with every readiness so "what would change this" can quote the rule
+    the server applied, rather than a copy of it in the client that drifts the
+    first time one of these is argued with and changed.
+    """
+    return {
+        "min_mocks_for_ready": MIN_MOCKS_FOR_READY,
+        "consecutive_mocks_at_pass": CONSECUTIVE_MOCKS_AT_PASS,
+        "domain_floor_pct": DOMAIN_FLOOR_PCT,
+        "recency_days": RECENCY_DAYS,
+        "plateau_min_mocks": PLATEAU_MIN_MOCKS,
+        "plateau_max_spread": PLATEAU_MAX_SPREAD,
+        "min_questions_per_domain": MIN_QUESTIONS_PER_DOMAIN,
+    }
+
+
 class ReadinessState(str, enum.Enum):
     NEEDS_EVALUATION = "needs_evaluation"
     DEVELOPING = "developing"

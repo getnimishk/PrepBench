@@ -3,10 +3,11 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React from 'react';
-import { Box, Paper, Stack, Tooltip, Typography } from '@mui/material';
+import { Box, Stack, Tooltip, Typography } from '@mui/material';
 import { ArrowDownRight, ArrowUpRight, Lock, Minus } from 'lucide-react';
 import type { Outcome } from '../../services/metrics/whatMoved';
 import { Sparkline } from './Sparkline';
+import { Panel } from '../ui/primitives';
 
 // "What the system is doing" -- the strip between the controls and the charts.
 //
@@ -66,7 +67,7 @@ export const KeyOutcomes: React.FC<Props> = ({ outcomes, atBaseline }) => (
       spacing={1}
       sx={{ alignItems: 'baseline', mb: 1, flexWrap: 'wrap', rowGap: 0.5 }}
     >
-      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+      <Typography variant="subtitle2" component="h2" sx={{ fontWeight: 700 }}>
         What the system is doing
       </Typography>
       <Typography variant="caption" color="text.secondary">
@@ -81,8 +82,9 @@ export const KeyOutcomes: React.FC<Props> = ({ outcomes, atBaseline }) => (
         display: 'grid',
         gap: 1.5,
         gridTemplateColumns: {
-          xs: 'repeat(2, minmax(0, 1fr))',
-          sm: 'repeat(3, minmax(0, 1fr))',
+          xs: '1fr',
+          sm: 'repeat(2, minmax(0, 1fr))',
+          md: 'repeat(3, minmax(0, 1fr))',
           lg: 'repeat(5, minmax(0, 1fr))',
         },
       }}
@@ -115,15 +117,16 @@ export const KeyOutcomes: React.FC<Props> = ({ outcomes, atBaseline }) => (
               </Box>
             }
           >
-            <Paper
-              variant="outlined"
+            <Panel
+              soft
               tabIndex={0}
               role="group"
               aria-label={`${o.label}: ${format(o, o.value)}${o.unit ? ` ${o.unit}` : ''}. Derived, not a control. ${o.formula}. ${o.note}`}
               sx={{
-                p: 1.25,
+                p: '12px',
                 minWidth: 0,
                 cursor: 'help',
+                borderRadius: '11px',
                 '&:focus-visible': {
                   outline: (t) => `2px solid ${t.palette.primary.main}`,
                   outlineOffset: 2,
@@ -139,14 +142,15 @@ export const KeyOutcomes: React.FC<Props> = ({ outcomes, atBaseline }) => (
                     directly under the sliders: these look like the numbers
                     you would reach for, and none of them can be set. */}
                 <Lock size={10} style={{ flexShrink: 0 }} />
-                <Typography variant="caption" noWrap>
+                <Typography variant="caption" noWrap sx={{ fontWeight: 600 }}>
                   {o.label}
                 </Typography>
               </Stack>
 
-              <Stack direction="row" spacing={0.5} sx={{ alignItems: 'baseline' }}>
+              <Stack direction="row" spacing={0.5} sx={{ alignItems: 'baseline', mt: 0.5 }}>
                 <Typography
                   variant="h6"
+                  component="p"
                   sx={{ fontWeight: 700, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}
                 >
                   {format(o, o.value)}
@@ -168,7 +172,7 @@ export const KeyOutcomes: React.FC<Props> = ({ outcomes, atBaseline }) => (
                   {moved ? `${formatDelta(o, delta)} vs baseline` : 'same as baseline'}
                 </Typography>
               </Stack>
-            </Paper>
+            </Panel>
           </Tooltip>
         );
       })}

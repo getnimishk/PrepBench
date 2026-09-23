@@ -1,0 +1,1102 @@
+{
+  "$comment": "Phase 1 deliverable. Machine-readable screen registry extracted from PrepBench_Unified_Prototype.html (3,369 lines) and mapped against the production app at main@56c8bbb. Generated 2026-09-12.",
+  "source": {
+    "prototype": "PrepBench_Unified_Prototype.html",
+    "prototype_screen_count": 59,
+    "prototype_registry_mechanism": "pages{} object (23 base) extended by addPage() (37 calls, 1 overriding roadmap-detail)",
+    "production_route_file": "frontend/src/App.tsx",
+    "production_route_count": 26,
+    "production_redirect_count": 3
+  },
+  "status_legend": {
+    "implemented": "production route + component + real data source all exist",
+    "partial": "exists but as a sub-surface (modal/panel/tab) rather than a route, or missing a required capability",
+    "missing": "no production route or component"
+  },
+  "screens": [
+    {
+      "id": "home",
+      "title": "Home",
+      "parent": "home",
+      "group": "core",
+      "production_route": "/",
+      "production_component": "pages/HomePage.tsx",
+      "endpoints": [
+        "GET /home",
+        "GET /home/activity",
+        "GET /home/other-preparation",
+        "GET /home/focus-topics",
+        "GET /home/subjects/{id}/coverage",
+        "GET /home/daily-goals"
+      ],
+      "status": "implemented",
+      "phase": 4,
+      "gaps": [
+        "PHASE 4: leads with the two daily goals, derived on every visit. Follows the picked preparation."
+      ]
+    },
+    {
+      "id": "preparations",
+      "title": "My Preparations",
+      "parent": "preparations",
+      "group": "core",
+      "production_route": "/preparations",
+      "production_component": "pages/PreparationsPage.tsx",
+      "endpoints": [
+        "GET /subjects"
+      ],
+      "status": "implemented",
+      "phase": 3,
+      "gaps": [
+        "PHASE 3: lists all preparations incl. archived (the only place to restore one); switch, archive, edit"
+      ]
+    },
+    {
+      "id": "subject",
+      "title": "Preparation",
+      "parent": "preparations",
+      "group": "core",
+      "production_route": "/subjects/:subjectId",
+      "production_component": "pages/SubjectPage.tsx",
+      "endpoints": [
+        "GET /subjects/{id}"
+      ],
+      "status": "implemented",
+      "phase": 3,
+      "gaps": []
+    },
+    {
+      "id": "prep-new",
+      "title": "Add preparation",
+      "parent": "preparations",
+      "group": "core",
+      "production_route": "/preparations/new",
+      "production_component": "pages/PreparationNewPage.tsx",
+      "endpoints": [],
+      "status": "implemented",
+      "phase": 3,
+      "gaps": [
+        "PHASE 3: 2 steps instead of the prototype 3 - no certification catalogue exists, documented deviation"
+      ]
+    },
+    {
+      "id": "prep-edit",
+      "title": "Edit preparation",
+      "parent": "preparations",
+      "group": "core",
+      "production_route": "/preparations/:subjectId/edit",
+      "production_component": "pages/PreparationEditPage.tsx",
+      "endpoints": [],
+      "status": "implemented",
+      "phase": 3,
+      "gaps": [
+        "PHASE 3: details form + danger zone (archive, delete with typed name and real counts)"
+      ]
+    },
+    {
+      "id": "learn",
+      "title": "Learn & Roadmaps",
+      "parent": "learn",
+      "group": "learning",
+      "production_route": "/learn",
+      "production_component": "pages/StudyLibraryPage.tsx",
+      "endpoints": [
+        "GET /roadmaps",
+        "GET /roadmaps/{id}",
+        "GET /analytics/domain-detail"
+      ],
+      "status": "implemented",
+      "phase": 5,
+      "gaps": [],
+      "correction": "Marked implemented at Phase 5 while the page was two links (to Roadmaps and the Question Bank) and none of the prototype's panels. Rebuilt in the second parity pass: Recommended (the readiness rules' weakest area with its own figures), Continue learning (the topic in progress, with Demonstrate), and the roadmap's progress and first phases. Verified by side-by-side rendering, not by this field."
+    },
+    {
+      "id": "roadmaps",
+      "title": "Roadmaps",
+      "parent": "roadmaps",
+      "group": "learning",
+      "production_route": "/roadmaps",
+      "production_component": "pages/RoadmapListPage.tsx",
+      "endpoints": [
+        "GET /roadmaps",
+        "POST /roadmaps",
+        "DELETE /roadmaps/{id}"
+      ],
+      "status": "implemented",
+      "phase": 5,
+      "gaps": [
+        "VERIFIED: Unlinked roadmaps grouping, link/unlink actions, and rail placement fully implemented and active."
+      ]
+    },
+    {
+      "id": "roadmap-detail",
+      "title": "Phases",
+      "parent": "roadmaps",
+      "group": "learning",
+      "production_route": "/roadmaps/:roadmapId",
+      "production_component": "pages/RoadmapDetailPage.tsx",
+      "endpoints": [
+        "GET /roadmaps/{id}",
+        "GET /roadmaps/{id}/schedule",
+        "POST|PUT|DELETE /roadmaps/{id}/phases"
+      ],
+      "status": "implemented",
+      "phase": 5,
+      "gaps": [
+        "PARITY: Edit plan button opens /roadmaps/:id/edit; a saved plan returns here with \"Plan saved.\""
+      ]
+    },
+    {
+      "id": "roadmap-topics",
+      "title": "Syllabus",
+      "parent": "roadmaps",
+      "group": "learning",
+      "production_route": "/roadmaps/:roadmapId (Table tab)",
+      "production_component": "components/roadmap/RoadmapTableView.tsx",
+      "endpoints": [
+        "GET /roadmaps/{id}"
+      ],
+      "status": "implemented",
+      "phase": 5,
+      "gaps": [
+        "PHASE 5a: topic titles link to the topic page; Completed disabled in the status menu. Documented deviation: a tab, not its own route"
+      ]
+    },
+    {
+      "id": "roadmap-topic",
+      "title": "Topic",
+      "parent": "roadmaps",
+      "group": "learning",
+      "production_route": "/roadmaps/:roadmapId/topics/:topicId",
+      "production_component": "pages/RoadmapTopicPage.tsx",
+      "endpoints": [
+        "PATCH /roadmaps/{id}/topics/{tid}"
+      ],
+      "status": "implemented",
+      "phase": 5,
+      "gaps": [
+        "PHASE 5a: objective, criterion, status (no Completed button), notes, demonstration history, recheck, siblings, prev/next"
+      ]
+    },
+    {
+      "id": "roadmap-editor",
+      "title": "Edit plan",
+      "parent": "roadmaps",
+      "group": "learning",
+      "production_route": "/roadmaps/:roadmapId/edit",
+      "production_component": "pages/RoadmapEditorPage.tsx",
+      "endpoints": [
+        "GET /roadmaps/{id}",
+        "PUT /roadmaps/{id}/plan",
+        "GET /roadmaps/{id}/schedule?draft=true"
+      ],
+      "status": "implemented",
+      "phase": 5,
+      "gaps": [
+        "All CRUD endpoints exist; no editor screen surfaces them",
+        "PARITY: title, weekly budget, start date, rename/reorder (drag handle plus up/down buttons for keyboard and touch)/add/remove phases, saved in one transaction (PUT /plan; 409 when the phases changed elsewhere). Removing a phase that holds topics requires a destination and moves them with status, notes and demonstrations: the editor never deletes a topic. The finish date shown while typing is the server's own projection of the unsaved values. Deviation: no invented 6h default pace; with no budget or start date it says what is missing"
+      ]
+    },
+    {
+      "id": "roadmap-import",
+      "title": "Import roadmap",
+      "parent": "roadmaps",
+      "group": "learning",
+      "production_route": null,
+      "production_component": "components/roadmap/RoadmapImportModal.tsx",
+      "endpoints": [
+        "POST /roadmaps/import/validate",
+        "POST /roadmaps/import/confirm"
+      ],
+      "status": "partial",
+      "phase": 6,
+      "gaps": [
+        "Exists as a modal, not a route. Deep-link test of plan Gate 1 needs a route or a documented deviation"
+      ]
+    },
+    {
+      "id": "roadmap-resources",
+      "title": "Reference",
+      "parent": "roadmaps",
+      "group": "learning",
+      "production_route": "/roadmaps/:roadmapId (Reference tab)",
+      "production_component": "pages/RoadmapDetailPage.tsx",
+      "endpoints": [
+        "GET /roadmaps/{id}"
+      ],
+      "status": "implemented",
+      "phase": 5,
+      "gaps": [
+        "Already existed as a tab on the roadmap page. Documented deviation: a tab, not its own route"
+      ]
+    },
+    {
+      "id": "guide",
+      "title": "Study guide",
+      "parent": "learn",
+      "group": "learning",
+      "production_route": "/roadmaps/:roadmapId/topics/:topicId/guide",
+      "production_component": "pages/TopicGuidePage.tsx",
+      "endpoints": [],
+      "status": "implemented",
+      "phase": 5,
+      "gaps": [
+        "PHASE 5b: AI-drafted (labelled), learner-editable sections; read tracking; check yourself; demonstrate transition. Anchored to roadmap topics, not a preparation weak domain"
+      ]
+    },
+    {
+      "id": "topic-demonstrate",
+      "title": "Demonstrate",
+      "parent": "learn",
+      "group": "learning",
+      "production_route": "/roadmaps/:roadmapId/topics/:topicId/demonstrate",
+      "production_component": "pages/TopicDemonstratePage.tsx",
+      "endpoints": [],
+      "status": "implemented",
+      "phase": 5,
+      "gaps": [
+        "PHASE 5a: write first, reveal locks the answer, self-grade. The only route to completion; server enforces it"
+      ]
+    },
+    {
+      "id": "sandbox",
+      "title": "Chart Sandbox",
+      "parent": "learn",
+      "group": "learning",
+      "production_route": "/chart-sandbox",
+      "production_component": "pages/ChartSandboxPage.tsx",
+      "endpoints": [
+        "GET /learning/attempts",
+        "POST /learning/attempts",
+        "PATCH /learning/attempts/{attempt_uid}"
+      ],
+      "status": "implemented",
+      "phase": 12,
+      "gaps": [
+        "CLOSED (Phase 12): attempts are kept on the server (localStorage history moved once, with ids and times). Prediction, what was changed, what the model showed and the learner's explanation are all persisted; prediction questions run the change only after the commit; 'Your recent experiments' reads them back after a reload"
+      ]
+    },
+    {
+      "id": "sandbox-explain",
+      "title": "Explain the result",
+      "parent": "sandbox",
+      "group": "learning",
+      "production_route": null,
+      "production_component": "components/learning/LearningPanel.tsx (result step)",
+      "endpoints": [
+        "PATCH /learning/attempts/{attempt_uid}"
+      ],
+      "status": "partial",
+      "phase": 12,
+      "gaps": [
+        "Capability complete (Phase 12): 'What actually happened' from the model's own numbers, and 'Your explanation' saved with the attempt, marked Not scored. Documented deviation: a step inside the sandbox result rather than its own route, so the prediction, the result and the explanation stay on one screen"
+      ]
+    },
+    {
+      "id": "practice",
+      "title": "My Practice",
+      "parent": "practice",
+      "group": "certification-practice",
+      "production_route": "/practice",
+      "production_component": "pages/HubPages.tsx (PracticeHubPage) + components/practice/PracticeModes.tsx",
+      "endpoints": [
+        "GET /home?per_subject.resumable",
+        "POST /exams/preview",
+        "POST /exams",
+        "GET /home/focus-topics?subject_id",
+        "GET /questions/filters?subject_id",
+        "GET /spaced/deck"
+      ],
+      "status": "implemented",
+      "phase": 7,
+      "gaps": [
+        "PHASE 7: the prototype's five formats as tabs (Recommended, Weak topic focus, Spaced repetition, Custom, Full mock). Each previews the exact request it starts via POST /exams/preview, so counts and refusals come from the engine. Follows the picker; the tab is in the URL."
+      ]
+    },
+    {
+      "id": "practice-runner",
+      "title": "Practice session",
+      "parent": "practice",
+      "group": "certification-practice",
+      "production_route": "/exam/:sessionId",
+      "production_component": "pages/ExamRunnerPage.tsx",
+      "endpoints": [
+        "POST /exams (session_kind=drill)",
+        "GET /exams/{id}",
+        "POST /exams/{id}/answer"
+      ],
+      "status": "implemented",
+      "phase": 7,
+      "gaps": [
+        "Correctly reuses the exam runner - do not build a second runner",
+        "PHASE 7: unchanged and reused. Reload/resume in a browser is Phase 8's E2E."
+      ]
+    },
+    {
+      "id": "practice-results",
+      "title": "Session results",
+      "parent": "practice",
+      "group": "certification-practice",
+      "production_route": "/exam-review/:sessionId",
+      "production_component": "pages/ExamReviewPage.tsx",
+      "endpoints": [
+        "POST /exams/{id}/finish",
+        "GET /exams/{id}"
+      ],
+      "status": "implemented",
+      "phase": 7,
+      "gaps": [
+        "PHASE 7: answered/skipped, missed, by-domain and by-topic breakdown and a what-next line, counted from the session's own answers (components/exam/SessionBreakdown.tsx)."
+      ]
+    },
+    {
+      "id": "spaced-runner",
+      "title": "Spaced repetition",
+      "parent": "review",
+      "group": "certification-practice",
+      "production_route": "/practice/spaced",
+      "production_component": "pages/SpacedReviewPage.tsx",
+      "endpoints": [
+        "GET /spaced/deck",
+        "POST /spaced/grades"
+      ],
+      "status": "implemented",
+      "phase": 7,
+      "gaps": [
+        "PHASE 7: recall-before-reveal cards with Again/Hard/Good/Easy. Each grade shows the interval the server's SM-2 step would set; a grade is refused (409) once a card is no longer due, so one recall cannot move it twice. The browser suite covers only the empty deck: nothing becomes due through the public API without waiting a day."
+      ]
+    },
+    {
+      "id": "review",
+      "title": "Review Queue",
+      "parent": "review",
+      "group": "certification-practice",
+      "production_route": "/review",
+      "production_component": "pages/ReviewPage.tsx",
+      "endpoints": [
+        "GET /review/queue",
+        "POST /review/checks",
+        "GET /review/counts"
+      ],
+      "status": "implemented",
+      "phase": 7,
+      "gaps": [
+        "Miss -> understand -> verify -> schedule loop is real and tested (review_checks table)",
+        "PHASE 7: scoped to the picked preparation (queue, memory count, session history); 'Review from memory' opens the card runner. Full loop tested in a browser, including a reload.",
+        "PARITY: the sidebar's Review Queue entry shows the picked preparation's waiting review (unreviewed mock misses plus spaced questions due), read on every navigation; no badge when nothing waits or the count cannot be read"
+      ]
+    },
+    {
+      "id": "question-bank",
+      "title": "Question Bank",
+      "parent": "question-bank",
+      "group": "certification-practice",
+      "production_route": "/question-bank",
+      "production_component": "pages/QuestionBankPage.tsx",
+      "endpoints": [
+        "GET /questions",
+        "GET /questions/filters"
+      ],
+      "status": "implemented",
+      "phase": 6,
+      "gaps": [
+        "PHASE 3: scoped to the picked preparation. PHASE 6: imports now attach to the preparation (regression fixed)",
+        "PHASE 7: filter values now come from the scope being shown.",
+        "PARITY: ?keyword= fills the search box (global search links here); reloads when an import started from the header or Settings finishes, and opens the audit studio with rows handed over from it"
+      ]
+    },
+    {
+      "id": "question-detail",
+      "title": "Question",
+      "parent": "dynamic (backTo)",
+      "group": "certification-practice",
+      "production_route": null,
+      "production_component": "components/question_bank/QuestionDetailPanel.tsx",
+      "endpoints": [
+        "GET /questions/{id}",
+        "POST /questions/{id}/research"
+      ],
+      "status": "partial",
+      "phase": 6,
+      "gaps": [
+        "Panel, not a route -- but deep-linkable since Phase 13: /question-bank?question={id} opens it and closing clears the link"
+      ]
+    },
+    {
+      "id": "question-editor",
+      "title": "Question editor",
+      "parent": "question-bank",
+      "group": "certification-practice",
+      "production_route": null,
+      "production_component": "components/question_bank/QuestionEditorModal.tsx",
+      "endpoints": [
+        "POST /questions",
+        "PUT /questions/{id}",
+        "DELETE /questions/{id}"
+      ],
+      "status": "partial",
+      "phase": 6,
+      "gaps": [
+        "Modal, not a route. Real CRUD exists - no toast-only saving",
+        "No question versioning (plan section 12 lists Version - see data-model audit)"
+      ]
+    },
+    {
+      "id": "import-audit",
+      "title": "Import audit",
+      "parent": "question-bank",
+      "group": "certification-practice",
+      "production_route": null,
+      "production_component": "components/question_bank/ImportModal.tsx",
+      "endpoints": [
+        "POST /imports/validate",
+        "POST /imports/confirm",
+        "POST /imports/repair",
+        "POST /imports/auto-refine-batch"
+      ],
+      "status": "partial",
+      "phase": 6,
+      "gaps": [
+        "PHASE 6: report accounts for every row with its file row number, reports replaced values and skipped rows, and gives an action per issue. Still a dialog, not a route",
+        "PARITY: also opened from the header Import button and Settings, over any screen"
+      ]
+    },
+    {
+      "id": "exam-setup",
+      "title": "Exam Setup",
+      "parent": "exam-setup",
+      "group": "assessment",
+      "production_route": "/exam-setup",
+      "production_component": "pages/ExamSetupPage.tsx + components/exam/MockExamSetup.tsx",
+      "endpoints": [
+        "POST /exams/preview",
+        "POST /exams",
+        "DELETE /exams/{id}",
+        "GET /subjects/{id}/mocks",
+        "GET /review/queue?subject_id",
+        "GET /home"
+      ],
+      "status": "implemented",
+      "phase": 8,
+      "gaps": [
+        "Scope derives from subject alone - already tested by test_product_invariants.py",
+        "PHASE 7: topic choices come from the chosen preparation; the mock request is shared with Practice's Full mock tab.",
+        "PHASE 8: rebuilt to the prototype's Exam Setup - locked profile with 'to pass', readiness check (bank, roadmap, review debt, last mock), question source (whole bank / not recent / unseen, real counts), domain weighting in proportion to the bank (no invented blueprint), exam conditions as facts, previous mocks, open-mock resume/discard. Follows the picker; no Subject menu."
+      ]
+    },
+    {
+      "id": "exam-runner",
+      "title": "Exam Runner",
+      "parent": "exam-setup",
+      "group": "assessment",
+      "production_route": "/exam/:sessionId",
+      "production_component": "pages/ExamRunnerPage.tsx",
+      "endpoints": [
+        "GET /exams/{id}",
+        "POST /exams/{id}/answer",
+        "POST /exams/{id}/finish"
+      ],
+      "status": "implemented",
+      "phase": 8,
+      "gaps": [
+        "Reload-and-resume needs a browser E2E test to prove (RISK-06)",
+        "PHASE 8: resumes at the saved position; a pick autosaves within 0.5s; time limit enforced by the server (30s grace), and a refused save submits the paper; finish dialog names flags. Reload/resume proven in a browser (RISK-06 closed)."
+      ]
+    },
+    {
+      "id": "exam-review",
+      "title": "Exam Review",
+      "parent": "exam-setup",
+      "group": "assessment",
+      "production_route": "/exam-review/:sessionId",
+      "production_component": "pages/ExamReviewPage.tsx",
+      "endpoints": [
+        "GET /exams/{id}",
+        "POST /exams/{id}/answers/{qid}/reviewed",
+        "GET /exams/{id}/unreviewed"
+      ],
+      "status": "implemented",
+      "phase": 8,
+      "gaps": [
+        "PHASE 8: mock results add time used and flags; readiness sentence and miss review unchanged."
+      ]
+    },
+    {
+      "id": "exam-results",
+      "title": "Exam results",
+      "parent": "exam-setup",
+      "group": "assessment",
+      "production_route": "/exam-review/:sessionId",
+      "production_component": "pages/ExamReviewPage.tsx",
+      "endpoints": [
+        "GET /exams/{id}",
+        "GET /export/pdf/{id}",
+        "GET /export/excel/{id}"
+      ],
+      "status": "implemented",
+      "phase": 8,
+      "gaps": [
+        "Folded into exam-review in production. Decide whether to split or document the deviation",
+        "PHASE 8: kept folded into exam-review, deliberately. The score report's parts (score, answered/skipped, time used, flagged, by domain, answer sheet) are all on that one page, so a second route would repeat it."
+      ]
+    },
+    {
+      "id": "interview",
+      "title": "Interview Practice",
+      "parent": "interview",
+      "group": "interview",
+      "production_route": "/interview-practice",
+      "production_component": "pages/InterviewPracticeSetupPage.tsx",
+      "endpoints": [
+        "GET /interview-questions",
+        "GET /interview-questions/round-types"
+      ],
+      "status": "implemented",
+      "phase": 9,
+      "gaps": [
+        "PHASE 9: opens on a question (least-practised first) with the round's target length; 'Set up a session' and 'Question library' lead off it. Editing/importing moved to the library. Ruling: interview practice is shared across preparations, as in the prototype."
+      ]
+    },
+    {
+      "id": "interview-setup",
+      "title": "Set up a session",
+      "parent": "interview",
+      "group": "interview",
+      "production_route": "/interview-practice/setup",
+      "production_component": "pages/InterviewSessionSetupPage.tsx",
+      "endpoints": [
+        "GET /interview-questions/round-types",
+        "GET /interview-sessions/plan",
+        "POST /interview-sessions"
+      ],
+      "status": "implemented",
+      "phase": 9,
+      "gaps": [
+        "Production combines interview + interview-setup on one page",
+        "PHASE 9: its own route. Round, category, 1/3/5 questions, thinking time; the question list is the server's plan (least-practised first) and exactly what the session asks."
+      ]
+    },
+    {
+      "id": "interview-session",
+      "title": "Session",
+      "parent": "interview",
+      "group": "interview",
+      "production_route": "/interview-practice/sessions/:sessionId",
+      "production_component": "pages/InterviewSessionPage.tsx + components/interview/AnswerConsole.tsx",
+      "endpoints": [
+        "GET /interview-sessions/{id}",
+        "POST /recordings (session_id, plan_note)",
+        "POST /recordings/{id}/analyze",
+        "POST /interview-sessions/{id}/finish"
+      ],
+      "status": "implemented",
+      "phase": 9,
+      "gaps": [
+        "Production uses FocusLayout (no sidebar). Prototype uses html[data-focus=interview] with a fuller focus-mode shell (ivbar, pips, clock)",
+        "PHASE 9: multi-question session in focus mode - question pips, think/answer/stop, target window, plan note, saved + analysed per answer, retake, end-session confirm. Resumes at the first unanswered question after a reload. Nothing navigable mid-answer."
+      ]
+    },
+    {
+      "id": "interview-record",
+      "title": "Interview - Recording",
+      "parent": "interview",
+      "group": "interview",
+      "production_route": "/interview-practice/:questionId/record",
+      "production_component": "pages/InterviewPracticeRecordPage.tsx",
+      "endpoints": [
+        "POST /recordings"
+      ],
+      "status": "implemented",
+      "phase": 9,
+      "gaps": [
+        "Real getUserMedia/MediaRecorder capture; file on disk, metadata in DB",
+        "PHASE 9: single take uses the same AnswerConsole as sessions (thinking time, plan note, target window, failed save kept for retry)."
+      ]
+    },
+    {
+      "id": "interview-summary",
+      "title": "Session report",
+      "parent": "interview",
+      "group": "interview",
+      "production_route": "/interview-practice/sessions/:sessionId/report",
+      "production_component": "pages/InterviewSessionReportPage.tsx",
+      "endpoints": [
+        "GET /interview-sessions/{id}/report"
+      ],
+      "status": "implemented",
+      "phase": 9,
+      "gaps": [
+        "Per-recording results exist; a multi-question session report does not",
+        "PHASE 9: session report from the latest take of each question - content/delivery averages over analysed answers only, weakest rubric category, 'Not graded' with the reason when nothing was analysed."
+      ]
+    },
+    {
+      "id": "interview-results",
+      "title": "Interview - Results",
+      "parent": "interview",
+      "group": "interview",
+      "production_route": "/interview-practice/recordings/:recordingId/results",
+      "production_component": "pages/InterviewPracticeResultsPage.tsx",
+      "endpoints": [
+        "POST /recordings/{id}/analyze",
+        "GET /recordings/{id}/analysis"
+      ],
+      "status": "implemented",
+      "phase": 9,
+      "gaps": [
+        "Honest 'unavailable' status when no AI provider - plan section 15 satisfied",
+        "PHASE 9: adds time measured against the round's target (no AI needed), the plan note, 'Not graded' with Settings + Analyse again, a recommendation (lowest-graded category) with retake, and a comparison of every take of the question."
+      ]
+    },
+    {
+      "id": "interview-library",
+      "title": "Question library",
+      "parent": "interview",
+      "group": "interview",
+      "production_route": "/interview-practice/library",
+      "production_component": "pages/InterviewLibraryPage.tsx",
+      "endpoints": [
+        "GET /interview-questions",
+        "PUT/DELETE /interview-questions/{id}",
+        "POST /interview-questions/import"
+      ],
+      "status": "implemented",
+      "phase": 9,
+      "gaps": [
+        "Full CRUD + import endpoints exist; no library screen surfaces them",
+        "PHASE 9: every question by round with how often it has been answered; practise, edit, delete (asks; recordings kept), import."
+      ]
+    },
+    {
+      "id": "recordings",
+      "title": "Recordings",
+      "parent": "recordings",
+      "group": "interview",
+      "production_route": "/recordings",
+      "production_component": "pages/RecordingsPage.tsx",
+      "endpoints": [
+        "GET /recordings",
+        "GET /recordings/analytics",
+        "DELETE /recordings/{id}"
+      ],
+      "status": "implemented",
+      "phase": 9,
+      "gaps": [
+        "PHASE 9: each recording links to its detail page."
+      ]
+    },
+    {
+      "id": "recording-detail",
+      "title": "Recording",
+      "parent": "recordings",
+      "group": "interview",
+      "production_route": "/recordings/:recordingId",
+      "production_component": "pages/InterviewPracticeResultsPage.tsx",
+      "endpoints": [
+        "GET /recordings/{id}",
+        "GET /recordings/{id}/audio",
+        "GET /recordings?interview_question_id"
+      ],
+      "status": "implemented",
+      "phase": 9,
+      "gaps": [
+        "All endpoints exist including audio streaming; no detail route",
+        "PHASE 9: /recordings/:id serves the answer page (playback, measurement, analysis, compare)."
+      ]
+    },
+    {
+      "id": "system-design",
+      "title": "System Design",
+      "parent": "system-design",
+      "group": "system-design",
+      "production_route": "/system-design",
+      "production_component": "pages/SystemDesignSetupPage.tsx",
+      "endpoints": [
+        "GET /system-design/prompts",
+        "GET /system-design/prompts/categories"
+      ],
+      "status": "implemented",
+      "phase": 10,
+      "gaps": []
+    },
+    {
+      "id": "system-design-answer",
+      "title": "System Design - Answer",
+      "parent": "system-design",
+      "group": "system-design",
+      "production_route": "/system-design/:promptId/answer",
+      "production_component": "pages/SystemDesignAnswerPage.tsx",
+      "endpoints": [
+        "GET/PUT /system-design/prompts/{id}/draft (sections)",
+        "POST /system-design/attempts (sections)"
+      ],
+      "status": "implemented",
+      "phase": 10,
+      "gaps": [
+        "Autosave is real (system_design_drafts table) - plan section 16 satisfied",
+        "Prototype has structured fields (requirements/architecture/data model/failure/trade-offs); production has one answer_text",
+        "PHASE 10: five structured sections (requirements, architecture, data model, failure handling, trade-offs), each autosaved to the database and restored on reload; revise starts from the last attempt's sections."
+      ]
+    },
+    {
+      "id": "system-design-results",
+      "title": "System Design - Results",
+      "parent": "system-design",
+      "group": "system-design",
+      "production_route": "/system-design/attempts/:attemptId",
+      "production_component": "pages/SystemDesignResultsPage.tsx",
+      "endpoints": [
+        "GET /system-design/attempts/{id}"
+      ],
+      "status": "implemented",
+      "phase": 10,
+      "gaps": [
+        "Results tied to the real attempt; honest 'unavailable' grading status",
+        "PHASE 10: shows the attempt's sections; Improve next (first improvement + lowest category) with Revise; Not graded offers Settings + Grade again (POST /system-design/attempts/{id}/grade, 409 once graded)."
+      ]
+    },
+    {
+      "id": "design-reviews",
+      "title": "Design Reviews",
+      "parent": "design-reviews",
+      "group": "design-reviews",
+      "production_route": "/design-reviews",
+      "production_component": "pages/DesignReviewListPage.tsx",
+      "endpoints": [
+        "GET /design-reviews",
+        "GET /design-reviews/domains",
+        "GET /design-reviews/axes"
+      ],
+      "status": "implemented",
+      "phase": 11,
+      "gaps": [
+        "PHASE 11: list shows which reviews are attempted; Next review from a result skips to an unattempted one."
+      ]
+    },
+    {
+      "id": "design-review-result",
+      "title": "Design review result",
+      "parent": "design-reviews",
+      "group": "design-reviews",
+      "production_route": "/design-reviews/:reviewId",
+      "production_component": "pages/DesignReviewPage.tsx",
+      "endpoints": [
+        "GET /design-reviews/{id}",
+        "POST /design-reviews/attempts",
+        "GET /design-reviews/{id}/latest-attempt"
+      ],
+      "status": "implemented",
+      "phase": 11,
+      "gaps": [
+        "Axis verdict is LLM-derived from the learner's own choice + justification - plan section 17 already satisfied",
+        "PHASE 11: Not graded offers Settings + Grade again (POST /design-reviews/attempts/{id}/grade, choice and reasoning unchanged, 409 once graded); side-by-side 'Compare your reasoning'; Next review opens the next unattempted scenario, reset to uncommitted."
+      ]
+    },
+    {
+      "id": "insights",
+      "title": "Insights & Analytics",
+      "parent": "insights",
+      "group": "analytics",
+      "production_route": "/analytics",
+      "production_component": "pages/AnalyticsPage.tsx",
+      "endpoints": [
+        "GET /subjects (readiness with rules)",
+        "GET /analytics/score-trends?subject_id",
+        "GET /analytics/domain-performance?subject_id",
+        "GET /system-design/analytics",
+        "GET /recordings/analytics"
+      ],
+      "status": "implemented",
+      "phase": 13,
+      "gaps": [
+        "PHASE 13: exam insights are the picked preparation's only (were pooled across preparations) and reload on switching; every area row opens the area page; the verdict carries 'Why am I seeing this?' (evidence with numbers, what would change it); rule numbers come from readiness.rules, not client copies"
+      ]
+    },
+    {
+      "id": "insights-domain",
+      "title": "Domain detail",
+      "parent": "insights",
+      "group": "analytics",
+      "production_route": "/analytics/area?subject={id}&domain={name}",
+      "production_component": "pages/InsightsDomainPage.tsx",
+      "endpoints": [
+        "GET /analytics/domain-detail?subject_id&domain",
+        "GET /spaced/deck?subject_id&domain"
+      ],
+      "status": "implemented",
+      "phase": 13,
+      "gaps": [
+        "PHASE 13: accuracy, attempted, missed, due, unreviewed mock misses, topics (min 3 answers), questions ranked missed-first with Open into the Question Bank; Practise this area / Review N misses / Review N due; reading ordered misses -> due -> under floor in mocks -> too few mock answers -> nothing waiting, with its working. Deviation: the prototype's 'misses outnumber what is scheduled' headline is not used (missed never decreases, so it could not be acted on)",
+        "Review N misses opens the preparation's whole review queue; the queue is not filtered by area"
+      ]
+    },
+    {
+      "id": "settings",
+      "title": "Settings",
+      "parent": "settings",
+      "group": "workspace",
+      "production_route": "/settings",
+      "production_component": "pages/settings/SettingsHome.tsx",
+      "endpoints": [
+        "GET /settings",
+        "GET /llm/providers",
+        "GET /system/storage",
+        "GET /profile"
+      ],
+      "status": "implemented",
+      "phase": 14,
+      "gaps": [
+        "PHASE 14: a hub of rows, each showing its current value read from where it is stored (or 'Could not be read'), opening its own screen",
+        "PARITY: Profile row (name and email); Import questions opens the audited import in place instead of linking to the bank"
+      ]
+    },
+    {
+      "id": "settings-ai",
+      "title": "AI providers",
+      "parent": "settings",
+      "group": "workspace",
+      "production_route": "/settings/ai",
+      "production_component": "pages/settings/AISettingsPage.tsx (AIProvidersSection + TaskRoutingSection)",
+      "endpoints": [
+        "/llm/providers*",
+        "GET /llm/tasks",
+        "PUT /llm/tasks/{task}"
+      ],
+      "status": "implemented",
+      "phase": 14,
+      "gaps": [
+        "PHASE 14: task routing surfaced -- who answers each task now, local/cloud timeout, per-task provider (Automatic = gateway order), and each feature's no-provider behaviour"
+      ]
+    },
+    {
+      "id": "settings-appearance",
+      "title": "Appearance",
+      "parent": "settings",
+      "group": "workspace",
+      "production_route": "/settings/appearance",
+      "production_component": "pages/settings/AppearanceSettingsPage.tsx + context/ThemeContext.tsx",
+      "endpoints": [
+        "GET /settings",
+        "PUT /settings"
+      ],
+      "status": "implemented",
+      "phase": 14,
+      "gaps": [
+        "PHASE 14: theme light/dark/system (follows OS live), text size, reduce motion. Not built: accent colour and density (decorative; no control that does nothing)"
+      ]
+    },
+    {
+      "id": "settings-notifications",
+      "title": "Notifications",
+      "parent": "settings",
+      "group": "workspace",
+      "production_route": "/settings/notifications",
+      "production_component": "pages/settings/NotificationSettingsPage.tsx",
+      "endpoints": [
+        "GET /settings",
+        "PUT /settings"
+      ],
+      "status": "implemented",
+      "phase": 14,
+      "gaps": [
+        "PHASE 14: five derived triggers, each switchable. Not built: desktop delivery, digest, quiet hours (nothing runs in the background to deliver them)"
+      ]
+    },
+    {
+      "id": "settings-practice",
+      "title": "Practice preferences",
+      "parent": "settings",
+      "group": "workspace",
+      "production_route": "/settings/practice",
+      "production_component": "pages/settings/PracticeSettingsPage.tsx",
+      "endpoints": [
+        "GET /settings",
+        "PUT /settings",
+        "GET /system/review-schedule"
+      ],
+      "status": "implemented",
+      "phase": 14,
+      "gaps": [
+        "PHASE 14: daily review cap, timer sound, default target role; SM-2 explained read-only from the engine's constants. Session defaults not offered (nothing would read them)"
+      ]
+    },
+    {
+      "id": "settings-shortcuts",
+      "title": "Keyboard shortcuts",
+      "parent": "settings",
+      "group": "workspace",
+      "production_route": "/settings/shortcuts",
+      "production_component": "pages/settings/ShortcutsSettingsPage.tsx + services/shortcuts.ts + hooks/useShortcuts.ts",
+      "endpoints": [
+        "PUT /settings (shortcuts_enabled)"
+      ],
+      "status": "implemented",
+      "phase": 14,
+      "gaps": [
+        "PHASE 14: exam (1-9, arrows, F), spaced review (Space, 1-4), interview (Space, Esc); reference and handlers share one definition; on/off switch. Not built: rebinding, global search shortcut"
+      ]
+    },
+    {
+      "id": "settings-data",
+      "title": "Data & storage",
+      "parent": "settings",
+      "group": "workspace",
+      "production_route": "/settings/data",
+      "production_component": "pages/settings/DataSettingsPage.tsx",
+      "endpoints": [
+        "GET /system/storage",
+        "GET /system/backup",
+        "POST /settings/reset-app"
+      ],
+      "status": "implemented",
+      "phase": 14,
+      "gaps": [
+        "PHASE 14: the database the running server uses (path, size, WAL, last written), counts, per preparation, recordings folder, browser storage, SQLite backup download, reset"
+      ]
+    },
+    {
+      "id": "settings-about",
+      "title": "About & privacy",
+      "parent": "settings",
+      "group": "workspace",
+      "production_route": "/settings/about",
+      "production_component": "pages/settings/AboutSettingsPage.tsx",
+      "endpoints": [
+        "GET /system/about"
+      ],
+      "status": "implemented",
+      "phase": 14,
+      "gaps": [
+        "PHASE 14: version, platform, telemetry none, tasks that would send data off the machine (derived from enabled cloud providers and routing), key storage, licence, trademarks"
+      ]
+    },
+    {
+      "id": "onboarding",
+      "title": "Getting started",
+      "parent": "home",
+      "group": "workspace",
+      "production_route": "/onboarding",
+      "production_component": "pages/OnboardingPage.tsx",
+      "endpoints": [
+        "GET /system/storage",
+        "GET /llm/providers",
+        "GET /subjects"
+      ],
+      "status": "implemented",
+      "phase": 14,
+      "gaps": [
+        "PHASE 14: checklist ticked by real state; not forced on first run (reachable from Settings)"
+      ]
+    },
+    {
+      "id": "states",
+      "title": "Interface states",
+      "parent": "settings",
+      "group": "workspace",
+      "production_route": "/settings/states",
+      "production_component": "pages/settings/StatesGalleryPage.tsx + components/common/States.tsx",
+      "endpoints": [],
+      "status": "implemented",
+      "phase": 16,
+      "gaps": [
+        "PHASE 14: shared LoadingState / EmptyState / ErrorState (states whether work was saved) / SaveStatus (5 states), shown with real product situations. Phase 16 adopts them across screens"
+      ]
+    },
+    {
+      "id": "search",
+      "title": "Search",
+      "parent": "home",
+      "group": "workspace",
+      "production_route": "/search",
+      "production_component": "pages/SearchPage.tsx",
+      "endpoints": [
+        "GET /search"
+      ],
+      "status": "implemented",
+      "phase": 14,
+      "gaps": [
+        "Question search exists in the questions endpoint; no global search across roadmaps/prompts/reviews/recordings",
+        "PARITY: global search over the picked preparation's questions (through the Question Bank's own filter, so 'see all N' lands on N), its roadmaps' topics and study guide sections (plus unlinked roadmaps, labelled), and every recording (they belong to no preparation; the page says so). Kind filters with counts, query and kind in the address, '/' opens it from any non-focus screen. Header Search button"
+      ]
+    },
+    {
+      "id": "notifications",
+      "title": "Notifications",
+      "parent": "home",
+      "group": "workspace",
+      "production_route": "/notifications",
+      "production_component": "pages/NotificationsPage.tsx + components/common/NotificationBell.tsx",
+      "endpoints": [
+        "GET /notifications"
+      ],
+      "status": "implemented",
+      "phase": 14,
+      "gaps": [
+        "PHASE 14: derived on read from evidence (never stored), filtered by triggers; clears when done; no mark-as-read because nothing is stored; bell hidden in focus mode",
+        "PARITY: the roadmap-finishes-after-the-exam alert opens the plan editor (Edit plan), as the prototype's slipping-roadmap alert does"
+      ]
+    },
+    {
+      "id": "profile",
+      "title": "Profile",
+      "parent": "settings",
+      "group": "workspace",
+      "production_route": "/profile",
+      "production_component": "pages/ProfilePage.tsx",
+      "endpoints": [
+        "GET /profile",
+        "PUT /profile"
+      ],
+      "status": "implemented",
+      "phase": 14,
+      "gaps": [
+        "No user entity (RISK-02). A 'profile' here means target role + preferences, not an account",
+        "PARITY: display name and email (app_settings, nullable; the header avatar's initials come from the name), counts read from the data each visit (active preparations, questions, finished learner mocks, distinct local days with recorded activity), database and recordings size, Manage data. Deviations: no Sign out (there is no account); timezone is reported, not chosen (days, due dates and schedules follow the machine clock, and a picker nothing reads would be decoration)"
+      ]
+    }
+  ],
+  "summary": {
+    "total": 59,
+    "implemented": 53,
+    "partial": 6,
+    "missing": 0,
+    "blocking_gaps": [
+      "CLOSED (Phase 3): preparations CRUD - API, screens, picker and E2E tests all done",
+      "CLOSED (Phase 5b): study guide content - AI drafts, learner edits, nothing invented without a provider",
+      "CLOSED (Phase 5a): topic demonstrations - table, API, pages, evidence-only completion enforced by the server",
+      "CLOSED (Phase 12): learning/sandbox evidence - attempts on the server, experiment and explanation persisted, browser history moved",
+      "CLOSED (Phase 2): preparation isolation - questions and roadmaps now carry subject_id; the exam engine scopes by FK instead of matching words. Two proven leaks fixed. UI does not pass the new filters yet (Phase 3)"
+    ],
+    "phase_progress": {
+      "complete": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17
+      ],
+      "remaining": [],
+      "note": "Screen counts updated at Phase 3: preparations, prep-new and prep-edit moved from missing to implemented. All 17 phases complete at Phase 17; see GATE-17-REPORT.md for the release checklist. Prototype parity pass after Phase 17: search, profile and roadmap-editor built; shell matched; see PARITY-REPORT.md."
+    },
+    "note": "17 'partial' screens are mostly modals/panels/sections that hold real capability but are not routes. Plan Gate 1 requires a production route and a direct-navigation test per screen; promoting a working modal to a route is cheap. This is where the programme's best effort-to-value ratio sits.",
+    "accessibility": "PHASE 15: axe-core WCAG 2.2 A/AA + best-practice clean on 34 screens in light and dark; 16 screens fit 1280/1024/768/430/390 with no sideways scroll and 24px tap targets on phones; skip link, visible focus, dialog focus/Escape, keyboard exam, reduced motion under test",
+    "states": "PHASE 16: every screen opened with the server gone and with slow responses. Unread data is never shown as empty, zero or 'to do'; failures say what, why and that nothing changed, with Retry; 25 labelled loading states; a connection banner on every screen; System Design answers and mock answers kept on the device and sent when the server returns, with the plan's five save states",
+    "performance": "PHASE 17: timed against a heavy install (5,000 questions, 20,000 answers, 400 sessions, 400-topic roadmap, 500 analysed recordings). Starting a mock 6.3s->0.15s, review queue 3.0s->0.06s, storage 5.7s->0.02s, checking a 2,000-row import 57s->0.7s, saving one 45s->1.4s, recordings list 51 queries->2. Production build: shell 0.66s, route change 0.13s, 2,000-question bank 1.1s, 300-topic roadmap 2.0s",
+    "security": "PHASE 17: single-user local app (no auth by decision). Audited and tested: upload type/size, path handling (recordings cannot name a file outside their folder), XSS, SQL injection, prompt injection (six prompts fence submitted text), secret handling (reference only, never returned). Preparation isolation covers what object-level authorization would in a multi-user app",
+    "upgrade_path": "PHASE 17: scripts/upgrade_check.py upgrades a read-only copy of the real database and compares it with a fresh one: 0 schema differences, no row loss, integrity and foreign keys clean, no orphans, endpoints serve, original unchanged. Migrations now create every non-unique index the models declare (an upgraded install was missing six)",
+    "parity": "PARITY Pass 1 & Pass 2 complete: the prototype's shell, visual tokens, responsive viewports, and screens matched against PrepBench_Unified_Prototype.html. Header: section and preparation breadcrumb, Search, Alerts, Import, Settings, theme, profile avatar. Sidebar: the prototype's five groups and fourteen destinations with its labels (Roadmaps added), Settings inside Workspace, Review Queue count. Screens: search, profile, roadmap-editor, roadmaps list. 0 missing; the 6 partial screens are the documented modal/panel/tab deviations. Responsive: 1280, 1024, 768, 430, 390 all pass with 0px overflow; touch targets WCAG 2.2 compliant. Performance: question bank summary optimized from 455ms to 47.4ms; all 34 benchmarks in perf_gate.py pass. Full test suite: backend 757 passed, unit 765 passed (69 files), browser 70 passed. See PARITY-REPORT.md."
+  }
+}

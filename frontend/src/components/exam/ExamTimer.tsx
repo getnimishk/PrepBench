@@ -3,8 +3,8 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React, { useEffect, useState, useRef } from 'react';
-import { Box, Chip } from '@mui/material';
-import { Timer } from 'lucide-react';
+import { Pill } from '../ui/primitives';
+import { remainingSeconds } from '../../services/examClock';
 
 interface ExamTimerProps {
   startTime?: string;
@@ -61,23 +61,7 @@ function playTimeWarning(): void {
 
 
 
-const computeRemainingSeconds = (startISO?: string, allowedSecs?: number): number | undefined => {
-  if (!allowedSecs || allowedSecs <= 0) return undefined;
-  if (!startISO) return allowedSecs;
-
-  let iso = startISO.trim();
-  if (!iso.endsWith('Z') && !/[+-]\d{2}:?\d{2}$/.test(iso)) {
-    iso += 'Z';
-  }
-
-  const startMs = new Date(iso).getTime();
-  if (isNaN(startMs)) return allowedSecs;
-
-  const nowMs = Date.now();
-  const elapsedSecs = Math.floor((nowMs - startMs) / 1000);
-  const remaining = allowedSecs - elapsedSecs;
-  return remaining > 0 ? remaining : 0;
-};
+const computeRemainingSeconds = remainingSeconds;
 
 export const ExamTimer: React.FC<ExamTimerProps> = ({
   startTime, timeAllowedSeconds, onTimeUp, soundEnabled = false,
@@ -133,41 +117,21 @@ export const ExamTimer: React.FC<ExamTimerProps> = ({
   }, [startTime, timeAllowedSeconds]);
 
   if (secondsLeft === undefined) {
-    return (
-      <Chip
-        icon={<Timer size={16} />}
-        label="Unlimited Time"
-        sx={{
-          bgcolor: 'action.hover',
-          border: '1px solid',
-          borderColor: 'divider',
-          color: 'primary.main',
-          fontWeight: 600,
-        }}
-      />
-    );
+    return <Pill>Unlimited Time</Pill>;
   }
 
   const mins = Math.floor(secondsLeft / 60);
   const secs = secondsLeft % 60;
   const isWarning = secondsLeft < WARNING_SECONDS;
 
+  // The prototype's clock: an accent pill, "12:04 left" -- red for the last
+  // five minutes.
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <Chip
-        icon={<Timer size={16} />}
-        label={`${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`}
-        sx={{
-          fontWeight: 800,
-          fontSize: '1.05rem',
-          px: 1,
-          bgcolor: isWarning ? 'error.light' : 'action.hover',
-          border: '1px solid',
-          borderColor: isWarning ? 'error.main' : 'divider',
-          color: isWarning ? 'error.contrastText' : 'primary.main',
-          boxShadow: 'none',
-        }}
-      />
-    </Box>
+    <Pill
+      tone={isWarning ? 'danger' : 'accent'}
+      sx={{ fontSize: (t) => t.typography.pxToRem(13), p: '6px 10px', fontVariantNumeric: 'tabular-nums' }}
+    >
+      {`${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')} left`}
+    </Pill>
   );
 };

@@ -13,12 +13,11 @@ import {
   MenuItem,
   Box,
   IconButton,
-  Typography,
   Checkbox,
-  FormControlLabel,
   Alert
 } from '@mui/material';
 import { Plus, Trash2 } from 'lucide-react';
+import { Detail, Eyebrow, Grid } from '../ui/primitives';
 import { Question, QuestionOption } from '../../types/question';
 import { apiErrorMessage } from '../../services/apiError';
 
@@ -143,39 +142,76 @@ export const QuestionEditorModal: React.FC<Props> = ({ open, question, onClose, 
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ fontWeight: 700 }}>
-        {question ? 'Edit Question' : 'Add New Question'}
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth aria-labelledby="question-editor-title">
+      {/* The prototype's question editor: the stem, the options with the right
+          one marked, the explanation, then where the question belongs. */}
+      <DialogTitle id="question-editor-title">
+        {question ? `Edit question #${question.id}` : 'Create question'}
+        <Detail sx={{ mt: '4px', fontWeight: 400 }}>Questions are written to your local bank and survive a reload.</Detail>
       </DialogTitle>
       <DialogContent dividers>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {saveError && <Alert severity="error">{saveError}</Alert>}
           <TextField
-            label="Question Text"
+            label="Question stem"
             multiline
-            rows={3}
+            minRows={4}
             fullWidth
             required
             value={text}
             onChange={(e) => setText(e.target.value)}
           />
 
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <TextField
-              select
-              label="Question Type"
-              fullWidth
-              value={questionType}
-              onChange={(e) => setQuestionType(e.target.value)}
-            >
-              <MenuItem value="single_choice">Single Choice</MenuItem>
-              <MenuItem value="multiple_choice">Multiple Choice</MenuItem>
-              <MenuItem value="true_false">True / False</MenuItem>
-              <MenuItem value="scenario">Scenario Based</MenuItem>
-              <MenuItem value="case_study">Case Study</MenuItem>
-              <MenuItem value="code">Code Question</MenuItem>
-            </TextField>
+          <Box>
+            <Eyebrow>Answer options · tick the correct one</Eyebrow>
+            {!isOptionsValid && text.trim().length > 0 && (
+              <Alert severity="info" sx={{ mt: '8px' }}>
+                Ensure at least 2 options exist, all options have text, and at least one is marked correct.
+              </Alert>
+            )}
+            {options.map((opt, idx) => {
+              const letter = String.fromCharCode(65 + idx);
+              return (
+                <Box key={opt._tempKey || opt.id || idx} sx={{ display: 'flex', gap: '10px', alignItems: 'center', mt: '8px' }}>
+                  <Checkbox
+                    checked={opt.is_correct}
+                    onChange={() => handleCorrectToggle(idx)}
+                    color="success"
+                    slotProps={{ input: { 'aria-label': `Option ${letter} is correct` } }}
+                    sx={{ p: '6px' }}
+                  />
+                  <TextField
+                    fullWidth
+                    placeholder={`Option ${letter}`}
+                    value={opt.option_text}
+                    onChange={(e) => handleOptionTextChange(idx, e.target.value)}
+                    slotProps={{ htmlInput: { 'aria-label': `Option ${letter}` } }}
+                  />
+                  {options.length > 2 && (
+                    <IconButton color="error" onClick={() => handleRemoveOption(idx)} aria-label={`Remove option ${letter}`}>
+                      <Trash2 size={18} />
+                    </IconButton>
+                  )}
+                </Box>
+              );
+            })}
+            <Button variant="outlined" startIcon={<Plus size={16} />} onClick={handleAddOption} sx={{ mt: '10px' }}>
+              Add option
+            </Button>
+          </Box>
 
+          <TextField
+            label="Explanation"
+            multiline
+            minRows={4}
+            fullWidth
+            value={explanation}
+            onChange={(e) => setExplanation(e.target.value)}
+          />
+
+          <Grid columns={2} gap="14px">
+            <TextField label="Domain" fullWidth value={domain} onChange={(e) => setDomain(e.target.value)} />
+            <TextField label="Topic" fullWidth value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g. Sprint Goal" />
             <TextField
               select
               label="Difficulty"
@@ -187,88 +223,50 @@ export const QuestionEditorModal: React.FC<Props> = ({ open, question, onClose, 
               <MenuItem value="medium">Medium</MenuItem>
               <MenuItem value="hard">Hard</MenuItem>
             </TextField>
-          </Box>
+            <TextField
+              select
+              label="Type"
+              fullWidth
+              value={questionType}
+              onChange={(e) => setQuestionType(e.target.value)}
+            >
+              <MenuItem value="single_choice">Single choice</MenuItem>
+              <MenuItem value="multiple_choice">Multiple choice</MenuItem>
+              <MenuItem value="true_false">True or false</MenuItem>
+              <MenuItem value="scenario">Scenario</MenuItem>
+              <MenuItem value="case_study">Case study</MenuItem>
+              <MenuItem value="code">Code</MenuItem>
+            </TextField>
+          </Grid>
 
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Grid columns={2} gap="14px">
             <TextField label="Certification" fullWidth value={certification} onChange={(e) => setCertification(e.target.value)} />
-            <TextField label="Domain" fullWidth value={domain} onChange={(e) => setDomain(e.target.value)} />
-            <TextField label="Topic" fullWidth value={topic} onChange={(e) => setTopic(e.target.value)} />
-          </Box>
+            <TextField label="Reference URL" fullWidth value={referenceUrl} onChange={(e) => setReferenceUrl(e.target.value)} />
+          </Grid>
 
           <TextField
-            label="Case Study Context (Optional)"
+            label="Case study (optional)"
             multiline
-            rows={2}
+            minRows={2}
             fullWidth
             value={caseStudyText}
             onChange={(e) => setCaseStudyText(e.target.value)}
           />
 
           <TextField
-            label="Code Snippet (Optional)"
+            label="Code snippet (optional)"
             multiline
-            rows={3}
+            minRows={3}
             fullWidth
             value={codeSnippet}
             onChange={(e) => setCodeSnippet(e.target.value)}
           />
-
-          {/* Options list */}
-          <Typography variant="h6" sx={{ fontWeight: 700, mt: 1 }}>
-            Answer Options
-          </Typography>
-
-          {!isOptionsValid && text.trim().length > 0 && (
-            <Alert severity="info" sx={{ mt: -1 }}>
-              Ensure at least 2 options exist, all options have text, and at least one is marked correct.
-            </Alert>
-          )}
-
-          {options.map((opt, idx) => (
-            <Box key={opt._tempKey || opt.id || idx} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-              <FormControlLabel
-                control={<Checkbox checked={opt.is_correct} onChange={() => handleCorrectToggle(idx)} color="success" />}
-                label="Correct?"
-              />
-              <TextField
-                label={`Option ${String.fromCharCode(65 + idx)}`}
-                fullWidth
-                value={opt.option_text}
-                onChange={(e) => handleOptionTextChange(idx, e.target.value)}
-              />
-              {options.length > 2 && (
-                <IconButton color="error" onClick={() => handleRemoveOption(idx)}>
-                  <Trash2 size={18} />
-                </IconButton>
-              )}
-            </Box>
-          ))}
-
-          <Button startIcon={<Plus size={16} />} onClick={handleAddOption} sx={{ width: 'fit-content' }}>
-            Add Option
-          </Button>
-
-          <TextField
-            label="Explanation & Reference Notes"
-            multiline
-            rows={3}
-            fullWidth
-            value={explanation}
-            onChange={(e) => setExplanation(e.target.value)}
-          />
-          
-          <TextField
-            label="Reference URL"
-            fullWidth
-            value={referenceUrl}
-            onChange={(e) => setReferenceUrl(e.target.value)}
-          />
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={saving}>Cancel</Button>
-        <Button variant="contained" onClick={handleSubmit} disabled={saving || !isValid}>
-          {saving ? 'Saving...' : 'Save Question'}
+        <Button variant="outlined" onClick={onClose} disabled={saving}>Cancel</Button>
+        <Button variant="contained" color="ink" onClick={handleSubmit} disabled={saving || !isValid}>
+          {saving ? 'Saving…' : question ? 'Save changes' : 'Create question'}
         </Button>
       </DialogActions>
     </Dialog>

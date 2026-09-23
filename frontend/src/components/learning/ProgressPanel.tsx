@@ -84,6 +84,7 @@ export const ProgressPanel: React.FC<Props> = ({ attempts, focusConceptId }) => 
             <LinearProgress
               variant="determinate"
               value={(demonstrated / CONCEPT_LIST.length) * 100}
+              aria-label={`${demonstrated} of ${CONCEPT_LIST.length} concepts demonstrated`}
               sx={{ flexGrow: 1, height: 5, borderRadius: 3, minWidth: 60 }}
             />
           </Stack>
@@ -102,7 +103,7 @@ export const ProgressPanel: React.FC<Props> = ({ attempts, focusConceptId }) => 
               size="small"
               variant="outlined"
               label={gap === 'capability' ? 'Use what you know' : 'Name what you do'}
-              sx={{ height: 22, fontSize: '0.65rem', alignSelf: 'center' }}
+              sx={{ minHeight: 22, fontSize: (t) => t.typography.pxToRem(10.4), alignSelf: 'center' }}
             />
           </Tooltip>
         )}
@@ -121,7 +122,7 @@ export const ProgressPanel: React.FC<Props> = ({ attempts, focusConceptId }) => 
               size="small"
               variant="outlined"
               label={STATE_LABEL[focusState.state]}
-              sx={{ height: 18, fontSize: '0.6rem' }}
+              sx={{ minHeight: 18, fontSize: (t) => t.typography.pxToRem(9.6) }}
             />
           </Stack>
 
