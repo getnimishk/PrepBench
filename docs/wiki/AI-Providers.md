@@ -37,6 +37,19 @@ Click *Set up a local model*. The wizard:
 
 With a local model, AI grading works with the Wi-Fi off like everything else.
 
+### Keeping the local catalogue current
+
+The wizard's model list ships built in (`app/data/local_models.json`), so a fresh install has no network dependency. *Check for new models* calls `POST /api/v1/llm/local/models/refresh`, which is the only place `ollama_catalogue_sync.py` runs — nothing calls it at startup or on a schedule.
+
+The sync fetches the Ollama library page, parses the general-purpose instruct/chat models, and computes a download size and RAM requirement for each at 4-bit quantisation:
+
+```
+download_gb = parameters_b * 0.6 + 0.2
+ram_required_gb = parameters_b * 0.85 + 1.2
+```
+
+Anything new is merged into `backend/data/local_models.custom.json` — additively, never overwriting a built-in entry — and the in-memory catalogue reloads immediately. If the network call fails or nothing parses, the endpoint reports that plainly and changes nothing; it never fabricates a model list.
+
 ## Cloud providers
 
 Three adapters ship in `app/llm/adapters/`:

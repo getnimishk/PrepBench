@@ -12,7 +12,7 @@ If you just want to run it, the [README](https://github.com/getnimishk/PrepBench
 | **[Architecture](Architecture)** | Backend layering, the request path, the 24 tables, the seed ledger, why there is no Alembic, and what CI actually enforces |
 | **[Readiness](Readiness)** | Subjects, why a drill never counts as a mock, the five states and the thresholds behind them |
 | **[Design Review](Design-Review)** | Two defensible architectures, the deciding axis, and why grading assesses the reasoning rather than the choice |
-| **[Chart Sandbox](Chart-Sandbox)** | The executable delivery model, the coupling ledger, the 27 views, and the guided learning layer |
+| **[Chart Sandbox](Chart-Sandbox)** | The Learning Lab's first sandbox: the executable delivery model, the coupling ledger, the 27 views, and the guided learning layer |
 | **[AI Providers](AI-Providers)** | The provider gateway, task-level routing, local model setup, and how keys are stored |
 | **[Importing Content](Importing-Content)** | Question formats, roadmap column detection, and the pre-import audit |
 | **[Product Review](Product-Review)** | The September 2026 review checked against the database: which claims held, which did not, and the resulting order of work |

@@ -45,8 +45,8 @@ There is no account, no telemetry, and no subscription. A network connection is 
 | **Spaced repetition** | The SM-2 algorithm that powers Anki. Each completed sitting updates the interval and ease factor of every question you answered in it, so a question comes back just before you would have forgotten it |
 | **Design Review** | Two defensible architectures for one requirement. Pick one and say why — or refuse to pick and say what you would ask first. What is graded is whether your reasoning found the axis the decision turns on, not which option you chose |
 | **System design practice** | Write answers to real prompts and get graded across a six-category rubric — scores, strengths, and specific improvements, calibrated to your target role. Drafts save as you type, so you can leave and come back |
-| **Interview practice (audio)** | Record spoken answers across four rounds — HR screening, hiring manager, system design, behavioral. Scored on **what you said** (content) and **how you said it** (pacing, filler words, clarity) |
-| **Chart Sandbox** | 27 agile metric views over one executable model. Change a WIP limit and watch cycle time, defect escape, and deployment risk move together — with a guided track that teaches you to read each chart before asking you to explain one |
+| **Interview practice (audio)** | Record spoken answers across four rounds — HR screening, hiring manager, system design, behavioral. Every round opens with an introduction question, as a real interview does. Scored on **what you said** (content) and **how you said it** (pacing, filler words, clarity). Write a prepared answer and key talking points for a question beforehand, and your take is graded against your own plan — a plan alignment score, which points were covered, missed, or only partly hit, and what to do differently on the next take |
+| **Learning Lab** | Simulation sandboxes that teach a domain of professional metrics by prediction, not lecture. **Agile Metrics** is live: 27 views over one executable delivery model — change a WIP limit and watch cycle time, defect escape, and deployment risk move together — with a guided track that teaches you to read each chart before asking you to explain one. Databricks architecture and financial modelling sandboxes are next |
 | **Learning roadmaps** | Import any syllabus (`.xlsx` / `.json` / `.md` / `.csv`) and track it in three views: a table for editing, a journey map for orientation, and a Gantt schedule that projects your finish date |
 | **Analytics** | A tab per practice mode — score trends with rolling averages, domain mastery, per-category breakdowns, and your weakest area called out by name |
 | **Question bank** | Full CRUD editor, bulk import from JSON/CSV/Excel/Markdown, advanced search, and a pre-import audit that validates a batch before it touches your database |
@@ -149,9 +149,13 @@ Open it at **`/design-reviews`**.
 
 ---
 
-## The Chart Sandbox
+## The Learning Lab
 
-A delivery simulator built for people who have to *explain* metrics, not just read them.
+A home for simulation sandboxes, each teaching a domain of professional metrics through the same loop: predict, manipulate, observe, explain. Open the hub at **`/lab`** to see every sandbox; each one also has its own direct link once it is live.
+
+### Agile Metrics
+
+The first sandbox, and the one that is live today — a delivery simulator built for people who have to *explain* metrics, not just read them.
 
 Four coupled models — flow, quality, deployment, reliability — plus team health run over a scenario you control. Move one slider and every downstream chart responds, because they are all reading the same executable model rather than 27 hand-drawn pictures.
 
@@ -219,6 +223,8 @@ You choose who runs the model. Open **Settings → AI Providers**.
 
 > [!NOTE]
 > PrepBench never downloads a model and never launches a server for you — you do that yourself, deliberately. With a local model, AI grading works with the Wi-Fi off like everything else.
+
+The wizard's model list is built in, so it works offline from a fresh install. Click *Check for new models* to pull the current Ollama library, compute each model's download size and RAM requirement, and add anything new to your local catalogue — a one-off, on-demand network call, never made automatically. If it cannot reach the network, nothing changes and nothing is invented.
 
 **Or a cloud API.** Gemini, OpenAI, Anthropic, or anything OpenAI-compatible — Groq, Together, DeepSeek, vLLM, LM Studio. Adding a vendor PrepBench does not ship a profile for takes a JSON file, not a code change.
 
@@ -481,8 +487,9 @@ It is designed as a single-user local app — there is no authentication or mult
 
 - [ ] Start a full mock from the UI, so readiness moves without going through the API
 - [ ] Design reviews carrying a `subject_id` of their own, rather than being mapped onto a subject by domain
-- [ ] Spoken explanation practice in the Chart Sandbox — reason aloud about a chart and get feedback on the argument, not just the answer
+- [ ] Spoken explanation practice in the Agile Metrics sandbox — reason aloud about a chart and get feedback on the argument, not just the answer
 - [ ] Flow Efficiency and Aging WIP as guided sandbox concepts
+- [ ] Databricks architecture and financial modelling sandboxes in the Learning Lab
 - [ ] AI-generated explanations for imported questions that arrive without one
 - [ ] PDF and image question import with OCR
 - [ ] Flashcard mode built from missed questions
