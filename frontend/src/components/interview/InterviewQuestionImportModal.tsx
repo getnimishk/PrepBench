@@ -74,7 +74,7 @@ export const InterviewQuestionImportModal: React.FC<Props> = ({ open, onClose, o
       <DialogTitle sx={{ fontWeight: 700 }}>Import Interview Questions</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Bring in your own questions from a plain text list, JSON, or CSV file. Rows without a round specified use the round you pick below.
+          Bring in your own questions from a plain text list, JSON, or CSV file. Rows without a round specified use the round you pick below. JSON and CSV rows can also carry a prepared_answer and key_talking_points (a JSON list, or separated by | in CSV).
         </Typography>
 
         <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>

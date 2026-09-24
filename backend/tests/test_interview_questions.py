@@ -184,6 +184,84 @@ def test_import_csv_header_row_parsed_correctly():
     assert matches[0]["category"] == "Motivation"
 
 
+def test_import_json_carries_prepared_answer_and_talking_points():
+    # These were once dropped on import, so a file with a full answer plan
+    # arrived as bare questions and a graded take had nothing to measure.
+    marker = uuid.uuid4().hex[:8]
+    question_text = f"What is the hardest part of a platform migration [{marker}]?"
+    res = client.post(
+        "/api/v1/interview-questions/import",
+        data={"default_round_type": "hiring_manager"},
+        files={"file": ("questions.json", json.dumps({"questions": [{
+            "question_text": question_text,
+            "prepared_answer": "  Governance and identity redesign, not the code.  ",
+            "key_talking_points": ["Code conversion is mechanical", "  ", "Identity is its own workstream"],
+        }]}).encode(), "application/json")},
+    )
+    assert res.status_code == 200
+    assert res.json()["imported_count"] == 1
+
+    listing = client.get("/api/v1/interview-questions?round_type=hiring_manager&limit=500").json()
+    match = next(q for q in listing["items"] if q["question_text"] == question_text)
+    assert match["prepared_answer"] == "Governance and identity redesign, not the code."
+    assert match["key_talking_points"] == ["Code conversion is mechanical", "Identity is its own workstream"]
+
+
+def test_import_csv_splits_talking_points_on_pipe_and_newline():
+    marker = uuid.uuid4().hex[:8]
+    question_text = f"How would you sequence migration waves [{marker}]?"
+    csv_content = (
+        "question_text,round_type,prepared_answer,key_talking_points\n"
+        f'{question_text},hiring_manager,"Pilot first, critical domains last.","Pilot waves first | Rising criticality\nCritical domains last"\n'
+    ).encode()
+    res = client.post(
+        "/api/v1/interview-questions/import",
+        data={"default_round_type": "behavioral"},
+        files={"file": ("questions.csv", csv_content, "text/csv")},
+    )
+    assert res.status_code == 200
+    assert res.json()["imported_count"] == 1
+
+    listing = client.get("/api/v1/interview-questions?round_type=hiring_manager&limit=500").json()
+    match = next(q for q in listing["items"] if q["question_text"] == question_text)
+    assert match["prepared_answer"] == "Pilot first, critical domains last."
+    assert match["key_talking_points"] == ["Pilot waves first", "Rising criticality", "Critical domains last"]
+
+
+def test_import_without_answer_fields_leaves_them_empty():
+    marker = uuid.uuid4().hex[:8]
+    question_text = f"Freeform question with no plan [{marker}]."
+    res = client.post(
+        "/api/v1/interview-questions/import",
+        data={"default_round_type": "behavioral"},
+        files={"file": ("q.json", json.dumps([{"question_text": question_text}]).encode(), "application/json")},
+    )
+    assert res.json()["imported_count"] == 1
+
+    listing = client.get("/api/v1/interview-questions?round_type=behavioral&limit=500").json()
+    match = next(q for q in listing["items"] if q["question_text"] == question_text)
+    assert match["prepared_answer"] is None
+    assert match["key_talking_points"] is None
+
+
+def test_import_rejects_malformed_answer_fields_instead_of_dropping_them():
+    data = json.dumps([
+        {"question_text": "Points are not strings", "key_talking_points": ["ok", 3]},
+        {"question_text": "Points are an object", "key_talking_points": {"a": "b"}},
+        {"question_text": "Answer is a list", "prepared_answer": ["not", "text"]},
+    ]).encode()
+    res = client.post(
+        "/api/v1/interview-questions/import",
+        data={"default_round_type": "behavioral"},
+        files={"file": ("q.json", data, "application/json")},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["imported_count"] == 0
+    assert body["skipped_count"] == 3
+    assert len(body["errors"]) == 3
+
+
 def test_import_skips_invalid_rows_and_reports_errors_without_failing_whole_batch():
     data = b'[{"question_text": "Valid question here"}, {"question_text": ""}, {"question_text": "bad round", "round_type": "not_a_real_round"}, "not-a-dict"]'
     res = client.post(
