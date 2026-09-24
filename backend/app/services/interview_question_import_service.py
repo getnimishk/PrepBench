@@ -7,9 +7,16 @@ Lightweight import for the Interview Practice question bank.
 
 Deliberately much smaller than the main Question Bank's import_service.py --
 interview questions have no options, no correct-answer keys, no explanations
-to parse/validate, just question text + round + optional category. Reusing
-the MCQ import machinery would mean stripping out most of what it does, so
-this is purpose-built instead.
+to parse/validate, just question text + round + optional category, plus an
+optional prepared answer and key talking points. Reusing the MCQ import
+machinery would mean stripping out most of what it does, so this is
+purpose-built instead.
+
+The prepared answer and talking points were once dropped on import even
+though the model, the create schema and the edit form all carried them, so a
+file with a full answer plan arrived as bare questions and a graded take had
+nothing to be measured against. They are read from JSON and CSV now; plain
+text has no way to express them and stays question-only.
 """
 import csv
 import io
@@ -23,6 +30,34 @@ from app.models.interview_question import InterviewRoundType
 
 _QUESTION_KEYS = ("question_text", "question", "text")
 _ROUND_KEYS = ("round_type", "round")
+
+# CSV cells hold talking points as one string. Commas are the column
+# separator, so points are split on "|" or on line breaks inside a quoted cell.
+_CSV_POINT_SEPARATORS = ("|", "\n")
+
+
+def _parse_talking_points(raw) -> tuple[Optional[List[str]], Optional[str]]:
+    """Return (points, error). Blank entries are dropped; nothing becomes None.
+
+    A JSON list must contain only strings, and a single string is read as
+    newline- or "|"-separated points. Any other type is an error rather than a
+    silent drop, for the same reason an unknown round is: quietly losing part
+    of someone's answer plan is worse than telling them to fix the row.
+    """
+    if raw is None or raw == "":
+        return None, None
+    if isinstance(raw, list):
+        if not all(isinstance(p, str) for p in raw):
+            return None, "key_talking_points must be a list of strings"
+        parts = raw
+    elif isinstance(raw, str):
+        parts = [raw]
+        for sep in _CSV_POINT_SEPARATORS:
+            parts = [piece for part in parts for piece in part.split(sep)]
+    else:
+        return None, "key_talking_points must be a list of strings or a string"
+    points = [p.strip() for p in parts if p.strip()]
+    return (points or None), None
 
 
 def _normalize_round_type(raw: Optional[str]) -> Optional[InterviewRoundType]:
@@ -75,7 +110,13 @@ class InterviewQuestionImportService:
             question_text = next((item[k] for k in _QUESTION_KEYS if item.get(k)), None)
             round_type = next((item[k] for k in _ROUND_KEYS if item.get(k)), None)
             category = item.get("category")
-            rows.append({"question_text": question_text, "round_type": round_type, "category": category})
+            rows.append({
+                "question_text": question_text,
+                "round_type": round_type,
+                "category": category,
+                "prepared_answer": item.get("prepared_answer"),
+                "key_talking_points": item.get("key_talking_points"),
+            })
         return rows
 
     def _parse_csv(self, content_bytes: bytes) -> List[dict]:
@@ -103,6 +144,8 @@ class InterviewQuestionImportService:
                 "question_text": _get(row, _QUESTION_KEYS),
                 "round_type": _get(row, _ROUND_KEYS),
                 "category": _get(row, ("category",)),
+                "prepared_answer": _get(row, ("prepared_answer",)),
+                "key_talking_points": _get(row, ("key_talking_points",)),
             })
         return rows
 
@@ -161,10 +204,25 @@ class InterviewQuestionImportService:
 
             category = row.get("category") or default_category
 
+            raw_answer = row.get("prepared_answer")
+            if raw_answer is not None and not isinstance(raw_answer, str):
+                skipped += 1
+                errors.append(f"Row {idx}: prepared_answer must be text, skipped.")
+                continue
+            prepared_answer = (raw_answer or "").strip() or None
+
+            talking_points, points_error = _parse_talking_points(row.get("key_talking_points"))
+            if points_error:
+                skipped += 1
+                errors.append(f"Row {idx}: {points_error}, skipped.")
+                continue
+
             self.repo.create(InterviewQuestionCreate(
                 round_type=round_type,
                 question_text=question_text,
                 category=category,
+                prepared_answer=prepared_answer,
+                key_talking_points=talking_points,
                 is_ai_generated=False,
             ))
             imported += 1
