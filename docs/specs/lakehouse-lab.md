@@ -134,7 +134,7 @@ Acceptance:
 - [ ] Nothing in it resembles the learner's own data. It never reads from or writes to `exam_simulator.db`.
 
 **P0-2 · Optional Delta engine, with honest fallback**
-- [ ] `deltalake` is in a separate `backend/requirements-lab.txt`, not in `requirements.txt`.
+- [ ] `deltalake` (plus `tzdata`, which Windows needs for UTC timestamps) is in a separate `backend/requirements-lab.txt`, not in `requirements.txt`.
 - [ ] Imported lazily inside the lab service only. `app.main` starts with it absent (tested).
 - [ ] `GET /api/v1/lab/lakehouse/engine` → `{available, version, install_command}`.
 - [ ] Given the engine is absent, when the learner opens Station C, then the concept steps work and the run panel says *"Real engine not installed"* with the command. No simulated result appears in its place.
@@ -158,7 +158,7 @@ Operations are a fixed allow-list, not free-form code:
 - **restore** to version N
 - **compaction** (`optimize.compact`), optionally with Z-ordering, after many small appends
 - **vacuum** with a retention warning (vacuum removes old files, and that breaks time travel to those versions)
-- **compare tables**: row counts plus per-column sum, min, max and null count for two tables, with the mismatches listed. Station F's yield-wave validation (P0-8) needs this in v1, so it isn't left to Station D (P1-2).
+- **compare tables**: row counts and per-column sum, min, max and null count for two tables, **plus a row-level join on the business key** that lists the rows whose values differ beyond a tolerance. The spike showed aggregates alone can miss real drift: identical sums hid 300 mismatched rows (design §4.4). Station F's yield-wave validation (P0-8) needs this in v1, so it isn't left to Station D (P1-2).
 
 The server writes all SQL and resolves every table name itself. The client names an operation and a table from the pack; it never sends SQL or a path. An expected failure (for example, a schema-enforcement rejection) comes back as a result showing the real error, not as a server error (design §4.4).
 
@@ -268,7 +268,7 @@ PrepBench has **no telemetry**, so metrics come from the learner's own local dat
 
 | # | Question | Who | Blocking? |
 |---|---|---|---|
-| 1 | Does `deltalake` 1.6.x cover every allow-listed operation (MERGE, restore, compaction and Z-order, vacuum, history, and compare via `QueryBuilder`) on local Windows paths, fed from `arro3` tables without pyarrow? The wheel exists for Python 3.14 (checked: abi3, win_amd64, ~53 MB). The 8-step spike checklist is in design §10. | Engineering | **Yes**, before Phase 1 |
+| 1 | ~~Does `deltalake` cover every allow-listed operation on Windows without pyarrow?~~ **Resolved (spike, 2026-09-24):** yes, all 10 operations, on deltalake 1.6.5 and Python 3.14.7, with pyarrow never loaded. Four design changes followed; see design §10. | Engineering | — |
 | 2 | ~~Journal storage~~ **Resolved:** a new `lab_journal_entries` table (P0-10, design §4.6). | Engineering | — |
 | 3 | ~~Batch file format~~ **Resolved:** no landing files in v1 (P0-5, design §4.5). | Engineering | — |
 | 4 | Which interview round type do lab questions use? Existing options are `hr_screening`, `hiring_manager`, `system_design`, `behavioral`. Add `technical`? | Product (author) | No (P1) |
@@ -285,7 +285,7 @@ There's no hard deadline, because no interview is scheduled. **Recommendation: s
 
 | Phase | Scope | Exit criteria |
 |---|---|---|
-| 0 · Spike | Open questions 1 and 9 | All 10 operations run from a test on Windows (design §10). Scenario inconsistencies resolved. |
+| 0 · Spike | Open questions 1 and 9 | ✅ Engine check done 2026-09-24 (design §10). **Remaining:** fix the scenario's inconsistencies (open question 9). |
 | 1 · Delta first | P0-1, P0-2, P0-3, P0-4, P0-9, P0-10, P0-11, P0-12 (Station C only, default upstream) | Full test suite green with and without the engine. Notebook verified on Free Edition. |
 | 2 · The program | P0-8 (Station F), linked to Station C for the yield-wave validation | A count-based plan visibly fails where the complexity-weighted plan holds. A cutover without a consumer map breaks a report. |
 | 3 · The pipeline flow | P0-5, P0-6, P0-7 | A watermark mistake in A shows up as real rows in C. The ledger completeness test passes. |

@@ -147,24 +147,33 @@ def status() -> EngineStatus:            # never raises
 ```
 
 - **This is the only module that imports `deltalake`.** A test asserts that importing `app.main` doesn't load it (`"deltalake" not in sys.modules`).
-- Writes take **`arro3.core.Table`** objects built from the generated rows. That avoids a pyarrow dependency, since pyarrow is optional in deltalake 1.x. *To confirm in the spike.*
-- Reads and comparisons use deltalake's **`QueryBuilder`** (DataFusion SQL) over registered tables, with SQL written by the server from the allow-list and never taken from the client. *To confirm in the spike.*
+- Writes take **`arro3.core.Table`** objects built from the generated rows. That avoids a pyarrow dependency, since pyarrow is optional in deltalake 1.x. *Confirmed:* the spike never loaded pyarrow.
+- Reads and comparisons use deltalake's **`QueryBuilder`** (DataFusion SQL) over registered tables, with SQL written by the server from the allow-list and never taken from the client. *Confirmed:* `execute()` returns a `RecordBatchReader`, and `read_all()` gives an arro3 `Table`.
+- **Typed columns go through SQL.** arro3's `Array` constructor supports `int64`, `float64` and `string` from Python values, but raises `NotImplementedError` for `Decimal128` and `Timestamp`. So the generator writes raw values (decimals as strings, timestamps as epoch microseconds) to a `_staging` table. Then a server-written `SELECT CAST(... AS DECIMAL(10,4)) … to_timestamp_micros(...) …` produces the typed batch, and its `RecordBatchReader` is passed straight to `write_deltalake`. *Confirmed*, and it yields exactly the Delta types the defects need: `decimal(10,4)`, `timestamp_ntz` for legacy local time, and `timestamp` for UTC.
+- **Windows timezone data:** converting a UTC timestamp to a Python value needs the `tzdata` package on Windows. The backend venv has it already (through pandas); a bare scratch venv didn't. `requirements-lab.txt` should list `tzdata` explicitly. Otherwise, show timestamps by casting to text in SQL, as the spike did.
 
 ### 4.4 The operation allow-list
 
 `POST /api/v1/lab/lakehouse/ops` takes a **discriminated union** of request models (on `op`). Each maps to one handler:
 
-| `op` | deltalake call (expected, to confirm in the spike) | Returns |
+All calls below were **confirmed in the Phase 0 spike** (§10) on deltalake 1.6.5, Python 3.14.7 and Windows, without pyarrow.
+
+| `op` | deltalake call (confirmed) | Returns |
 |---|---|---|
 | `create_table` | `write_deltalake(path, batch, mode="overwrite")` | version, schema, rows |
-| `append_batch` | `write_deltalake(path, batch, mode="append")`, with `schema_mode` absent (enforce) or `"merge"` (evolve) | version, rows, **or the real error** |
-| `merge_cdc` | `DeltaTable.merge(src, predicate on business key).when_matched_update_all().when_matched_delete(…).when_not_matched_insert_all().execute()` | metrics (inserted, updated, deleted) |
-| `history` | `DeltaTable.history()` | version list |
-| `read_version` | `DeltaTable(path, version=N)` + count/sample via `QueryBuilder` | rows, sample |
-| `restore` | `DeltaTable.restore(N)` | new version |
-| `compact` | `DeltaTable.optimize.compact()` / `.z_order(cols)` | files before/after |
-| `vacuum` | `DeltaTable.vacuum(retention_hours, dry_run, enforce_retention_duration=False)` | files removed, **plus which versions can no longer be time-travelled to** |
-| `compare_tables` *(new, see §9)* | two `QueryBuilder` aggregates | row counts; per-column sum/min/max/null count; mismatches |
+| `append_batch` | `write_deltalake(path, batch, mode="append")`, with `schema_mode` absent (enforce) or `"merge"` (evolve) | version, rows, **or the real error**. Enforcement raises `SchemaMismatchError: Cannot cast schema, number of fields does not match: 4 vs 3` |
+| `merge_cdc` | `DeltaTable.merge(src, predicate="t.id = s.id", source_alias="s", target_alias="t").when_matched_delete(predicate="s.op = 'D'").when_matched_update(updates=…).when_not_matched_insert(updates=…).execute()` | `num_target_rows_inserted / _updated / _deleted / _copied`, files added/removed |
+| `history` | `DeltaTable.history()` | list of `{version, operation, …}` |
+| `read_version` | `DeltaTable(path, version=N)`, then count and sample **via `QueryBuilder`, never `DeltaTable.count()`** (see below) | rows, sample |
+| `restore` | `DeltaTable.restore(N)` | `numRestoredFile`, `numRemovedFile`; creates a *new* version |
+| `compact` | `DeltaTable.optimize.compact()` / `.optimize.z_order(cols)`; file counts from `len(file_uris())` | `numFilesAdded`, `numFilesRemoved`, files before/after |
+| `vacuum` | `DeltaTable.vacuum(retention_hours, dry_run, enforce_retention_duration)` | files removed. With enforcement on, retention under 168 h is **refused**: `Invalid retention period, minimum retention for vacuum is configured to be greater than 168 hours`. That refusal is itself a teaching result. The demo turns enforcement off, and the UI says so. |
+| `compare_tables` | `QueryBuilder` over both tables: **per-column aggregates *and* a join on the business key** with a tolerance | row counts; sum/min/max/null count per column; **mismatched rows by key**, with the largest difference |
+
+**Two spike findings that shape these handlers:**
+
+1. **`DeltaTable.count()` reads the transaction log, not the data.** After vacuum, `DeltaTable(path, version=0).count()` still returned 10, while an actual read of that version failed with `Parquet error: Failed to fetch metadata for file …`. Every count or read shown to the learner must go through `QueryBuilder`, which touches the files. Otherwise the vacuum lesson would show a vacuumed version as still readable, which is exactly the wrong lesson.
+2. **Aggregates can hide value drift.** For the same 500 rows at 2-decimal vs full precision, the two `sum()` results were identical (45750.0). A join on the key found **300 mismatched rows** (largest difference 0.0033). So `compare_tables` must include the row-level join. With aggregates alone it would *pass* a table with real rounding drift, which is the story's lesson that row-count parity isn't enough, one level down.
 
 - **Expected failures are results, not server errors.** A schema-enforcement rejection is a successful teaching outcome, so it returns `200 {ok:false, error:"<engine message>"}`. Misuse (unknown table, an attempt with no committed prediction) returns `400`. A missing engine returns `503` with the install command.
 - **Table names come from the pack's allow-list** (`legacy.*`, `bronze.*`, `silver.*`) and resolve through `lab_path()`. The client never sends a filesystem path.
@@ -257,8 +266,8 @@ Each station declares its effects in a **coupling ledger** of `arithmetic | assu
 |---|---|---|
 | Users | 1 per install | No auth, no multi-tenant design, no cross-process locking |
 | Data | < 5 MB generated; Delta tables < 50 MB, including history | Regenerate rather than cache; `vacuum` and reset keep it bounded |
-| Op latency | tens of ms for most operations on 5k rows (to confirm in the spike) | Synchronous endpoints, no job queue |
-| Compaction demo | ~50 small appends (not 200) to stay under 15 s | The number of appends is a pack setting |
+| Op latency | **Measured:** 6–100 ms per operation on 1k rows (create 96 ms, MERGE 51 ms, restore/history 49 ms, compare 61 ms, compact 273 ms) | Synchronous endpoints, no job queue |
+| Compaction demo | **Measured:** 50 small appends in 3.6 s, then compaction from 50 files to 1 in 0.27 s | 50 appends is well inside budget. The number of appends is a pack setting |
 | Install | +53 MB wheel, opt-in | Documented command, never automatic |
 
 **Failure modes:**
@@ -318,17 +327,27 @@ All six are folded into the PRD, in the sections listed.
 | 5 | **Each dataset table has a legacy copy and a clean copy,** and the planted defects are the difference between them. This makes "legacy vs migrated" concrete. | P0-1 |
 | 6 | The CI job that runs with the engine needs a workflow change **the author pushes** (hard rule 8). | P0-2 |
 
-## 10. Spike checklist (Phase 0)
+## 10. Phase 0 spike: results
 
-Run on Windows, in a *scratch* venv (not `backend/.venv`), Python 3.14, `uv pip install --system-certs deltalake==1.6.5`:
+**Run on 2026-09-24** in a scratch venv (not `backend/.venv`): Python 3.14.7, `uv pip install --system-certs deltalake==1.6.5`. That installed 4 packages: `deltalake`, `arro3-core` 0.8.3, `deprecated`, `wrapt`. **pyarrow was never installed or imported.** All tables were written under a path containing spaces. Total run time for all steps was about 4.9 s.
 
-1. `write_deltalake` from an `arro3.core.Table` without pyarrow, to a path containing a space.
-2. Append with a drifted schema: capture the enforcement error text. Then append with `schema_mode="merge"`.
-3. MERGE with update, delete and insert clauses. Read the metrics.
-4. `history`, `DeltaTable(path, version=N)`, `restore(N)`.
-5. 50 small appends, then `optimize.compact()` and `z_order`. Count files before and after.
-6. `vacuum` with retention 0 and enforcement off, then time-travel to a vacuumed version: capture the error.
-7. `QueryBuilder` SQL aggregate over two registered tables, and how its results come back without pyarrow.
-8. Time for each step. Delete the folder while nothing is open (Windows file locks).
+| # | Check | Result |
+|---|---|---|
+| 1 | Write from an `arro3` table, path with a space | ✅ 96 ms, version 0, 1,000 rows, pyarrow not loaded |
+| 2 | Drifted append under enforcement, then with `schema_mode="merge"` | ✅ Enforcement raises `SchemaMismatchError: … 4 vs 3`. Merge succeeds and adds the column |
+| — | Replayed batch via plain append | ✅ 50 real duplicates, measured by SQL |
+| 3 | MERGE with update, delete and insert | ✅ inserted 1, updated 2, deleted 1. Replaying the batch through MERGE on the key gives 0 duplicates |
+| 4 | `history`, time travel, `restore` | ✅ Restore to v0 creates version 3 with v0's 1,000 rows |
+| 5 | 50 small appends, then `compact` and `z_order` | ✅ 3.6 s for 50 appends. Compaction takes **50 files → 1** in 0.27 s. Z-order runs |
+| 6 | Vacuum with retention 0, then time travel | ✅, with a caveat: an actual read of the vacuumed version fails (`Parquet error: Failed to fetch metadata…`), but **`count()` still answers from the log**. See §4.4 finding 1. With enforcement on, retention under 168 h is refused with a clear error |
+| 7 | `QueryBuilder` compare over two tables | ✅ Returns `RecordBatchReader` → arro3 `Table`. `ORDER BY` needed for stable output. **Aggregates missed 300 drifted rows that a key join found.** See §4.4 finding 2 |
+| — | DECIMAL and timestamp columns | ⚠️ arro3 can't construct them from Python values (`NotImplementedError`). ✅ Cast through SQL from a staging table instead (§4.3): `decimal(10,4)`, `timestamp_ntz`, `timestamp` all confirmed |
+| 8 | Delete the lab folder after use (Windows) | ✅ No file locks. The folder was removed on the first try |
 
-Anything that fails changes §4.3–4.4 before Phase 1 starts.
+**Result: open question 1 is resolved.** Every one of the 10 operations works locally on Windows without pyarrow. The spike changed the design in four places, and each change is in §4.3–4.4 above:
+1. Counts go through `QueryBuilder`, never `DeltaTable.count()`.
+2. `compare_tables` joins on the key.
+3. Typed columns go through a SQL cast.
+4. `requirements-lab.txt` lists `tzdata`.
+
+The spike scripts were throwaway and aren't in the repo. Phase 1's engine tests re-assert each row of this table.
