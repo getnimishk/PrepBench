@@ -1,6 +1,6 @@
 # Lakehouse Lab — PRD
 
-**Status:** Draft for review · **Date:** 2026-09-23 · **Owner:** Nimish Kanungo
+**Status:** Draft for review · **Date:** 2026-09-24 · **Owner:** Nimish Kanungo · **System design:** [lakehouse-lab-design.md](lakehouse-lab-design.md)
 **Where it lives:** Learning Lab (`/lab`) → `/databricks-sandbox`. This is the "Databricks architecture" domain that `docs/wiki/Chart-Sandbox.md` already lists as next. It takes over the existing placeholder card in `LearningLabPage.tsx` (`path: '/databricks-sandbox'`, `live: false`), and it follows the top-level route convention set by `/chart-sandbox`. The nav key is `'databricks-sandbox'`, as `navigation.ts` already anticipates. It's wired in using the `add-learning-lab-sandbox` skill.
 
 ---
@@ -125,8 +125,11 @@ A deterministic, seeded generator in the repo produces one small dataset for the
 - **Late or out-of-order telemetry:** events that arrive late or in the wrong order.
 - **Small files:** a many-small-files landing pattern.
 
+**Legacy and clean copies.** Each table exists twice: a `legacy.*` copy (what the old Hive jobs produced) and a clean source copy. The planted precision, timezone and null defects are the *difference* between the two. That's how "row counts match, values are wrong" gets ground truth without running Hive. Defects are declared in the pack's `dataset.json` and applied by the seeded generator (design §4.2).
+
 Acceptance:
 - [ ] Same seed → byte-identical output (tested).
+- [ ] Comparing a `legacy.*` table with its clean copy finds exactly the defects the manifest lists: no more, no fewer.
 - [ ] The manifest lists every planted defect with the rows it affects.
 - [ ] Nothing in it resembles the learner's own data. It never reads from or writes to `exam_simulator.db`.
 
@@ -136,6 +139,7 @@ Acceptance:
 - [ ] `GET /api/v1/lab/lakehouse/engine` → `{available, version, install_command}`.
 - [ ] Given the engine is absent, when the learner opens Station C, then the concept steps work and the run panel says *"Real engine not installed"* with the command. No simulated result appears in its place.
 - [ ] Engine tests use `pytest.importorskip("deltalake")`. The default suite passes without it.
+- [ ] A second CI job installs `requirements-lab.txt` and runs the engine tests. This changes `.github/workflows/ci.yml`, which **the author pushes** (hard rule 8: the automation token can't push workflow files).
 
 **P0-3 · Lab data isolation (hard rule 1 extension)**
 - [ ] Lab tables live under a directory set by `PREPBENCH_LAB_DIR` (default `backend/data/lab/`), never next to the real database.
@@ -154,12 +158,16 @@ Operations are a fixed allow-list, not free-form code:
 - **restore** to version N
 - **compaction** (`optimize.compact`), optionally with Z-ordering, after many small appends
 - **vacuum** with a retention warning (vacuum removes old files, and that breaks time travel to those versions)
+- **compare tables**: row counts plus per-column sum, min, max and null count for two tables, with the mismatches listed. Station F's yield-wave validation (P0-8) needs this in v1, so it isn't left to Station D (P1-2).
+
+The server writes all SQL and resolves every table name itself. The client names an operation and a table from the pack; it never sends SQL or a path. An expected failure (for example, a schema-enforcement rejection) comes back as a result showing the real error, not as a server error (design §4.4).
 
 Acceptance:
 - [ ] Each operation returns the real result: rows affected, new version, schema, file count, error text.
 - [ ] Predict is committed before manipulate, and cannot be changed after the outcome is shown. This reuses the `learning_attempts` rules (prediction is write-once).
 - [ ] The replayed-batch defect produces real duplicates on plain append, and none with MERGE on the business key.
 - [ ] The small-files batch shows a real file count before and after compaction.
+- [ ] Comparing a `legacy.*` table with its migrated copy returns matching row counts and the planted value differences.
 
 **P0-5 · Station B: ADLS (deterministic simulation)**
 It is a pure TypeScript model in `frontend/src/services/lakehouse/`, the same pattern as the Agile Metrics models.
@@ -168,6 +176,7 @@ It is a pure TypeScript model in `frontend/src/services/lakehouse/`, the same pa
   - landing layout: copied from HDFS as-is vs redesigned for object storage (`bronze/<source>/<yyyy>/<mm>/<dd>/`)
   - an access puzzle: a vendor needs write access to one folder only. RBAC at container scope is too broad, while a directory ACL also needs execute on the parent folders.
   - access tier (hot or cool) and lifecycle rule
+- **No landing files in v1.** The landing zone exists only in the simulation. Batches go straight from the generator into `bronze.*` tables, so no Parquet writer is needed without pyarrow. Revisit with `arro3-io` if Station B should read real files (design §4.5, §8).
 - [ ] Every effect is tagged `arithmetic | assumption | convention` in a coupling ledger. Assumptions render as labelled callouts, and a completeness test fails if one is never shown (same as `couplings.ts`).
 - [ ] Cost and latency figures are labelled *teaching constants*, not Azure prices.
 
@@ -197,20 +206,22 @@ This is the program level, and it covers the three failure patterns from the pro
   - a fab change-freeze window
   - a wave cut over **without a downstream consumer map**, which blanks a dependent report
 - **Cost lever:** production jobs on job clusters vs all-purpose clusters, and DBU spend vs total cost including the infrastructure underneath. All figures are labelled *teaching constants*, never presented as current Azure or Databricks prices.
-- **Per-wave loop:** Convert → Validate (data, functional and performance parity) → Parallel run → Cutover → Hypercare. A yield-domain wave's Validate step links into Station C, where **row-count parity passes but value-level comparison fails**.
+- **Per-wave loop:** Convert → Validate (data, functional and performance parity) → Parallel run → Cutover → Hypercare. A yield-domain wave's Validate step links into Station C with a *compare tables* preset (P0-4), where **row-count parity passes but value-level comparison fails** on real tables.
 - [ ] Same ledger, teaching-constant and determinism rules as P0-5 (the same inputs always give the same outcome).
 - [ ] Decommission is blocked until every consumer in the map is confirmed migrated.
 
 **P0-9 · Explain: acceptance criteria with structural checks**
 After each outcome, the learner writes acceptance criteria. Deterministic checks look for: a Given/When/Then shape · a numeric threshold (for example a reconciliation tolerance) · a failure or rollback behaviour · an owner or sign-off (for yield waves, the business data owner, not only engineering QA).
 - [ ] The checks are labelled *structure checks*, not a quality grade.
-- [ ] Optional AI feedback goes through the normal task routing. With no provider, it shows **"Not Graded"** and the reason (hard rule 2).
+- [ ] v1 has no AI feedback on acceptance criteria. That's P1-6.
 
 **P0-10 · Lab journal**
 - [ ] Every Station C operation writes a journal entry: operation, table, resulting version, row and file counts, timestamp, and **source = `real engine` or `simulation`**, shown on every entry.
 - [ ] Stations A, B and F write entries marked `simulation`.
 - [ ] The journal exports to Markdown ("what I actually did"), for review before an interview.
 - [ ] Entries are append-only. They can be deleted by the learner but never edited.
+- [ ] Stored in a new `lab_journal_entries` table, not in `learning_attempts`. Engine operations aren't learning attempts, and mixing them in would distort every mastery figure calculated from that table. An entry can link to an attempt through `attempt_uid`.
+- [ ] **Real-engine entries are written only by the server,** inside the operation handler. The API refuses a client-posted entry marked `real engine`, so the journal can't claim a run that didn't happen (design §4.6).
 
 **P0-11 · Databricks notebook export (Station C)**
 - [ ] Exports Databricks source format (`# Databricks notebook source` with `# COMMAND ----------` cells), using SQL and PySpark, for the same dataset and steps, including how to upload the dataset to a Volume.
@@ -230,6 +241,7 @@ After each outcome, the learner writes acceptance criteria. Deterministic checks
 - **P1-5 · Station I: Identity and governance (simulation).**
   - **Identity:** a trust-path puzzle. Given service accounts across Kerberos realms, find which one can't get an Entra ID token after cutover. Plan the move to service principals and managed identities as a workstream with its own sign-off.
   - **Governance:** redesign a Ranger row- and column-level policy as a Unity Catalog grant or ABAC rule. The redesign must preserve *why* the policy existed, not just copy its configuration.
+- **P1-6 · AI feedback on acceptance criteria.** Adds a new `LLMTask` with its own entry in per-task provider routing. With no provider, it shows **"Not Graded"** and the reason (hard rule 2). This was moved from P0-9 because it touches LLM routing and the settings UI, and v1's value doesn't depend on it.
 
 ### P2: design for, don't build
 
@@ -246,7 +258,7 @@ PrepBench has **no telemetry**, so metrics come from the learner's own local dat
 |---|---|---|---|
 | Leading | Diagnostic confidence, before → after (both levels) | ≥ 8/10 after (stretch 10/10) | P1-4 view, learner's own ratings |
 | Leading | Prediction accuracy per concept over repeat attempts | Rising across 3 attempts | `learning_attempts` (already derived on read) |
-| Leading | Real-engine operations in the journal | All 9 allow-listed operations run at least once | Journal |
+| Leading | Real-engine operations in the journal | All 10 allow-listed operations run at least once | Journal |
 | Leading | Factory run completed with a complexity-weighted plan that beats the count-based plan | At least 1 full run | Journal |
 | Leading | Notebook export completed on Free Edition | ≥ 1 station | Learner's own check-off |
 | Lagging | Author passes a technical round for a data-platform PO role | Pass | Self-reported |
@@ -256,9 +268,9 @@ PrepBench has **no telemetry**, so metrics come from the learner's own local dat
 
 | # | Question | Who | Blocking? |
 |---|---|---|---|
-| 1 | Does `deltalake` 1.6.x cover every allow-listed operation (MERGE, restore, compaction and Z-order, vacuum, history) on local Windows paths, fed from `arro3` tables without pyarrow? The wheel exists for Python 3.14 (checked: abi3, win_amd64, ~53 MB). A 1-day spike should confirm the rest. | Engineering | **Yes**, before Phase 1 |
-| 2 | Journal storage: extend `learning_attempts` (it already has `manipulation`/`observed` JSON), or add a new `lab_journal_entries` table? Engine operations aren't attempts, so a new table is probably cleaner. | Engineering | Yes, before Phase 1 |
-| 3 | Batch file format between stations (CSV/JSON vs Parquet, given no pyarrow). | Engineering | No |
+| 1 | Does `deltalake` 1.6.x cover every allow-listed operation (MERGE, restore, compaction and Z-order, vacuum, history, and compare via `QueryBuilder`) on local Windows paths, fed from `arro3` tables without pyarrow? The wheel exists for Python 3.14 (checked: abi3, win_amd64, ~53 MB). The 8-step spike checklist is in design §10. | Engineering | **Yes**, before Phase 1 |
+| 2 | ~~Journal storage~~ **Resolved:** a new `lab_journal_entries` table (P0-10, design §4.6). | Engineering | — |
+| 3 | ~~Batch file format~~ **Resolved:** no landing files in v1 (P0-5, design §4.5). | Engineering | — |
 | 4 | Which interview round type do lab questions use? Existing options are `hr_screening`, `hiring_manager`, `system_design`, `behavioral`. Add `technical`? | Product (author) | No (P1) |
 | 5 | Trademark use of "Azure", "Data Factory", "Databricks", "Delta Lake", "Cloudera" in UI and any marketing: nominative use plus a "not affiliated" notice. | Legal | Before any commercial release |
 | 6 | Provenance of the existing seeded question content (for example `PSM_I_Question_Bank.json`) before anything is sold. | Author / legal | Before any commercial release |
@@ -273,7 +285,7 @@ There's no hard deadline, because no interview is scheduled. **Recommendation: s
 
 | Phase | Scope | Exit criteria |
 |---|---|---|
-| 0 · Spike | Open questions 1–2 and 9 | All 9 operations run from a test on Windows. Storage decided. Scenario inconsistencies resolved. |
+| 0 · Spike | Open questions 1 and 9 | All 10 operations run from a test on Windows (design §10). Scenario inconsistencies resolved. |
 | 1 · Delta first | P0-1, P0-2, P0-3, P0-4, P0-9, P0-10, P0-11, P0-12 (Station C only, default upstream) | Full test suite green with and without the engine. Notebook verified on Free Edition. |
 | 2 · The program | P0-8 (Station F), linked to Station C for the yield-wave validation | A count-based plan visibly fails where the complexity-weighted plan holds. A cutover without a consumer map breaks a report. |
 | 3 · The pipeline flow | P0-5, P0-6, P0-7 | A watermark mistake in A shows up as real rows in C. The ledger completeness test passes. |
