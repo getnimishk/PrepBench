@@ -3,6 +3,7 @@
 # Commercial use requires a separate licence from the copyright holder.
 
 import os
+import shutil
 import sqlite3
 import tempfile
 from pathlib import Path
@@ -64,8 +65,16 @@ def _fingerprint(path: Path) -> dict:
     """What a database looks like from outside, without writing to it.
 
     Covers the write-ahead log and shared-memory files too: a stray connection
-    that only reads still creates them, and a schema change lands in the -wal
-    before it lands in the .db.
+    that only reads still creates or touches them, and a schema change lands in
+    the -wal before it lands in the .db.
+
+    The -shm is not evidence of a write -- it is SQLite's shared-memory index
+    of the -wal, and every reader maps and rewrites it, even through a
+    `mode=ro` connection. It stays in the fingerprint because it IS evidence of
+    a connection: nothing in a test run has any business opening the real file
+    at all, so a moved -shm still means the redirect leaked. What that demands
+    is that the guard itself never opens the real file through SQLite, which is
+    what _read_schema is built around.
     """
     state = {}
     for suffix in ("", "-wal", "-shm"):
@@ -80,30 +89,49 @@ def _fingerprint(path: Path) -> dict:
 
 
 def _read_schema(path: Path):
-    """The CREATE statements, read through a connection that cannot write.
+    """The CREATE statements, read from a copy so the real file is never opened.
 
-    `mode=ro` is the point. Opening the real database the way the application
-    does would set journal_mode=WAL on it (core/database.py), and that is
-    itself a write -- the guard would become the thing that touched the file it
-    exists to protect. Returns None when it cannot be read that way, and the
-    filesystem half of the fingerprint carries the check alone.
+    Neither obvious way of reading it in place works:
+
+      * the application's own connection would set journal_mode=WAL on it
+        (core/database.py), which is itself a write;
+      * `mode=ro` does not write the .db or the -wal, but when the database has
+        an un-checkpointed -wal -- the learner's usually does -- it maps the
+        -shm and bumps its mtime, so the guard tripped on its own read at the
+        end of every run;
+      * `mode=ro&immutable=1` touches nothing, but it ignores the -wal
+        entirely and reports the schema as of the last checkpoint, which on
+        the learner's database is already out of date.
+
+    So the .db and its -wal are copied byte-for-byte into a scratch directory
+    and the copy is opened instead. Copying is a plain file read -- no locks, no
+    -shm -- and SQLite rebuilds the wal-index for the copy from its -wal, so
+    the statements are the ones the application would see. Returns None when
+    the files cannot be read, and the filesystem half of the fingerprint
+    carries the check alone.
     """
     if not path.exists():
         return None
-    try:
-        con = sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
-    except sqlite3.Error:
-        return None
-    try:
-        return sorted(
-            row[0] for row in con.execute(
-                "SELECT sql FROM sqlite_master WHERE sql IS NOT NULL"
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as scratch:
+        copy = Path(scratch) / path.name
+        try:
+            shutil.copyfile(path, copy)
+            wal = Path(str(path) + "-wal")
+            if wal.exists():
+                shutil.copyfile(wal, Path(str(copy) + "-wal"))
+            con = sqlite3.connect(copy)
+        except (OSError, sqlite3.Error):
+            return None
+        try:
+            return sorted(
+                row[0] for row in con.execute(
+                    "SELECT sql FROM sqlite_master WHERE sql IS NOT NULL"
+                )
             )
-        )
-    except sqlite3.Error:
-        return None
-    finally:
-        con.close()
+        except sqlite3.Error:
+            return None
+        finally:
+            con.close()
 
 
 # Taken here, at the earliest moment any test code runs, so that the import of

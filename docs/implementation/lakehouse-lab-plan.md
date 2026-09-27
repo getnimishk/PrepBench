@@ -54,7 +54,7 @@ Gate reports go in `docs/implementation/`, next to the existing `GATE-*.md` file
 A phase **passes** only when every box below is ticked **with evidence in the gate report**. "I believe it works" doesn't count as evidence.
 
 - [ ] **Exit criteria:** every item in the phase's exit list is met, and the report shows how (a test name, a command output, or a screenshot).
-- [ ] **Backend default suite**, *without* `deltalake`: `backend/.venv/Scripts/python.exe -m pytest -q` is green. The only exception is the known real-database `-shm` timestamp quirk, and only after confirming by hash that the `.db`, `-wal` and `-shm` files are byte-identical before and after.
+- [ ] **Backend default suite**, *without* `deltalake`: `backend/.venv/Scripts/python.exe -m pytest -q` is green, with no exceptions. The real-database guard no longer trips on its own read (it reads the schema from a copy), so a failure from it is a real finding -- stop any PrepBench running against that file and investigate before going on.
 - [ ] **Backend engine suite**, *with* `deltalake`: `pytest -q -m lab` is green. Run it in a scratch venv made from `requirements.txt` + `requirements-lab.txt`, or in the CI lab job once the author has pushed it.
 - [ ] **Frontend:**
   ```bash
