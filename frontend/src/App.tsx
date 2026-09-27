@@ -50,6 +50,8 @@ import { HomePage } from './pages/HomePage';
 import { SubjectPage } from './pages/SubjectPage';
 import { PracticeHubPage } from './pages/HubPages';
 import { StudyLibraryPage } from './pages/StudyLibraryPage';
+import { GuidePage } from './pages/GuidePage';
+import { GuideChapterPage } from './pages/GuideChapterPage';
 import { ReviewPage } from './pages/ReviewPage';
 import { SpacedReviewPage } from './pages/SpacedReviewPage';
 import { PreparationsPage } from './pages/PreparationsPage';
@@ -194,6 +196,8 @@ const App: React.FC = () => {
             <Route path="/practice" element={<AppLayout><PracticeHubPage /></AppLayout>} />
             <Route path="/practice/spaced" element={<AppLayout><SpacedReviewPage /></AppLayout>} />
             <Route path="/learn" element={<AppLayout><StudyLibraryPage /></AppLayout>} />
+            <Route path="/learn/guides/:packId" element={<AppLayout><GuidePage /></AppLayout>} />
+            <Route path="/learn/guides/:packId/:chapterId" element={<AppLayout><GuideChapterPage /></AppLayout>} />
             <Route path="/review" element={<AppLayout><ReviewPage /></AppLayout>} />
             <Route path="/exam-setup" element={<AppLayout><ExamSetupPage /></AppLayout>} />
             <Route path="/exam-review/:sessionId" element={<AppLayout><ExamReviewPage /></AppLayout>} />

@@ -52,6 +52,7 @@ async function seed(request: APIRequestContext) {
 
 const ROUTES = (prepId: number, roadmapId: number) => [
   '/', '/preparations', '/preparations/new', `/preparations/${prepId}/edit`, '/practice', '/practice?tab=spaced', '/practice?tab=custom', '/learn',
+  '/learn/guides/adf', '/learn/guides/adf/pitfalls',
   '/review', '/exam-setup', '/question-bank', '/analytics', `/analytics/area?subject=${prepId}&domain=Accessible%20Area`,
   '/roadmaps', `/roadmaps/${roadmapId}/edit`, '/search?q=Accessible', '/profile', '/lab', '/chart-sandbox', '/design-reviews', '/design-reviews/1', '/system-design', '/interview-practice',
   '/interview-practice/library', '/interview-practice/setup', '/recordings', '/notifications', '/onboarding',

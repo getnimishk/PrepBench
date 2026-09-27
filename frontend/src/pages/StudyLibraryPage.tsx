@@ -5,15 +5,16 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Box, Button } from '@mui/material';
-import { getDomainDetail, getRoadmap, getRoadmaps } from '../services/api';
+import { getContentPack, getDomainDetail, getRoadmap, getRoadmaps } from '../services/api';
 import { apiErrorMessage } from '../services/apiError';
 import { usePreparation } from '../context/PreparationContext';
 import type { DomainDetail } from '../types/analytics';
+import type { ContentPackDetail } from '../types/contentPack';
 import type { RoadmapDetail, RoadmapPhase, RoadmapSummary, RoadmapTopic, RoadmapTopicStatus } from '../types/roadmap';
 import type { Subject } from '../types/subject';
 import { ErrorState, LoadingState } from '../components/common/States';
 import {
-  Actions, Bar, BigFigure, Detail, Eyebrow, Grid, Metric, MetricRow, Note, PageHead, Panel, PanelHead, Pill, Section, Sub,
+  Actions, Bar, BigFigure, Detail, Eyebrow, Grid, Metric, MetricRow, Note, PageHead, Panel, PanelHead, Pill, Row, Section, Sub,
 } from '../components/ui/primitives';
 
 /**
@@ -289,6 +290,83 @@ const RoadmapPanel: React.FC<{
   );
 };
 
+// ---- Guide ----------------------------------------------------------------
+
+/** One attached pack's chapters, each with a way to read it.
+ *
+ * No fixed technology catalogue (D2): this panel exists only for a
+ * preparation that actually has a pack attached, and shows only that pack --
+ * never a browsable list of every guide that could exist.
+ */
+const GuidePackPanel: React.FC<{ pack: ContentPackDetail }> = ({ pack }) => (
+  <Panel component="section" aria-labelledby={`guide-${pack.pack_id}`}>
+    <PanelHead
+      eyebrow="Guide"
+      title={pack.title}
+      titleId={`guide-${pack.pack_id}`}
+      aside={<Button variant="outlined" component={RouterLink} to={`/learn/guides/${pack.pack_id}`}>All chapters</Button>}
+    >
+      <Detail>{pack.chapters.length} chapters</Detail>
+    </PanelHead>
+    {pack.chapters.map((c, i) => (
+      <Row
+        key={c.id}
+        title={`${i + 1} · ${c.title}`}
+        detail={c.summary}
+        action={(
+          <Button
+            size="small"
+            variant="outlined"
+            component={RouterLink}
+            to={`/learn/guides/${pack.pack_id}/${c.id}`}
+            aria-label={`Read chapter ${i + 1}: ${c.title}`}
+          >
+            Read
+          </Button>
+        )}
+      />
+    ))}
+  </Panel>
+);
+
+const GuideSection: React.FC<{ preparation: Subject | null }> = ({ preparation }) => {
+  const links = preparation?.content_packs ?? [];
+  const [packs, setPacks] = useState<ContentPackDetail[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPacks([]);
+    setError(null);
+    if (links.length === 0) return undefined;
+    let cancelled = false;
+    Promise.all(links.map((cp) => getContentPack(cp.pack_id, cp.pack_version)))
+      .then((result) => { if (!cancelled) setPacks(result); })
+      .catch((err) => { if (!cancelled) setError(apiErrorMessage(err, '')); });
+    return () => { cancelled = true; };
+    // links is derived from `preparation` fresh each render; comparing its
+    // length is enough here since a preparation's own attach/detach flow
+    // (PreparationEditPage) is the only thing that changes it.
+  }, [preparation?.id, links.length]);
+
+  if (links.length === 0) return null;
+
+  return (
+    <Section>
+      {error !== null ? (
+        <Panel component="section" aria-label="Guide">
+          <ErrorState what="Could not load your guide." saved="nothing_to_save" detail={error} />
+        </Panel>
+      ) : packs.length === 0 ? (
+        <Panel component="section" aria-label="Guide"><LoadingState label="Loading your guide…" /></Panel>
+      ) : (
+        <Box sx={{ display: 'grid', gap: '16px' }}>
+          {packs.map((pack) => <GuidePackPanel key={pack.pack_id} pack={pack} />)}
+        </Box>
+      )}
+    </Section>
+  );
+};
+
 // ---- the page ------------------------------------------------------------
 
 export const StudyLibraryPage: React.FC = () => {
@@ -365,6 +443,8 @@ export const StudyLibraryPage: React.FC = () => {
           </Panel>
         )}
       </Section>
+
+      <GuideSection preparation={selected} />
     </Box>
   );
 };

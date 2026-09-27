@@ -67,8 +67,8 @@ tests, exit criteria and a gate. Don't start a phase until the previous gate has
 | Phase | Scope | Depends on | Status | Gate report |
 |---|---|---|---|---|
 | 0 | Docs into the repo: research notes, this plan, Lakehouse plan cross-links | — | **Merged** (PR #33) | PR description |
-| 1 | Content-pack foundation: pack files, loader, validation, API, skill ↔ pack link | 0 merged | Gate passed, PR open | `GATE-SK-1-REPORT.md` |
-| 2 | Guides in the Study Library | 1 gate | Not started | `GATE-SK-2-REPORT.md` |
+| 1 | Content-pack foundation: pack files, loader, validation, API, skill ↔ pack link | 0 merged | **Merged** (PR #34) | `GATE-SK-1-REPORT.md` |
+| 2 | Guides in the Study Library | 1 gate | Gate passed, PR open | `GATE-SK-2-REPORT.md` |
 | 3 | Scenario sandbox in the Learning Lab | 2 gate | Not started | `GATE-SK-3-REPORT.md` |
 | 4 | Roles from a job description + diagnostic | 3 gate | Not started | `GATE-SK-4-REPORT.md` |
 | 5 | Hand over to the Lakehouse Lab plan | 4 gate | Not started | — |

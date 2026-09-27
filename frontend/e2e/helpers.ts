@@ -47,6 +47,28 @@ export async function createCertification(
   return { id: body.id, name, certification };
 }
 
+export interface CreatedSkill {
+  id: number;
+  name: string;
+}
+
+/** A Skill preparation with a built-in content pack attached, at its latest version. */
+export async function createSkillWithPack(
+  request: APIRequestContext,
+  stem: string,
+  packId: string,
+): Promise<CreatedSkill> {
+  const name = `${stem} ${tag()}`;
+  const created = await request.post('/api/v1/subjects', { data: { name, kind: 'skill' } });
+  expect(created.status(), await created.text()).toBe(201);
+  const body = await created.json();
+
+  const attached = await request.post(`/api/v1/subjects/${body.id}/content-packs`, { data: { pack_id: packId } });
+  expect(attached.status(), await attached.text()).toBe(201);
+
+  return { id: body.id, name };
+}
+
 /** One question owned by `prep`, with text unique enough to find on screen. */
 export async function createQuestion(
   request: APIRequestContext,

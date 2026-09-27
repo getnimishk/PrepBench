@@ -23,12 +23,14 @@ import type { Subject } from '../types/subject';
 const mockGetRoadmaps = vi.fn();
 const mockGetRoadmap = vi.fn();
 const mockGetDomainDetail = vi.fn();
+const mockGetContentPack = vi.fn();
 const mockPreparation = vi.fn();
 
 vi.mock('../services/api', () => ({
   getRoadmaps: (...a: any[]) => mockGetRoadmaps(...a),
   getRoadmap: (...a: any[]) => mockGetRoadmap(...a),
   getDomainDetail: (...a: any[]) => mockGetDomainDetail(...a),
+  getContentPack: (...a: any[]) => mockGetContentPack(...a),
 }));
 
 vi.mock('../context/PreparationContext', () => ({
@@ -187,6 +189,37 @@ describe('StudyLibraryPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByRole('region', { name: 'PSM I syllabus' })).toBeInTheDocument();
+  });
+});
+
+describe('StudyLibraryPage: Guide panel', () => {
+  it('adds nothing for a preparation with no content packs', async () => {
+    renderPage();
+    await screen.findByRole('region', { name: 'PSM I syllabus' });
+    expect(mockGetContentPack).not.toHaveBeenCalled();
+    expect(screen.queryByText(/chapters/)).not.toBeInTheDocument();
+  });
+
+  it('lists an attached pack’s chapters, at the pinned version, with a way to read each one', async () => {
+    mockPreparation.mockReturnValue({
+      selected: {
+        ...PSM,
+        content_packs: [{ pack_id: 'adf', pack_version: 1, latest_version: 2, title: 'Azure Data Factory' }],
+      },
+      loading: false,
+    });
+    mockGetContentPack.mockResolvedValue({
+      pack_id: 'adf', version: 1, title: 'Azure Data Factory', summary: 's',
+      docs_url: 'https://example.test', source_notes: 'n',
+      chapters: [{ id: 'what-it-is', title: 'What it is', summary: 'sum', sources: '§1', blocks: [], practice_links: [] }],
+      scenario_levels: [], diagnostic_questions: [],
+    });
+    renderPage();
+
+    expect(await screen.findByRole('region', { name: 'Azure Data Factory' })).toBeInTheDocument();
+    expect(mockGetContentPack).toHaveBeenCalledWith('adf', 1);
+    expect(screen.getByRole('link', { name: 'Read chapter 1: What it is' })).toHaveAttribute('href', '/learn/guides/adf/what-it-is');
+    expect(screen.getByRole('link', { name: 'All chapters' })).toHaveAttribute('href', '/learn/guides/adf');
   });
 });
 
