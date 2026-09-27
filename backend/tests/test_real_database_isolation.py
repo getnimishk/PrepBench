@@ -32,10 +32,12 @@ yet. The SKIP -- settings.RUN_STARTUP_DB_INIT off under test -- is what keeps
 the seeders out of the test database, so the suite still sees the state it was
 written against.
 
-The last four tests exercise the guard itself. A watchdog that cannot bark is
+The last six tests exercise the guard itself. A watchdog that cannot bark is
 worse than none, because it reads like coverage.
 """
+import shutil
 import sqlite3
+import time
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -205,8 +207,8 @@ def test_reading_the_schema_does_not_modify_the_file(tmp_path):
 
     Opening the database the way the application does would set
     journal_mode=WAL on it, which is a write, and would leave a -wal and a -shm
-    next to it. The read-only URI is what stops that, and this is the test that
-    would catch someone replacing it with an ordinary connection.
+    next to it. Reading a copy is what stops that, and this is the test that
+    would catch someone replacing it with an ordinary connection to the file.
     """
     db = tmp_path / "readonly.db"
     _make_db(db, "CREATE TABLE questions (id INTEGER PRIMARY KEY)")
@@ -217,3 +219,58 @@ def test_reading_the_schema_does_not_modify_the_file(tmp_path):
     assert _fingerprint(db) == before
     assert not (tmp_path / "readonly.db-wal").exists()
     assert not (tmp_path / "readonly.db-shm").exists()
+
+
+def _make_db_left_mid_wal(path: Path) -> None:
+    """A WAL-mode database with an un-checkpointed -wal and a lingering -shm.
+
+    The state the learner's file is usually in: PrepBench wrote to it and was
+    stopped without a checkpoint. Closing the last connection would checkpoint
+    and tidy both sidecars away, so the three files are copied out while a
+    connection still holds them -- the copy has the sidecars and no process.
+    """
+    live = path.with_name("live.db")
+    con = sqlite3.connect(live)
+    try:
+        con.execute("PRAGMA journal_mode=WAL")
+        con.execute("PRAGMA wal_autocheckpoint=0")
+        con.execute("CREATE TABLE questions (id INTEGER PRIMARY KEY)")
+        con.commit()
+        con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        con.execute("ALTER TABLE questions ADD COLUMN source TEXT")
+        con.commit()
+        for suffix in ("", "-wal", "-shm"):
+            shutil.copyfile(str(live) + suffix, str(path) + suffix)
+    finally:
+        con.close()
+
+
+def test_reading_the_schema_does_not_touch_a_lingering_shm(tmp_path):
+    """The guard used to fail every run on its own read.
+
+    With a -wal waiting to be checkpointed, even a `mode=ro` connection maps
+    the -shm and moves its mtime on Windows. The .db and -wal hashed identical
+    before and after, yet the teardown reported the real database changed. The
+    pause is there because an mtime can only move if time has passed.
+    """
+    db = tmp_path / "lingering.db"
+    _make_db_left_mid_wal(db)
+    before = _fingerprint(db)
+    assert before["-wal"] is not None and before["-shm"] is not None
+
+    time.sleep(0.2)
+    assert _fingerprint(db) == before
+
+
+def test_the_schema_read_sees_what_is_still_in_the_wal(tmp_path):
+    """A leaked migration lands in the -wal first, so the read must see it there.
+
+    `immutable=1` would also have kept the -shm still, but it ignores the -wal,
+    and it would report this table without the column the application sees.
+    """
+    db = tmp_path / "lingering.db"
+    _make_db_left_mid_wal(db)
+
+    assert _read_schema(db) == [
+        "CREATE TABLE questions (id INTEGER PRIMARY KEY, source TEXT)"
+    ]

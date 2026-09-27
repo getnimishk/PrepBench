@@ -86,8 +86,8 @@ This mirrors `lakehouse-lab-plan.md` §2 without its `deltalake` engine suite. E
 be picked up cold; **if you change the gate in one, change it in the other.**
 
 - [ ] Every exit criterion of the phase is met.
-- [ ] Backend: `backend/.venv/Scripts/python.exe -m pytest -q` green (the known real-database `-shm` timestamp quirk
-      only after confirming by hash that nothing wrote to the real files).
+- [ ] Backend: `backend/.venv/Scripts/python.exe -m pytest -q` green, with no exceptions (the real-database guard
+      no longer trips on its own read, so a failure from it is a real finding).
 - [ ] Frontend: `npm run typecheck`, `npm run lint`, `npm test` green.
 - [ ] Browser: `npx playwright test` for the touched specs, then the full suite before the PR merges. A failure is
       re-run alone before concluding anything.
