@@ -890,6 +890,34 @@ def apply_lightweight_migrations():
             _log_migration_failure("recording analyses answer comparison", exc)
 
         try:
+            # subject_content_packs: a Skill preparation's pinned built-in
+            # content pack (skills-and-content-packs-plan.md D3/D4).
+            #
+            # New rather than altered, so create_all covers a fresh database and
+            # this covers an upgrade in place. ON DELETE CASCADE because the link
+            # means nothing without the subject -- unlike the rest of this
+            # schema, where cascades are done explicitly in SubjectService so
+            # their counts can be reported, this link carries no reportable
+            # count of its own and is meant to vanish silently with its subject.
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS subject_content_packs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    subject_id INTEGER NOT NULL
+                        REFERENCES subjects(id) ON DELETE CASCADE,
+                    pack_id VARCHAR(50) NOT NULL,
+                    pack_version INTEGER NOT NULL,
+                    attached_at DATETIME NOT NULL
+                )
+            """))
+            conn.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_subject_content_pack "
+                "ON subject_content_packs (subject_id, pack_id)"
+            ))
+            conn.commit()
+        except Exception as exc:
+            _log_migration_failure("subject_content_packs table", exc)
+
+        try:
             # Every index the models declare, on a database that was upgraded into
             # its schema rather than created with it.
             #

@@ -14,12 +14,14 @@ from app.schemas.exam import MockHistoryItem
 from app.models.subject import SubjectKind
 from app.repositories.question_repository import QuestionRepository
 from app.repositories.subject_repository import SubjectRepository
+from app.schemas.content_pack import SubjectContentPackResponse
 from app.schemas.subject import (
     SubjectCreate,
     SubjectDeleteRequest,
     SubjectDeleteResult,
     SubjectUpdate,
 )
+from app.services import content_pack_service
 from app.services import readiness as readiness_rules
 from app.services.subject_service import SubjectService
 
@@ -115,6 +117,10 @@ class SubjectWithReadiness(SubjectResponse):
     # and the surface has to be able to know that before it offers.
     question_count: int = 0
 
+    # Built-in guides/scenarios this Skill preparation has pinned (D3/D4).
+    # Always empty for a certification.
+    content_packs: List[SubjectContentPackResponse] = []
+
 
 def _question_count(db: Session, subject) -> int:
     """How many questions this preparation owns.
@@ -180,6 +186,7 @@ def _with_readiness(db: Session, repo: SubjectRepository, subject) -> "SubjectWi
         **SubjectResponse.model_validate(subject).model_dump(),
         readiness=_readiness_for(repo, subject),
         question_count=_question_count(db, subject),
+        content_packs=content_pack_service.content_packs_for(db, subject.id),
     )
 
 

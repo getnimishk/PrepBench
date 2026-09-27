@@ -1,0 +1,2599 @@
+{
+  "pack_id": "adf",
+  "version": 1,
+  "title": "Azure Data Factory",
+  "summary": "Moves data and runs the schedule",
+  "docs_url": "https://learn.microsoft.com/en-us/azure/data-factory/",
+  "source_notes": "docs/research/adf-documentation-notes.md",
+  "chapters": [
+    {
+      "id": "what-it-is",
+      "title": "What ADF is, and what it isn't",
+      "summary": "ADF is an orchestrator: it moves data and tells other services what to do, and when.",
+      "sources": "§1, §18.1, §24",
+      "blocks": [
+        {
+          "md": "Azure Data Factory (ADF) is Microsoft's managed cloud service for **data integration**. It moves data between systems and runs the steps that clean and reshape it, on a schedule or when something happens.\n\nIt is mostly an **orchestrator**: it does the copying itself, but for heavy transformation it usually hands the work to another service (Databricks, Synapse, a database) and waits for the result. Think of it as the conductor, not the orchestra."
+        },
+        {
+          "heading": "The documentation's own example",
+          "md": "A gaming company has petabytes of game logs in the cloud, and customer and campaign data in its own data centre. It wants to combine them every day, process them with Spark (an engine that spreads work across many machines; Databricks runs it), and publish the result to a data warehouse (a database built for reporting) for reports, and also do it whenever new log files land. ADF is what wires that together and runs it."
+        },
+        {
+          "heading": "The four stages the documentation describes",
+          "md": "1. **Connect and collect**: copy data from where it is into a central store, usually the data lake (cheap cloud storage that holds files of any shape; ADLS Gen2 has its own guide).\n2. **Transform and enrich**: clean and shape it, in ADF's own data flows (visual transformations, chapter 11) or by calling Databricks and similar services.\n3. **Publish**: load the results where reports read them, and release pipeline changes through Dev, Test and Prod.\n4. **Monitor**: watch every scheduled run succeed or fail."
+        },
+        {
+          "heading": "The typical journey of one row",
+          "md": "Microsoft's 2018 white paper tells it this way: data is extracted from an on-premises Oracle database and from Salesforce, landed **raw** in the data lake (cheap, and you decide later what to keep), prepared with Spark (duplicates removed, reshaped), enriched (a machine-learning step adds a churn score), loaded into the warehouse, and read by Power BI (Microsoft's reporting and dashboard tool). On failure, a step sends an email; on success, the next step starts."
+        },
+        {
+          "heading": "Where it is heading",
+          "md": "Almost every ADF page now opens with a note that **Data Factory in Microsoft Fabric** is \"the next generation of Azure Data Factory\", recommended for new users. ADF is still everywhere in existing projects, and the concepts carry over. Chapter 20 covers the difference."
+        }
+      ]
+    },
+    {
+      "id": "building-blocks",
+      "title": "The building blocks",
+      "summary": "Pipeline, activity, linked service, dataset, integration runtime and trigger, and how they fit.",
+      "sources": "§2, §5",
+      "blocks": [
+        {
+          "table": {
+            "head": [
+              "Block",
+              "Plain meaning",
+              "Analogy"
+            ],
+            "rows": [
+              [
+                "Pipeline",
+                "A named group of steps that together do one job. You schedule the pipeline, not the steps",
+                "A recipe"
+              ],
+              [
+                "Activity",
+                "One step: copy data, run a transformation, or control the flow (loop, branch, wait)",
+                "One instruction in the recipe"
+              ],
+              [
+                "Linked service",
+                "How to connect to something: \"much like connection strings\", in the documentation's words",
+                "A supplier's address and key"
+              ],
+              [
+                "Dataset",
+                "Which data inside that connection: a table, folder or file, and its format",
+                "The shelf and box at that supplier"
+              ],
+              [
+                "Integration runtime",
+                "The compute that does the moving, or hands work to other compute",
+                "The truck and driver"
+              ],
+              [
+                "Trigger",
+                "What starts a pipeline run: a clock, a time window, or an event",
+                "The alarm clock or doorbell"
+              ],
+              [
+                "Pipeline run",
+                "One execution of a pipeline, with its own run ID",
+                "One time the recipe was cooked"
+              ],
+              [
+                "Parameter",
+                "A value passed in when a run starts, fixed for the run",
+                "The order ticket"
+              ],
+              [
+                "Variable",
+                "A value that can change during a run",
+                "A scratch pad"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "How they connect: the documentation's example",
+          "md": "To copy files from Blob storage into a SQL database you create **two linked services** (one for the storage account, one for the database), **two datasets** (the blob folder and its format; the SQL table), and **one Copy activity** in **a pipeline** that reads the first dataset and writes the second. An integration runtime does the actual work."
+        },
+        {
+          "heading": "Things worth knowing",
+          "md": "- A linked service can point at a **data store** (SQL Server, Oracle, a file share) or at **compute** (Databricks, HDInsight, Batch).\n- Creating a linked service needs **permission on the target system**; without it you can't even browse its tables.\n- A dataset can carry a schema, imported from the source. If the data has no fixed shape, data flows can accept **schema drift** (chapter 11)."
+        }
+      ]
+    },
+    {
+      "id": "pipelines",
+      "title": "Pipelines, activities and control flow",
+      "summary": "The three kinds of activity, the four ways one step leads to the next, and the defaults that surprise people.",
+      "sources": "§3, §7, §20",
+      "blocks": [
+        {
+          "heading": "Three kinds of activity",
+          "md": "- **Data movement**: the Copy activity, from any of about 100 connectors to any other.\n- **Data transformation**: ADF data flows, Databricks notebooks, Synapse notebooks, stored procedures, Azure Functions and more.\n- **Control flow**: Execute Pipeline, For Each, If Condition, Switch, Until, Wait, Lookup, Get Metadata, Set Variable, Web, Fail."
+        },
+        {
+          "heading": "How one step leads to the next",
+          "md": "Every activity has four exits: **on success**, **on failure**, **on completion** (either way) and **on skip** (an earlier step failed, so this one never ran). This is how you build \"on failure, send an alert\" or \"whatever happens, clean up\". Activities with no dependency between them run **in parallel**."
+        },
+        {
+          "heading": "Defaults that surprise people",
+          "md": "- **Retry defaults to 0.** A brief network blip fails the run unless someone set retries.\n- **Timeout defaults to 12 hours** per activity.\n- A pipeline holds at most **120 activities**, counting those inside loops.\n- **Parameters** are fixed for a run and make one pipeline serve many tables (\"copy table X for date Y\"). **Variables** change during a run, but they belong to the whole pipeline: changing one inside a parallel For Each gives unpredictable results."
+        },
+        {
+          "heading": "Two activities with hard limits",
+          "table": {
+            "head": [
+              "Activity",
+              "Limit",
+              "Why it matters"
+            ],
+            "rows": [
+              [
+                "Lookup",
+                "Returns at most 5,000 rows and 4 MB; beyond 5,000 rows it silently keeps the first 5,000",
+                "A list of 6,000 tables to load quietly loses 1,000 of them"
+              ],
+              [
+                "For Each",
+                "Runs in parallel by default (20 at a time, at most 50); can't be nested; at most 100,000 items",
+                "The workaround for most limits is a parent pipeline calling a child pipeline"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "Handing work to Databricks",
+          "md": "The **Databricks Notebook activity** runs a notebook, passing values in as `baseParameters`. The notebook can send a value back with `dbutils.notebook.exit(...)`, which the pipeline reads as `@activity('name').output.runOutput` (up to 2 MB), for example a row count to check."
+        }
+      ]
+    },
+    {
+      "id": "integration-runtimes",
+      "title": "Integration runtimes: where the work runs",
+      "summary": "Azure, self-hosted and SSIS runtimes, and why an on-premises source needs a server someone owns.",
+      "sources": "§6, §8, §16",
+      "blocks": [
+        {
+          "md": "An **integration runtime (IR)** is the compute that does the work: it copies data, runs data flows, and hands transformation work to other services. There are three kinds."
+        },
+        {
+          "table": {
+            "head": [
+              "Question",
+              "Azure IR",
+              "Self-hosted IR",
+              "Azure-SSIS IR"
+            ],
+            "rows": [
+              [
+                "Who runs the machines",
+                "Microsoft",
+                "You",
+                "Microsoft"
+              ],
+              [
+                "Reaches on-premises data",
+                "No",
+                "Yes, without a VPN",
+                "Through VNet setup"
+              ],
+              [
+                "Runs data flows",
+                "Yes",
+                "No",
+                "No"
+              ],
+              [
+                "Scales",
+                "Automatically",
+                "Bigger machine or more nodes (up to 4)",
+                "Cluster size"
+              ],
+              [
+                "Used for",
+                "Cloud-to-cloud copies and data flows",
+                "Anything behind a firewall; custom drivers",
+                "Running existing SSIS packages"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "The self-hosted IR, in practice",
+          "md": "When the source sits in your own data centre (an on-premises database, a Hadoop cluster), you install the self-hosted IR on a Windows server inside your network.\n\n- It only makes **outbound** connections on **port 443**; nothing comes in from the internet.\n- It polls a queue for work, then copies data straight from the source to cloud storage over HTTPS.\n- Credentials are encrypted on the machine, or better, kept in **Azure Key Vault**.\n- Install it **near, but not on,** the source, so it doesn't compete with it. **Up to four nodes** make it highly available.\n- If either side of a copy uses a self-hosted IR, the whole copy runs on it.\n\n**Why it matters to you:** the self-hosted IR is a real server someone has to own: patching, monitoring, capacity and failover. In a migration plan it is a workstream, not a checkbox."
+        },
+        {
+          "heading": "Where the work happens",
+          "md": "The factory's region holds its definitions; the IR's region is where data is processed. The default Azure IR picks a region automatically. To guarantee data never leaves a geography, create an Azure IR in that region and point the connections at it."
+        }
+      ]
+    },
+    {
+      "id": "triggers",
+      "title": "Triggers: when pipelines run",
+      "summary": "Schedule, tumbling-window and event triggers, and why one leaves gaps the other fills.",
+      "sources": "§4, §9",
+      "blocks": [
+        {
+          "table": {
+            "head": [
+              "Trigger",
+              "What it does",
+              "Watch out for"
+            ],
+            "rows": [
+              [
+                "Schedule",
+                "Runs at wall-clock times (\"every day at 05:15\")",
+                "Fire and forget: counted as done when the run starts; no backfill, no retry"
+              ],
+              [
+                "Tumbling window",
+                "Runs once per fixed, back-to-back time slot (01:00–02:00, 02:00–03:00…) and passes the slot's start and end to the pipeline",
+                "Frequency can't be changed once published; minimum window 5 minutes"
+              ],
+              [
+                "Storage event",
+                "Runs when a file arrives in, or is deleted from, Blob or ADLS storage",
+                "Too broad a filter can fire on huge numbers of files; don't fire on a data flow's own output, which can be half-written"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "Why the tumbling window matters",
+          "md": "A tumbling window **keeps state**. Give it a start date in the past and it creates one run per missed window and runs them **oldest first** before any current one: a **backfill**. It retries, waits for each run to finish, and can wait for the previous window to succeed first (\"don't process 03:00 until 02:00 worked\").\n\nA common question, \"why did yesterday's hourly load leave a gap?\", is often a schedule trigger that doesn't backfill where a tumbling window would have."
+        },
+        {
+          "heading": "Time zones",
+          "md": "Daily-or-longer schedules in a zone with daylight saving shift automatically; hourly ones don't. Using UTC avoids the shift."
+        }
+      ]
+    },
+    {
+      "id": "copy",
+      "title": "The Copy activity",
+      "summary": "What happens during a copy, the formats, the settings that matter, and when a failed copy can resume.",
+      "sources": "§11, §25",
+      "blocks": [
+        {
+          "md": "The Copy activity reads from a source, converts the format if needed, maps columns, and writes to a sink (the destination). It can copy files as they are (fast, no parsing) or convert them, for example a SQL Server table into Parquet files in the lake.\n\n**Formats:** Avro, Binary, CSV (delimited text), Delta, Excel, Iceberg, JSON, ORC, Parquet, XML."
+        },
+        {
+          "heading": "Settings that matter",
+          "md": "- **Data Integration Units (DIUs):** the copy's power on an Azure IR, up to 256.\n- **Parallel copies:** how many threads read and write at once.\n- **Staged copy:** go through Blob storage on the way, for some sinks and networks.\n- **Extra columns:** stamp each row with its source file (`$$FILEPATH`) or the run ID. This is lineage for free, and makes later investigations far easier.\n- **Auto-create the sink table** for SQL sinks: convenient to start, but review the schema it makes."
+        },
+        {
+          "heading": "When a failed copy can resume",
+          "md": "Only **file copies made as-is** (binary), between file stores with the folder structure kept, resume from where they failed, file by file (for example HDFS or S3 into ADLS Gen2). **Every other copy starts again from the beginning.**"
+        },
+        {
+          "heading": "Connectors",
+          "md": "About 100 connectors: Azure services, databases, files, generic protocols (REST, ODBC, OData) and SaaS apps. Many databases can only be a **source** (Oracle, Netezza, Teradata, SAP). **Preview** connectors aren't recommended for production, and several connectors now have a version 2.0 with an upgrade advisor, meaning old versions are being retired."
+        }
+      ]
+    },
+    {
+      "id": "bad-rows",
+      "title": "Bad rows, cut-off values and \"verified\" copies",
+      "summary": "The copy fails on the first bad row, cuts values silently by default, and \"verified\" means counts, not values.",
+      "sources": "§12",
+      "blocks": [
+        {
+          "heading": "Bad rows",
+          "md": "By default **the copy fails on the first bad row**. You can instead **skip** incompatible rows (a type mismatch such as \"abc\" into a number column, a wrong column count, a duplicate key) and log each one, with the reason, to a session log. The run then reports rows copied and **rows skipped**.\n\n**The decision:** fail the load, or load what's good and set the rest aside? If you skip, **someone must own reading the skipped-rows log**, or rows quietly go missing while every run is green."
+        },
+        {
+          "heading": "Values cut off without an error",
+          "md": "Type conversion is a setting of its own: **on by default for copy activities created in the ADF editor since late June 2020**, but **off by default for pipelines written as code** (`typeConversion` must be set to true). Whenever it's on, **`allowDataTruncation` is on by default**. A decimal into an integer, or a time with a time zone into one without, is cut down without an error unless someone turns it off."
+        },
+        {
+          "heading": "What \"verified\" means",
+          "md": "Data consistency verification is **off by default** and slows the copy. For files it checks size, date and a checksum. For **tables it only checks the row count**: rows read equals rows copied plus rows skipped. It never compares the values.\n\n\"Consistency verified\" for a table means **the counts add up**, not that the data is right. Checking values against the source is a separate job the team has to build."
+        },
+        {
+          "heading": "Column mapping",
+          "md": "Columns match **by name, and case matters**. Files without a header row need mapping by position."
+        }
+      ]
+    },
+    {
+      "id": "reconciliation",
+      "title": "Proving the migration is complete",
+      "summary": "Counts, column totals, distributions, row fingerprints and business rules: five levels of proof, and what ADF gives you for each.",
+      "sources": "§12, §26",
+      "blocks": [
+        {
+          "md": "A migration isn't finished when the copy succeeds; it's finished when you can **prove** the data arrived complete and unchanged. The Copy activity only gives you row counts, and its \"consistency verification\" for tables checks **counts only**, never values (chapter 7). Everything beyond that is something the team builds, and ADF's mapping data flows provide the parts."
+        },
+        {
+          "heading": "Five levels of proof",
+          "table": {
+            "head": [
+              "Level",
+              "What you compare, source vs target",
+              "ADF building blocks (documented)"
+            ],
+            "rows": [
+              [
+                "1. Counts",
+                "Rows per table, per partition, per day",
+                "count, countAll (includes empty values), countIf"
+              ],
+              [
+                "2. Column profile",
+                "Totals, minimum, maximum, average, spread, distinct values and empty values per column",
+                "sum, min, max, avg, stddev, variance, countDistinct, approxDistinctCount, and an \"If\" version of each for conditional totals"
+              ],
+              [
+                "3. Distribution",
+                "Quartiles, deciles, the median",
+                "No median or percentile function exists. nTile (\"useful for… quartiles, deciles\") lets you derive them"
+              ],
+              [
+                "4. Row by row",
+                "Every key exists on both sides, and each row's values are identical",
+                "Row fingerprints with md5, sha1, sha2 or crc32 (\"a fingerprint for a row\"); the Assert step's \"expect exists\" and \"expect unique\""
+              ],
+              [
+                "5. Business rules",
+                "Values make sense: balances not negative, currency codes valid, dates in range",
+                "The Assert step's \"expect true\"; failures can stop the data flow or go to an error file"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "Why totals aren't enough",
+          "md": "Levels 1 to 3 can all match while individual rows are wrong: one balance too high and another too low cancel out in a sum. Only **level 4**, comparing row by row on a key, proves each record. Hash the same columns on both sides, join on the key, and look for keys missing on either side or fingerprints that differ.\n\nIn practice teams combine them: counts and column totals on **every** load (cheap, catches most problems), row fingerprints for critical tables or a sample, and business rules on data that feeds regulatory or financial reports."
+        },
+        {
+          "heading": "Money needs special care",
+          "md": "Whenever type conversion is on, `allowDataTruncation` is **on by default** (chapter 7), so a value with more decimal places than its target column is cut down without an error. A sum rounded to two places can still look right while individual amounts are wrong. For financial data, switch truncation off and compare totals at full precision."
+        },
+        {
+          "heading": "Where the checks run",
+          "md": "- Data flows run on an **Azure IR only**, not the self-hosted IR. To reconcile against an on-premises source, compute its totals or fingerprints with a query in the source database, or copy them out first.\n- A Lookup activity (up to 5,000 rows, 4 MB) can read one row of source totals to compare against.\n- Assert failures can be written to an error file, or excluded from the output, and later steps can route them."
+        },
+        {
+          "heading": "Why it matters to you",
+          "md": "The answer to \"how did you know the migration was complete?\" is a reconciliation plan: which levels, for which tables, how often, who signs off, and what happens on a mismatch (fail the load, or load and raise an alert). ADF has no built-in \"reconcile\" button, so the plan is yours to own."
+        }
+      ]
+    },
+    {
+      "id": "incremental",
+      "title": "Loading only new data",
+      "summary": "Full, windowed and watermark loads; the bookmark that must only move after a successful copy.",
+      "sources": "§13, §18.2, §21",
+      "blocks": [
+        {
+          "md": "The first time, you copy everything: the **initial full load**. After that, copying everything again is wasteful: a table might have 2 billion rows when 50,000 are new. So from then on you copy only what's **new or changed**: an **incremental** (or delta) load."
+        },
+        {
+          "heading": "Three patterns, depending on the table",
+          "table": {
+            "head": [
+              "If the table…",
+              "Then…",
+              "Example"
+            ],
+            "rows": [
+              [
+                "has a column saying when each row changed",
+                "copy one time window at a time, with a tumbling-window trigger",
+                "orders with a LastModified date"
+              ],
+              [
+                "has a value that only goes up (an ID, or a change date you trust)",
+                "keep a bookmark of the last value copied, and copy only rows after it: the watermark",
+                "test results with an increasing ID"
+              ],
+              [
+                "is small",
+                "copy the whole table and overwrite it every time",
+                "a list of 300 machines"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "The watermark, step by step",
+          "md": "A **watermark** is a bookmark. It lives in a small **control table**, one row per source table, holding the last value loaded. Each run:\n\n1. **Reads the old watermark** from the control table.\n2. **Reads the new watermark**: the highest value in the source right now.\n3. **Copies the rows in between**: `WHERE LastModified > old AND LastModified <= new`.\n4. **Only if the copy succeeded, writes the new value** back to the control table.\n\nStep 4's condition is the whole lesson. Microsoft's tutorial and its \"Delta copy from database\" template connect it to the copy's **success** exit. Connected to **completion** instead, a failed copy still moves the bookmark, and the rows that never arrived are skipped for good, with no error.\n\nLike a bookmark in a book on a train: you move it after you've read the pages. Move it first and fall asleep, and tomorrow you skip the pages you never read."
+        },
+        {
+          "heading": "Duplicates: the other failure",
+          "md": "Wired correctly, a failed copy leaves the bookmark where it was and the next run copies the same window again. Nothing is lost, but if the destination simply **appends** rows, and the failed attempt had already written some, they arrive twice. The answer is a load that's **safe to repeat**: merge on the key, or delete the window and write it again."
+        },
+        {
+          "heading": "What a watermark can't do",
+          "md": "- It **can't see deletes**: a deleted row leaves nothing new to find. If deletes matter, use Change Tracking or change data capture (chapter 10).\n- It **trusts the date column completely**: if the application sometimes changes a row without updating it, that change is never copied.\n- For files, the fastest approach is **time-partitioned folders** (`/yyyy/mm/dd/`); scanning every file's last-modified date works but is slow when there are many."
+        }
+      ]
+    },
+    {
+      "id": "cdc",
+      "title": "Change data capture",
+      "summary": "Four ways to get only the changes, including deletes, and the rename that resets everything.",
+      "sources": "§15",
+      "blocks": [
+        {
+          "md": "ADF offers four ways to pick up only what changed:",
+          "table": {
+            "head": [
+              "Way",
+              "How",
+              "Note"
+            ],
+            "rows": [
+              [
+                "Native CDC in data flows",
+                "Reads inserts, updates and deletes from the database's own change log",
+                "Recommended first: least load on the source"
+              ],
+              [
+                "Auto incremental extraction",
+                "You name an incremental column; ADF builds the query and remembers where it stopped",
+                "Databases and files"
+              ],
+              [
+                "CDC resource",
+                "A guided resource, no pipeline needed; runs continuously at a latency you set",
+                "Preview; doesn't work with the self-hosted IR, so no on-premises sources"
+              ],
+              [
+                "Customer-managed",
+                "The watermark and control table (chapter 9)",
+                "Works with any source"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "The rename trap",
+          "md": "ADF remembers where the last run stopped with a **checkpoint**, keyed by default to the **pipeline and activity names**. **Renaming either resets it**: the next run starts again from the beginning, or from now. Setting your own checkpoint key makes renaming safe.\n\nA realistic incident: someone tidies up pipeline names, and the next load re-reads the whole history."
+        }
+      ]
+    },
+    {
+      "id": "transform",
+      "title": "Transforming data: data flows, schema drift and Delta",
+      "summary": "Visual transformations on managed Spark, what to do when the source changes shape, and writing Delta tables.",
+      "sources": "§17, §20",
+      "blocks": [
+        {
+          "heading": "Mapping data flows",
+          "md": "Transformations drawn visually (source, steps, sink) and run on Spark that ADF manages for you. They run on an **Azure IR only**, not the self-hosted IR. **Debug clusters take 5–7 minutes to start**, and debug time is billed."
+        },
+        {
+          "heading": "When the source changes shape",
+          "md": "**Schema drift** means columns are added, removed or changed between runs. You can **allow schema drift**, so new columns flow through (as text unless their types are inferred), or not, so the load fails.\n\n**The decision:** absorb new columns silently (resilient, but surprises further down) or fail and alert (safe, but the load stops)? It's the same trade-off as Delta Lake's schema enforcement versus evolution."
+        },
+        {
+          "heading": "Writing Delta tables",
+          "md": "A data flow can write **Delta** directly to ADLS Gen2. An **Alter Row** step marks each row as insert, update, delete or upsert, and the sink applies it using **key columns**. Databricks isn't the only way to write Delta."
+        },
+        {
+          "heading": "Landing files in the lake",
+          "md": "- **Partition folders by key**, such as `year=2026/month=9`: very efficient for Spark and for reprocessing one slice.\n- Naming output files after column values forces a **single partition**: a bottleneck, fine only for small data.\n- By default output file names are Spark job IDs, not meaningful names."
+        }
+      ]
+    },
+    {
+      "id": "monitoring",
+      "title": "Monitoring, failures and reruns",
+      "summary": "Why a green run doesn't prove the data arrived, how reruns work, and the 45-day history.",
+      "sources": "§10, §23",
+      "blocks": [
+        {
+          "heading": "A green run can hide a failure",
+          "md": "A pipeline's result comes from its **last steps** (the \"leaves\"): it succeeds only if every one of them succeeded. So an error handler can turn a failure green:",
+          "table": {
+            "head": [
+              "Pattern",
+              "The main step fails; the pipeline shows"
+            ],
+            "rows": [
+              [
+                "Try-catch: only an on-failure step after it",
+                "Succeeded"
+              ],
+              [
+                "Do-if-else: an on-success and an on-failure step",
+                "Failed"
+              ],
+              [
+                "Do-if-skip-else: plus a dummy on-skip step",
+                "Succeeded"
+              ]
+            ]
+          }
+        },
+        {
+          "md": "A board of green runs doesn't prove the data arrived. \"Succeeded\" can mean \"the error handler succeeded\"."
+        },
+        {
+          "heading": "Reruns",
+          "md": "You can rerun a whole pipeline, rerun **from a chosen activity**, rerun **from the failed activity**, or rerun with new parameters (a new run). Each run shows its activities' inputs, outputs, errors, the IR used, and a consumption report."
+        },
+        {
+          "heading": "History and alerts",
+          "md": "- ADF keeps run history for **45 days only**. To keep it longer, for audits or reconciliations months later, send diagnostic logs to **Log Analytics**.\n- The recommended first alert: **failed pipeline runs greater than 0**, sent by email, SMS or push.\n\nWhat to do once a run has failed is chapter 13."
+        }
+      ]
+    },
+    {
+      "id": "recovery",
+      "title": "Recovering from failures",
+      "summary": "Rerun only what failed, make reruns safe, and what happens when a zone or a whole region goes down.",
+      "sources": "§3, §9, §10, §14, §29",
+      "blocks": [
+        {
+          "md": "Every pipeline fails sometimes. Recovery is the plan for what happens next, and the documentation is clear that it is a **shared responsibility**: Microsoft runs the core service and the Azure integration runtime; the self-hosted runtime, the data stores and the pipeline design are yours.\n\nFour questions cover most recoveries: **what exactly failed**, **what can be rerun on its own**, **will rerunning it duplicate anything**, and **how do we prove it is fixed**."
+        },
+        {
+          "heading": "Rerun only what failed",
+          "table": {
+            "head": [
+              "What failed",
+              "How to recover",
+              "The catch"
+            ],
+            "rows": [
+              [
+                "One activity in a pipeline run",
+                "Rerun from the failed activity, or from one you choose (chapter 12)",
+                "Steps that already succeeded aren't repeated, so they must still be valid"
+              ],
+              [
+                "A large file copy, part-way",
+                "An activity retry or \"rerun from failed activity\" resumes from the failure point",
+                "Only for binary copies between file stores with the folder structure kept, such as S3 or HDFS to ADLS Gen2. It resumes file by file, and the copy's settings mustn't change between runs. Every other copy starts again from the beginning."
+              ],
+              [
+                "A time window",
+                "Rerun that tumbling window; missed windows backfill oldest first (chapter 5)",
+                "A schedule trigger has no windows to rerun"
+              ],
+              [
+                "One slice of a large migration",
+                "Rerun that partition on its own (chapter 19)",
+                "Only if the migration was partitioned in the first place"
+              ],
+              [
+                "Rows skipped by fault tolerance",
+                "Fix them and load them again from the skipped-rows log (chapter 7)",
+                "ADF skips them; it never retries them. Reloading is somebody's task"
+              ],
+              [
+                "Change data capture",
+                "Picks up from its checkpoint (chapter 10)",
+                "Unless a rename has reset the checkpoint"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "Make every rerun safe",
+          "md": "The documentation expects activities to be **idempotent**: safe to run more than once. ADF itself \"might rerun pipeline activities\" after a short fault or a zone outage, and \"this rerun can create duplicate records\". Its advice:\n\n- Give each record a **unique identifier**, so duplicates can be found.\n- **Upsert** where the connector supports it (for example SQL `MERGE`): update if the row exists, insert if not.\n- Or **replace** the whole window or partition being reloaded, rather than adding to it.\n\nAnd set **retries**: on activities and on tumbling window triggers the default is **0** (chapter 3)."
+        },
+        {
+          "heading": "When a zone or a region fails",
+          "table": {
+            "head": [
+              "Failure",
+              "What happens",
+              "What you do"
+            ],
+            "rows": [
+              [
+                "A short fault (a network blip)",
+                "The activity fails, unless it has retries",
+                "Set retries on activities and tumbling window triggers"
+              ],
+              [
+                "An availability zone",
+                "The core service and the Azure IR are zone-redundant automatically, at no extra cost. Activities in progress may fail and be restarted. Tumbling window trigger state might be lost.",
+                "Restart or rerun the tumbling window triggers that were running. Spread self-hosted IR nodes across zones yourself. Microsoft doesn't notify you: set Resource Health and Service Health alerts"
+              ],
+              [
+                "A whole region",
+                "A factory lives in one region and goes down with it. Microsoft may fail it over to the paired region, but \"best-effort\", \"after a significant delay\", possibly losing some metadata, and never for non-paired regions, Brazil South or Southeast Asia",
+                "Keep the factory in Git and deploy it with CI/CD, so you can create a new one in another region and redeploy. The self-hosted IR is yours to fail over, for example with Azure Site Recovery for a VM"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "The backup is Git",
+          "md": "- There is **no separate backup** of a factory's pipelines. The documented backup is **source control plus CI/CD** (chapter 18); the same repository is how you rebuild in another region.\n- A resilient factory is no use if its data stores aren't: plan their recovery too (the ADLS Gen2 guide covers redundancy and failover for the lake).\n- The service level agreement covers API calls succeeding and activity runs **starting**, not your data arriving."
+        },
+        {
+          "heading": "Why it matters to you",
+          "md": "Every recovery plan has the same shape: **stop the damage, rerun only what failed** (a window, a partition, a set of files), **make sure the rerun can't duplicate**, **reconcile** (chapter 8), and **tell the people who rely on the data**. In an interview, \"we'd rerun it\" isn't an answer; \"we'd rerun that window, which is safe because the load replaces it, then compare counts\" is."
+        }
+      ],
+      "practice_links": [
+        {
+          "scenario_id": "1",
+          "label": "ADF sandbox, scenario 1: a failed copy, a green rerun, and 260 lots lost"
+        },
+        {
+          "scenario_id": "4",
+          "label": "ADF sandbox, scenario 4: an hour no run ever loaded"
+        }
+      ]
+    },
+    {
+      "id": "security",
+      "title": "Security and networking",
+      "summary": "Where credentials live, what the firewall needs, and how to keep data off the public internet.",
+      "sources": "§16, §23",
+      "blocks": [
+        {
+          "md": "- **Credentials** are stored encrypted by ADF, or, recommended, in **Azure Key Vault**. For on-premises sources they can be encrypted and kept **only on the self-hosted IR machine**.\n- ADF doesn't store the data it moves. It does keep **pipeline definitions, run metadata and cached data**, encrypted at rest with a Microsoft-managed key or your own (chapter 15). An older security page says ADF keeps no cache or logs at all; the newer \"Secure your Azure Data Factory deployment\" page is the one to follow.\n- Data moves over HTTPS/TLS. **ExpressRoute** or a **VPN** adds a private route.\n- The self-hosted IR needs **outbound port 443** only; 1433 only for Azure SQL or Synapse (and even that can be avoided with a staged copy).\n- Use a **managed identity** to reach Azure storage instead of keys.\n- **Key Vault per environment**, with the **same secret names** in each: only the vault name changes between Dev and Prod, and the team needn't see Prod secrets."
+        },
+        {
+          "heading": "How many factories?",
+          "md": "Decide by **security boundary**, for example one for HR and one for Finance. It costs no more, because billing is by use, not per factory. Access can't be granted per pipeline, so if different teams need different access, use separate factories."
+        }
+      ]
+    },
+    {
+      "id": "sensitive-data",
+      "title": "Sensitive data in regulated industries",
+      "summary": "Customer and card data at a bank: what ADF keeps, the controls it offers, and five places sensitive values leak.",
+      "sources": "§6, §23, §27",
+      "blocks": [
+        {
+          "md": "At a bank or card issuer, much of the data being migrated is **personally identifiable information (PII)**: names, account and card numbers, addresses. The documentation's starting point: ADF \"doesn't store the source or sink data it moves\", only pipeline definitions, run metadata and cached data. The risk is in where data passes through and what gets logged."
+        },
+        {
+          "heading": "Controls the documentation provides",
+          "table": {
+            "head": [
+              "Concern",
+              "Control"
+            ],
+            "rows": [
+              [
+                "Data in transit",
+                "TLS to cloud stores; ExpressRoute or VPN; Private Link to the factory; a managed virtual network with private endpoints for the Azure IR"
+              ],
+              [
+                "Data must stay in a country or region",
+                "Create an Azure IR in that region and point the connections at it; the factory's own region holds only metadata"
+              ],
+              [
+                "Credentials",
+                "Managed identity instead of passwords; secrets in Key Vault; on-premises credentials kept only on the self-hosted IR machine"
+              ],
+              [
+                "The factory's own encryption",
+                "A customer-managed key in Key Vault (bring your own key)"
+              ],
+              [
+                "Sensitive values in monitoring",
+                "secureInput and secureOutput on an activity keep its inputs and outputs out of monitoring; SecureString parameters are masked"
+              ],
+              [
+                "Knowing where PII is",
+                "Connect ADF to Microsoft Purview to discover and classify sensitive data and trace its lineage"
+              ],
+              [
+                "Masking",
+                "No built-in masking in the Copy activity: use a data flow (e.g. hash functions), the PII detection and masking template, or a third-party tool (the Azure Architecture Center documents Delphix)"
+              ],
+              [
+                "Enforcing it all",
+                "Azure Policy built-ins requiring customer-managed keys, Key Vault secrets and no public network access; resource locks on production factories"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "Five places sensitive values leak",
+          "md": "1. **The skipped-rows log.** With fault tolerance on, skipped rows are written to the session log **with their actual values**; the documentation's own example shows the row's data. Card numbers can end up in a CSV in a storage account, which then needs the same protection and retention rules as the source.\n2. **The masking template sends data out.** The PII detection and masking template works by calling an external Azure AI service from the data flow. For regulated data, that is a security and compliance decision, not a default.\n3. **Activity outputs in run history.** Unless secureOutput is set, a Lookup that reads customer rows, or a notebook that returns values, shows them in monitoring.\n4. **Debug previews.** Data flow debug shows real rows in Data Preview to whoever runs it; with production data, decide who may debug against which environment.\n5. **The key decision made too late.** A customer-managed key can only be set on an **empty** factory, and once on it **can't be removed**; losing the key locks the factory. Decide before anything is built."
+        },
+        {
+          "heading": "Compliance",
+          "md": "The documentation lists CSA STAR, ISO 20000-1, 22301, 27001, 27017, 27018 and 9001, SOC 1, 2 and 3, HIPAA BAA and HITRUST for Data Factory. **That list doesn't mention PCI DSS**, the card-industry standard, so for card data check Microsoft's Azure compliance offerings rather than assume."
+        },
+        {
+          "heading": "Why it matters to you",
+          "md": "In a BFSI migration these become requirements before any pipeline is built: where data may be processed, which key encrypts what, whether masking is allowed to call an external service, who may see error logs and previews, and how long logs are kept. Reconciliation (chapter 8) can compare fingerprints rather than raw values, so checking the data doesn't mean exposing it."
+        }
+      ]
+    },
+    {
+      "id": "performance-cost",
+      "title": "Performance and cost",
+      "summary": "The slowest of source, network and sink sets the speed; four meters set the bill.",
+      "sources": "§22, §23",
+      "blocks": [
+        {
+          "heading": "How long a copy takes",
+          "md": "Throughput is capped by the **slowest of three**: the source, the network, and the sink. The documentation's table, after tuning:",
+          "table": {
+            "head": [
+              "Data",
+              "100 Mbps",
+              "1 Gbps",
+              "10 Gbps"
+            ],
+            "rows": [
+              [
+                "1 TB",
+                "23.3 hours",
+                "2.3 hours",
+                "0.2 hours"
+              ],
+              [
+                "10 TB",
+                "9.7 days",
+                "0.9 days",
+                "0.1 days"
+              ],
+              [
+                "100 TB",
+                "97.1 days",
+                "9.7 days",
+                "1 day"
+              ],
+              [
+                "1 PB",
+                "32.4 months",
+                "3.2 months",
+                "0.3 months"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "Tuning, in order",
+          "md": "1. Test on a sample big enough to take at least 10 minutes.\n2. Get the most from **one** copy (DIUs; a dedicated self-hosted IR machine).\n3. Only then run many copies in parallel.\n4. Only then scale to the full data.\n\nThe monitoring view splits a copy into stages (queue, time to first byte, listing, reading, writing). **The longest stage is the bottleneck.** A long queue on a self-hosted IR means it needs more capacity. The knobs for each stage are in chapter 17."
+        },
+        {
+          "heading": "What you pay for",
+          "md": "1. **Activity runs** (orchestration).\n2. **DIU-hours** for copies on the Azure IR.\n3. **vCore-hours** for data flows, **including debug sessions**.\n4. SSIS runtime hours.\n\nEstimate from a proof of concept: the documentation's example moved 100 GB for 1.2667 DIU-hours, so 1 TB a day for a month is about 380 DIU-hours. **Per-pipeline billing** can be switched on per factory, to charge costs back to each team."
+        }
+      ]
+    },
+    {
+      "id": "fine-tuning",
+      "title": "Fine-tuning copies and data flows",
+      "summary": "Find the bottleneck first, then the knobs: DIUs, parallel copies, partitions, staging, cluster size, time to live and logging.",
+      "sources": "§22, §28",
+      "blocks": [
+        {
+          "md": "Chapter 16 says what sets the speed (the slowest of source, network and target) and the bill. This chapter is the knobs. The method is always the same: **find the bottleneck, change one thing, measure again.** Most settings default to **Auto**, and the documentation says the automatic choice \"usually gives you the best throughput\", so change a default only when a measurement says to."
+        },
+        {
+          "heading": "Step 1: find the bottleneck",
+          "md": "Open the slow run in monitoring. Sometimes ADF shows **\"Performance tuning tips\"**: its own diagnosis for that run, such as \"use PolyBase or COPY to load Synapse\", \"the Azure SQL database is at its limit\", or \"scale the self-hosted IR\". Try that first. Otherwise, look at the copy's stages: **the longest one is the bottleneck.**",
+          "table": {
+            "head": [
+              "Longest stage",
+              "What it means",
+              "What to try"
+            ],
+            "rows": [
+              [
+                "Queue (self-hosted IR)",
+                "No free capacity on the runtime",
+                "CPU and memory free but jobs waiting: allow more concurrent jobs per node. CPU high or memory low: add a node"
+              ],
+              [
+                "Pre-copy script",
+                "The clean-up script on the target database is slow",
+                "Tune the script with the database team"
+              ],
+              [
+                "Time to first byte",
+                "The source query is slow, or the source is busy",
+                "Tune the query; check what else runs on the source at the same time"
+              ],
+              [
+                "Listing source",
+                "Enumerating files or partitions is slow",
+                "Wildcard and last-modified filters list every file first, then filter. Use date-partitioned folders, a server-side prefix filter, or split the set into several copies"
+              ],
+              [
+                "Reading or writing",
+                "The store, the network, or the loading method",
+                "Check for throttling; use the connector's bulk method; raise DIUs if the pattern allows more than 4; put the Azure IR in or near the store's region"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "The copy knobs",
+          "table": {
+            "head": [
+              "Knob",
+              "What it does",
+              "Watch out for"
+            ],
+            "rows": [
+              [
+                "Data Integration Units (Azure IR only)",
+                "The copy's power, 4 to 256. Auto picks per source, target and data pattern; its default can be lower (1 for a REST or HTTP source, 2 into Synapse with PolyBase or COPY)",
+                "A single file, or writing into one file, stays at 4. Billed as DIUs used × duration. The self-hosted IR has no DIUs"
+              ],
+              [
+                "Parallel copies",
+                "The most threads reading and writing at once, across all DIUs or nodes",
+                "Between file stores it works per file, so never more than the number of files. It has no effect for most non-partitioned database sources. Too many hurts, and adds load on the source, the target and the self-hosted IR"
+              ],
+              [
+                "Database partition options",
+                "Reads a big table from Oracle, SQL Server, Teradata, Netezza and others in parallel slices",
+                "Up to 4 DIUs per partition; parallelism never exceeds the number of partitions"
+              ],
+              [
+                "Staged copy",
+                "Copies through your own Blob or ADLS Gen2 storage on the way",
+                "For PolyBase, Snowflake, Redshift or HDFS; to avoid opening port 1433; to compress over a slow link. Billed as two copies, and ADF needs delete permission on the staging store"
+              ],
+              [
+                "Self-hosted IR",
+                "More concurrent jobs per node, or more nodes",
+                "Writing to Blob or ADLS Gen2, each node handles at most 4 or 5 parallel copies"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "The data flow knobs",
+          "table": {
+            "head": [
+              "Knob",
+              "What it does",
+              "Watch out for"
+            ],
+            "rows": [
+              [
+                "Cluster size",
+                "Default small: 4 driver and 4 worker cores; up to 272 cores",
+                "Start small and scale up. More cores than data partitions doesn't help. Priced in vCore-hours"
+              ],
+              [
+                "Time to live",
+                "Keeps the cluster alive for a period you set after a job ends, so the next sequential data flow skips the cold start. The cold start itself generally takes 3 to 5 minutes",
+                "Not for data flows that run in parallel: one job per cluster. Not available on the default auto-resolve IR"
+              ],
+              [
+                "Partitioning (Optimize tab)",
+                "\"Use current partitioning\" is the default, recommended in most cases",
+                "Single partition is \"strongly discouraged\". Setting partitions by hand can undo the Spark optimiser's work; do it after skewing joins or aggregates"
+              ],
+              [
+                "Shuffle partitions",
+                "A custom runtime setting, 50 to 2000 (default 200, fine for about 300 GB)",
+                "Only for known out-of-memory problems on big joins or aggregates; aim for about 1.5 GB per partition"
+              ],
+              [
+                "Logging level",
+                "Verbose is the default",
+                "Verbose is expensive: use Basic or None unless troubleshooting"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "Known slow spots",
+          "md": "- **Loading Azure SQL Database:** a tier too small or DTU near 100%; indexes left on during the load (drop and recreate them); a small `writeBatchSize`; a stored procedure instead of bulk insert.\n- **A managed virtual network IR** queues longer than the plain Azure IR by design: each copy has a warm-up.\n- **Excel files of 100 MB or more, XML files and single-object JSON files** are read whole into memory, so out-of-memory failures are by design. Split the files, use a bigger self-hosted IR machine, or read Excel through a data flow, which streams it."
+        },
+        {
+          "heading": "Why it matters to you",
+          "md": "When someone says \"the nightly load is too slow\", the good answer is a method, not a setting: read the tuning tip, find the longest stage, change one thing, measure again. And every knob that adds speed adds **cost** (DIU-hours, vCore-hours) or **load on someone else's system** (parallel copies against a production database), so tuning is a conversation with the source's owners and whoever pays the bill."
+        }
+      ]
+    },
+    {
+      "id": "cicd",
+      "title": "From Dev to Prod",
+      "summary": "The release path, stopping triggers during a deployment, and why an urgent fix needs its own route.",
+      "sources": "§18.4, §19",
+      "blocks": [
+        {
+          "md": "1. Only the **Dev** factory is connected to Git. People work in feature branches and merge through pull requests.\n2. **Publishing** from Dev writes the whole factory out as ARM templates.\n3. A release pipeline deploys those to **Test/UAT**, then **Prod**, with one parameter file per environment and **approvals** before each stage (the person requesting a release shouldn't approve it).\n4. Test and Prod are **never edited by hand**."
+        },
+        {
+          "heading": "Things that catch teams out",
+          "md": "- **Stop triggers before a deployment and restart them after**, with the script Microsoft provides.\n- Integration runtimes must have the **same name and type** in every environment.\n- **Publishing is all-or-nothing**: you can't release one pipeline while others are half-finished. An urgent fix needs a **hotfix** route.\n- No spaces in resource names.\n- To merge work that mustn't run in Prod yet, use a **feature flag**: a global parameter checked by an If Condition."
+        }
+      ]
+    },
+    {
+      "id": "migration",
+      "title": "Migrating with ADF",
+      "summary": "Snapshot plus deltas until cutover, partitions that rerun alone, and the control table as the plan.",
+      "sources": "§14, §21, §22",
+      "blocks": [
+        {
+          "md": "ADF is built for moving big data lakes (HDFS, Amazon S3) and warehouses (Oracle, Netezza, Teradata, Redshift) into Azure. A migration is a **one-time historical copy** plus **scheduled incremental loads**, keeping old and new in sync for the whole migration window until cutover."
+        },
+        {
+          "heading": "Online or offline",
+          "md": "Decided by **data size, network bandwidth and the migration window**. If the online transfer won't fit the window, ship the data offline (Data Box)."
+        },
+        {
+          "heading": "Hadoop to ADLS Gen2",
+          "md": "- **DistCp mode** (recommended): ADF asks your own Hadoop cluster to do the copy. Fastest, but it loads the cluster that is still running production jobs.\n- **Native mode**: ADF's own runtime copies the data. Use it when DistCp can't, or when the cluster mustn't be slowed.\n- Above **10 TB**, **partition by folder**, one copy per partition, several at once; a failed partition reruns alone.\n- The documentation's worked example: **1 PB in 1,000 partitions** at 2 GBps overall took about **146 hours**."
+        },
+        {
+          "heading": "The control table is the plan",
+          "md": "Microsoft's \"Bulk copy from database\" template reads a **control table** with one row per table or partition (its filter query), loops over it, and copies each. The same idea drives incremental loads: one row per table with its watermark.\n\nSo when someone asks \"how did you plan 400 tables?\", the answer is: a control table listing every table or partition, its load pattern and its status; one generic pipeline; and the status column as the progress report."
+        },
+        {
+          "heading": "Lessons the documentation draws",
+          "md": "1. Partition big migrations so a failure reruns one slice, not everything.\n2. Keep a control table of what has moved.\n3. **Prove throughput with a proof of concept** before promising dates.\n4. The migration window is snapshot plus deltas until cutover.\n5. The self-hosted IR is production infrastructure: size it, make it highly available, monitor it."
+        }
+      ]
+    },
+    {
+      "id": "fabric",
+      "title": "ADF and Fabric Data Factory",
+      "summary": "What changes in Microsoft Fabric, what's missing, and the three ways to move.",
+      "sources": "§24",
+      "blocks": [
+        {
+          "md": "Microsoft calls **Fabric Data Factory** the next generation of ADF. The main differences:",
+          "table": {
+            "head": [
+              "ADF",
+              "Fabric Data Factory"
+            ],
+            "rows": [
+              [
+                "Linked service + dataset",
+                "Connection (dataset settings sit inside each activity)"
+              ],
+              [
+                "Mapping data flow (Spark)",
+                "Dataflow Gen2 (Power Query engine): a different engine"
+              ],
+              [
+                "Self-hosted IR",
+                "On-premises data gateway"
+              ],
+              [
+                "Publish step",
+                "Save and run; no publish"
+              ],
+              [
+                "CDC resource",
+                "Copy job"
+              ],
+              [
+                "ARM templates and DevOps",
+                "Built-in deployment pipelines; single items can be promoted"
+              ],
+              [
+                "Pay per use",
+                "Capacity (F SKU)"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "Not in Fabric yet",
+          "md": "Azure-SSIS and managed virtual networks are still \"to be determined\". About 90% of ADF activities are available."
+        },
+        {
+          "heading": "Three ways to move",
+          "md": "1. **Mount** the existing ADF inside Fabric, to see it and plan (generally available since May 2025).\n2. The **built-in upgrade tool**, which labels each pipeline Ready, Needs review, Coming soon or Not compatible.\n3. **Rebuild by hand** for pipelines that don't translate.\n\nA good answer to \"would you build new pipelines in ADF today?\" weighs an existing ADF estate and its self-hosted IRs against Fabric's capacity pricing and the features it doesn't have yet."
+        }
+      ]
+    },
+    {
+      "id": "pitfalls",
+      "title": "Pitfalls: every trap in one place",
+      "summary": "The traps from the whole guide on one page: what goes wrong, how it shows, and how to prevent it.",
+      "sources": "§3–§29",
+      "blocks": [
+        {
+          "md": "Each trap below is taught in full in its own chapter (the last column). Use this page to revise before an interview, or as a review checklist for a design. Almost every one fails **quietly**: the run is green and the data is wrong."
+        },
+        {
+          "heading": "Loading data",
+          "table": {
+            "head": [
+              "Pitfall",
+              "What happens",
+              "Prevent it",
+              "Chapter"
+            ],
+            "rows": [
+              [
+                "The watermark update is on the copy's completion exit",
+                "A failed copy still moves the bookmark; the missing rows are never loaded, with no error",
+                "Update it on the success exit only, and test a failed copy",
+                "Loading only new data"
+              ],
+              [
+                "The destination only appends",
+                "A retry after a partial copy writes rows twice",
+                "Merge on the key, or replace the window",
+                "Loading only new data"
+              ],
+              [
+                "A watermark on a table with deletes",
+                "Deleted rows stay in the target for good",
+                "Change data capture or Change Tracking",
+                "Change data capture"
+              ],
+              [
+                "Renaming a pipeline or activity that uses change data capture",
+                "The checkpoint resets and the history is read again",
+                "Set your own checkpoint key",
+                "Change data capture"
+              ],
+              [
+                "A schedule trigger for loads that mustn't have gaps",
+                "Runs missed while it was stopped never happen",
+                "A tumbling window trigger, which backfills",
+                "Triggers: when pipelines run"
+              ],
+              [
+                "A Lookup over more than 5,000 rows",
+                "It silently keeps the first 5,000",
+                "Split the list, or page through it",
+                "Pipelines, activities and control flow"
+              ],
+              [
+                "Changing a variable inside a parallel For Each",
+                "Unpredictable values",
+                "Parameters, or a child pipeline per item",
+                "Pipelines, activities and control flow"
+              ],
+              [
+                "Wildcard or last-modified filters on huge folders",
+                "Every file is listed first, so listing becomes the bottleneck",
+                "Date-partitioned folders or a prefix filter",
+                "Fine-tuning copies and data flows"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "Failures that look like success",
+          "table": {
+            "head": [
+              "Pitfall",
+              "What happens",
+              "Prevent it",
+              "Chapter"
+            ],
+            "rows": [
+              [
+                "An error handler after the main step (try-catch)",
+                "The main step fails and the pipeline shows Succeeded",
+                "Check the data, not only the run status",
+                "Monitoring, failures and reruns"
+              ],
+              [
+                "Type conversion with allowDataTruncation left on",
+                "Decimals and times are cut down without an error",
+                "Switch truncation off for data where precision matters",
+                "Bad rows, cut-off values and \"verified\" copies"
+              ],
+              [
+                "Trusting \"consistency verification\" for tables",
+                "It compares row counts only, never values",
+                "A reconciliation plan beyond counts",
+                "Proving the migration is complete"
+              ],
+              [
+                "Matching totals",
+                "Totals match while individual rows are wrong",
+                "Row fingerprints joined on the key",
+                "Proving the migration is complete"
+              ],
+              [
+                "Fault tolerance with nobody reading the log",
+                "Bad rows are skipped, and never reloaded",
+                "An owner for the skipped-rows log, and a reload step",
+                "Bad rows, cut-off values and \"verified\" copies"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "Running it",
+          "table": {
+            "head": [
+              "Pitfall",
+              "What happens",
+              "Prevent it",
+              "Chapter"
+            ],
+            "rows": [
+              [
+                "Leaving retries at the default",
+                "The default is 0: one blip fails the run",
+                "Set retries on activities and tumbling windows",
+                "Pipelines, activities and control flow"
+              ],
+              [
+                "Relying on ADF's run history",
+                "It is kept for 45 days only",
+                "Send diagnostic logs to Log Analytics",
+                "Monitoring, failures and reruns"
+              ],
+              [
+                "A self-hosted IR on one machine, owned by nobody",
+                "Patching, a password change or a dead VM stops every load",
+                "2 to 4 nodes, a named owner, monitoring",
+                "Integration runtimes: where the work runs"
+              ],
+              [
+                "Stopping and restarting an event trigger",
+                "It can resume its old pattern and fire unwanted runs",
+                "Delete and recreate it instead (from the triggers documentation)",
+                "Triggers: when pipelines run"
+              ],
+              [
+                "Assuming a zone outage is handled for you",
+                "Tumbling window trigger state might be lost",
+                "Restart or rerun the triggers that were running",
+                "Recovering from failures"
+              ],
+              [
+                "Assuming a rerun resumes",
+                "Only binary file copies resume; everything else starts again",
+                "Design loads so a full rerun is safe",
+                "Recovering from failures"
+              ],
+              [
+                "Debug sessions and verbose logging left on",
+                "Billed compute and slower data flows",
+                "Watch debug time; logging Basic or None",
+                "Performance and cost; Fine-tuning copies and data flows"
+              ],
+              [
+                "Raising parallel copies against a busy source",
+                "Throughput can drop, and the source's owners notice",
+                "Change one knob at a time, and measure",
+                "Fine-tuning copies and data flows"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "Releases, security and recovery",
+          "table": {
+            "head": [
+              "Pitfall",
+              "What happens",
+              "Prevent it",
+              "Chapter"
+            ],
+            "rows": [
+              [
+                "Publishing is all-or-nothing",
+                "An urgent fix waits behind half-finished work",
+                "A hotfix route, and feature flags",
+                "From Dev to Prod"
+              ],
+              [
+                "Deploying with triggers running",
+                "Runs start mid-deployment",
+                "Stop triggers before, restart after",
+                "From Dev to Prod"
+              ],
+              [
+                "Integration runtime names differ between environments",
+                "Deployments break",
+                "Same name and type everywhere",
+                "From Dev to Prod"
+              ],
+              [
+                "Deciding on a customer-managed key late",
+                "It can only be set on an empty factory, and can't be removed",
+                "Decide before anything is built",
+                "Sensitive data in regulated industries"
+              ],
+              [
+                "Using the PII masking template on regulated data",
+                "It sends data to an external Azure AI service",
+                "Treat it as a compliance decision",
+                "Sensitive data in regulated industries"
+              ],
+              [
+                "Counting on Microsoft to fail the factory over",
+                "Best-effort, delayed, may lose metadata; not for some regions",
+                "Git and CI/CD, so you can redeploy in another region",
+                "Recovering from failures"
+              ],
+              [
+                "A tumbling window sized wrongly",
+                "Frequency and interval can't be changed once published",
+                "Decide the window size up front",
+                "Triggers: when pipelines run"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "Why it matters to you",
+          "md": "Interviewers for data platform roles ask \"what could go wrong?\" more than \"how does it work?\". Pick three of these you can explain end to end: the symptom, the cause, and how you would have caught it earlier."
+        }
+      ]
+    }
+  ],
+  "scenario_levels": [
+    {
+      "name": "Moving data",
+      "about": "Getting data from a source into the lake, on time, without losing or doubling any of it.",
+      "scenarios": [
+        {
+          "id": "1",
+          "number": 1,
+          "title": "The missing lots",
+          "outcome": "A copy fails, the next run is green, and 260 lots are missing two weeks later.",
+          "sources": "§9, §10, §13, §18.2, §21",
+          "chapter": "incremental",
+          "content": {
+            "bookmark": "A watermark is a bookmark: it remembers the last row you copied, and it should only move after the copy has succeeded.",
+            "check": [
+              {
+                "prompt": "A table has 800 million rows and a trustworthy LastModified column. Which approach fits?",
+                "options": [
+                  "Copy the whole table every night",
+                  "A watermark (or time windows)",
+                  "Copy it once and never again"
+                ],
+                "answer": 1,
+                "why": "A huge table with a reliable change date is exactly the watermark's use case. A full copy every night is wasteful."
+              },
+              {
+                "prompt": "A table lists the company's 40 warehouses and changes a few times a year. Which approach fits?",
+                "options": [
+                  "A watermark on its ID",
+                  "Full copy and overwrite",
+                  "Change Data Capture"
+                ],
+                "answer": 1,
+                "why": "It is tiny, so a full copy costs nothing, and overwriting also picks up deletes and changes a watermark could miss."
+              },
+              {
+                "prompt": "The bookmark update is connected to the copy's \"on completion\" exit. The copy fails halfway. What happens?",
+                "options": [
+                  "The bookmark stays put, and the next run retries the same rows",
+                  "The bookmark moves anyway, and the rows that never arrived are skipped for good",
+                  "The pipeline refuses to run again until someone fixes it"
+                ],
+                "answer": 1,
+                "why": "\"On completion\" runs whether the copy succeeded or failed, so the bookmark moves past rows that never arrived. No later run looks behind it."
+              },
+              {
+                "prompt": "A customer is deleted in the source system. With a watermark load, what happens to that customer in the cloud copy?",
+                "options": [
+                  "It is deleted on the next run",
+                  "It stays there for good",
+                  "The next run fails"
+                ],
+                "answer": 1,
+                "why": "A watermark only finds new or changed rows; a delete leaves nothing to find. You would need Change Tracking or CDC."
+              }
+            ],
+            "caseStudy": {
+              "setting": "A semiconductor manufacturer (fictional) is moving its reporting to Azure. A nightly ADF pipeline copies the lot_results table — one row per finished wafer lot — from the factory's on-premises database into the data lake, using a watermark. The yield dashboard reads from the lake.",
+              "events": [
+                {
+                  "when": "Tuesday night",
+                  "what": "The copy starts at 02:00. About 60% through, the network link to the factory drops and the copy fails. The on-call engineer sees one red \"Failed\" run in the ADF monitor."
+                },
+                {
+                  "when": "Wednesday night",
+                  "what": "The pipeline runs again and shows Succeeded. The engineer closes the ticket: \"Transient network issue, resolved by the next run.\""
+                },
+                {
+                  "when": "Two weeks later",
+                  "what": "Finance reconciles the monthly yield report against the factory system and finds 260 lots missing from the cloud. All of them finished on Tuesday."
+                }
+              ],
+              "pipeline": [
+                "Lookup · read the old watermark",
+                "Lookup · read the new watermark from the source",
+                "Copy · the rows between the two",
+                "Stored procedure · update the watermark — connected to the copy's \"on completion\" exit"
+              ],
+              "tasks": [
+                "Why did Wednesday's successful run not bring back Tuesday's missing lots?",
+                "Why did nobody notice for two weeks?"
+              ]
+            },
+            "debrief": [
+              {
+                "title": "Why the rerun didn't help",
+                "text": [
+                  "\"On completion\" means whether the copy succeeded or failed. When Tuesday's copy failed at 60%, step 4 still ran and moved the bookmark to Tuesday's end. Wednesday started after it. The 40% of Tuesday's rows that never arrived were now behind the bookmark, and no run would ever look there again. The pipeline did exactly what it was told."
+                ]
+              },
+              {
+                "title": "Why nobody noticed",
+                "text": [
+                  "The only red signal was Tuesday's failed run, and Wednesday's green run looked like the fix.",
+                  "Nothing compared how many rows the source had with how many arrived. ADF's own consistency check, for tables, compares counts within one copy; it knows nothing about rows a previous run skipped.",
+                  "ADF keeps run history for 45 days. Found in month three, the evidence of Tuesday's failure would already be gone unless the logs were sent to Log Analytics."
+                ]
+              },
+              {
+                "title": "The flip side: duplicates",
+                "text": [
+                  "Wired correctly, on success, a failed copy leaves the bookmark put and the next run re-copies the window: nothing is lost. But if the destination simply appends rows, and the failed attempt had already written some before it died, those rows arrive twice. The documentation's answer is a load that's safe to repeat: merge on the key, or delete the window and write it again."
+                ]
+              }
+            ],
+            "takeaway": [
+              "Missing rows come from moving the bookmark too early.",
+              "Duplicate rows come from a destination that isn't safe to load twice.",
+              "A good design has neither, and whatever your role, you ask about both."
+            ],
+            "honesty": "If you haven't done this yourself, don't say you have. Say what you know and how you would handle it. If you have a real story where data went missing, counts didn't match or a load had to be rerun, lead with it and use this vocabulary to tell it.",
+            "lenses": {
+              "po": {
+                "tasks": [
+                  "Which two questions would you ask the team tomorrow morning?",
+                  "What would you add to the acceptance criteria so this can't happen silently again?"
+                ],
+                "debrief": [
+                  {
+                    "title": "Good questions for the team",
+                    "text": [
+                      "\"What exit is the watermark update connected to: success, or completion?\" — the root cause.",
+                      "\"When a load fails and the next one succeeds, how do we prove nothing was skipped?\" — the process gap.",
+                      "\"Can we rerun Tuesday's window on its own, and is the destination safe to load twice?\""
+                    ]
+                  },
+                  {
+                    "title": "Acceptance criteria that would have caught it",
+                    "text": [
+                      "The watermark moves only after a successful copy, verified by a test where the copy fails and the watermark is checked afterwards.",
+                      "After every load, the source row count for the window matches what landed; a mismatch fails the run and alerts the owner.",
+                      "Loading the same window twice creates no duplicates: the destination merges on the key, or replaces the window.",
+                      "Run history is kept for at least 13 months, longer than the 45-day default."
+                    ]
+                  }
+                ],
+                "sayIt": {
+                  "question": "How would you make sure a nightly incremental load doesn't lose or duplicate data?",
+                  "points": [
+                    "Name the pattern: a watermark in a control table, so each run copies only what's newer.",
+                    "Name the two risks: missing rows if the watermark moves before the copy is confirmed; duplicates if a rerun writes into a destination that just appends.",
+                    "Say what you'd require: watermark updated only on success, a source-vs-target count on every run that fails loudly, a merge on the business key.",
+                    "Say what you'd watch: failed-run alerts, logs kept longer than 45 days, a named owner for reconciliation.",
+                    "Name the limit: a watermark can't see deletes; if they matter, Change Tracking or CDC."
+                  ]
+                }
+              },
+              "pm": {
+                "tasks": [
+                  "Who is affected, and what do you tell Finance and the dashboard's users this week?",
+                  "What would you change in the product's measures or roadmap so trust in the data is shown, not assumed?"
+                ],
+                "debrief": [
+                  {
+                    "title": "This week: impact and honesty",
+                    "text": [
+                      "Scope it before you speak: which report, which dates (Tuesday's lots), which decisions were made on it in the last two weeks.",
+                      "Tell the people who rely on it, plainly: what was missing, why, when it will be corrected, and whether any figure they used must be restated.",
+                      "Get a date for the backfill of Tuesday's window and for the fix, and hold the team to it."
+                    ]
+                  },
+                  {
+                    "title": "After: make trust visible",
+                    "text": [
+                      "Show completeness on the product itself: a \"data complete to\" date or a check mark per day on the dashboard, so a gap is seen by users, not found by Finance.",
+                      "Measure it: \"share of loads reconciled against the source\" as a product measure next to usage.",
+                      "Prioritise the fix and the reconciliation check above the next feature. A report users can't trust has no users."
+                    ]
+                  }
+                ],
+                "sayIt": {
+                  "question": "A report your users rely on turned out to be missing data for two weeks. How would you handle it?",
+                  "points": [
+                    "Scope the impact first: which report, which period, which decisions depended on it.",
+                    "Tell users honestly and early: what was wrong, what it means for them, when it will be corrected.",
+                    "Name the cause in plain words: the load's bookmark moved even though the copy failed, so a rerun skipped the missing rows.",
+                    "Restore trust visibly: a completeness indicator on the report, and reconciliation as a measured part of the product.",
+                    "Make the prevention part of the roadmap, not a side task, and say who owns it."
+                  ]
+                }
+              },
+              "dm": {
+                "tasks": [
+                  "How do you run the incident from here: who does what, by when?",
+                  "What changes in the process so a failed-load ticket can't be closed as \"fixed by the next run\" again?"
+                ],
+                "debrief": [
+                  {
+                    "title": "Running the incident",
+                    "text": [
+                      "Open it properly: an owner, a severity (a finance report is wrong), and a status update rhythm for Finance.",
+                      "Plan the recovery as steps with dates: rerun Tuesday's window on its own, check the destination won't double-load, reconcile the counts, confirm with Finance.",
+                      "Run a blameless review: the pipeline did what it was told; the gap was a wiring choice and a closure rule nobody questioned."
+                    ]
+                  },
+                  {
+                    "title": "Fixing the process",
+                    "text": [
+                      "A failed-load ticket closes only with evidence that the window was reconciled (source count equals landed count), not because a later run was green.",
+                      "The definition of done for any incremental load includes a test where the copy fails and the watermark is checked.",
+                      "A runbook for rerunning one window, and run history kept beyond ADF's 45 days so the evidence still exists when the question comes."
+                    ]
+                  }
+                ],
+                "sayIt": {
+                  "question": "Tell me how you would handle a data incident that was only discovered two weeks after it happened.",
+                  "points": [
+                    "Take ownership and set severity by business impact, not by how the pipeline looks today.",
+                    "Recover in steps with dates: isolate the missing window, reload it safely, reconcile, confirm with the business.",
+                    "Communicate on a fixed rhythm until closed, including what is known and not yet known.",
+                    "Hold a blameless review that finds the process gap, here closing a ticket on the next green run.",
+                    "Change the process so it can't recur: reconciliation evidence to close, failure tests in the definition of done, longer log retention."
+                  ]
+                }
+              },
+              "em": {
+                "tasks": [
+                  "What would you check in the pipeline and its tests?",
+                  "What would you put in place for the team (reviews, tests, alerts) so this fails loudly next time?"
+                ],
+                "debrief": [
+                  {
+                    "title": "In the pipeline",
+                    "text": [
+                      "The watermark update belongs on the copy's success exit, not completion.",
+                      "Make the load safe to repeat: merge on the key, or delete and rewrite the window, so a retry can't duplicate.",
+                      "Add a reconciliation step after the copy that compares source and landed counts for the window and fails the run on a mismatch."
+                    ]
+                  },
+                  {
+                    "title": "For the team",
+                    "text": [
+                      "A failure-injection test in the release pipeline: fail the copy, assert the watermark didn't move.",
+                      "A review checklist for every incremental load: which exit moves the watermark, is the sink idempotent, what happens on rerun.",
+                      "Alerts on failed runs to whoever is on call, and diagnostic logs sent to Log Analytics so history outlives the 45-day default.",
+                      "Treat it as a learning review, not blame: the engineer followed the design; the design and the closure rule were the gap."
+                    ]
+                  }
+                ],
+                "sayIt": {
+                  "question": "How do you make sure your team's data pipelines fail loudly rather than silently?",
+                  "points": [
+                    "Design for it: state moves only on success, and every load is safe to rerun.",
+                    "Check the data, not just the run: reconcile counts per load and fail on a mismatch.",
+                    "Test the failure path: inject a failure in CI and assert nothing was skipped or doubled.",
+                    "Observe it: alerts to on-call, logs kept longer than the platform default, a named owner per pipeline.",
+                    "Build the habit: a review checklist and blameless reviews that change the checklist."
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "2",
+          "number": 2,
+          "title": "The first pipeline",
+          "outcome": "\"Just copy the claims table\" turns into six building blocks, a dependency on another team, and a lost night.",
+          "sources": "§2, §3, §5, §7, §10",
+          "chapter": "building-blocks",
+          "content": {
+            "bookmark": "A copy job is several building blocks: two connections (linked services), two datasets, a Copy activity inside a pipeline, a trigger, and the integration runtime that does the work.",
+            "check": [
+              {
+                "prompt": "What is a linked service?",
+                "options": [
+                  "The data itself: a table or a folder",
+                  "How to connect to a system, much like a connection string",
+                  "The compute that does the copying"
+                ],
+                "answer": 1,
+                "why": "The documentation describes linked services as \"much like connection strings\". The data inside is a dataset; the compute is the integration runtime."
+              },
+              {
+                "prompt": "A pipeline copies from an Azure SQL Database into the data lake. What actually moves the data?",
+                "options": [
+                  "The pipeline",
+                  "The integration runtime",
+                  "The dataset"
+                ],
+                "answer": 1,
+                "why": "The integration runtime is the compute that does the moving. The pipeline groups the steps; a dataset only says which data."
+              },
+              {
+                "prompt": "A copy fails because of a 20-second network interruption. With the default settings, what happens?",
+                "options": [
+                  "It retries after 30 seconds",
+                  "It fails: by default an activity isn't retried",
+                  "It keeps trying for up to 12 hours"
+                ],
+                "answer": 1,
+                "why": "The default retry count is 0. Thirty seconds is only the gap between retries once someone sets them; 12 hours is the default timeout, not a retry window."
+              },
+              {
+                "prompt": "You need the same copy for 40 tables. What does the documentation point you to?",
+                "options": [
+                  "Build 40 pipelines",
+                  "One pipeline with a table-name parameter, run once per table",
+                  "One pipeline that changes a variable inside a parallel loop"
+                ],
+                "answer": 1,
+                "why": "Parameters let one pipeline serve many tables. Variables aren't safe to change inside a parallel For Each loop: the results are unpredictable."
+              }
+            ],
+            "caseStudy": {
+              "setting": "A regional insurer (fictional) wants its daily claims table, which lives in an Azure SQL Database, copied into the data lake as Parquet files so the actuarial team can query it. The backlog item reads \"Copy claims to the lake\".",
+              "events": [
+                {
+                  "when": "Sprint planning",
+                  "what": "The item is sized as one small story: \"It's just a copy.\""
+                },
+                {
+                  "when": "Day 4",
+                  "what": "The engineer can't create the connection to the claims database: the database team hasn't granted the factory access, so its tables can't even be browsed. The request has a five-day lead time."
+                },
+                {
+                  "when": "Day 10",
+                  "what": "The pipeline goes live, nightly at 01:00. On its second night a short network interruption fails the copy. Nobody hears about it until the actuaries ask why yesterday's claims are missing."
+                }
+              ],
+              "pipeline": [
+                "Linked service · the claims database",
+                "Linked service · the data lake",
+                "Dataset · the claims table",
+                "Dataset · a Parquet folder in the lake",
+                "Copy activity · claims table to the Parquet folder, with the default settings (no retries)",
+                "Schedule trigger · every day at 01:00; no alert on failure"
+              ],
+              "tasks": [
+                "Why was \"copy claims to the lake\" more than one small story?",
+                "Why did one short network interruption lose a whole night's load?"
+              ]
+            },
+            "debrief": [
+              {
+                "title": "Six pieces, and other people own some of them",
+                "text": [
+                  "The documentation's own example of a copy needs two linked services, two datasets and one Copy activity in a pipeline, with an integration runtime doing the work. Add the trigger and that is six things to create, not one.",
+                  "Creating a linked service needs permission on the system it connects to. Until the database team acted, nobody could even see the claims tables, so the first real task was a request to another team.",
+                  "Here both ends are in Azure, so the default Azure integration runtime does the work and needs no set-up. An on-premises source would add a self-hosted runtime (scenario 3)."
+                ]
+              },
+              {
+                "title": "Why one interruption cost a night",
+                "text": [
+                  "An activity's default retry count is 0: one failure and the run fails. Retries are something someone has to switch on (with a 30-second default gap between them).",
+                  "Nobody was told because no alert existed. The documentation's recommended first alert is simple: failed pipeline runs greater than 0.",
+                  "A schedule trigger won't try again later either (scenario 4), so the night stays missing until someone reruns it."
+                ]
+              },
+              {
+                "title": "The flip side: forty tables",
+                "text": [
+                  "Once one table works, the next request is for forty more. Copying the pipeline forty times multiplies every fix by forty. The documentation's answer is parameters: one pipeline that takes the table name and the date, run once per table, often driven by a control table listing them (the migration chapter's \"bulk copy\" pattern)."
+                ]
+              }
+            ],
+            "takeaway": [
+              "A copy job is several building blocks, and some of them are owned by other teams.",
+              "The defaults assume nothing goes wrong: no retries, no alerts.",
+              "Build one parameterised pipeline, not one per table."
+            ],
+            "honesty": "If you haven't built an ADF pipeline yourself, don't say you have. Say what the pieces are and how you would plan the work. If you have a real story of a \"simple\" data request that turned out to have hidden dependencies, lead with that.",
+            "lenses": {
+              "po": {
+                "tasks": [
+                  "How would you split or size \"copy claims to the lake\" now that you know what it involves?",
+                  "What would you add to the acceptance criteria so a failed night is noticed and recovered?"
+                ],
+                "debrief": [
+                  {
+                    "title": "Splitting it honestly",
+                    "text": [
+                      "A dependency item for access to the claims database, owned by the database team and requested before the sprint starts.",
+                      "The pipeline itself: connections, datasets, copy, trigger.",
+                      "Operability as part of done, not a later story: retries, an alert, and a way to rerun one night."
+                    ]
+                  },
+                  {
+                    "title": "Acceptance criteria",
+                    "text": [
+                      "A short interruption is retried: retries are set explicitly, because the default is none.",
+                      "A failed run alerts a named owner the same night.",
+                      "Any single night can be rerun on its own, with the date as a parameter.",
+                      "The actuarial team can see the date the data is complete to."
+                    ]
+                  }
+                ],
+                "sayIt": {
+                  "question": "How do you break down a data pipeline request that sounds like \"just copy the data\"?",
+                  "points": [
+                    "Name the parts: connections to both systems, the datasets, the copy step in a pipeline, a trigger, the runtime that does the work.",
+                    "Find the dependencies owned by others early: reaching a source needs permission from whoever owns it.",
+                    "Make operability part of done: retries (off by default), alerts, and rerunning one day.",
+                    "Plan for reuse: one parameterised pipeline rather than a copy per table.",
+                    "Define done as data the user can see has arrived, not a green run."
+                  ]
+                }
+              },
+              "pm": {
+                "tasks": [
+                  "What would you tell the actuarial team about the date, and about the missing night?",
+                  "How would you know the copy in the lake is actually useful to them?"
+                ],
+                "debrief": [
+                  {
+                    "title": "Setting expectations",
+                    "text": [
+                      "The date depended on another team's access. Say so, with the dependency and its lead time, rather than a guess.",
+                      "For the missing night: which day is affected, when it will be reloaded, and whether anything built on it needs checking."
+                    ]
+                  },
+                  {
+                    "title": "Measuring whether it matters",
+                    "text": [
+                      "Start from the decision the actuaries make with the data, and the freshness that decision needs: nightly or hourly changes the design.",
+                      "Measure use (who queries it, how often) and trust (days complete, incidents), not just that the pipeline exists."
+                    ]
+                  }
+                ],
+                "sayIt": {
+                  "question": "A stakeholder asks for \"just a copy of the data in the lake\". How do you decide what to build and what success looks like?",
+                  "points": [
+                    "Ask who uses it and for which decision.",
+                    "Agree the freshness they need; it decides the schedule and the design.",
+                    "Surface dependencies on other teams before promising a date.",
+                    "Define success as complete data that gets used, not a pipeline that exists.",
+                    "Plan for failure up front: retries, alerts and a communicated rerun."
+                  ]
+                }
+              },
+              "dm": {
+                "tasks": [
+                  "What would you have done at refinement or sprint planning to avoid the day-4 block?",
+                  "How should the failed night have reached someone before the actuaries noticed?"
+                ],
+                "debrief": [
+                  {
+                    "title": "Dependencies before the sprint",
+                    "text": [
+                      "Ask at refinement: which systems does this touch, and who has to grant access? Here, the database team.",
+                      "Raise the request with its lead time before the sprint, and track it as a blocker with an owner and a date."
+                    ]
+                  },
+                  {
+                    "title": "Ready to run, not just built",
+                    "text": [
+                      "The definition of done includes retries, an alert for failed runs sent to whoever is on call, and a runbook for rerunning one date.",
+                      "Before go-live, agree who responds at 01:00 and how."
+                    ]
+                  }
+                ],
+                "sayIt": {
+                  "question": "How do you manage cross-team dependencies in a data delivery?",
+                  "points": [
+                    "Find them at refinement: source access, networking, credentials.",
+                    "Give each an owner, a lead time and a date, and show them on the board as blockers.",
+                    "Escalate early when a lead time threatens the plan.",
+                    "Put operational handover in the definition of done: alerts, on-call, a rerun runbook.",
+                    "Review afterwards which dependency surprised you, and add it to the checklist."
+                  ]
+                }
+              },
+              "em": {
+                "tasks": [
+                  "What would you put in the pipeline so an interruption doesn't lose a night?",
+                  "What would you standardise so the next forty tables don't need forty pipelines?"
+                ],
+                "debrief": [
+                  {
+                    "title": "In the pipeline",
+                    "text": [
+                      "Set retries and the retry interval on the copy explicitly; the default is none. Check the timeout too: the default is 12 hours.",
+                      "An alert on failed pipeline runs greater than 0, to the on-call rota.",
+                      "A date parameter, so one night can be rerun on its own."
+                    ]
+                  },
+                  {
+                    "title": "For the team",
+                    "text": [
+                      "One template pipeline with parameters (table, date), driven by a control table of sources.",
+                      "No variables changed inside parallel loops: they aren't safe there.",
+                      "A review checklist for every pipeline: retries, timeout, alerts, rerun."
+                    ]
+                  }
+                ],
+                "sayIt": {
+                  "question": "How do you keep a team's data pipelines consistent and operable as the number of sources grows?",
+                  "points": [
+                    "One parameterised pipeline, driven by a control table, instead of a copy per source.",
+                    "Explicit activity policies: retries and timeouts set on purpose, not left at the defaults.",
+                    "Alerts on failures, and a runbook for rerunning one source or one day.",
+                    "A review checklist that every new pipeline passes.",
+                    "Credentials kept out of pipelines, for example in Key Vault."
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "3",
+          "number": 3,
+          "title": "The server nobody owned",
+          "outcome": "A password change stops an on-premises load, and nobody owns the machine it runs on.",
+          "sources": "§6, §8, §10, §16",
+          "chapter": "integration-runtimes",
+          "content": {
+            "bookmark": "A self-hosted integration runtime is software you install on your own machine to reach data behind your firewall, so it is a production server that someone has to own.",
+            "check": [
+              {
+                "prompt": "Which of these sources needs a self-hosted integration runtime?",
+                "options": [
+                  "An Azure SQL Database with a public endpoint",
+                  "An Oracle database inside the company's own data centre",
+                  "A file in Azure Blob Storage"
+                ],
+                "answer": 1,
+                "why": "A self-hosted runtime is needed when the source can't be reached from the public cloud, the typical on-premises database. Cloud stores use the Azure runtime."
+              },
+              {
+                "prompt": "What does the corporate firewall need to allow for a self-hosted runtime?",
+                "options": [
+                  "Inbound port 443 from Azure",
+                  "Outbound port 443 only",
+                  "Inbound and outbound port 1433"
+                ],
+                "answer": 1,
+                "why": "The runtime only makes outbound connections, so outbound 443 is enough; nothing comes in from the internet. Port 1433 is needed only for Azure SQL or Synapse, and can be avoided."
+              },
+              {
+                "prompt": "How many machines (nodes) can one self-hosted runtime have?",
+                "options": [
+                  "One",
+                  "Up to four",
+                  "As many as you like"
+                ],
+                "answer": 1,
+                "why": "Up to four nodes, working together, so one machine is no longer a single point of failure."
+              },
+              {
+                "prompt": "A copy reads an on-premises database through the self-hosted runtime and writes to the lake. Where does the copy run?",
+                "options": [
+                  "On the Azure runtime, because the lake is in Azure",
+                  "On the self-hosted runtime",
+                  "Nowhere: both sides must use the same runtime"
+                ],
+                "answer": 1,
+                "why": "If either side of a copy uses a self-hosted runtime, the copy runs on it."
+              }
+            ],
+            "caseStudy": {
+              "setting": "A retail chain (fictional) copies each night's sales from its on-premises ERP database into the data lake; store managers read the sales report every morning. During the project a contractor installed the self-hosted integration runtime on one Windows virtual machine in the data centre, then left when it went live.",
+              "events": [
+                {
+                  "when": "Saturday",
+                  "what": "The 90-day password policy changes the domain account the runtime uses to get through the company's web proxy. From then on, the runtime can't connect."
+                },
+                {
+                  "when": "Sunday and Monday nights",
+                  "what": "Both loads fail. The failure alert goes to the contractor's email address, which no longer exists."
+                },
+                {
+                  "when": "Tuesday morning",
+                  "what": "Store managers see no sales since Friday. The infrastructure team asks what the virtual machine is for: it isn't on their list of servers."
+                }
+              ],
+              "pipeline": [
+                "Self-hosted runtime · one node, on a virtual machine the contractor built",
+                "Web proxy · logs in with a domain service account (NTLM: a Windows sign-in method that uses that account's password)",
+                "Linked service · the ERP database, reached through the self-hosted runtime",
+                "Copy activity · sales tables to the lake, nightly",
+                "Alert · failed runs, emailed to the contractor"
+              ],
+              "tasks": [
+                "Why did a password change stop the loads?",
+                "What made this a single point of failure, and who should have owned it?"
+              ]
+            },
+            "debrief": [
+              {
+                "title": "Why a password change stopped the loads",
+                "text": [
+                  "The self-hosted runtime is software installed on your own Windows machine. It makes only outbound connections, here through the company's proxy.",
+                  "The documentation warns that when the proxy uses NTLM, the runtime's service is tied to a domain account, so a password change breaks it until someone reconfigures it. Nothing in ADF was wrong; the runtime had lost its way out."
+                ]
+              },
+              {
+                "title": "Why it was a single point of failure",
+                "text": [
+                  "One node. A self-hosted runtime supports up to four nodes working together, so one machine is \"no longer the single point of failure\" (the nodes need remote access between them on port 8060).",
+                  "No owner. You patch, update and monitor it yourself; the documentation offers auto-update and monitoring through Log Analytics, but someone has to set them up and watch them.",
+                  "No working alert. The only alert went to one person's address."
+                ]
+              },
+              {
+                "title": "The flip side: where it doesn't belong",
+                "text": [
+                  "Not every source needs one. Cloud-to-cloud copies use the fully managed Azure runtime. And a self-hosted runtime can't run data flows: those need an Azure runtime, so choosing a self-hosted design also decides where transformations can happen. The documentation also advises installing it near the data source, but not on it, so it doesn't compete for the source's resources."
+                ]
+              }
+            ],
+            "takeaway": [
+              "A self-hosted runtime is a production server: it needs an owner, patching, monitoring, and more than one node.",
+              "Its failures are usually infrastructure failures: accounts, proxies, machines.",
+              "In a migration plan it is a workstream, not a checkbox."
+            ],
+            "honesty": "If you haven't run a self-hosted integration runtime yourself, don't say you have. Say what it is and how you would make it safe. If you have a real story of a server or service nobody owned after a handover, lead with that.",
+            "lenses": {
+              "po": {
+                "tasks": [
+                  "What would you put in the backlog about the runtime itself?",
+                  "What would you require before go-live?"
+                ],
+                "debrief": [
+                  {
+                    "title": "Backlog items for the runtime",
+                    "text": [
+                      "A second node, so one machine can fail or be patched without stopping the loads.",
+                      "Handover to the infrastructure team, with the machine on their list and a runbook.",
+                      "Monitoring and alerts sent to a team address, not a person.",
+                      "The service account and proxy settings on a rotation plan, and secrets kept in Key Vault."
+                    ]
+                  },
+                  {
+                    "title": "Go-live criteria",
+                    "text": [
+                      "At least two nodes, and a test where one node is switched off and the loads still run.",
+                      "Alerts reach a shared on-call address, tested once before go-live.",
+                      "A named owner for the runtime, recorded with the rest of the infrastructure.",
+                      "A documented procedure for the next password change."
+                    ]
+                  }
+                ],
+                "sayIt": {
+                  "question": "What non-functional requirements would you set for a pipeline that reads from an on-premises system?",
+                  "points": [
+                    "Availability: at least two nodes (up to four are supported).",
+                    "Ownership: a named team that patches, updates and monitors the runtime.",
+                    "Monitoring: alerts on failed runs and on the runtime's health, to a team address.",
+                    "Credentials: kept in Key Vault, with rotations planned rather than discovered.",
+                    "Network: outbound port 443 only, with the runtime near the source but not on it."
+                  ]
+                }
+              },
+              "pm": {
+                "tasks": [
+                  "Store managers have had no sales figures for three days. What do you tell them, and what do you ask for?",
+                  "How would you make the case for a second machine and an owner?"
+                ],
+                "debrief": [
+                  {
+                    "title": "Talking to the users",
+                    "text": [
+                      "Tell them which days are missing, when they will be reloaded, and not to act on the report until then.",
+                      "Ask for the fix date and the reload of the missing nights, and confirm when both are done."
+                    ]
+                  },
+                  {
+                    "title": "Making the case",
+                    "text": [
+                      "Put the cost of a second node and an owner next to the cost of three days without sales figures.",
+                      "Track reliability as a product measure: days the report was complete and on time.",
+                      "Treat the on-premises dependency as a product risk on the roadmap, not an engineering detail."
+                    ]
+                  }
+                ],
+                "sayIt": {
+                  "question": "How do you prioritise reliability work against new features?",
+                  "points": [
+                    "Express reliability as user impact: here, days without sales figures.",
+                    "Measure it, for example days with complete, on-time data.",
+                    "Compare the cost of the failure with the cost of the fix.",
+                    "Put it on the roadmap with an owner, not as a side task.",
+                    "Revisit the priority after each incident."
+                  ]
+                }
+              },
+              "dm": {
+                "tasks": [
+                  "What was missing from the handover when the contractor left?",
+                  "How do you run the recovery?"
+                ],
+                "debrief": [
+                  {
+                    "title": "The handover that should have happened",
+                    "text": [
+                      "The infrastructure team takes the machine onto its list, with the runtime's purpose and owner recorded.",
+                      "A runbook: restart, update the proxy credentials, add a node.",
+                      "Alerts moved to a team address, and the account rotation added to the calendar.",
+                      "All of this signed off before the contractor's last day."
+                    ]
+                  },
+                  {
+                    "title": "Recovery",
+                    "text": [
+                      "Restore the proxy credentials, then rerun the missing nights one date at a time.",
+                      "Reconcile each night against the ERP before telling the stores it is fixed.",
+                      "Update the store managers on a fixed rhythm until then."
+                    ]
+                  }
+                ],
+                "sayIt": {
+                  "question": "How do you hand a data platform over from a project team or vendor to operations?",
+                  "points": [
+                    "Agree operational acceptance criteria before the vendor leaves.",
+                    "Name an owner and a support model for every component, including servers the project built.",
+                    "Hand over runbooks that have been tested, not just written.",
+                    "Move alerts and credentials from people to team channels and vaults.",
+                    "Check the list of accounts, credentials and machines, and who now owns each."
+                  ]
+                }
+              },
+              "em": {
+                "tasks": [
+                  "What would you change about how the runtime is built?",
+                  "What would you change about how the team runs it?"
+                ],
+                "debrief": [
+                  {
+                    "title": "Build it for failure",
+                    "text": [
+                      "Two to four nodes, with remote access between them (port 8060) switched on first.",
+                      "Installed near the source, not on it; one runtime per environment.",
+                      "Auto-update on, credentials in Key Vault, and the proxy account's rotation managed."
+                    ]
+                  },
+                  {
+                    "title": "Run it like production",
+                    "text": [
+                      "Monitor it through Log Analytics, with alerts on the runtime's CPU, memory and queue as well as on failed runs.",
+                      "When jobs queue while CPU and memory are free, raise the concurrent jobs per node; when they aren't, add a node.",
+                      "Practise failure: switch a node off in test and check the loads carry on."
+                    ]
+                  }
+                ],
+                "sayIt": {
+                  "question": "How would you run a self-hosted integration runtime in production?",
+                  "points": [
+                    "High availability: two to four nodes.",
+                    "Placement and sizing: near the source, not on it; capacity watched.",
+                    "Patching and updates, with auto-update on.",
+                    "Monitoring: runtime health and failed runs, alerting a team.",
+                    "Accounts and credentials managed, with rotations planned."
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "id": "4",
+          "number": 4,
+          "title": "The hour that never loaded",
+          "outcome": "A trigger stopped for a release leaves an hour that no run ever loads, and every run is green.",
+          "sources": "§4, §9, §19",
+          "chapter": "triggers",
+          "content": {
+            "bookmark": "A schedule trigger fires at clock times and forgets; a tumbling window trigger owns each time window, and fills in any it missed.",
+            "check": [
+              {
+                "prompt": "Hourly loads must never leave a gap, even after downtime. Which trigger fits?",
+                "options": [
+                  "Schedule trigger",
+                  "Tumbling window trigger",
+                  "Storage event trigger"
+                ],
+                "answer": 1,
+                "why": "A tumbling window keeps state and backfills missed windows. The documentation calls it \"100% reliability… without gaps\"."
+              },
+              {
+                "prompt": "A schedule trigger shows its run as successful. What does that tell you?",
+                "options": [
+                  "The data loaded",
+                  "A pipeline run started",
+                  "The pipeline and all its activities succeeded"
+                ],
+                "answer": 1,
+                "why": "A schedule trigger is \"fire and forget\": it is marked successful as soon as the run starts. The pipeline run has its own status."
+              },
+              {
+                "prompt": "A tumbling window trigger is created with a start time three days ago. What happens?",
+                "options": [
+                  "Nothing until the next window",
+                  "It runs the missed windows, oldest first, before the current ones",
+                  "It fails: start times can't be in the past"
+                ],
+                "answer": 1,
+                "why": "Backfill creates one run per missed window, oldest first, in parallel up to its concurrency limit, before any current window."
+              },
+              {
+                "prompt": "Each hour's files can arrive up to 15 minutes late. What does a tumbling window offer?",
+                "options": [
+                  "A delay after the window closes before it runs",
+                  "Nothing: late files are always missed",
+                  "A longer window, changeable any time after publishing"
+                ],
+                "answer": 0,
+                "why": "A delay makes the window wait for late data. Frequency and interval can't be changed once the trigger is published."
+              }
+            ],
+            "caseStudy": {
+              "setting": "A city bike-sharing operator (fictional) loads trip files into the lake every hour. The pricing team uses an hourly demand dashboard to set peak-time prices. A schedule trigger runs the pipeline at ten past each hour, and each run copies the folder for the hour before the moment it runs.",
+              "events": [
+                {
+                  "when": "Thursday, 13:15",
+                  "what": "For a release, the engineer stops the trigger, deploys, and starts it again at 15:00. The 14:10 run never happens."
+                },
+                {
+                  "when": "Friday",
+                  "what": "The run history shows every run succeeded. There are no failed runs to investigate."
+                },
+                {
+                  "when": "The next week",
+                  "what": "The pricing team asks why Thursday shows no trips at all from 13:00 to 14:00, normally a busy hour. They had already cut peak prices for the following Thursday."
+                }
+              ],
+              "pipeline": [
+                "Schedule trigger · every hour at :10 (stopped 13:15 to 15:00 on Thursday for a release)",
+                "Copy activity · the folder for the hour before the run time",
+                "Stored procedure · refresh the dashboard table"
+              ],
+              "tasks": [
+                "Why did no run ever load Thursday 13:00 to 14:00?",
+                "Why did everything look green?"
+              ]
+            },
+            "debrief": [
+              {
+                "title": "Why the hour never loaded",
+                "text": [
+                  "A schedule trigger fires at clock times, with no backfill and no retry. While it was stopped, the runs for those hours never existed.",
+                  "Each run worked out its own window from the clock (\"the hour before now\"). The run that would have loaded 13:00 to 14:00 was due at 14:10, while the trigger was stopped; the 15:10 run loaded 14:00 to 15:00, and nothing ever asked for 13:00 to 14:00 again."
+                ]
+              },
+              {
+                "title": "Why everything looked green",
+                "text": [
+                  "There were no failed runs because there were no runs. Run status can't show work that was never started.",
+                  "A schedule trigger is also marked successful as soon as its run starts, so the trigger view is green even when a pipeline later fails.",
+                  "Only a check on the data (rows per hour, or an expected-hour list) would show the gap."
+                ]
+              },
+              {
+                "title": "The fix, and its limits",
+                "text": [
+                  "A tumbling window trigger owns fixed, back-to-back windows, passes each run its WindowStart and WindowEnd, keeps state, retries, and backfills missed windows oldest first. It can also wait for its previous window (self-dependency) and delay a run for late files.",
+                  "Limits from the documentation: frequency and interval can't be changed once published; a tumbling window trigger starts only one pipeline (a schedule trigger can start several); a long gap is better loaded as a separate historical load. Releases still need triggers stopped and restarted (the CI/CD chapter), but missed windows are then filled in automatically."
+                ]
+              }
+            ],
+            "takeaway": [
+              "A schedule trigger fires at times; a tumbling window owns time windows.",
+              "If a run works out its window from the clock, a missed run is a missed window.",
+              "Check the data per window, not just the run status."
+            ],
+            "honesty": "If you haven't set up ADF triggers yourself, don't say you have. Say how the two triggers differ and how you would catch a gap. If you have a real story of a scheduled job that silently skipped a period, lead with that.",
+            "lenses": {
+              "po": {
+                "tasks": [
+                  "What would you ask the team about how each hour is loaded?",
+                  "What acceptance criteria would catch a missing hour?"
+                ],
+                "debrief": [
+                  {
+                    "title": "Questions for the team",
+                    "text": [
+                      "\"Is each run given its window, or does it work the window out from the clock?\"",
+                      "\"What happens to the hours while the trigger is stopped for a release?\"",
+                      "\"Can we reload one hour on its own, without duplicating it?\""
+                    ]
+                  },
+                  {
+                    "title": "Acceptance criteria",
+                    "text": [
+                      "Every hour has a load with its row count recorded; a missing or empty hour raises an alert.",
+                      "Each run loads the window it is given, so any hour can be rerun, and rerunning it replaces rather than adds.",
+                      "A release that stops the trigger ends with a check that the hours in between were loaded."
+                    ]
+                  }
+                ],
+                "sayIt": {
+                  "question": "How would you make sure a scheduled data feed never silently misses a period?",
+                  "points": [
+                    "Give each run its window rather than letting it work one out from the clock (a tumbling window trigger).",
+                    "Backfill missed windows automatically after downtime.",
+                    "Check completeness per window, and alert on a missing or empty one.",
+                    "Make reloading one window safe: it replaces, not appends.",
+                    "Don't rely on run status alone: no run means no failure to see."
+                  ]
+                }
+              },
+              "pm": {
+                "tasks": [
+                  "The pricing team changed prices based on Thursday's figures. What do you do?",
+                  "What would you add to the dashboard so a gap is visible?"
+                ],
+                "debrief": [
+                  {
+                    "title": "The decision made on bad data",
+                    "text": [
+                      "Find which decisions used the gap, here next Thursday's peak prices, and tell the pricing team before they act again.",
+                      "Reload the hour, then share corrected figures and say what changed."
+                    ]
+                  },
+                  {
+                    "title": "Make gaps visible",
+                    "text": [
+                      "Show which hours are complete, or \"complete up to\" a time, on the dashboard itself.",
+                      "Show missing data differently from zero: an hour with no data isn't an hour with no trips.",
+                      "Track freshness and completeness as product measures."
+                    ]
+                  }
+                ],
+                "sayIt": {
+                  "question": "How do you make sure users can tell missing data from a real zero?",
+                  "points": [
+                    "Model \"no data\" separately from zero.",
+                    "Show completeness on the product, per period.",
+                    "Alert the team before users find the gap.",
+                    "When a gap is found, tell the people whose decisions used it.",
+                    "Measure freshness and completeness over time."
+                  ]
+                }
+              },
+              "dm": {
+                "tasks": [
+                  "What should the release process have included?",
+                  "How do you recover Thursday's missing hour and confirm it's right?"
+                ],
+                "debrief": [
+                  {
+                    "title": "The release checklist",
+                    "text": [
+                      "The documentation says to stop triggers before a deployment and restart them after, so a gap is a predictable effect of every release, not bad luck.",
+                      "Record when the trigger was stopped and started, reload the windows in between, and check their row counts before closing the release."
+                    ]
+                  },
+                  {
+                    "title": "Recovery",
+                    "text": [
+                      "Reload 13:00 to 14:00 as its own window, then compare its rows with the source files for that hour.",
+                      "Confirm with the pricing team, and plan the move to a tumbling window so the next release fills its own gap."
+                    ]
+                  }
+                ],
+                "sayIt": {
+                  "question": "What do you put in a release checklist for data pipelines?",
+                  "points": [
+                    "Stop triggers before deploying and restart them after, as the documentation requires.",
+                    "Record the downtime window.",
+                    "Reload and verify every period that fell inside it.",
+                    "Approvals, and a way back if the release fails.",
+                    "Tell the data's users what to expect."
+                  ]
+                }
+              },
+              "em": {
+                "tasks": [
+                  "How would you change the trigger and the pipeline?",
+                  "What would you test?"
+                ],
+                "debrief": [
+                  {
+                    "title": "Change the design",
+                    "text": [
+                      "A tumbling window trigger, passing WindowStart and WindowEnd to the pipeline as parameters.",
+                      "Self-dependency so an hour waits for the one before; a delay for late files; retries set (the default is 0); a sensible concurrency limit.",
+                      "Each hour's load replaces that hour, so reruns and backfills can't duplicate it.",
+                      "Decide the window size up front: it can't be changed after publishing. Use UTC: hourly schedules don't shift for daylight saving, but daily ones do."
+                    ]
+                  },
+                  {
+                    "title": "Test it",
+                    "text": [
+                      "In a test factory, stop the trigger for a few windows, restart it, and check the missed windows were backfilled.",
+                      "Rerun one window twice and check its row count doesn't change.",
+                      "Monitor rows per window, not just run status."
+                    ]
+                  }
+                ],
+                "sayIt": {
+                  "question": "How would you design an hourly load that recovers from downtime on its own?",
+                  "points": [
+                    "A tumbling window trigger that passes each run its window.",
+                    "Backfill of missed windows, oldest first, with a concurrency limit.",
+                    "Loads that replace their window, so reruns are safe.",
+                    "Self-dependency, a delay for late data, and retries.",
+                    "Checks per window on the data itself."
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Getting it right",
+      "about": "The failures that look like success, and the checks that catch them.",
+      "scenarios": [
+        {
+          "id": "5",
+          "number": 5,
+          "title": "Green runs that failed",
+          "outcome": "An error handler turns a failed load green on the dashboard.",
+          "sources": "§3, §10",
+          "chapter": "monitoring"
+        },
+        {
+          "id": "6",
+          "number": 6,
+          "title": "The skipped rows nobody read",
+          "outcome": "Fault tolerance skips bad rows into a log no one owns; truncation cuts values silently.",
+          "sources": "§11, §12",
+          "chapter": "bad-rows"
+        },
+        {
+          "id": "7",
+          "number": 7,
+          "title": "The rename that re-read everything",
+          "outcome": "A tidy-up renames a pipeline and change data capture starts again from the beginning.",
+          "sources": "§13, §15",
+          "chapter": "cdc"
+        },
+        {
+          "id": "8",
+          "number": 8,
+          "title": "The new column",
+          "outcome": "The source adds a column: let it flow through, or stop the load?",
+          "sources": "§17",
+          "chapter": "transform"
+        },
+        {
+          "id": "17",
+          "number": 9,
+          "title": "The balances that matched",
+          "outcome": "Row counts and total balances match after cutover, yet individual customers' balances are wrong.",
+          "sources": "§12, §26",
+          "chapter": "reconciliation"
+        }
+      ]
+    },
+    {
+      "name": "Running it",
+      "about": "What anyone accountable for a data platform needs from operations: monitoring, cost, security and releases.",
+      "scenarios": [
+        {
+          "id": "9",
+          "number": 10,
+          "title": "The audit question",
+          "outcome": "An auditor asks about a load from four months ago; the run history is gone.",
+          "sources": "§10, §23",
+          "chapter": "monitoring"
+        },
+        {
+          "id": "10",
+          "number": 11,
+          "title": "The bill that doubled",
+          "outcome": "Debug sessions and oversized copies double the monthly cost.",
+          "sources": "§23",
+          "chapter": "performance-cost"
+        },
+        {
+          "id": "11",
+          "number": 12,
+          "title": "The password in the pipeline",
+          "outcome": "A connection string is hard-coded and the security review fails.",
+          "sources": "§16, §23",
+          "chapter": "security"
+        },
+        {
+          "id": "18",
+          "number": 13,
+          "title": "Card numbers in the error log",
+          "outcome": "Fault tolerance skipped bad rows at a card issuer, and wrote their card numbers into a log file.",
+          "sources": "§12, §27",
+          "chapter": "sensitive-data"
+        },
+        {
+          "id": "12",
+          "number": 14,
+          "title": "The urgent fix",
+          "outcome": "Prod needs a fix today, but Dev holds half-finished work on three pipelines.",
+          "sources": "§18.4, §19",
+          "chapter": "cicd"
+        }
+      ]
+    },
+    {
+      "name": "Planning a migration",
+      "about": "The programme view: the plan, the size, the hand-off to Databricks, and the future of ADF.",
+      "scenarios": [
+        {
+          "id": "13",
+          "number": 15,
+          "title": "The 1,000 tables that vanished",
+          "outcome": "A control table of 6,000 entries meets the Lookup activity's 5,000-row limit.",
+          "sources": "§18.3, §20, §21",
+          "chapter": "migration"
+        },
+        {
+          "id": "14",
+          "number": 16,
+          "title": "Cutover in three weeks",
+          "outcome": "80 TB, a 1 Gbps link and a fixed date: plan the snapshot and the catch-up.",
+          "sources": "§14, §22",
+          "chapter": "migration"
+        },
+        {
+          "id": "15",
+          "number": 17,
+          "title": "The count Databricks sent back",
+          "outcome": "ADF runs a Databricks notebook and must check the result before moving on.",
+          "sources": "§17, §20",
+          "chapter": "pipelines"
+        },
+        {
+          "id": "16",
+          "number": 18,
+          "title": "ADF or Fabric?",
+          "outcome": "The sponsor asks whether new pipelines should be built in ADF at all.",
+          "sources": "§24",
+          "chapter": "fabric"
+        }
+      ]
+    }
+  ],
+  "diagnostic_questions": [
+    {
+      "id": "reconciliation",
+      "topic": "Proving a migration is complete",
+      "question": "How would you prove a data migration is complete, beyond matching row counts?",
+      "points": [
+        "Counts on every load, per table and per partition or day.",
+        "Column profiles compared: totals, minimum, maximum, distinct and empty values.",
+        "Row fingerprints (hashes) joined on the key for critical tables, because totals can match while rows differ.",
+        "Business rules checked, for example no negative balances.",
+        "For money, truncation switched off and totals compared at full precision.",
+        "An owner who signs off, and a rule for what happens on a mismatch."
+      ],
+      "keywords": [
+        "reconcil",
+        "validat",
+        "data quality",
+        "quality",
+        "accuracy",
+        "integrity",
+        "testing",
+        "migrat"
+      ],
+      "chapter": "reconciliation"
+    },
+    {
+      "id": "sensitive-data",
+      "topic": "Sensitive data in regulated industries",
+      "question": "A bank is moving customer and card data to Azure. What would you require before any pipeline is built?",
+      "points": [
+        "Where data may be processed: an Azure integration runtime in the required region.",
+        "The encryption-key decision made first: a customer-managed key can only be set on an empty factory, and can't be removed.",
+        "Credentials in Key Vault or managed identities, never in pipelines.",
+        "Sensitive values kept out of logs and monitoring: skipped-row logs contain real values; secure input and output on activities.",
+        "An agreed masking approach, including whether it may call an external service.",
+        "Compliance scope checked, for example PCI DSS, which ADF's own list doesn't mention."
+      ],
+      "keywords": [
+        "pii",
+        "sensitive",
+        "privacy",
+        "gdpr",
+        "complian",
+        "regulat",
+        "bank",
+        "bfsi",
+        "financial services",
+        "security",
+        "governance",
+        "risk"
+      ],
+      "chapter": "sensitive-data"
+    },
+    {
+      "id": "cdc",
+      "topic": "Keeping source and target in sync",
+      "question": "How would you keep a migrated table in sync with a source that still receives updates and deletes until cutover?",
+      "points": [
+        "A watermark can't see deletes; change data capture reads inserts, updates and deletes from the source's change log.",
+        "An initial snapshot, then changes until cutover.",
+        "Loads that are safe to repeat: merge on the key.",
+        "The change-capture checkpoint is tied to pipeline and activity names by default: renaming resets it unless you set your own key.",
+        "A reconciliation at cutover before the old system is switched off."
+      ],
+      "keywords": [
+        "cdc",
+        "change data",
+        "sync",
+        "increment",
+        "real-time",
+        "real time",
+        "streaming",
+        "cutover",
+        "replicat"
+      ],
+      "chapter": "cdc"
+    },
+    {
+      "id": "monitoring",
+      "topic": "Knowing pipelines are healthy",
+      "question": "How would you know your data pipelines are healthy, and not just showing green?",
+      "points": [
+        "A green run can mean the error handler succeeded: check the data, not only the run status.",
+        "Checks per load or per window, such as row counts, that fail loudly.",
+        "An alert on failed runs sent to whoever is on call.",
+        "Run history kept beyond ADF's 45 days, in Log Analytics.",
+        "A named owner per pipeline, and a way to rerun from the failed step."
+      ],
+      "keywords": [
+        "monitor",
+        "observab",
+        "operat",
+        "incident",
+        "sla",
+        "support",
+        "reliab",
+        "on-call",
+        "service"
+      ],
+      "chapter": "monitoring"
+    },
+    {
+      "id": "recovery",
+      "topic": "Recovering from failures",
+      "question": "A nightly load failed part-way through. How would you recover, and how would you make the next failure easier to recover from?",
+      "points": [
+        "Rerun only what failed: from the failed activity, one time window, or one partition.",
+        "Make sure the rerun can't duplicate: loads that upsert or replace their window, since ADF may rerun activities itself.",
+        "Know what resumes: only binary file copies between file stores resume; every other copy starts again.",
+        "Retries set on activities and tumbling windows (the default is none), and alerts to whoever is on call.",
+        "Reconcile before calling it fixed, and tell the people who rely on the data.",
+        "For a region outage: the factory lives in one region, so keep it in Git and CI/CD to redeploy elsewhere."
+      ],
+      "keywords": [
+        "recover",
+        "resilien",
+        "incident",
+        "failure",
+        "continuity",
+        "rerun",
+        "reliab",
+        "support",
+        "on-call"
+      ],
+      "chapter": "recovery"
+    },
+    {
+      "id": "fine-tuning",
+      "topic": "Tuning a slow load",
+      "question": "A nightly load has become too slow to finish on time. How would you approach it?",
+      "points": [
+        "Start from the slowest run: read ADF's performance tuning tips, then find the longest stage.",
+        "Match the fix to the stage: a queue means runtime capacity; time to first byte means the source query; listing means file filters.",
+        "Change one thing at a time and measure again; the automatic settings are usually best.",
+        "Know the knobs: DIUs (Azure runtime only), parallel copies, database partitions, staging, cluster size and time to live for data flows.",
+        "Weigh the cost: more speed means more DIU- or vCore-hours, or more load on the source system."
+      ],
+      "keywords": [
+        "performance",
+        "optimi",
+        "tuning",
+        "throughput",
+        "scal",
+        "latency",
+        "sla"
+      ],
+      "chapter": "fine-tuning"
+    },
+    {
+      "id": "cicd",
+      "topic": "Releasing pipeline changes",
+      "question": "How would you release data pipeline changes from development to production safely?",
+      "points": [
+        "Only the development factory in Git; changes through pull requests.",
+        "A release pipeline to test and production, with approvals and one parameter file per environment.",
+        "Production never edited by hand.",
+        "Triggers stopped before a deployment and restarted after.",
+        "Publishing is all-or-nothing, so a hotfix route and feature flags for unfinished work."
+      ],
+      "keywords": [
+        "ci/cd",
+        "cicd",
+        "devops",
+        "release",
+        "deploy",
+        "git",
+        "environment",
+        "automation"
+      ],
+      "chapter": "cicd"
+    },
+    {
+      "id": "migration-plan",
+      "topic": "Planning a large migration",
+      "question": "How would you plan the migration of several hundred tables and a large data lake to Azure?",
+      "points": [
+        "A control table listing every table or partition, its load pattern and status: it is also the progress report.",
+        "Large data partitioned (above 10 TB) so a failure reruns one slice, not everything.",
+        "Throughput proven with a proof of concept before dates are promised: the slowest of source, network and target sets the speed.",
+        "Online or offline transfer, decided by size, bandwidth and the migration window.",
+        "A snapshot plus incremental loads until cutover, and the self-hosted runtime treated as production infrastructure."
+      ],
+      "keywords": [
+        "migrat",
+        "modernis",
+        "moderniz",
+        "legacy",
+        "hadoop",
+        "on-prem",
+        "plan",
+        "roadmap",
+        "programme",
+        "program",
+        "delivery",
+        "transformation"
+      ],
+      "chapter": "migration"
+    },
+    {
+      "id": "cost",
+      "topic": "Cost of the platform",
+      "question": "How would you estimate and control what a data integration platform on Azure Data Factory costs?",
+      "points": [
+        "The four meters: activity runs, copy power (DIU-hours), data flow compute (vCore-hours, including debug sessions) and SSIS runtime hours.",
+        "Estimates from a proof of concept, not guesses.",
+        "Debug sessions watched: they are billed.",
+        "Per-pipeline billing switched on to charge costs back to each team.",
+        "Separate factories cost nothing extra: billing is by use."
+      ],
+      "keywords": [
+        "cost",
+        "budget",
+        "finops",
+        "spend",
+        "commercial",
+        "pricing",
+        "financial"
+      ],
+      "chapter": "performance-cost"
+    },
+    {
+      "id": "fabric",
+      "topic": "ADF or Microsoft Fabric",
+      "question": "Would you build new data pipelines in Azure Data Factory or in Microsoft Fabric today, and why?",
+      "points": [
+        "Microsoft calls Fabric Data Factory the next generation of ADF.",
+        "What changes: connections instead of linked services and datasets, a different engine for dataflows, the on-premises gateway, capacity pricing.",
+        "What isn't there yet: Azure-SSIS and managed virtual networks.",
+        "The ways to move: mount the existing factory, the upgrade tool, or rebuild by hand.",
+        "The decision weighs the existing estate and its runtimes against capacity pricing and the missing features."
+      ],
+      "keywords": [
+        "fabric",
+        "strategy",
+        "vision",
+        "architect",
+        "innovation"
+      ],
+      "chapter": "fabric"
+    }
+  ]
+}

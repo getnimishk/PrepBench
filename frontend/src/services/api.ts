@@ -42,11 +42,13 @@ import {
   DesignReviewAnalytics,
   SubmitDesignReviewAttemptRequest,
 } from '../types/designReview';
+import type { ContentPackSummary, ContentPackDetail } from '../types/contentPack';
 import {
   Subject,
   SubjectCreate,
   SubjectUpdate,
   SubjectDeleteResult,
+  SubjectContentPack,
   DailyGoals,
   HomeSummary,
   ActivityItem,
@@ -977,6 +979,47 @@ export const deleteSubject = async (subjectId: number, confirmName: string) => {
     data: { confirm_name: confirmName },
   });
   return res.data;
+};
+
+// ==================== Content packs ====================
+
+/** Every shipped built-in pack, latest version -- the "start from a built-in
+ *  guide" step's list. */
+export const getContentPacks = async () => {
+  const res = await api.get<ContentPackSummary[]>('/content-packs');
+  return res.data;
+};
+
+/** The full pack -- its latest version, or a specific one already pinned by
+ *  a preparation. */
+export const getContentPack = async (packId: string, version?: number) => {
+  const res = await api.get<ContentPackDetail>(`/content-packs/${packId}`, {
+    params: version === undefined ? undefined : { version },
+  });
+  return res.data;
+};
+
+/** Attach a built-in pack to a Skill preparation, at its latest version (D5). */
+export const attachContentPack = async (subjectId: number, packId: string) => {
+  const res = await api.post<SubjectContentPack>(
+    `/subjects/${subjectId}/content-packs`,
+    { pack_id: packId },
+  );
+  return res.data;
+};
+
+/** Move the pin to a newer version. Never silent -- the learner asked for this. */
+export const upgradeContentPack = async (subjectId: number, packId: string, version: number) => {
+  const res = await api.put<SubjectContentPack>(
+    `/subjects/${subjectId}/content-packs/${packId}`,
+    { version },
+  );
+  return res.data;
+};
+
+/** Detach the pack. Learning attempts and saved interview questions stay (D7). */
+export const detachContentPack = async (subjectId: number, packId: string) => {
+  await api.delete(`/subjects/${subjectId}/content-packs/${packId}`);
 };
 
 export const getHomeSummary = async () => {

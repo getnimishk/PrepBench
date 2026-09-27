@@ -691,6 +691,51 @@
         "title": "CertificationGoal",
         "type": "object"
       },
+      "Chapter": {
+        "additionalProperties": false,
+        "properties": {
+          "blocks": {
+            "items": {
+              "$ref": "#/components/schemas/GuideBlock"
+            },
+            "title": "Blocks",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "practice_links": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PracticeLink"
+            },
+            "title": "Practice Links",
+            "type": "array"
+          },
+          "sources": {
+            "title": "Sources",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "summary",
+          "sources",
+          "blocks"
+        ],
+        "title": "Chapter",
+        "type": "object"
+      },
       "CheckQuestion": {
         "description": "One different question on the same concept.\n\nSent with the miss rather than fetched afterwards, so the check appears the\ninstant the explanation has been read instead of after a spinner. `None` on\na ReviewItem is a real answer, not a failure: a topic with one question in\nthe bank cannot be checked, and saying so is better than asking about\nsomething else and calling it verification.",
         "properties": {
@@ -860,6 +905,141 @@
           "judge_reasoning"
         ],
         "title": "ContentJudgment",
+        "type": "object"
+      },
+      "ContentPackAttachRequest": {
+        "properties": {
+          "pack_id": {
+            "minLength": 1,
+            "title": "Pack Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pack_id"
+        ],
+        "title": "ContentPackAttachRequest",
+        "type": "object"
+      },
+      "ContentPackDetail": {
+        "description": "The full pack, `GET /content-packs/{pack_id}`.",
+        "properties": {
+          "chapters": {
+            "items": {
+              "$ref": "#/components/schemas/Chapter"
+            },
+            "title": "Chapters",
+            "type": "array"
+          },
+          "diagnostic_questions": {
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticQuestion"
+            },
+            "title": "Diagnostic Questions",
+            "type": "array"
+          },
+          "docs_url": {
+            "title": "Docs Url",
+            "type": "string"
+          },
+          "pack_id": {
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "scenario_levels": {
+            "items": {
+              "$ref": "#/components/schemas/ScenarioLevel"
+            },
+            "title": "Scenario Levels",
+            "type": "array"
+          },
+          "source_notes": {
+            "title": "Source Notes",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pack_id",
+          "version",
+          "title",
+          "summary",
+          "docs_url",
+          "source_notes",
+          "chapters",
+          "scenario_levels",
+          "diagnostic_questions"
+        ],
+        "title": "ContentPackDetail",
+        "type": "object"
+      },
+      "ContentPackSummary": {
+        "description": "One row of `GET /content-packs`: enough to offer a pack, not read it.",
+        "properties": {
+          "chapter_count": {
+            "title": "Chapter Count",
+            "type": "integer"
+          },
+          "latest_version": {
+            "title": "Latest Version",
+            "type": "integer"
+          },
+          "pack_id": {
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "scenario_count": {
+            "title": "Scenario Count",
+            "type": "integer"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "written_scenario_count": {
+            "title": "Written Scenario Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pack_id",
+          "latest_version",
+          "title",
+          "summary",
+          "chapter_count",
+          "scenario_count",
+          "written_scenario_count"
+        ],
+        "title": "ContentPackSummary",
+        "type": "object"
+      },
+      "ContentPackUpgradeRequest": {
+        "properties": {
+          "version": {
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "title": "ContentPackUpgradeRequest",
         "type": "object"
       },
       "CoverageItem": {
@@ -1371,6 +1551,51 @@
           "base_url"
         ],
         "title": "DetectedRunner",
+        "type": "object"
+      },
+      "DiagnosticQuestion": {
+        "additionalProperties": false,
+        "properties": {
+          "chapter": {
+            "title": "Chapter",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "keywords": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Keywords",
+            "type": "array"
+          },
+          "points": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "topic": {
+            "title": "Topic",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "topic",
+          "question",
+          "points",
+          "keywords",
+          "chapter"
+        ],
+        "title": "DiagnosticQuestion",
         "type": "object"
       },
       "DistractorAnalysis": {
@@ -2479,6 +2704,45 @@
         "title": "GeneratePromptRequest",
         "type": "object"
       },
+      "GuideBlock": {
+        "additionalProperties": false,
+        "properties": {
+          "heading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heading"
+          },
+          "md": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Md"
+          },
+          "table": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GuideTable"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "GuideBlock",
+        "type": "object"
+      },
       "GuideSectionHit": {
         "properties": {
           "excerpt": {
@@ -2557,6 +2821,34 @@
           "items"
         ],
         "title": "GuideSectionResults",
+        "type": "object"
+      },
+      "GuideTable": {
+        "additionalProperties": false,
+        "properties": {
+          "head": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Head",
+            "type": "array"
+          },
+          "rows": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "head",
+          "rows"
+        ],
+        "title": "GuideTable",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -4062,6 +4354,25 @@
           "practice_count"
         ],
         "title": "PlannedQuestion",
+        "type": "object"
+      },
+      "PracticeLink": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "scenario_id": {
+            "title": "Scenario Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scenario_id",
+          "label"
+        ],
+        "title": "PracticeLink",
         "type": "object"
       },
       "PracticeRecordingResponse": {
@@ -8223,6 +8534,84 @@
         "title": "SaveAnswerRequest",
         "type": "object"
       },
+      "Scenario": {
+        "additionalProperties": false,
+        "properties": {
+          "chapter": {
+            "title": "Chapter",
+            "type": "string"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          },
+          "sources": {
+            "title": "Sources",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "title",
+          "outcome",
+          "sources",
+          "chapter"
+        ],
+        "title": "Scenario",
+        "type": "object"
+      },
+      "ScenarioLevel": {
+        "additionalProperties": false,
+        "properties": {
+          "about": {
+            "title": "About",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "scenarios": {
+            "items": {
+              "$ref": "#/components/schemas/Scenario"
+            },
+            "title": "Scenarios",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "about",
+          "scenarios"
+        ],
+        "title": "ScenarioLevel",
+        "type": "object"
+      },
       "ScoreTrendPoint": {
         "properties": {
           "date": {
@@ -8637,6 +9026,35 @@
         "title": "StorageReport",
         "type": "object"
       },
+      "SubjectContentPackResponse": {
+        "description": "A pack as attached to one subject: the pinned version, and what's newer.",
+        "properties": {
+          "latest_version": {
+            "title": "Latest Version",
+            "type": "integer"
+          },
+          "pack_id": {
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "pack_version": {
+            "title": "Pack Version",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pack_id",
+          "pack_version",
+          "latest_version",
+          "title"
+        ],
+        "title": "SubjectContentPackResponse",
+        "type": "object"
+      },
       "SubjectCounts": {
         "properties": {
           "resumable": {
@@ -8954,6 +9372,14 @@
               }
             ],
             "title": "Certification"
+          },
+          "content_packs": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SubjectContentPackResponse"
+            },
+            "title": "Content Packs",
+            "type": "array"
           },
           "description": {
             "anyOf": [
@@ -10443,6 +10869,92 @@
         "summary": "Get Score Trends",
         "tags": [
           "Analytics"
+        ]
+      }
+    },
+    "/api/v1/content-packs": {
+      "get": {
+        "description": "Every shipped pack, for the \"start from a built-in guide\" step.",
+        "operationId": "list_content_packs_api_v1_content_packs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ContentPackSummary"
+                  },
+                  "title": "Response List Content Packs Api V1 Content Packs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Content Packs",
+        "tags": [
+          "Content Packs"
+        ]
+      }
+    },
+    "/api/v1/content-packs/{pack_id}": {
+      "get": {
+        "description": "The full pack -- its latest version, or a specific one.",
+        "operationId": "get_content_pack_api_v1_content_packs__pack_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_id",
+            "required": true,
+            "schema": {
+              "title": "Pack Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentPackDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Content Pack",
+        "tags": [
+          "Content Packs"
         ]
       }
     },
@@ -16300,6 +16812,164 @@
         "summary": "Update Subject",
         "tags": [
           "Subjects"
+        ]
+      }
+    },
+    "/api/v1/subjects/{subject_id}/content-packs": {
+      "post": {
+        "description": "Attach a built-in pack to a Skill preparation, at its latest version.",
+        "operationId": "attach_content_pack_api_v1_subjects__subject_id__content_packs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "subject_id",
+            "required": true,
+            "schema": {
+              "title": "Subject Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentPackAttachRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubjectContentPackResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attach Content Pack",
+        "tags": [
+          "Content Packs"
+        ]
+      }
+    },
+    "/api/v1/subjects/{subject_id}/content-packs/{pack_id}": {
+      "delete": {
+        "description": "Detach the pack. Learning attempts and saved interview questions stay.",
+        "operationId": "detach_content_pack_api_v1_subjects__subject_id__content_packs__pack_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "subject_id",
+            "required": true,
+            "schema": {
+              "title": "Subject Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "pack_id",
+            "required": true,
+            "schema": {
+              "title": "Pack Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Detach Content Pack",
+        "tags": [
+          "Content Packs"
+        ]
+      },
+      "put": {
+        "description": "Move the pin to a newer version. Never silent -- the learner asked for this.",
+        "operationId": "upgrade_content_pack_api_v1_subjects__subject_id__content_packs__pack_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "subject_id",
+            "required": true,
+            "schema": {
+              "title": "Subject Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "pack_id",
+            "required": true,
+            "schema": {
+              "title": "Pack Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContentPackUpgradeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubjectContentPackResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upgrade Content Pack",
+        "tags": [
+          "Content Packs"
         ]
       }
     },
