@@ -249,7 +249,7 @@ export const PreparationEditPage: React.FC = () => {
       {saved && !saveError && <Alert severity="success" sx={{ mb: '14px', maxWidth: 880 }}>Saved.</Alert>}
 
       <Panel component="section" aria-label="Details" sx={{ maxWidth: 880 }}>
-        <Eyebrow>Details</Eyebrow>
+        <Eyebrow component="h2">Details</Eyebrow>
 
         <Box sx={{ display: 'grid', gap: '13px', mt: '12px' }}>
           <Grid template="repeat(2, minmax(0,1fr))" gap="13px">
@@ -322,7 +322,7 @@ export const PreparationEditPage: React.FC = () => {
       {!isCertification && (
         <Section>
           <Panel component="section" aria-label="Content packs" sx={{ maxWidth: 880 }}>
-            <Eyebrow>Content packs</Eyebrow>
+            <Eyebrow component="h2">Content packs</Eyebrow>
             {packError && <Alert severity="error" sx={{ mt: '10px' }}>{packError}</Alert>}
 
             {contentPacks.length === 0 && (
@@ -391,7 +391,7 @@ export const PreparationEditPage: React.FC = () => {
 
       <Section>
         <Panel component="section" aria-label="Danger zone" sx={{ maxWidth: 880, borderColor: 'error.main' }}>
-          <Eyebrow color="error.main">Danger zone</Eyebrow>
+          <Eyebrow component="h2" color="error.main">Danger zone</Eyebrow>
           <Row
             title={prep.is_archived ? 'Restore preparation' : 'Archive preparation'}
             detail={prep.is_archived
