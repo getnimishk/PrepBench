@@ -54,6 +54,7 @@ ROUND_TYPE_LABELS = {
     InterviewRoundType.HIRING_MANAGER: "Hiring Manager",
     InterviewRoundType.SYSTEM_DESIGN: "System Design",
     InterviewRoundType.BEHAVIORAL: "Behavioral",
+    InterviewRoundType.TECHNICAL: "Technical",
 }
 
 
@@ -178,6 +179,7 @@ class InterviewQuestionService:
             InterviewRoundType.HIRING_MANAGER: "a hiring manager round -- covering leadership, ownership, prioritization, or team fit",
             InterviewRoundType.SYSTEM_DESIGN: "a spoken/verbal system design round -- a realistic system design scenario suitable for a short spoken walkthrough",
             InterviewRoundType.BEHAVIORAL: "a behavioral round -- a 'tell me about a time...' style question suitable for a STAR-format answer",
+            InterviewRoundType.TECHNICAL: "a technical round -- how a specific technology works, where it breaks, and what the candidate would do about it, answerable without a personal story",
         }[round_type]
 
         return f"""Generate one realistic interview question for {round_guidance}{topic_clause}.

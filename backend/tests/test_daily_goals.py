@@ -318,12 +318,28 @@ def test_a_never_practised_round_is_named_first(db):
     """A recency fact, not a recommendation -- and never-practised beats stale."""
     behavioural = _interview_question(db, InterviewRoundType.BEHAVIORAL)
     _recording(db, behavioural)
+    _interview_question(db, InterviewRoundType.HIRING_MANAGER)
 
     goal = HomeService(db).daily_goals(None)["interview"]
 
-    assert goal["longest_since_round"] is not None
-    assert goal["longest_since_round"] != InterviewRoundType.BEHAVIORAL.value
+    assert goal["longest_since_round"] == InterviewRoundType.HIRING_MANAGER.value
     assert goal["longest_since_round_never_practised"] is True
+
+
+def test_a_round_with_no_questions_is_never_named(db):
+    """"Never practised" about a round with nothing in it is not something to act on.
+
+    The technical round starts empty (it fills from scenario Say-it answers), so
+    without this every learner who had practised the other four rounds would be
+    told to practise one they can't.
+    """
+    behavioural = _interview_question(db, InterviewRoundType.BEHAVIORAL)
+    _recording(db, behavioural)
+
+    goal = HomeService(db).daily_goals(None)["interview"]
+
+    assert goal["longest_since_round"] == InterviewRoundType.BEHAVIORAL.value
+    assert goal["longest_since_round_never_practised"] is False
 
 
 # ---- 3. Home must not contradict itself --------------------------------

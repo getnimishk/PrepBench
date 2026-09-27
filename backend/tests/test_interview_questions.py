@@ -21,11 +21,26 @@ def _clear_api_key(monkeypatch):
     clear_env_provider(monkeypatch)
 
 
-def test_round_types_lists_all_four():
+def test_round_types_lists_all_five():
     res = client.get("/api/v1/interview-questions/round-types")
     assert res.status_code == 200
     values = {r["value"] for r in res.json()}
-    assert values == {"hr_screening", "hiring_manager", "system_design", "behavioral"}
+    assert values == {"hr_screening", "hiring_manager", "system_design", "behavioral", "technical"}
+
+
+def test_technical_round_has_its_own_rules_and_rubric():
+    """D14: a technical answer is graded on accuracy and risk, not on a STAR story."""
+    rounds = {r["value"]: r for r in client.get("/api/v1/interview-questions/round-types").json()}
+    technical = rounds["technical"]
+    assert technical["label"] == "Technical"
+    assert (technical["target_min_seconds"], technical["target_max_seconds"]) == (60, 120)
+    assert technical["thinking_seconds"] == 30
+    assert technical["plan_prompt"].startswith("What it is")
+    assert "what you have done yourself" in technical["listening_for"]
+    assert technical["content_categories"] == [
+        "Technical Accuracy", "Structure & Clarity", "Trade-off Reasoning", "Risks & Failure Modes",
+    ]
+    assert "STAR Structure" not in technical["content_categories"]
 
 
 def test_seed_function_creates_questions_for_every_round():
@@ -123,6 +138,29 @@ def test_category_filter_scoped_to_round_type():
 
 
 # ---- Import ----------------------------------------------------------
+
+def test_technical_round_questions_can_be_imported_and_filtered():
+    """The importer accepts `technical`, per row and as the default round."""
+    per_row = f"What does a watermark protect against? {uuid.uuid4().hex[:6]}"
+    as_default = f"How would you keep an incremental load from losing rows? {uuid.uuid4().hex[:6]}"
+    by_row = client.post(
+        "/api/v1/interview-questions/import",
+        data={"default_round_type": "hr_screening"},
+        files={"file": ("q.csv", f"question_text,round_type\n{per_row},technical\n".encode(), "text/csv")},
+    )
+    by_default = client.post(
+        "/api/v1/interview-questions/import",
+        data={"default_round_type": "technical", "text": as_default},
+    )
+    assert by_row.status_code == 200, by_row.text
+    assert by_default.status_code == 200, by_default.text
+    assert by_row.json()["imported_count"] == 1 and by_default.json()["imported_count"] == 1
+
+    listing = client.get("/api/v1/interview-questions?round_type=technical&limit=500").json()["items"]
+    texts = {q["question_text"] for q in listing}
+    assert {per_row, as_default} <= texts
+    assert all(q["round_type"] == "technical" for q in listing)
+
 
 def test_import_plain_text_creates_questions_with_default_round():
     before = client.get("/api/v1/interview-questions?round_type=behavioral&limit=500").json()["total"]

@@ -14,6 +14,11 @@ class InterviewRoundType(str, enum.Enum):
     HIRING_MANAGER = "hiring_manager"
     SYSTEM_DESIGN = "system_design"
     BEHAVIORAL = "behavioral"
+    # How a technology works and where it breaks, answered as "what I'd do and
+    # why" -- not a story. Scenario Say-it answers are saved here (skills plan
+    # D14) because hiring_manager's rubric grades a real STAR story, which a
+    # learner without one is told not to invent.
+    TECHNICAL = "technical"
 
 
 class InterviewQuestion(Base):

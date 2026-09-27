@@ -51,6 +51,7 @@ CONTENT_CATEGORIES_BY_ROUND: Dict[str, list] = {
     "hiring_manager": ["STAR Structure", "Leadership/Ownership Signal", "Specificity of Example", "Outcome/Impact"],
     "behavioral": ["STAR Structure", "Specificity of Example", "Self-Awareness/Reflection", "Outcome/Impact"],
     "system_design": ["Requirements Clarification", "Architecture Soundness", "Trade-off Reasoning", "Scalability Awareness"],
+    "technical": ["Technical Accuracy", "Structure & Clarity", "Trade-off Reasoning", "Risks & Failure Modes"],
 }
 
 

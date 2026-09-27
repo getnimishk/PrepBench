@@ -21,7 +21,7 @@ vi.mock('../../services/api', () => ({
   importInterviewQuestions: (...args: any[]) => mockImport(...args),
 }));
 
-const roundTypes: { value: 'hr_screening' | 'behavioral'; label: string }[] = [
+const roundTypes: { value: 'hr_screening' | 'behavioral' | 'technical'; label: string }[] = [
   { value: 'hr_screening', label: 'HR Screening' },
   { value: 'behavioral', label: 'Behavioral' },
 ];
@@ -55,6 +55,26 @@ describe('InterviewQuestionImportModal', () => {
       defaultRoundType: 'behavioral',
       text: 'Question one.\nQuestion two.',
     }));
+  });
+
+  it('imports into the technical round when it is the chosen default', async () => {
+    const user = userEvent.setup({ delay: null });
+    mockImport.mockResolvedValue({ imported_count: 1, skipped_count: 0, errors: [] });
+
+    render(
+      <InterviewQuestionImportModal
+        open={true}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+        roundTypes={[...roundTypes, { value: 'technical', label: 'Technical' }]}
+        defaultRoundType="technical"
+      />
+    );
+
+    await user.type(screen.getByPlaceholderText(/One question per line/i), 'How does a watermark load lose rows?');
+    await user.click(screen.getByRole('button', { name: /^import$/i }));
+
+    await waitFor(() => expect(mockImport).toHaveBeenCalledWith(expect.objectContaining({ defaultRoundType: 'technical' })));
   });
 
   it('shows skipped rows and error details, not hidden', async () => {

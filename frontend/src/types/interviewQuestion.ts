@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-export type InterviewRoundType = 'hr_screening' | 'hiring_manager' | 'system_design' | 'behavioral';
+export type InterviewRoundType = 'hr_screening' | 'hiring_manager' | 'system_design' | 'behavioral' | 'technical';
 
 export interface RoundTypeInfo {
   value: InterviewRoundType;

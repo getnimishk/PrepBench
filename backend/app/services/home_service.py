@@ -284,7 +284,16 @@ class HomeService:
             .group_by(InterviewQuestion.round_type)
             .all()
         )
-        never = [r for r in InterviewRoundType if r not in last_by_round]
+        # Only rounds with a question to practise. "Never practised" about a round
+        # the library has nothing in (the technical round, until a scenario's
+        # Say-it answer is saved there) names something the learner cannot act on.
+        with_questions = {
+            r for (r,) in self.db.query(InterviewQuestion.round_type).distinct().all()
+        }
+        never = [
+            r for r in InterviewRoundType
+            if r in with_questions and r not in last_by_round
+        ]
         if never:
             longest_since = never[0]
         elif last_by_round:

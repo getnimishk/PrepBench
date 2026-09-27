@@ -53,6 +53,16 @@ ROUND_RULES: Dict[str, RoundRule] = {
             "anecdote, not evidence."
         ),
     },
+    "technical": {
+        "target_seconds": (60, 120),
+        "thinking_seconds": 30,
+        "plan_prompt": "What it is → how you'd approach it → the risk you'd watch → how you'd know it worked",
+        "listening_for": (
+            "The interviewer is checking that you understand how it works and where it breaks. "
+            "Say what you'd do and why, name the risk you'd watch, and be clear about what you "
+            "have done yourself and what you would do."
+        ),
+    },
     "system_design": {
         "target_seconds": (180, 420),
         "thinking_seconds": 60,
