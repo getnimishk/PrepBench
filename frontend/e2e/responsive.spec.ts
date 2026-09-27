@@ -24,6 +24,7 @@ const ROUTES = (prepId: number) => [
   '/', '/practice', '/review', '/exam-setup', '/question-bank', '/analytics',
   '/lab', '/chart-sandbox',
   '/design-reviews/1', '/system-design', '/interview-practice', '/preparations/new', `/preparations/${prepId}/edit`,
+  '/learn', '/learn/guides/adf', '/learn/guides/adf/pitfalls',
   '/notifications', '/onboarding', '/settings', '/settings/ai', '/settings/data',
 ];
 
