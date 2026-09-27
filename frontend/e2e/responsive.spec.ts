@@ -20,11 +20,11 @@ const VIEWPORTS = [
   { name: 'phone 390', width: 390, height: 844, phone: true },
 ];
 
-const ROUTES = [
+const ROUTES = (prepId: number) => [
   '/', '/practice', '/review', '/exam-setup', '/question-bank', '/analytics',
   '/lab', '/chart-sandbox',
-  '/design-reviews/1', '/system-design', '/interview-practice', '/preparations/new', '/notifications',
-  '/onboarding', '/settings', '/settings/ai', '/settings/data',
+  '/design-reviews/1', '/system-design', '/interview-practice', '/preparations/new', `/preparations/${prepId}/edit`,
+  '/notifications', '/onboarding', '/settings', '/settings/ai', '/settings/data',
 ];
 
 for (const viewport of VIEWPORTS) {
@@ -38,7 +38,7 @@ for (const viewport of VIEWPORTS) {
     await pickPreparation(page, prep.name);
 
     const problems: string[] = [];
-    for (const route of ROUTES) {
+    for (const route of ROUTES(prep.id)) {
       await page.goto(route);
       await expect(page.locator('main h1').first()).toBeVisible();
       await page.waitForLoadState('networkidle');

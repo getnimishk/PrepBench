@@ -481,7 +481,13 @@ export function buildTheme({ mode, textSize, reduceMotion }: BuildOptions): Them
         },
       },
       MuiFormHelperText: {
-        styleOverrides: { root: { fontSize: rem(11), marginLeft: 2 } },
+        styleOverrides: {
+          // MUI's default disabled color (`text.disabled`, a faded `faint`) reads
+          // at 3.2:1 against the panel background in both themes -- below the
+          // 4.5:1 axe requires. `muted` is the same color the helper text uses
+          // when enabled, and already clears contrast comfortably.
+          root: { fontSize: rem(11), marginLeft: 2, '&.Mui-disabled': { color: t.muted } },
+        },
       },
       MuiFormControlLabel: {
         styleOverrides: { label: { fontSize: rem(14) } },

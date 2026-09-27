@@ -51,7 +51,7 @@ async function seed(request: APIRequestContext) {
 }
 
 const ROUTES = (prepId: number, roadmapId: number) => [
-  '/', '/preparations', '/preparations/new', '/practice', '/practice?tab=spaced', '/practice?tab=custom', '/learn',
+  '/', '/preparations', '/preparations/new', `/preparations/${prepId}/edit`, '/practice', '/practice?tab=spaced', '/practice?tab=custom', '/learn',
   '/review', '/exam-setup', '/question-bank', '/analytics', `/analytics/area?subject=${prepId}&domain=Accessible%20Area`,
   '/roadmaps', `/roadmaps/${roadmapId}/edit`, '/search?q=Accessible', '/profile', '/lab', '/chart-sandbox', '/design-reviews', '/design-reviews/1', '/system-design', '/interview-practice',
   '/interview-practice/library', '/interview-practice/setup', '/recordings', '/notifications', '/onboarding',
@@ -61,7 +61,7 @@ const ROUTES = (prepId: number, roadmapId: number) => [
 
 for (const theme of ['light', 'dark'] as const) {
   test(`every screen passes an automated accessibility check in the ${theme} theme`, async ({ page, request }) => {
-    // 37 screens audited with axe, twice over. Seven minutes was enough until the
+    // 38 screens audited with axe, twice over. Seven minutes was enough until the
     // suite grew around it; a run on a busy machine needs the room, and a timeout
     // here used to leave the dark theme set for whatever ran next.
     test.setTimeout(900_000);
