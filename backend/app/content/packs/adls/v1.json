@@ -1,0 +1,511 @@
+{
+  "pack_id": "adls",
+  "version": 1,
+  "title": "Azure Data Lake Storage Gen2",
+  "summary": "Where the data lives",
+  "docs_url": "https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction",
+  "source_notes": "docs/research/adls-gen2-documentation-notes.md",
+  "chapters": [
+    {
+      "id": "what-it-is",
+      "title": "What ADLS Gen2 is",
+      "summary": "Not a separate service: Blob Storage with a switch turned on, built to hold a whole organisation's data.",
+      "sources": "§1",
+      "blocks": [
+        {
+          "md": "A **data lake** is one central place to keep all your data, structured or not, in its **raw form**, without first forcing it into a shape. You decide later what to do with it.\n\n**Azure Data Lake Storage Gen2 (ADLS Gen2)** is Microsoft's data lake. It is **not a separate service**: it is ordinary **Azure Blob Storage** with the **hierarchical namespace** switched on (chapter 2). Because it is Blob Storage underneath, you also get Blob Storage's cheap storage tiers, redundancy and lifecycle rules."
+        },
+        {
+          "heading": "What it adds",
+          "md": "1. **Hadoop-compatible access**: Spark and similar engines read it as if it were a Hadoop file system (chapter 3).\n2. **Real folders**: renaming or deleting a folder is one quick operation (chapter 2).\n3. **Cost and speed**: priced like Blob Storage, and faster jobs mean less compute to pay for.\n4. **Fine-grained security**: permissions on each folder and file, not just the whole account (chapters 4 and 5).\n5. **Scale**: no limit on account size, file size or amount of data."
+        },
+        {
+          "heading": "Words that mean the same thing",
+          "table": {
+            "head": [
+              "Blob Storage word",
+              "Data Lake word"
+            ],
+            "rows": [
+              [
+                "Blob",
+                "File"
+              ],
+              [
+                "Container",
+                "File system"
+              ],
+              [
+                "blob.core.windows.net",
+                "dfs.core.windows.net (the Data Lake endpoint)"
+              ]
+            ]
+          }
+        },
+        {
+          "md": "Both endpoints work on the same data. The documentation calls this **multi-protocol access**: tools written for Blob Storage keep working, and folder-level security is applied either way."
+        }
+      ]
+    },
+    {
+      "id": "namespace",
+      "title": "The hierarchical namespace",
+      "summary": "Real folders make big-data jobs faster and cheaper; turning them on can't be undone.",
+      "sources": "§2",
+      "blocks": [
+        {
+          "md": "In plain Blob Storage, folders are an illusion: `sales/2026/09/file.csv` is just one long file name. Renaming the `sales/2026` \"folder\" means renaming **every file** under it, possibly millions, one by one.\n\nWith the **hierarchical namespace** switched on, folders are real. Renaming or deleting a folder becomes **one quick change** to the folder itself."
+        },
+        {
+          "heading": "Why it matters for analytics",
+          "md": "Spark and Hive write a job's output to a temporary folder and rename it when the job finishes. Without real folders, that rename \"can often take longer than the analytics process itself\". The documentation adds that compute is often **more than 85%** of the total cost, so faster jobs lower the overall bill even if storage costs a little more."
+        },
+        {
+          "heading": "Before you switch it on",
+          "md": "- **It's one-way**: you can't turn it back off.\n- Upgrading an existing account **stops writes** while it runs (the documentation also advises pausing reads). Test the upgrade on a non-production account first.\n- Hadoop jobs using the old **WASB** driver (the connector Hadoop used for Blob Storage) must move to the newer **ABFS** driver (chapter 3).\n- Some Blob Storage features stop working (chapter 6).\n- Not every workload benefits: backups and image stores, whose organisation lives elsewhere, gain nothing.\n- A small surprise: renaming a file **doesn't change its last-modified time**."
+        }
+      ]
+    },
+    {
+      "id": "abfs",
+      "title": "How Spark and other services reach the lake",
+      "summary": "The ABFS driver, the abfss:// address, and which Azure services connect with a proper identity.",
+      "sources": "§3, §12",
+      "blocks": [
+        {
+          "md": "Spark, Hive and Presto read the lake through the **ABFS driver** (Azure Blob File System), which is part of Apache Hadoop. Data is addressed like this:\n\n`abfss://<container>@<account>.dfs.core.windows.net/<folder>/<file>`\n\nThe extra **s** in `abfss` means the connection is encrypted; use it. The older **WASB** driver doesn't support accounts with real folders."
+        },
+        {
+          "heading": "Two ways to authenticate",
+          "md": "- **Shared Key** (the account key): full access to everything in the account.\n- **Microsoft Entra ID** (a user, service principal or managed identity): each request is checked against that identity's permissions, down to the folder and file."
+        },
+        {
+          "heading": "Which services use it",
+          "md": "Azure Data Factory, **Azure Databricks**, Synapse, **Power BI**, HDInsight, Stream Analytics, Event Grid and Machine Learning all connect with Entra ID. Event Hubs capture, Logic Apps and Data Box use the account key only."
+        }
+      ]
+    },
+    {
+      "id": "access-model",
+      "title": "Who can do what: roles and ACLs",
+      "summary": "Roles for the whole account or container, ACLs for folders and files, and why an ACL can't take away what a role gives.",
+      "sources": "§4",
+      "blocks": [
+        {
+          "md": "There are five ways a request can be allowed in. The first two carry **no identity**, so none of the permission checks apply to them.",
+          "table": {
+            "head": [
+              "Way in",
+              "How precise",
+              "Note"
+            ],
+            "rows": [
+              [
+                "Shared Key (account key)",
+                "Everything",
+                "Effectively a super-user; permissions are ignored"
+              ],
+              [
+                "Shared access signature (SAS)",
+                "What the token allows",
+                "Also skips permission checks, except a user-delegation SAS"
+              ],
+              [
+                "Azure role (RBAC)",
+                "A whole account or container",
+                "Coarse: \"read everything\" or \"write everything\""
+              ],
+              [
+                "Role condition (ABAC)",
+                "A role narrowed by a condition, e.g. a tag",
+                "Can narrow a role, can't deny"
+              ],
+              [
+                "Access control list (ACL)",
+                "One folder or file",
+                "Fine-grained"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "The data roles",
+          "table": {
+            "head": [
+              "Role",
+              "Can"
+            ],
+            "rows": [
+              [
+                "Storage Blob Data Owner",
+                "Everything, including changing owners and any ACL"
+              ],
+              [
+                "Storage Blob Data Contributor",
+                "Read, write and delete; change ACLs only on what it owns"
+              ],
+              [
+                "Storage Blob Data Reader",
+                "Read and list"
+              ]
+            ]
+          }
+        },
+        {
+          "md": "Owner, Contributor and Storage Account Contributor manage the account but don't grant data access. **But all of them except Reader can read the account keys**, and the keys open everything."
+        },
+        {
+          "heading": "The order Azure checks, and the consequence",
+          "md": "1. Does the person have a **role** for it? If the role has no conditions, **allowed**.\n2. If the role has **conditions** (ABAC), do all of them match the request? If yes, **allowed**. If any doesn't match, Azure moves on to the ACLs; a condition never denies on its own.\n3. Do the **ACLs** allow it? If yes, allowed; if not, denied.\n\n**You can't use an ACL to take away what a role gives.** When a role, with its conditions, grants enough access, the ACLs are ignored. So give broad roles sparingly, and use ACLs for the fine detail."
+        },
+        {
+          "heading": "Always use groups",
+          "md": "Put **Microsoft Entra security groups** in ACLs, never individual people. The documentation's example: a `LogsWriter` group with read-write-execute on `/LogData`, a `LogsReader` group with read-execute, ADF's identity in the writers, Databricks' identity in the readers. When someone leaves, you remove them from a group instead of rewriting ACLs across a whole folder tree.\n\nLimits: **32 ACL entries per file or folder** (effectively 28), 4,000 role assignments per subscription, and fewer than 200 group memberships per person."
+        }
+      ]
+    },
+    {
+      "id": "acls",
+      "title": "ACLs in practice",
+      "summary": "Read, write and execute; why every parent folder needs execute; and why new permissions don't reach old files.",
+      "sources": "§5",
+      "blocks": [
+        {
+          "table": {
+            "head": [
+              "Permission",
+              "On a file",
+              "On a folder"
+            ],
+            "rows": [
+              [
+                "Read (R)",
+                "Read it",
+                "List it (needs Execute too)"
+              ],
+              [
+                "Write (W)",
+                "Write or append",
+                "Create things in it (needs Execute too)"
+              ],
+              [
+                "Execute (X)",
+                "Means nothing",
+                "Pass through it to reach what's inside"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "The rule people miss",
+          "md": "With ACLs alone, to read one file you need **Execute on the root and on every folder on the way down**, plus Read on the file. Some other examples from the documentation:\n\n- **Create a file:** Write and Execute on its folder.\n- **Delete a file:** Write and Execute on its folder. **No permission on the file itself is needed.**\n- **Delete a whole folder tree:** Write and Execute on its parent, and Read, Write and Execute on every folder inside it."
+        },
+        {
+          "heading": "Access ACLs and default ACLs",
+          "md": "- An **access ACL** controls the file or folder itself.\n- A **default ACL** (folders only) is a template copied onto **new** things created inside it.\n\n**Changing a default ACL doesn't touch anything that already exists.** Fixing existing files needs a **recursive** update, with Storage Explorer, PowerShell, the CLI or an SDK (not the portal)."
+        },
+        {
+          "heading": "Owners and defaults",
+          "md": "- Whoever creates a file owns it. Anything created with the account key or a SAS is owned by `$superuser`.\n- A new container's root starts at **750** for folders and **640** for files: the owner can do everything, the owning group can read, others get nothing.\n- A container has no ACL of its own; you set it on the container's root folder.\n- **If a container allows anonymous read access, ACLs don't apply to reads at all.**\n- A GUID in an ACL usually means a person who no longer exists in Entra."
+        }
+      ]
+    },
+    {
+      "id": "protection",
+      "title": "Protecting against deletes and mistakes",
+      "summary": "Soft delete and locks work; versioning and point-in-time restore don't; and redundancy isn't a backup.",
+      "sources": "§6",
+      "blocks": [
+        {
+          "md": "Turning on real folders (chapter 2) **switches off several Blob Storage safety nets**. This is the chapter most likely to surprise people.",
+          "table": {
+            "head": [
+              "Protection",
+              "Available with ADLS Gen2?"
+            ],
+            "rows": [
+              [
+                "Lock on the storage account",
+                "Yes: stops the account being deleted, not the data in it"
+              ],
+              [
+                "Container soft delete",
+                "Yes"
+              ],
+              [
+                "File and folder soft delete",
+                "Yes"
+              ],
+              [
+                "Immutable (write-once) container",
+                "Yes"
+              ],
+              [
+                "Vaulted backup (a copy held by Microsoft)",
+                "Yes"
+              ],
+              [
+                "Blob versioning",
+                "No"
+              ],
+              [
+                "Point-in-time restore",
+                "No"
+              ],
+              [
+                "Change feed",
+                "No"
+              ],
+              [
+                "Object replication",
+                "No"
+              ],
+              [
+                "Snapshots",
+                "Preview; the documentation is inconsistent, so don't rely on them"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "Soft delete",
+          "md": "- Keeps deleted files and folders for **1 to 365 days** (at least 7 recommended); they're billed like normal data meanwhile.\n- Deleting a folder soft-deletes it and everything inside; permissions come back with a restore.\n- **Renaming a folder disconnects its soft-deleted contents**; to restore them, rename it back.\n- It does **not** protect against deleting the storage account (use a lock) or a container (use container soft delete)."
+        },
+        {
+          "heading": "Redundancy is not a backup",
+          "md": "In the documentation's words: \"Deletions and overwrites are applied to all copies simultaneously. Redundancy protects against hardware failure, not against data-modifying operations.\" A deleted storage account can be recovered only within **14 days**, and only if no new account has taken its name.\n\nSo \"how would you recover from someone deleting a folder in the lake?\" has a specific answer: soft delete on files and containers, a lock on the account, and a vaulted backup for what truly matters. Versioning isn't an option here."
+        }
+      ]
+    },
+    {
+      "id": "tiers",
+      "title": "Storage tiers and lifecycle rules",
+      "summary": "Hot, cool, cold and archive; the minimum stay in each; and rules that move data automatically.",
+      "sources": "§7",
+      "blocks": [
+        {
+          "table": {
+            "head": [
+              "Tier",
+              "Minimum stay",
+              "First byte",
+              "Cost"
+            ],
+            "rows": [
+              [
+                "Hot",
+                "none",
+                "milliseconds",
+                "Highest to store, cheapest to read"
+              ],
+              [
+                "Cool",
+                "30 days",
+                "milliseconds",
+                "Cheaper to store, dearer to read"
+              ],
+              [
+                "Cold",
+                "90 days",
+                "milliseconds",
+                "Cheaper still to store, dearer to read"
+              ],
+              [
+                "Archive",
+                "180 days",
+                "hours (up to 15 to bring back)",
+                "Cheapest to store, dearest to read"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "The catches",
+          "md": "- **Early deletion penalty**: leave a tier before its minimum and you pay for the rest. Deleted from cool after 21 days, you pay 9 more days; moved out of archive after 45 days, 135 more.\n- **Archive is offline**: nothing can read it until it's brought back to an online tier, which can take up to 15 hours. It also isn't available with zone-redundant storage (ZRS or GZRS).\n- New files go to **hot** by default. Changing the account's default re-tiers every file without its own tier, and that costs.\n- Reads and writes are billed in **4 MB** steps, so millions of tiny files cost more to access, not just to process."
+        },
+        {
+          "heading": "Lifecycle rules",
+          "md": "Rules move data to cooler tiers, or delete it, based on when it was created, last changed or last read, filtered by folder prefix or tag. They're free (the tier changes are billed).\n\n- A new or changed rule can take **up to 24 hours** to start working.\n- Rules **can't bring data back** from archive.\n- With soft delete on, a rule's deletes are soft deletes."
+        }
+      ]
+    },
+    {
+      "id": "redundancy",
+      "title": "Redundancy and disasters",
+      "summary": "How many copies, where, and what each option survives. Microsoft recommends ZRS for data lakes.",
+      "sources": "§8",
+      "blocks": [
+        {
+          "table": {
+            "head": [
+              "Option",
+              "Copies",
+              "Durability per year",
+              "Survives"
+            ],
+            "rows": [
+              [
+                "LRS",
+                "3, in one datacentre",
+                "11 nines",
+                "A disk, server or rack failing"
+              ],
+              [
+                "ZRS",
+                "Across 3 or more availability zones",
+                "12 nines",
+                "A whole datacentre going down"
+              ],
+              [
+                "GRS / RA-GRS",
+                "LRS here, plus LRS in a paired region",
+                "16 nines",
+                "A whole region (after a failover)"
+              ],
+              [
+                "GZRS / RA-GZRS",
+                "ZRS here, plus LRS in a paired region",
+                "16 nines",
+                "Both of the above"
+              ]
+            ]
+          }
+        },
+        {
+          "md": "- **Microsoft recommends ZRS in the primary region for Data Lake Storage workloads.**\n- Copying to the second region is **asynchronous**, so a regional disaster can lose the most recent writes. That gap is the **RPO** (recovery point objective); geo priority replication keeps it at **15 minutes or less** for block blobs.\n- The **RA-** options let you read from the second region during an outage; without them you wait for a failover.\n- Customer-managed failover works for ADLS Gen2 accounts, **planned** (the regions swap, no data loss expected; for disaster-recovery tests) and **unplanned** (the second region takes over, writes after the last sync can be lost, and the account becomes LRS). The failover FAQ still labels planned failover \"preview\"; the disaster-recovery guide lists both as supported for Data Lake Storage.\n- ADLS replicates **file by file**, so after an unplanned failover the files in one folder aren't guaranteed to be consistent with each other.\n- Redundancy applies to the whole account: data with different needs belongs in different accounts."
+        }
+      ]
+    },
+    {
+      "id": "network",
+      "title": "Network security",
+      "summary": "Open to every network by default; firewall rules, private endpoints, and the recommendations that matter.",
+      "sources": "§9",
+      "blocks": [
+        {
+          "md": "**By default a storage account accepts connections from any network.** Network rules narrow that down, and anything not allowed is refused:\n\n- **Virtual network rules** (up to 400): allow specific Azure subnets.\n- **IP rules** (up to 400): allow specific public IP ranges, such as your office.\n- **Resource instance rules** (up to 200): allow specific Azure resources.\n- **Trusted Microsoft services**: an exception so Azure's own services still get in. Without it, turning the firewall on also blocks them, and the portal."
+        },
+        {
+          "heading": "Private endpoints",
+          "md": "A **private endpoint** gives the account a private address inside your own network, so traffic never crosses the public internet. **For ADLS Gen2, create two: one for `blob` and one for `dfs`.** Some operations, such as managing ACLs and creating or deleting folders, need the dfs one."
+        },
+        {
+          "heading": "Recommendations from the documentation",
+          "md": "- Use **Microsoft Entra ID** rather than account keys; switch Shared Key off if you can.\n- If you must share a link, use a **user-delegation SAS**. A plain service SAS can't be revoked, so keep it to **one hour or less**.\n- Keep any keys in **Key Vault** and rotate them.\n- Require **HTTPS** and a minimum TLS version; **disable anonymous read**.\n- Turn on **Microsoft Defender for Storage**, lock the account, and log **how** each request was authorised."
+        }
+      ]
+    },
+    {
+      "id": "layout",
+      "title": "Organising the lake for speed and security",
+      "summary": "File sizes, formats, and folder layouts that make security simple and jobs fast.",
+      "sources": "§10",
+      "blocks": [
+        {
+          "heading": "File size and format",
+          "md": "- Aim for files of **256 MB to 100 GB**. Many small files slow every engine down (each file has overhead) and cost more to access.\n- **Parquet** or **ORC** (column-based) for analytics that read a few columns; **Avro** (row-based) for write-heavy streams. All three are compressed and carry their own schema.\n- If a source produces tiny files, combine them into bigger ones before analysts use them."
+        },
+        {
+          "heading": "Folder layouts from the documentation",
+          "table": {
+            "head": [
+              "Use",
+              "Layout"
+            ],
+            "rows": [
+              [
+                "IoT and telemetry",
+                "{Region}/{SubjectMatter}/{yyyy}/{mm}/{dd}/{hh}/"
+              ],
+              [
+                "Batch files",
+                "{Region}/{SubjectMatter}/In/{yyyy}/{mm}/{dd}/, …/Out/…, and …/Bad/… for files that fail"
+              ],
+              [
+                "Time series",
+                "/DataSet/YYYY/MM/DD/datafile_YYYY_MM_DD.tsv"
+              ]
+            ]
+          }
+        },
+        {
+          "md": "**Put the date last.** Security is usually by region or subject, so with the date last you set permissions once on `UK/Planes/`. With the date first, you'd need permissions under every hour's folder, and the number of folders would grow forever.\n\nA **`Bad`** folder gives files that fail processing somewhere to go, and someone to own them."
+        },
+        {
+          "heading": "Speed limits",
+          "md": "A standard account in a major region handles by default **40,000 requests per second**, **60 Gbps in** and **200 Gbps out**, up to **5 PiB** (more on request). Push past a limit and requests fail with **503 Server Busy** or **500 Operation Timeout**; the fix is retrying with increasing waits. For loading, the bottleneck is usually the source machine, the network (use **ExpressRoute** from on-premises) or too little parallelism."
+        }
+      ]
+    },
+    {
+      "id": "hadoop",
+      "title": "Moving from Hadoop",
+      "summary": "Online or on a Data Box, and the part everyone forgets: permissions don't travel with the data.",
+      "sources": "§11",
+      "blocks": [
+        {
+          "md": "Data can move online (ADF, DistCp, AzCopy, over the network or ExpressRoute) or offline on an **Azure Data Box**: devices from a disk up to boxes of 80, 120 or 525 TiB, and a 770 TiB Data Box Heavy. The ADF guide's migration chapter covers the online route."
+        },
+        {
+          "heading": "Permissions don't travel with the data",
+          "md": "After the data lands, the HDFS permissions are **not** there. The documented steps:\n\n1. Export every file's HDFS owner and permissions.\n2. **Map every Hadoop user and group to a Microsoft Entra identity** (a mapping file someone has to fill in).\n3. Reapply the ACLs with a service principal that has the Storage Blob Data Contributor role.\n\nIn a migration plan, **identity mapping is a workstream of its own**, with owners from security and from each data domain."
+        },
+        {
+          "heading": "Also from the documentation",
+          "md": "- Verify the upload against the Data Box **manifest files** before switching anything over.\n- Exclude folders that only keep the old cluster running (such as Ranger audit logs and HBase write-ahead logs).\n- Code on Hadoop older than version 3 that uses the WASB driver needs its own plan; WASB doesn't work with ADLS Gen2."
+        }
+      ]
+    }
+  ],
+  "scenario_levels": [],
+  "diagnostic_questions": [
+    {
+      "id": "lake-access",
+      "topic": "Access to the data lake",
+      "question": "How would you give a vendor write access to one folder in the data lake, and nothing else?",
+      "points": [
+        "An ACL on that folder, granted to a security group, not to a person.",
+        "Execute permission on every parent folder, so they can reach it.",
+        "Not a storage role at account or container scope: a role grants everything under it, and an ACL can't take that away.",
+        "Default ACLs apply only to items created afterwards; existing ones must be updated separately.",
+        "Groups keep you inside the limit of 32 ACL entries per item."
+      ],
+      "keywords": [
+        "access",
+        "identity",
+        "rbac",
+        "permission",
+        "adls",
+        "data lake",
+        "storage",
+        "entra",
+        "security",
+        "vendor"
+      ],
+      "chapter": "access-model"
+    },
+    {
+      "id": "lake-resilience",
+      "topic": "Outages and accidental deletes",
+      "question": "How would you protect a data lake against a regional outage and against someone deleting data by mistake?",
+      "points": [
+        "Redundancy protects against hardware and regional failure, not deletes: a delete applies to every copy.",
+        "Soft delete for files and containers, and a lock on the account, for mistakes. Versioning and point-in-time restore don't work with the hierarchical namespace.",
+        "Zone-redundant storage in the primary region, as Microsoft recommends for data lakes.",
+        "Geo-redundancy with failover: with planned failover no data loss is expected; unplanned failover can lose writes after the last sync and leaves the account locally redundant.",
+        "Recovery targets (how much data, how quickly) agreed with the business first."
+      ],
+      "keywords": [
+        "disaster",
+        "recovery",
+        "resilien",
+        "availability",
+        "backup",
+        "continuity",
+        "reliab",
+        "outage"
+      ],
+      "chapter": "redundancy"
+    }
+  ]
+}

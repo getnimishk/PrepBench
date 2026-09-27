@@ -30,6 +30,7 @@ from app.models.roadmap import (
 )
 from app.models.llm_config import LLMProviderConfig, LLMTaskBinding
 from app.models.learning_attempt import LearningAttempt
+from app.models.subject_content_pack import SubjectContentPack
 
 __all__ = [
     "Question",
@@ -68,4 +69,5 @@ __all__ = [
     "LLMProviderConfig",
     "LLMTaskBinding",
     "LearningAttempt",
+    "SubjectContentPack",
 ]

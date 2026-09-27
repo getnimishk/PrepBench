@@ -114,6 +114,21 @@ export interface Subject {
    *  point of it -- a count sourced differently can offer an exam the engine
    *  then refuses. */
   question_count: number;
+  /** Built-in guides/scenarios this Skill preparation has pinned (D3/D4).
+   *  Always empty for a certification. Optional in the type only so existing
+   *  test fixtures built before this field existed don't all need updating;
+   *  the server always sends it. */
+  content_packs?: SubjectContentPack[];
+}
+
+/** A built-in content pack as attached to one subject: the pinned version,
+ *  and what's newer, so the surface can offer an upgrade without a second
+ *  round trip. */
+export interface SubjectContentPack {
+  pack_id: string;
+  pack_version: number;
+  latest_version: number;
+  title: string;
 }
 
 /** Create payload. No `slug`: the server derives it from the name.

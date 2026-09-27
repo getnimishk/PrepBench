@@ -3,7 +3,7 @@
 # Commercial use requires a separate licence from the copyright holder.
 
 from fastapi import APIRouter
-from app.api.v1 import review, questions, exams, analytics, imports, export, settings, system_design, design_review, subjects, home, recordings, interview_questions, roadmaps, llm, learning, spaced, interview_sessions, system, notifications, search, profile
+from app.api.v1 import review, questions, exams, analytics, imports, export, settings, system_design, design_review, subjects, home, recordings, interview_questions, roadmaps, llm, learning, spaced, interview_sessions, system, notifications, search, profile, content_packs
 
 api_router = APIRouter()
 
@@ -29,3 +29,4 @@ api_router.include_router(system.router)
 api_router.include_router(notifications.router)
 api_router.include_router(search.router)
 api_router.include_router(profile.router)
+api_router.include_router(content_packs.router)

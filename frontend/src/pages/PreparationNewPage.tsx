@@ -2,15 +2,36 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Alert, Box, Button, TextField, Typography,
+  Alert, Box, Button, FormControlLabel, Radio, RadioGroup, TextField, Typography,
 } from '@mui/material';
-import { createSubject } from '../services/api';
+import { attachContentPack, createSubject, getContentPacks } from '../services/api';
 import { usePreparation } from '../context/PreparationContext';
 import type { SubjectCreate } from '../types/subject';
+import type { ContentPackSummary } from '../types/contentPack';
 import { Actions, Eyebrow, Good, Grid, PageHead, Panel, Sub } from '../components/ui/primitives';
+
+/** A pack whose title (or id) the typed name matches, case-insensitively --
+ *  either way round, so "ADF" matches "Azure Data Factory" and typing the
+ *  full title matches it back (D5: "preselected when the name matches a
+ *  pack's title"). */
+export function packMatchingName(packs: ContentPackSummary[], name: string): ContentPackSummary | null {
+  const trimmed = name.trim().toLowerCase();
+  if (!trimmed) return null;
+  return (
+    packs.find((p) => {
+      const title = p.title.toLowerCase();
+      return (
+        title === trimmed
+        || p.pack_id.toLowerCase() === trimmed
+        || title.includes(trimmed)
+        || trimmed.includes(title)
+      );
+    }) ?? null
+  );
+}
 
 /**
  * Add a preparation, in two steps.
@@ -54,6 +75,12 @@ const KindCard: React.FC<{
   </Box>
 );
 
+/** Covers the card so a click (and Playwright's `.check()`) always hits the
+ *  real radio, per CLAUDE.md's custom-radio pattern. */
+const COVERING_INPUT = {
+  position: 'absolute' as const, inset: 0, width: '100%', height: '100%', opacity: 0, margin: 0,
+};
+
 export const PreparationNewPage: React.FC = () => {
   const navigate = useNavigate();
   const { refresh, select } = usePreparation();
@@ -71,6 +98,28 @@ export const PreparationNewPage: React.FC = () => {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // The Skill path's "start from a built-in guide" step (D5): offered, never
+  // forced. Loaded once -- there is no per-kind catalogue to keep in sync.
+  const [packs, setPacks] = useState<ContentPackSummary[]>([]);
+  const [selectedPackId, setSelectedPackId] = useState<string | null>(null);
+  const [packTouched, setPackTouched] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getContentPacks()
+      .then((result) => { if (!cancelled) setPacks(result); })
+      .catch(() => { /* the picker still works with no packs offered */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Re-preselect on every name change, until the learner has touched the
+  // pack choice themselves -- once they have, typing more of the name must
+  // not silently swap their pick out from under them.
+  useEffect(() => {
+    if (packTouched) return;
+    setSelectedPackId(packMatchingName(packs, name)?.pack_id ?? null);
+  }, [name, packs, packTouched]);
 
   const chooseKind = (next: Kind) => {
     setKind(next);
@@ -101,6 +150,11 @@ export const PreparationNewPage: React.FC = () => {
 
     try {
       const created = await createSubject(payload);
+      if (kind === 'skill' && selectedPackId) {
+        // Best-effort: a pack attach failing must not undo the preparation
+        // that was just created. It can still be attached from the edit page.
+        await attachContentPack(created.id, selectedPackId).catch(() => undefined);
+      }
       await refresh();
       select(created.id);
       navigate('/preparations');
@@ -241,6 +295,58 @@ export const PreparationNewPage: React.FC = () => {
                     />
                   </Grid>
                 </>
+              )}
+
+              {kind === 'skill' && packs.length > 0 && (
+                <Box>
+                  <Typography component="label" id="pack-choice-label" sx={{ fontWeight: 750, display: 'block', mb: '8px' }}>
+                    Start from a built-in guide (optional)
+                  </Typography>
+                  <RadioGroup
+                    aria-labelledby="pack-choice-label"
+                    value={selectedPackId ?? ''}
+                    onChange={(e) => { setPackTouched(true); setSelectedPackId(e.target.value || null); }}
+                    sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: '10px' }}
+                  >
+                    <FormControlLabel
+                      value=""
+                      control={<Radio sx={COVERING_INPUT} />}
+                      label="Start empty"
+                      sx={{
+                        position: 'relative', m: 0, p: '13px', borderRadius: '11px', alignItems: 'flex-start',
+                        bgcolor: 'pb.surface2', border: !selectedPackId ? '2px solid' : '1px solid',
+                        borderColor: !selectedPackId ? 'primary.main' : 'divider',
+                        '&:has(input:focus-visible)': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
+                      }}
+                    />
+                    {packs.map((p) => (
+                      <FormControlLabel
+                        key={p.pack_id}
+                        value={p.pack_id}
+                        control={<Radio sx={COVERING_INPUT} />}
+                        label={(
+                          <Box component="span" sx={{ display: 'block' }}>
+                            <Box component="span" sx={{ display: 'block', fontWeight: 750 }}>{p.title}</Box>
+                            <Box component="span" sx={{ display: 'block', color: 'text.secondary', fontSize: (t) => t.typography.pxToRem(13) }}>
+                              {p.chapter_count} chapters
+                              {p.written_scenario_count > 0 ? `, ${p.written_scenario_count} practice scenario${p.written_scenario_count === 1 ? '' : 's'}` : ''}
+                            </Box>
+                          </Box>
+                        )}
+                        sx={{
+                          position: 'relative', m: 0, p: '13px', borderRadius: '11px', alignItems: 'flex-start',
+                          bgcolor: 'pb.surface2', border: selectedPackId === p.pack_id ? '2px solid' : '1px solid',
+                          borderColor: selectedPackId === p.pack_id ? 'primary.main' : 'divider',
+                          '&:has(input:focus-visible)': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
+                        }}
+                      />
+                    ))}
+                  </RadioGroup>
+                  <Sub sx={{ mt: '8px', mb: 0 }}>
+                    Built-in guides and scenarios are read-only and versioned; you keep the version you start
+                    with until you choose to update it.
+                  </Sub>
+                </Box>
               )}
             </Box>
 

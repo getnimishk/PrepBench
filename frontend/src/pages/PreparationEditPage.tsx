@@ -8,11 +8,13 @@ import {
   Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography,
 } from '@mui/material';
 import {
-  archiveSubject, deleteSubject, getSubject, updateSubject,
+  archiveSubject, attachContentPack, deleteSubject, detachContentPack, getContentPacks, getSubject,
+  updateSubject, upgradeContentPack,
 } from '../services/api';
 import { loadFailed } from '../services/apiError';
 import { usePreparation } from '../context/PreparationContext';
 import type { Subject, SubjectUpdate } from '../types/subject';
+import type { ContentPackSummary } from '../types/contentPack';
 import { LoadingState } from '../components/common/States';
 import { Eyebrow, Grid, Note, PageHead, Panel, Row, Section } from '../components/ui/primitives';
 
@@ -57,6 +59,11 @@ export const PreparationEditPage: React.FC = () => {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // Content packs: a Skill preparation's pinned built-in guides (D3-D5).
+  const [availablePacks, setAvailablePacks] = useState<ContentPackSummary[]>([]);
+  const [packBusyId, setPackBusyId] = useState<string | null>(null);
+  const [packError, setPackError] = useState<string | null>(null);
+
   useEffect(() => {
     setLoadError(null);
     const id = Number(subjectId);
@@ -77,6 +84,17 @@ export const PreparationEditPage: React.FC = () => {
       })
       .catch((err) => setLoadError(loadFailed('Could not load that preparation', err)));
   }, [subjectId, loadAttempt]);
+
+  // Only a Skill can carry a content pack (D1); no point fetching the
+  // catalogue for a certification.
+  useEffect(() => {
+    if (!prep || prep.kind !== 'skill') return;
+    let cancelled = false;
+    getContentPacks()
+      .then((result) => { if (!cancelled) setAvailablePacks(result); })
+      .catch(() => { /* the attach step just offers nothing */ });
+    return () => { cancelled = true; };
+  }, [prep?.kind]);
 
   const serverDetail = (e: unknown): string | null => {
     const detail = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
@@ -149,6 +167,54 @@ export const PreparationEditPage: React.FC = () => {
     }
   };
 
+  const reloadPrep = async () => {
+    if (!prep) return;
+    const updated = await getSubject(prep.id);
+    setPrep(updated);
+  };
+
+  const attachPack = async (packId: string) => {
+    if (!prep) return;
+    setPackBusyId(packId);
+    setPackError(null);
+    try {
+      await attachContentPack(prep.id, packId);
+      await reloadPrep();
+    } catch (e: unknown) {
+      setPackError(serverDetail(e) ?? 'Could not attach that guide.');
+    } finally {
+      setPackBusyId(null);
+    }
+  };
+
+  const upgradePack = async (packId: string, version: number) => {
+    if (!prep) return;
+    setPackBusyId(packId);
+    setPackError(null);
+    try {
+      await upgradeContentPack(prep.id, packId, version);
+      await reloadPrep();
+    } catch (e: unknown) {
+      setPackError(serverDetail(e) ?? 'Could not update that guide.');
+    } finally {
+      setPackBusyId(null);
+    }
+  };
+
+  const detachPack = async (packId: string) => {
+    if (!prep) return;
+    setPackBusyId(packId);
+    setPackError(null);
+    try {
+      await detachContentPack(prep.id, packId);
+      await reloadPrep();
+    } catch (e: unknown) {
+      setPackError(serverDetail(e) ?? 'Could not detach that guide.');
+    } finally {
+      setPackBusyId(null);
+    }
+  };
+
   if (loadError) {
     return <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => setLoadAttempt((n) => n + 1)}>Retry</Button>}>{loadError}</Alert>;
   }
@@ -156,6 +222,7 @@ export const PreparationEditPage: React.FC = () => {
   if (!prep) return <LoadingState label="Loading this preparation…" />;
 
   const isCertification = prep.kind === 'certification';
+  const contentPacks = prep.content_packs ?? [];
 
   return (
     <Box>
@@ -251,6 +318,76 @@ export const PreparationEditPage: React.FC = () => {
           )}
         </Box>
       </Panel>
+
+      {!isCertification && (
+        <Section>
+          <Panel component="section" aria-label="Content packs" sx={{ maxWidth: 880 }}>
+            <Eyebrow>Content packs</Eyebrow>
+            {packError && <Alert severity="error" sx={{ mt: '10px' }}>{packError}</Alert>}
+
+            {contentPacks.length === 0 && (
+              <Note sx={{ mt: '10px' }}>
+                No built-in guide attached. Attach one to read its chapters from the Study Library.
+              </Note>
+            )}
+
+            {contentPacks.map((cp) => (
+              <Row
+                key={cp.pack_id}
+                title={cp.title}
+                detail={
+                  cp.pack_version < cp.latest_version
+                    ? `Pinned at version ${cp.pack_version}; version ${cp.latest_version} is available.`
+                    : `Pinned at version ${cp.pack_version} (the latest).`
+                }
+                action={(
+                  <>
+                    {cp.pack_version < cp.latest_version && (
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        disabled={packBusyId === cp.pack_id}
+                        onClick={() => void upgradePack(cp.pack_id, cp.latest_version)}
+                      >
+                        Update to version {cp.latest_version}
+                      </Button>
+                    )}
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      color="error"
+                      disabled={packBusyId === cp.pack_id}
+                      onClick={() => void detachPack(cp.pack_id)}
+                    >
+                      Detach
+                    </Button>
+                  </>
+                )}
+              />
+            ))}
+
+            {availablePacks
+              .filter((p) => !contentPacks.some((cp) => cp.pack_id === p.pack_id))
+              .map((p) => (
+                <Row
+                  key={p.pack_id}
+                  title={p.title}
+                  detail={`${p.chapter_count} chapters${p.written_scenario_count > 0 ? `, ${p.written_scenario_count} practice scenario${p.written_scenario_count === 1 ? '' : 's'}` : ''}.`}
+                  action={(
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      disabled={packBusyId === p.pack_id}
+                      onClick={() => void attachPack(p.pack_id)}
+                    >
+                      Attach
+                    </Button>
+                  )}
+                />
+              ))}
+          </Panel>
+        </Section>
+      )}
 
       <Section>
         <Panel component="section" aria-label="Danger zone" sx={{ maxWidth: 880, borderColor: 'error.main' }}>
