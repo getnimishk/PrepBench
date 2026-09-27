@@ -215,7 +215,7 @@ Rejected: none.
 
 ```
 ### Handoff — 2026-09-27
-Phase: 3 · Branch: feat/skills-phase-3 · PR: (opening after this report)
+Phase: 3 · Branch: feat/skills-phase-3 · PR: https://github.com/getnimishk/PrepBench/pull/38
 Done: technical round (D14, own commit); scenario sandbox /scenarios and /scenarios/:packId/:scenarioId
   with the four lenses; persistence via learning_attempts with a server-side lock; Chart Sandbox
   isolation + test; Say-it → interview library (subject_id/source_ref, upsert per preparation);
