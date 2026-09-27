@@ -31,6 +31,21 @@ export interface InterviewQuestion {
   created_at: string;
   /** Takes recorded of this question. Filled by the list endpoint. */
   practice_count?: number;
+  /** The preparation it was saved from, e.g. a Skill's scenario. */
+  subject_id?: number | null;
+  /** The built-in content it came from, e.g. "adf@1/scenario/1/lens/po". */
+  source_ref?: string | null;
+}
+
+/** A question saved from built-in content (a scenario's Say-it step). */
+export interface InterviewQuestionSourceSave {
+  source_ref: string;
+  subject_id?: number | null;
+  round_type?: InterviewRoundType;
+  question_text: string;
+  category?: string | null;
+  prepared_answer?: string | null;
+  key_talking_points?: string[] | null;
 }
 
 export interface GenerateInterviewQuestionRequest {

@@ -70,6 +70,7 @@ import {
   InterviewRoundType,
   InterviewQuestionUpdate,
   InterviewQuestionImportResult,
+  InterviewQuestionSourceSave,
   ImportInterviewQuestionsRequest,
 } from '../types/interviewQuestion';
 import {
@@ -638,6 +639,8 @@ export const getInterviewQuestions = async (params?: {
   round_type?: InterviewRoundType;
   category?: string;
   keyword?: string;
+  subject_id?: number;
+  source_ref?: string;
 }) => {
   const res = await api.get<{ items: InterviewQuestion[]; total: number; skip: number; limit: number }>(`/interview-questions`, { params });
   return res.data;
@@ -645,8 +648,8 @@ export const getInterviewQuestions = async (params?: {
 
 // ---- learning attempts: the Chart Sandbox's evidence ----
 
-export const getLearningAttempts = async () => {
-  const res = await api.get<WireLearningAttempt[]>('/learning/attempts');
+export const getLearningAttempts = async (params?: { subject_id?: number; concept_id?: string }) => {
+  const res = await api.get<WireLearningAttempt[]>('/learning/attempts', params ? { params } : undefined);
   return res.data;
 };
 
@@ -654,6 +657,7 @@ export const getLearningAttempts = async () => {
 export const startLearningAttempt = async (body: {
   attempt_uid: string; challenge_id: string; concept_id: string;
   scenario_fingerprint: string; mode: string; started_at?: string; hint_count: number;
+  subject_id?: number;
 }) => {
   const res = await api.post<WireLearningAttempt>('/learning/attempts', body);
   return res.data;
@@ -702,6 +706,12 @@ export const getInterviewQuestion = async (id: number) => {
 
 export const generateInterviewQuestion = async (req: GenerateInterviewQuestionRequest) => {
   const res = await api.post<InterviewQuestion>(`/interview-questions/generate`, req, { timeout: 30000 });
+  return res.data;
+};
+
+/** Save a question from built-in content; the same `source_ref` again updates that row. */
+export const saveInterviewQuestionFromSource = async (body: InterviewQuestionSourceSave) => {
+  const res = await api.put<{ question: InterviewQuestion; created: boolean }>(`/interview-questions/by-source`, body);
   return res.data;
 };
 

@@ -21,7 +21,7 @@
 import React from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Box, Button, Card, CardContent, Chip, Stack, Typography, alpha, useTheme } from '@mui/material';
-import { Activity } from 'lucide-react';
+import { Activity, Workflow } from 'lucide-react';
 import { PageHead, Eyebrow } from '../components/ui/primitives';
 
 interface SandboxCard {
@@ -30,6 +30,8 @@ interface SandboxCard {
   domain: string;
   description: string;
   metricFamilies: string[];
+  /** What the chips under the description are. */
+  familiesLabel?: string;
   path: string;
   live: boolean;
   icon: React.ReactNode;
@@ -51,6 +53,22 @@ const SANDBOXES: SandboxCard[] = [
     path: '/chart-sandbox',
     live: true,
     icon: <Activity size={22} aria-hidden />,
+    iconBgKey: 'primary',
+  },
+  {
+    id: 'scenarios',
+    label: 'Scenarios',
+    domain: 'Incidents from real projects, practised in your role',
+    description:
+      'Fictional incidents and decisions from data projects, each practising one chapter of a guide in the ' +
+      'Study Library: a quick check, a case to work through as a product owner, product manager, delivery ' +
+      'manager or engineering manager, the debrief, and an honest interview answer. Shows the scenarios of the ' +
+      'Skill preparation you are working in.',
+    metricFamilies: ['Knowledge check', 'Fictional case', 'Role debrief', 'Interview answer'],
+    familiesLabel: 'Each scenario',
+    path: '/scenarios',
+    live: true,
+    icon: <Workflow size={22} aria-hidden />,
     iconBgKey: 'primary',
   },
   {
@@ -239,7 +257,7 @@ export const LearningLabPage: React.FC = () => {
                 </Typography>
 
                 {/* Metric families */}
-                <Eyebrow sx={{ mb: 0.75 }}>Metric families</Eyebrow>
+                <Eyebrow sx={{ mb: 0.75 }}>{sb.familiesLabel ?? 'Metric families'}</Eyebrow>
                 <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 0.5, mb: 2 }}>
                   {sb.metricFamilies.map((f) => (
                     <Chip

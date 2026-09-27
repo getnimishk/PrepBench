@@ -4,7 +4,7 @@
 
 import {
   Activity, BarChart3, BookOpen, FileCheck2, FlaskConical, History, LayoutDashboard, Layers, Library,
-  Map as RouteMap, Mic, Mic2, Network, PlayCircle, ScrollText, Settings,
+  Map as RouteMap, Mic, Mic2, Network, PlayCircle, ScrollText, Settings, Workflow,
 } from 'lucide-react';
 
 /**
@@ -23,7 +23,7 @@ export type NavKey =
   | 'interview' | 'system-design' | 'design-reviews' | 'recordings'
   | 'insights' | 'preparations' | 'settings'
   // Learning Lab: the hub and each sandbox as it goes live.
-  | 'lab' | 'agile-sandbox';
+  | 'lab' | 'agile-sandbox' | 'scenarios';
 
 export interface NavEntry {
   key: NavKey;
@@ -80,6 +80,7 @@ export const NAV_GROUPS: { heading: string; items: NavEntry[] }[] = [
     items: [
       { key: 'lab',           label: 'All Sandboxes',         path: '/lab',           icon: FlaskConical },
       { key: 'agile-sandbox', label: 'Agile Metrics',         path: '/chart-sandbox', icon: Activity },
+      { key: 'scenarios',     label: 'Scenarios',             path: '/scenarios',     icon: Workflow },
     ],
   },
 ];
@@ -93,7 +94,7 @@ const NAV_BY_KEY = Object.fromEntries(
 // review runner is review, whichever button opened it.
 //
 // The Learning Lab rules come before the generic catch-alls. Each sandbox
-// path (/chart-sandbox, and future /databricks-sandbox, /financial-sandbox)
+// path (/chart-sandbox, /scenarios, and future /databricks-sandbox, /financial-sandbox)
 // maps to its own sandbox key so the sidebar highlights the correct item.
 // The hub (/lab) highlights the 'lab' entry — the parent of the group.
 const SECTION_RULES: [RegExp, NavKey][] = [
@@ -104,6 +105,7 @@ const SECTION_RULES: [RegExp, NavKey][] = [
   // Learning Lab: hub and each sandbox.
   [/^\/lab(\/|$)/, 'lab'],
   [/^\/chart-sandbox(\/|$)/, 'agile-sandbox'],
+  [/^\/scenarios(\/|$)/, 'scenarios'],
   [/^\/practice\/spaced(\/|$)/, 'review'],
   [/^\/practice(\/|$)/, 'practice'],
   [/^\/review(\/|$)/, 'review'],

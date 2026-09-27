@@ -313,6 +313,8 @@ export interface ObservedOutcome {
 /** An attempt as the server sends it: snake_case, null for "not established". */
 export interface WireLearningAttempt {
   attempt_uid: string;
+  /** The preparation it was recorded in; null once that preparation is deleted. */
+  subject_id?: number | null;
   challenge_id: string;
   concept_id: string;
   scenario_fingerprint: string;

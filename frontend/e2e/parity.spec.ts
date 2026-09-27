@@ -40,7 +40,7 @@ test('the header says where you are and reaches search, import and the profile f
   await expect(page.getByRole('heading', { name: 'Profile', level: 1 })).toBeVisible();
 });
 
-test("the rail has the prototype's fourteen destinations plus the two Learning Lab entries (sixteen total), and Review Queue counts what the review page will ask for", async ({ page, request }) => {
+test("the rail has the prototype's fourteen destinations plus the three Learning Lab entries (seventeen total), and Review Queue counts what the review page will ask for", async ({ page, request }) => {
   const prep = await createCertification(request, 'Rail');
   await completedMockWithMisses(request, prep, 3, 'Rail Area');
   const counts = await (await request.get(`/api/v1/review/counts?subject_id=${prep.id}`)).json();
@@ -49,8 +49,8 @@ test("the rail has the prototype's fourteen destinations plus the two Learning L
   await page.goto('/');
   await pickPreparation(page, prep.name);
   const nav = page.getByRole('navigation', { name: 'Main' });
-  // 14 prototype destinations + 2 Learning Lab entries (All Sandboxes + Agile Metrics) = 16.
-  await expect(nav.getByRole('link')).toHaveCount(16);
+  // 14 prototype destinations + 3 Learning Lab entries (All Sandboxes, Agile Metrics, Scenarios) = 17.
+  await expect(nav.getByRole('link')).toHaveCount(17);
   await nav.getByRole('link', { name: 'Roadmaps' }).click();
   await expect(page).toHaveURL(/\/roadmaps$/);
   await expect(nav.getByRole('link', { name: 'Roadmaps' })).toHaveAttribute('aria-current', 'page');

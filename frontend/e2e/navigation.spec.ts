@@ -64,7 +64,7 @@ test('every screen opens with no console errors, and no link on any of them lead
     '/question-bank', '/analytics', `/analytics/area?subject=${prep.id}&domain=${encodeURIComponent(area)}`,
     '/roadmaps', `/roadmaps/${roadmap.id}`, `/roadmaps/${roadmap.id}/edit`, `/roadmaps/${roadmap.id}/topics/${topic.id}`,
     `/roadmaps/${roadmap.id}/topics/${topic.id}/guide`, `/roadmaps/${roadmap.id}/topics/${topic.id}/demonstrate`,
-    '/lab', '/chart-sandbox', '/design-reviews', `/design-reviews/${review}`, '/system-design', `/system-design/${prompt}/answer`,
+    '/lab', '/chart-sandbox', '/scenarios', '/scenarios/adf/1', '/design-reviews', `/design-reviews/${review}`, '/system-design', `/system-design/${prompt}/answer`,
     '/interview-practice', '/interview-practice/setup', '/interview-practice/library', '/recordings',
     '/search', '/search?q=Navigation', '/profile', '/notifications', '/onboarding', '/settings', '/settings/ai', '/settings/appearance', '/settings/practice',
     '/settings/shortcuts', '/settings/notifications', '/settings/data', '/settings/about', '/settings/states',
