@@ -29,6 +29,7 @@ from app.core.exceptions import (
 )
 from app.core.logging_config import logger
 from app.models.exam_session import ExamSession
+from app.models.interview_question import InterviewQuestion
 from app.models.learning_attempt import LearningAttempt
 from app.models.question import Question
 from app.models.roadmap import Roadmap
@@ -264,6 +265,13 @@ class SubjectService:
             .filter(LearningAttempt.subject_id == subject.id)
             .update({LearningAttempt.subject_id: None}, synchronize_session=False)
         )
+        # Interview questions saved from this preparation's scenarios stay in
+        # the learner's library; only the link goes.
+        interview_questions_unlinked = (
+            self.db.query(InterviewQuestion)
+            .filter(InterviewQuestion.subject_id == subject.id)
+            .update({InterviewQuestion.subject_id: None}, synchronize_session=False)
+        )
 
         self.db.flush()
         self.repo.delete(subject)
@@ -271,8 +279,8 @@ class SubjectService:
         logger.info(
             f"Deleted preparation {name!r}: {questions_deleted} question(s), "
             f"{exam_sessions_deleted} exam session(s). Unlinked "
-            f"{roadmaps_unlinked} roadmap(s) and {learning_attempts_unlinked} "
-            f"learning attempt(s)."
+            f"{roadmaps_unlinked} roadmap(s), {learning_attempts_unlinked} "
+            f"learning attempt(s) and {interview_questions_unlinked} interview question(s)."
         )
 
         return SubjectDeleteResult(

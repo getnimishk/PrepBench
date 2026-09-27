@@ -12,6 +12,8 @@ from app.schemas.interview_question import (
     InterviewQuestionFilter,
     InterviewQuestionUpdate,
     InterviewQuestionImportResult,
+    InterviewQuestionSourceSave,
+    InterviewQuestionSourceSaveResult,
     GenerateInterviewQuestionRequest,
     RoundTypeInfo,
 )
@@ -61,6 +63,13 @@ async def import_questions(
     return service.parse_and_import(content_bytes, filename, default_round_type, default_category)
 
 
+@router.put("/by-source", response_model=InterviewQuestionSourceSaveResult)
+def save_question_from_source(req: InterviewQuestionSourceSave, db: Session = Depends(get_db)):
+    """Save a question from built-in content; saving the same source again updates it."""
+    service = InterviewQuestionService(db)
+    return service.save_from_source(req)
+
+
 @router.get("", response_model=dict)
 def list_questions(
     skip: int = Query(0, ge=0),
@@ -68,9 +77,14 @@ def list_questions(
     round_type: Optional[InterviewRoundType] = None,
     category: Optional[str] = None,
     keyword: Optional[str] = None,
+    subject_id: Optional[int] = None,
+    source_ref: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    filter_params = InterviewQuestionFilter(round_type=round_type, category=category, keyword=keyword)
+    filter_params = InterviewQuestionFilter(
+        round_type=round_type, category=category, keyword=keyword,
+        subject_id=subject_id, source_ref=source_ref,
+    )
     service = InterviewQuestionService(db)
     return service.list_questions(skip=skip, limit=limit, filter_params=filter_params)
 
