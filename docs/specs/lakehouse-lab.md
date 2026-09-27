@@ -271,7 +271,7 @@ PrepBench has **no telemetry**, so metrics come from the learner's own local dat
 | 1 | ~~Does `deltalake` cover every allow-listed operation on Windows without pyarrow?~~ **Resolved (spike, 2026-09-24):** yes, all 10 operations, on deltalake 1.6.5 and Python 3.14.7, with pyarrow never loaded. Four design changes followed; see design §10. | Engineering | — |
 | 2 | ~~Journal storage~~ **Resolved:** a new `lab_journal_entries` table (P0-10, design §4.6). | Engineering | — |
 | 3 | ~~Batch file format~~ **Resolved:** no landing files in v1 (P0-5, design §4.5). | Engineering | — |
-| 4 | Which interview round type do lab questions use? Existing options are `hr_screening`, `hiring_manager`, `system_design`, `behavioral`. Add `technical`? | Product (author) | No (P1) |
+| 4 | ~~Which interview round type do lab questions use?~~ **Resolved (2026-09-27, D14):** a new `technical` round, built in the skills-and-content-packs plan's Phase 3 (task 4a). Lab questions (P1-1) use it once built. | Product (author) | — |
 | 5 | Trademark use of "Azure", "Data Factory", "Databricks", "Delta Lake", "Cloudera" in UI and any marketing: nominative use plus a "not affiliated" notice. | Legal | Before any commercial release |
 | 6 | Provenance of the existing seeded question content (for example `PSM_I_Question_Bank.json`) before anything is sold. | Author / legal | Before any commercial release |
 | 7 | Pricing model: noncommercial + commercial licence, open core, or free engine with paid packs. | Author | No, because packs stay separable (P2) |
