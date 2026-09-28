@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import React, { createContext, useCallback, useContext, useState, useMemo, useEffect, useRef } from 'react';
+import React, { createContext, useCallback, useContext, useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { getSettings, updateSettings } from '../services/api';
 import { AppSettings, ThemePreference } from '../types/settings';
@@ -100,6 +100,30 @@ const fromWire = (s: AppSettings): Preferences => ({
   shortcutsEnabled: s.shortcuts_enabled !== false,
 });
 
+/**
+ * Switch transitions off until the next frame has painted.
+ *
+ * Runs in a layout effect, after the new theme's styles are in and before the
+ * browser paints them; reading a computed style makes it apply them now, with
+ * nothing to animate, and the transitions come back once they are settled.
+ * Returns the cleanup, for a mode that changes again before then.
+ */
+function suppressTransitions(): () => void {
+  if (typeof document === 'undefined') return () => {};
+  const style = document.createElement('style');
+  style.dataset.themeSwitch = '';
+  style.textContent = '*, *::before, *::after { transition: none !important; }';
+  document.head.appendChild(style);
+  void getComputedStyle(document.body).backgroundColor;
+  let frame = requestAnimationFrame(() => {
+    frame = requestAnimationFrame(() => style.remove());
+  });
+  return () => {
+    cancelAnimationFrame(frame);
+    style.remove();
+  };
+}
+
 /** Whether the OS asks for dark, followed as it changes. */
 function useSystemDark(): boolean {
   const query = typeof window !== 'undefined' && window.matchMedia
@@ -183,6 +207,19 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const setThemeMode = (newMode: ThemePreference) => {
     setPreferences((current) => ({ ...current, theme: newMode }));
   };
+
+  // A change of mode lands at once, not as a fade. Controls animate their
+  // background (ButtonBase transitions background-color) but not their text
+  // colour, so a fade leaves a control in the new mode's text on the old mode's
+  // fill -- the dark theme's accent on the light theme's accentSoft is 2:1 --
+  // for as long as it runs. That is every load where the saved theme differs
+  // from the cached one, and every press of the toggle.
+  const previousMode = useRef(mode);
+  useLayoutEffect(() => {
+    if (previousMode.current === mode) return undefined;
+    previousMode.current = mode;
+    return suppressTransitions();
+  }, [mode]);
 
   // The prototype's stylesheet, as a theme: its tokens, its type scale and the
   // shapes of its controls. See theme/theme.ts.

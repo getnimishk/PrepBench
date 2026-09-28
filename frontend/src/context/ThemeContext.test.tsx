@@ -54,4 +54,20 @@ describe('ThemeContext', () => {
     expect(screen.getByTestId('mode')).toHaveTextContent('dark');
     expect(mockUpdate).toHaveBeenCalledWith({ theme: 'dark' });
   });
+
+  // Controls fade their background but not their text, so a fade between modes
+  // shows one mode's text on the other's fill; axe caught the dark accent on the
+  // light accentSoft at 2:1. The switch lands with transitions off, and they
+  // come back once it has painted.
+  it('switches mode with transitions off until the new colours have painted', async () => {
+    render(<CustomThemeProvider><Probe /></CustomThemeProvider>);
+    await waitFor(() => expect(screen.getByTestId('mode')).toHaveTextContent('light'));
+    expect(document.head.querySelector('style[data-theme-switch]')).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: 'toggle' }));
+
+    expect(screen.getByTestId('mode')).toHaveTextContent('dark');
+    expect(document.head.querySelector('style[data-theme-switch]')?.textContent).toContain('transition: none !important');
+    await waitFor(() => expect(document.head.querySelector('style[data-theme-switch]')).toBeNull());
+  });
 });

@@ -67,10 +67,15 @@ for (const theme of ['light', 'dark'] as const) {
     // here used to leave the dark theme set for whatever ran next.
     test.setTimeout(900_000);
     const { prep, promptId, examId, roadmapId } = await seed(request);
+    // A learner with a name gets their initials in the header instead of an
+    // icon: text, so the one variant of the avatar that axe measures contrast on.
+    const profile = await (await request.get('/api/v1/profile')).json();
+    await request.put('/api/v1/profile', { data: { display_name: 'Ada Lovelace', email: profile.email ?? '' } });
     await request.put('/api/v1/settings', { data: { theme } });
     try {
       await page.goto('/');
       await pickPreparation(page, prep.name);
+      await expect(page.getByRole('banner').getByRole('link', { name: 'Profile: Ada Lovelace' })).toHaveText('AL');
 
       const focusRoutes = [`/exam/${examId}`, ...(promptId ? [`/system-design/${promptId}/answer`] : [])];
       const violations: string[] = [];
@@ -80,9 +85,59 @@ for (const theme of ['light', 'dark'] as const) {
       expect(violations, violations.join('\n')).toEqual([]);
     } finally {
       await request.put('/api/v1/settings', { data: { theme: 'light' } });
+      await request.put('/api/v1/profile', { data: { display_name: profile.display_name ?? '', email: profile.email ?? '' } });
     }
   });
 }
+
+// Controls fade their background but not their text colour, so a theme switch
+// that fades leaves them in one mode's text on the other mode's fill for as long
+// as it runs -- the dark accent on the light accentSoft, 2:1, on the avatar. The
+// audits above only see the page once it has settled; this watches the switch.
+test('switching theme never shows one theme\'s text on the other\'s fill', async ({ page, request }) => {
+  const profile = await (await request.get('/api/v1/profile')).json();
+  await request.put('/api/v1/profile', { data: { display_name: 'Ada Lovelace', email: profile.email ?? '' } });
+  await request.put('/api/v1/settings', { data: { theme: 'light' } });
+  try {
+    await page.goto('/settings');
+    const avatar = page.getByRole('banner').getByRole('link', { name: 'Profile: Ada Lovelace' });
+    await expect(avatar).toHaveText('AL');
+    const pair = () => avatar.evaluate((el) => `${getComputedStyle(el).color} on ${getComputedStyle(el).backgroundColor}`);
+    const light = await pair();
+
+    // Every colour pair the avatar shows, frame by frame, until told to stop.
+    const watch = () => avatar.evaluate((el) => {
+      const seen = new Set<string>();
+      let on = true;
+      const tick = () => {
+        seen.add(`${getComputedStyle(el).color} on ${getComputedStyle(el).backgroundColor}`);
+        if (on) requestAnimationFrame(tick);
+      };
+      tick();
+      (window as unknown as { stopWatch: () => string[] }).stopWatch = () => { on = false; return [...seen]; };
+    });
+    const stop = () => page.evaluate(() => (window as unknown as { stopWatch: () => string[] }).stopWatch());
+
+    await watch();
+    await page.getByRole('banner').getByRole('button', { name: 'Dark mode' }).click();
+    await expect(page.locator('body')).toHaveCSS('background-color', BACKGROUND.dark);
+    await page.waitForTimeout(600);
+    const toDark = await stop();
+    const dark = await pair();
+    expect(dark).not.toBe(light);
+    expect(toDark.filter((p) => p !== light && p !== dark)).toEqual([]);
+
+    await watch();
+    await page.getByRole('banner').getByRole('button', { name: 'Light mode' }).click();
+    await expect(page.locator('body')).toHaveCSS('background-color', BACKGROUND.light);
+    await page.waitForTimeout(600);
+    const toLight = await stop();
+    expect(toLight.filter((p) => p !== light && p !== dark)).toEqual([]);
+  } finally {
+    await request.put('/api/v1/settings', { data: { theme: 'light' } });
+    await request.put('/api/v1/profile', { data: { display_name: profile.display_name ?? '', email: profile.email ?? '' } });
+  }
+});
 
 test('motion stops when the system asks for it, and when the learner does', async ({ page, request }) => {
   const duration = () => page.getByRole('link', { name: 'Open preparations' })
