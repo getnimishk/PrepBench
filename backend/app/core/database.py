@@ -989,6 +989,29 @@ def apply_lightweight_migrations():
             _log_migration_failure("roles tables", exc)
 
         try:
+            # lab_journal_entries: the Lakehouse Lab's record of what the learner
+            # did (design §4.6). Its own table so engine operations never mix
+            # with learning_attempts, from which every mastery figure comes.
+            # New, so create_all covers a fresh database and this an upgrade.
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS lab_journal_entries (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    entry_uid VARCHAR(64) NOT NULL UNIQUE,
+                    pack_id VARCHAR(100) NOT NULL,
+                    station VARCHAR(10) NOT NULL,
+                    source VARCHAR(20) NOT NULL,
+                    op VARCHAR(50) NOT NULL,
+                    table_name VARCHAR(200),
+                    result TEXT NOT NULL DEFAULT '{}',
+                    attempt_uid VARCHAR(64),
+                    created_at DATETIME NOT NULL
+                )
+            """))
+            conn.commit()
+        except Exception as exc:
+            _log_migration_failure("lab_journal_entries table", exc)
+
+        try:
             # Every index the models declare, on a database that was upgraded into
             # its schema rather than created with it.
             #

@@ -331,6 +331,75 @@
         "title": "AppSettingsUpdate",
         "type": "object"
       },
+      "AppendBatchOp": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_uid": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt Uid"
+          },
+          "batch": {
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Batch",
+            "type": "integer"
+          },
+          "op": {
+            "const": "append_batch",
+            "title": "Op",
+            "type": "string"
+          },
+          "pack_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,99}$",
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "schema_mode": {
+            "default": "enforce",
+            "enum": [
+              "enforce",
+              "merge"
+            ],
+            "title": "Schema Mode",
+            "type": "string"
+          },
+          "small_files": {
+            "default": false,
+            "title": "Small Files",
+            "type": "boolean"
+          },
+          "table": {
+            "title": "Table",
+            "type": "string"
+          },
+          "write": {
+            "default": "append",
+            "enum": [
+              "append",
+              "merge"
+            ],
+            "title": "Write",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pack_id",
+          "op",
+          "table",
+          "batch"
+        ],
+        "title": "AppendBatchOp",
+        "type": "object"
+      },
       "AxisPerformance": {
         "properties": {
           "attempts": {
@@ -835,6 +904,239 @@
         "title": "CheckResult",
         "type": "object"
       },
+      "ColumnGen": {
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Format"
+          },
+          "kind": {
+            "enum": [
+              "sequence",
+              "pattern",
+              "choice",
+              "int",
+              "decimal",
+              "time"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max"
+          },
+          "min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min"
+          },
+          "scale": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scale"
+          },
+          "span_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Span Days"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start"
+          },
+          "values": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Values"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "ColumnGen",
+        "type": "object"
+      },
+      "ColumnSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "gen": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ColumnGen"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "pattern": "^[a-z][a-z0-9_]{0,62}$",
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "pattern": "^(int64|float64|string|timestamp|timestamp_ntz|decimal\\(\\d{1,2},\\d{1,2}\\))$",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "ColumnSpec",
+        "type": "object"
+      },
+      "CompactOp": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_uid": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt Uid"
+          },
+          "op": {
+            "const": "compact",
+            "title": "Op",
+            "type": "string"
+          },
+          "pack_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,99}$",
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "table": {
+            "title": "Table",
+            "type": "string"
+          },
+          "z_order": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 4,
+            "title": "Z Order",
+            "type": "array"
+          }
+        },
+        "required": [
+          "pack_id",
+          "op",
+          "table"
+        ],
+        "title": "CompactOp",
+        "type": "object"
+      },
+      "CompareTablesOp": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_uid": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt Uid"
+          },
+          "left": {
+            "title": "Left",
+            "type": "string"
+          },
+          "op": {
+            "const": "compare_tables",
+            "title": "Op",
+            "type": "string"
+          },
+          "pack_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,99}$",
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "right": {
+            "title": "Right",
+            "type": "string"
+          },
+          "tolerance": {
+            "default": 0.0,
+            "minimum": 0.0,
+            "title": "Tolerance",
+            "type": "number"
+          }
+        },
+        "required": [
+          "pack_id",
+          "op",
+          "left",
+          "right"
+        ],
+        "title": "CompareTablesOp",
+        "type": "object"
+      },
       "ConfidenceLevel": {
         "enum": [
           "low",
@@ -1080,6 +1382,45 @@
         "title": "CoverageItem",
         "type": "object"
       },
+      "CreateTableOp": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_uid": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt Uid"
+          },
+          "op": {
+            "const": "create_table",
+            "title": "Op",
+            "type": "string"
+          },
+          "pack_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,99}$",
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "table": {
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pack_id",
+          "op",
+          "table"
+        ],
+        "title": "CreateTableOp",
+        "type": "object"
+      },
       "DailyGoalsResponse": {
         "properties": {
           "certification": {
@@ -1239,6 +1580,224 @@
           "engine"
         ],
         "title": "DatabaseFile",
+        "type": "object"
+      },
+      "DatasetSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "defects": {
+            "items": {
+              "$ref": "#/components/schemas/DefectSpec"
+            },
+            "title": "Defects",
+            "type": "array"
+          },
+          "tables": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/TableSpec"
+            },
+            "title": "Tables",
+            "type": "object"
+          }
+        },
+        "required": [
+          "tables",
+          "defects"
+        ],
+        "title": "DatasetSpec",
+        "type": "object"
+      },
+      "DefectSpec": {
+        "additionalProperties": false,
+        "description": "One planted difference or batch pattern. Only the fields its kind needs are set.",
+        "properties": {
+          "about": {
+            "default": "",
+            "title": "About",
+            "type": "string"
+          },
+          "add_column": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ColumnSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "affects": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Affects"
+          },
+          "batch": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch"
+          },
+          "column": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column"
+          },
+          "deletes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deletes"
+          },
+          "files": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Files"
+          },
+          "from_batch": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Batch"
+          },
+          "from_batches": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Batches"
+          },
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9-]{0,49}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "inserts": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inserts"
+          },
+          "kind": {
+            "enum": [
+              "precision",
+              "timezone",
+              "null_handling",
+              "schema_drift",
+              "cdc",
+              "replay",
+              "late_arrival",
+              "small_files"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "legacy_offset_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legacy Offset Hours"
+          },
+          "legacy_scale": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legacy Scale"
+          },
+          "legacy_value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legacy Value"
+          },
+          "table": {
+            "pattern": "^[a-z][a-z0-9_]{0,62}$",
+            "title": "Table",
+            "type": "string"
+          },
+          "updates": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updates"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "table"
+        ],
+        "title": "DefectSpec",
         "type": "object"
       },
       "DesignOptionResponse": {
@@ -2096,6 +2655,46 @@
           "answer_text"
         ],
         "title": "DraftResponse",
+        "type": "object"
+      },
+      "EngineStatus": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "install_command": {
+            "title": "Install Command",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "available",
+          "install_command"
+        ],
+        "title": "EngineStatus",
         "type": "object"
       },
       "ExamAnswerResponse": {
@@ -2980,6 +3579,45 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HistoryOp": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_uid": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt Uid"
+          },
+          "op": {
+            "const": "history",
+            "title": "Op",
+            "type": "string"
+          },
+          "pack_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,99}$",
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "table": {
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pack_id",
+          "op",
+          "table"
+        ],
+        "title": "HistoryOp",
+        "type": "object"
+      },
       "HomeResponse": {
         "description": "Everything Home renders, and deliberately nothing more.\n\nThere is no `suggested` or `next_actions` field. A ranked list of what to\ndo next was put to the user and rejected as nagging, so the client is\ngiven state and the person chooses.",
         "properties": {
@@ -3641,6 +4279,170 @@
         "title": "InterviewSessionResponse",
         "type": "object"
       },
+      "JournalEntry": {
+        "properties": {
+          "attempt_uid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt Uid"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "entry_uid": {
+            "title": "Entry Uid",
+            "type": "string"
+          },
+          "op": {
+            "title": "Op",
+            "type": "string"
+          },
+          "pack_id": {
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "result": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Result",
+            "type": "object"
+          },
+          "source": {
+            "enum": [
+              "real_engine",
+              "simulation"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "station": {
+            "title": "Station",
+            "type": "string"
+          },
+          "table_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table Name"
+          }
+        },
+        "required": [
+          "entry_uid",
+          "pack_id",
+          "station",
+          "source",
+          "op",
+          "created_at"
+        ],
+        "title": "JournalEntry",
+        "type": "object"
+      },
+      "JournalEntryIn": {
+        "additionalProperties": false,
+        "description": "A simulation station's entry. `source` may be omitted; `real_engine` is refused.",
+        "properties": {
+          "attempt_uid": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt Uid"
+          },
+          "entry_uid": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Uid"
+          },
+          "op": {
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Op",
+            "type": "string"
+          },
+          "pack_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,99}$",
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "result": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Result",
+            "type": "object"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "real_engine",
+                  "simulation"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "station": {
+            "enum": [
+              "a",
+              "b",
+              "c",
+              "f",
+              "i"
+            ],
+            "title": "Station",
+            "type": "string"
+          },
+          "table_name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table Name"
+          }
+        },
+        "required": [
+          "pack_id",
+          "station",
+          "op"
+        ],
+        "title": "JournalEntryIn",
+        "type": "object"
+      },
       "KeyPointMatch": {
         "properties": {
           "evidence": {
@@ -3662,6 +4464,245 @@
           "evidence"
         ],
         "title": "KeyPointMatch",
+        "type": "object"
+      },
+      "LabOperationResult": {
+        "description": "What the real engine did. `ok: false` is an expected, teachable failure\n(a schema rejection, a vacuumed version) carrying the engine's own words.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Data",
+            "type": "object"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "files": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Files"
+          },
+          "journal_uid": {
+            "title": "Journal Uid",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "op": {
+            "title": "Op",
+            "type": "string"
+          },
+          "rows": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rows"
+          },
+          "table": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "ok",
+          "op",
+          "journal_uid"
+        ],
+        "title": "LabOperationResult",
+        "type": "object"
+      },
+      "LabPackDetail": {
+        "properties": {
+          "dataset": {
+            "$ref": "#/components/schemas/DatasetSpec"
+          },
+          "defect_manifest": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Defect Manifest",
+            "type": "array"
+          },
+          "factory": {
+            "additionalProperties": true,
+            "title": "Factory",
+            "type": "object"
+          },
+          "fictional": {
+            "title": "Fictional",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "notebook_verified_on": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notebook Verified On"
+          },
+          "scenario_md": {
+            "title": "Scenario Md",
+            "type": "string"
+          },
+          "stations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Stations",
+            "type": "array"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "tables": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tables",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "title",
+          "summary",
+          "fictional",
+          "stations",
+          "scenario_md",
+          "dataset",
+          "factory",
+          "tables",
+          "defect_manifest"
+        ],
+        "title": "LabPackDetail",
+        "type": "object"
+      },
+      "LabPackSummary": {
+        "properties": {
+          "fictional": {
+            "title": "Fictional",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "notebook_verified_on": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notebook Verified On"
+          },
+          "stations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Stations",
+            "type": "array"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "title",
+          "summary",
+          "fictional",
+          "stations"
+        ],
+        "title": "LabPackSummary",
+        "type": "object"
+      },
+      "LabResetResult": {
+        "properties": {
+          "pack_id": {
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "removed": {
+            "title": "Removed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "pack_id",
+          "removed"
+        ],
+        "title": "LabResetResult",
         "type": "object"
       },
       "LauncherRequest": {
@@ -4302,6 +5343,45 @@
           "download_url"
         ],
         "title": "LocalModelOption",
+        "type": "object"
+      },
+      "MergeCdcOp": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_uid": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt Uid"
+          },
+          "op": {
+            "const": "merge_cdc",
+            "title": "Op",
+            "type": "string"
+          },
+          "pack_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,99}$",
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "table": {
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pack_id",
+          "op",
+          "table"
+        ],
+        "title": "MergeCdcOp",
         "type": "object"
       },
       "MockHistoryItem": {
@@ -6214,6 +7294,58 @@
         "title": "QuestionValidationReport",
         "type": "object"
       },
+      "ReadVersionOp": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_uid": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt Uid"
+          },
+          "op": {
+            "const": "read_version",
+            "title": "Op",
+            "type": "string"
+          },
+          "pack_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,99}$",
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "sample": {
+            "default": 5,
+            "maximum": 20.0,
+            "minimum": 0.0,
+            "title": "Sample",
+            "type": "integer"
+          },
+          "table": {
+            "title": "Table",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 0.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pack_id",
+          "op",
+          "table",
+          "version"
+        ],
+        "title": "ReadVersionOp",
+        "type": "object"
+      },
       "ReadinessResponse": {
         "properties": {
           "blockers": {
@@ -6707,6 +7839,51 @@
           "size_bytes"
         ],
         "title": "RecordingsFolder",
+        "type": "object"
+      },
+      "RestoreOp": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_uid": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt Uid"
+          },
+          "op": {
+            "const": "restore",
+            "title": "Op",
+            "type": "string"
+          },
+          "pack_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,99}$",
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "table": {
+            "title": "Table",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 0.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pack_id",
+          "op",
+          "table",
+          "version"
+        ],
+        "title": "RestoreOp",
         "type": "object"
       },
       "ResumableResponse": {
@@ -9433,6 +10610,29 @@
         "title": "SessionTake",
         "type": "object"
       },
+      "SourceIndexRow": {
+        "properties": {
+          "deleted": {
+            "title": "Deleted",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "modified_at": {
+            "title": "Modified At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "modified_at",
+          "deleted"
+        ],
+        "title": "SourceIndexRow",
+        "type": "object"
+      },
       "SpacedCard": {
         "description": "One due question, as a card: recall first, then reveal.\n\n`answer` and `explanation` travel with the card so the reveal is one round\ntrip. The client must not render them before \"Show answer\" -- the point of\nthe card is recall, and an answer on screen turns it into recognition.",
         "properties": {
@@ -10445,6 +11645,44 @@
         "title": "SystemInfo",
         "type": "object"
       },
+      "TableSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "batches": {
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Batches",
+            "type": "integer"
+          },
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/ColumnSpec"
+            },
+            "minItems": 1,
+            "title": "Columns",
+            "type": "array"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,62}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "rows": {
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "Rows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key",
+          "rows",
+          "batches",
+          "columns"
+        ],
+        "title": "TableSpec",
+        "type": "object"
+      },
       "TaskBindingInfo": {
         "description": "One task, what it needs, and who currently answers it.",
         "properties": {
@@ -11037,6 +12275,62 @@
           "items"
         ],
         "title": "TopicResults",
+        "type": "object"
+      },
+      "VacuumOp": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_uid": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt Uid"
+          },
+          "dry_run": {
+            "default": true,
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "enforce_retention": {
+            "default": true,
+            "title": "Enforce Retention",
+            "type": "boolean"
+          },
+          "op": {
+            "const": "vacuum",
+            "title": "Op",
+            "type": "string"
+          },
+          "pack_id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,99}$",
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "retention_hours": {
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Retention Hours",
+            "type": "integer"
+          },
+          "table": {
+            "title": "Table",
+            "type": "string"
+          }
+        },
+        "required": [
+          "pack_id",
+          "op",
+          "table",
+          "retention_hours"
+        ],
+        "title": "VacuumOp",
         "type": "object"
       },
       "ValidatedQuestionItem": {
@@ -13713,6 +15007,565 @@
         "summary": "Session Report",
         "tags": [
           "Interview sessions"
+        ]
+      }
+    },
+    "/api/v1/lab/lakehouse/engine": {
+      "get": {
+        "description": "Whether the optional Delta engine is installed. Never a server error.",
+        "operationId": "engine_status_api_v1_lab_lakehouse_engine_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Engine Status",
+        "tags": [
+          "Lakehouse Lab"
+        ]
+      }
+    },
+    "/api/v1/lab/lakehouse/journal": {
+      "get": {
+        "operationId": "list_journal_api_v1_lab_lakehouse_journal_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pack_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pack Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/JournalEntry"
+                  },
+                  "title": "Response List Journal Api V1 Lab Lakehouse Journal Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Journal",
+        "tags": [
+          "Lakehouse Lab"
+        ]
+      },
+      "post": {
+        "description": "A simulation station's entry. An entry claiming to be a real-engine run is refused.",
+        "operationId": "add_journal_entry_api_v1_lab_lakehouse_journal_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JournalEntryIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JournalEntry"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Journal Entry",
+        "tags": [
+          "Lakehouse Lab"
+        ]
+      }
+    },
+    "/api/v1/lab/lakehouse/journal/export.md": {
+      "get": {
+        "operationId": "export_journal_api_v1_lab_lakehouse_journal_export_md_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pack_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pack Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Journal",
+        "tags": [
+          "Lakehouse Lab"
+        ]
+      }
+    },
+    "/api/v1/lab/lakehouse/journal/{entry_uid}": {
+      "delete": {
+        "description": "The only change a journal entry allows.",
+        "operationId": "delete_journal_entry_api_v1_lab_lakehouse_journal__entry_uid__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_uid",
+            "required": true,
+            "schema": {
+              "title": "Entry Uid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Journal Entry",
+        "tags": [
+          "Lakehouse Lab"
+        ]
+      }
+    },
+    "/api/v1/lab/lakehouse/ops": {
+      "post": {
+        "description": "One allow-listed operation on the real engine. 503 without the engine; an\nengine refusal comes back as `ok: false` with the engine's own words.",
+        "operationId": "run_operation_api_v1_lab_lakehouse_ops_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateTableOp"
+                  },
+                  {
+                    "$ref": "#/components/schemas/AppendBatchOp"
+                  },
+                  {
+                    "$ref": "#/components/schemas/MergeCdcOp"
+                  },
+                  {
+                    "$ref": "#/components/schemas/HistoryOp"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ReadVersionOp"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RestoreOp"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CompactOp"
+                  },
+                  {
+                    "$ref": "#/components/schemas/VacuumOp"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CompareTablesOp"
+                  }
+                ],
+                "title": "Op"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabOperationResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Operation",
+        "tags": [
+          "Lakehouse Lab"
+        ]
+      }
+    },
+    "/api/v1/lab/lakehouse/packs": {
+      "get": {
+        "operationId": "list_packs_api_v1_lab_lakehouse_packs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LabPackSummary"
+                  },
+                  "title": "Response List Packs Api V1 Lab Lakehouse Packs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Packs",
+        "tags": [
+          "Lakehouse Lab"
+        ]
+      }
+    },
+    "/api/v1/lab/lakehouse/packs/{pack_id}": {
+      "get": {
+        "operationId": "get_pack_api_v1_lab_lakehouse_packs__pack_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_id",
+            "required": true,
+            "schema": {
+              "title": "Pack Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabPackDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Pack",
+        "tags": [
+          "Lakehouse Lab"
+        ]
+      }
+    },
+    "/api/v1/lab/lakehouse/packs/{pack_id}/dataset/{table}.csv": {
+      "get": {
+        "description": "One copy of a dataset table as CSV, for uploading to a Databricks Volume.",
+        "operationId": "dataset_csv_api_v1_lab_lakehouse_packs__pack_id__dataset__table__csv_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_id",
+            "required": true,
+            "schema": {
+              "title": "Pack Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "table",
+            "required": true,
+            "schema": {
+              "title": "Table",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "copy",
+            "required": false,
+            "schema": {
+              "default": "clean",
+              "enum": [
+                "clean",
+                "legacy",
+                "cdc"
+              ],
+              "title": "Copy",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Dataset Csv",
+        "tags": [
+          "Lakehouse Lab"
+        ]
+      }
+    },
+    "/api/v1/lab/lakehouse/packs/{pack_id}/notebook": {
+      "get": {
+        "description": "Station C as a Databricks source notebook. Marked unverified until someone has run it.",
+        "operationId": "notebook_api_v1_lab_lakehouse_packs__pack_id__notebook_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_id",
+            "required": true,
+            "schema": {
+              "title": "Pack Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "station",
+            "required": false,
+            "schema": {
+              "const": "c",
+              "default": "c",
+              "title": "Station",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Notebook",
+        "tags": [
+          "Lakehouse Lab"
+        ]
+      }
+    },
+    "/api/v1/lab/lakehouse/packs/{pack_id}/reset": {
+      "post": {
+        "description": "Delete this pack's lab tables. The journal is kept.",
+        "operationId": "reset_pack_api_v1_lab_lakehouse_packs__pack_id__reset_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_id",
+            "required": true,
+            "schema": {
+              "title": "Pack Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabResetResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reset Pack",
+        "tags": [
+          "Lakehouse Lab"
+        ]
+      }
+    },
+    "/api/v1/lab/lakehouse/packs/{pack_id}/source-index": {
+      "get": {
+        "description": "Each source row's key, when it changed and whether it's deleted, for the simulations.",
+        "operationId": "source_index_api_v1_lab_lakehouse_packs__pack_id__source_index_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pack_id",
+            "required": true,
+            "schema": {
+              "title": "Pack Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "table",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Table"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SourceIndexRow"
+                  },
+                  "title": "Response Source Index Api V1 Lab Lakehouse Packs  Pack Id  Source Index Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Source Index",
+        "tags": [
+          "Lakehouse Lab"
         ]
       }
     },

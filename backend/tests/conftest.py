@@ -22,6 +22,12 @@ os.environ.setdefault(
     "PREPBENCH_SECRETS_DIR", tempfile.mkdtemp(prefix="prepbench-test-secrets-")
 )
 
+# And the Lakehouse Lab's Delta tables: a test that runs an engine operation
+# writes real files, and they must never land in backend/data/lab.
+os.environ.setdefault(
+    "PREPBENCH_LAB_DIR", tempfile.mkdtemp(prefix="prepbench test lab ")
+)
+
 # ---------------------------------------------------------------------------
 # Everything in this block runs before the first `app.*` import, and has to.
 # ---------------------------------------------------------------------------

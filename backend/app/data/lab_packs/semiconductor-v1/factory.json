@@ -1,0 +1,24 @@
+{
+  "stub": true,
+  "note": "Station F (the Migration Factory) is built in Lakehouse Lab Phase 2. The decisions below are recorded now because they settle the source scenario's contradictions (PRD open question 9, decided 2026-09-28).",
+  "teaching_constants": {
+    "job_cluster_vs_all_purpose_cost_ratio": {
+      "value": 0.5,
+      "label": "Illustrative; check the current rate card. Never quoted as a real price ratio."
+    }
+  },
+  "budget": {"low_usd_millions": 10.5, "high_usd_millions": 13, "label": "Fictional range, about $10.5M to $13M."},
+  "waves": [
+    {"waves": [1, 2], "domain": "Pilot (BI feeds)"},
+    {"waves": [3, 4, 5, 6], "domain": "Supply chain"},
+    {"waves": [7, 8, 9], "domain": "Finance"},
+    {"waves": [10, 11], "domain": "Yield and defect analytics"},
+    {"waves": [12], "domain": "Equipment telemetry"}
+  ],
+  "timeline_phases": [
+    {"phase": 1, "waves": [1, 2]},
+    {"phase": 2, "waves": [3, 4, 5, 6, 7, 8, 9]},
+    {"phase": 3, "waves": [10, 11]},
+    {"phase": 4, "waves": [12]}
+  ]
+}

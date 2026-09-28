@@ -1,0 +1,18 @@
+# Optional: the Lakehouse Lab's real Delta engine. PrepBench runs without it --
+# the Lab's Station C then says the engine isn't installed, and nothing is
+# simulated in its place. Install it into the backend's own venv only if you want
+# to run real Delta operations locally:
+#
+#   uv pip install --system-certs -p backend/.venv/Scripts/python.exe -r backend/requirements-lab.txt
+#
+# --system-certs makes uv trust the Windows certificate store (needed behind
+# antivirus that inspects HTTPS). deltalake brings arro3-core; pyarrow is NOT
+# needed and isn't installed. tzdata gives Windows the time-zone database that
+# UTC timestamps need.
+#
+# 1.6.6, not the 1.6.5 the Phase 0 spike used: 1.6.5 was yanked upstream
+# (deltalake issue #4784). The engine tests re-assert every spike finding.
+
+-r requirements.txt
+deltalake==1.6.6
+tzdata
