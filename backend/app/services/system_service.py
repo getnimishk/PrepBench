@@ -96,7 +96,7 @@ class SystemService:
         for name in (
             "subjects", "questions", "exam_sessions", "exam_answers", "roadmaps", "roadmap_topics",
             "practice_recordings", "interview_sessions", "system_design_attempts",
-            "design_review_attempts", "learning_attempts", "spaced_repetition",
+            "design_review_attempts", "learning_attempts", "spaced_repetition", "roles",
         ):
             table = Base.metadata.tables.get(name)
             if table is not None:
