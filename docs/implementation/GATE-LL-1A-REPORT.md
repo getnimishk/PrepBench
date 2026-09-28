@@ -249,7 +249,7 @@ on Databricks Free Edition (the author, open question 8).
 
 ```
 ### Handoff — 2026-09-28
-Phase: Lakehouse Lab 1A · Branch: feat/lakehouse-lab-phase-1a · PR: (opening after this report)
+Phase: Lakehouse Lab 1A · Branch: feat/lakehouse-lab-phase-1a · PR: https://github.com/getnimishk/PrepBench/pull/42
 Done: LAB_DIR + path safety; optional deltalake behind a lazy adapter; the semiconductor-v1 pack;
   the deterministic dataset with manifest; the nine operations on real Delta tables; the journal
   (server-only real entries); the notebook export (unverified); the API. Tests green with and
