@@ -1,0 +1,49 @@
+{
+  "tables": {
+    "defects": {
+      "key": "defect_id",
+      "rows": 5000,
+      "batches": 5,
+      "columns": [
+        {"name": "defect_id", "type": "int64", "gen": {"kind": "sequence", "start": 1}},
+        {"name": "lot_id", "type": "string", "gen": {"kind": "pattern", "format": "LOT-{:05d}", "min": 1, "max": 700}},
+        {"name": "tool_id", "type": "string", "gen": {"kind": "choice", "values": ["ETCH-01", "ETCH-02", "LITHO-01", "LITHO-02", "CMP-01", "DEP-01", "IMPLANT-01", "METRO-01"]}},
+        {"name": "defect_type", "type": "string", "gen": {"kind": "choice", "values": ["particle", "scratch", "pattern", "residue", "void", "bridge"]}},
+        {"name": "defect_count", "type": "int64", "gen": {"kind": "int", "min": 0, "max": 40}},
+        {"name": "yield_pct", "type": "decimal(10,4)", "gen": {"kind": "decimal", "min": 85, "max": 99.99, "scale": 4}},
+        {"name": "scrap_qty", "type": "int64", "gen": {"kind": "int", "min": 1, "max": 25}},
+        {"name": "inspected_at", "type": "timestamp", "gen": {"kind": "time", "start": "2026-03-01T00:00:00Z", "span_days": 30}}
+      ]
+    },
+    "telemetry": {
+      "key": "event_id",
+      "rows": 20000,
+      "batches": 4,
+      "columns": [
+        {"name": "event_id", "type": "int64", "gen": {"kind": "sequence", "start": 1}},
+        {"name": "tool_id", "type": "string", "gen": {"kind": "choice", "values": ["ETCH-01", "ETCH-02", "LITHO-01", "LITHO-02", "CMP-01", "DEP-01", "IMPLANT-01", "METRO-01"]}},
+        {"name": "sensor", "type": "string", "gen": {"kind": "choice", "values": ["chamber_temp_c", "rf_power_w", "pressure_mtorr", "gas_flow_sccm"]}},
+        {"name": "reading", "type": "decimal(12,4)", "gen": {"kind": "decimal", "min": 1, "max": 900, "scale": 4}},
+        {"name": "event_time", "type": "timestamp", "gen": {"kind": "time", "start": "2026-03-01T00:00:00Z", "span_days": 7}}
+      ]
+    }
+  },
+  "defects": [
+    {"id": "precision", "kind": "precision", "table": "defects", "column": "yield_pct", "legacy_scale": 2, "affects": {"count": 300},
+     "about": "The legacy job cast yield to two decimal places for some lots; the migrated job keeps four."},
+    {"id": "tz-shift", "kind": "timezone", "table": "defects", "column": "inspected_at", "legacy_offset_hours": 8, "affects": {"fraction": 0.12},
+     "about": "Rows written by one legacy job took the cluster's local time (UTC+8) as if it were UTC."},
+    {"id": "null-scrap", "kind": "null_handling", "table": "defects", "column": "scrap_qty", "legacy_value": 0, "affects": {"count": 40},
+     "about": "Scrap not yet counted is unknown (null) in the source; the legacy job wrote 0, which changes the average but not the row count."},
+    {"id": "drift", "kind": "schema_drift", "table": "defects", "batch": 3, "add_column": {"name": "inspector_id", "type": "string"},
+     "about": "From batch 3 the source adds an inspector_id column."},
+    {"id": "cdc", "kind": "cdc", "table": "defects", "updates": 25, "deletes": 10, "inserts": 15, "from_batches": [1, 2],
+     "about": "A change batch: corrected defect counts, withdrawn inspections, and late-registered records."},
+    {"id": "replay", "kind": "replay", "table": "defects", "batch": 2,
+     "about": "Batch 2 is delivered twice after a retry."},
+    {"id": "late", "kind": "late_arrival", "table": "telemetry", "batch": 3, "from_batch": 2, "affects": {"count": 120},
+     "about": "Events from batch 2's time window arrive with batch 3."},
+    {"id": "small-files", "kind": "small_files", "table": "telemetry", "batch": 4, "files": 50,
+     "about": "Batch 4 lands as 50 small writes instead of one."}
+  ]
+}

@@ -3,6 +3,7 @@
 # Commercial use requires a separate licence from the copyright holder.
 
 import os
+import re
 from typing import Optional
 from pathlib import Path
 from pydantic_settings import BaseSettings
@@ -15,6 +16,11 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 # record into a throwaway folder: backend/data/recordings holds the learner's
 # own voice recordings, which nothing automated should ever write beside.
 RECORDINGS_DIR = Path(os.environ.get("PREPBENCH_RECORDINGS_DIR") or (DATA_DIR / "recordings"))
+
+# Where the Lakehouse Lab keeps its Delta tables. Never beside the learner's
+# database: the tables are throwaway practice data, and a reset deletes this
+# folder. Overridable so the test suites write to a temp folder instead.
+LAB_DIR = Path(os.environ.get("PREPBENCH_LAB_DIR") or (DATA_DIR / "lab"))
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "PrepBench"
@@ -72,4 +78,35 @@ def recording_file(stored_path: str) -> Path:
     path = (RECORDINGS_DIR / stored_path).resolve()
     if path != root and root not in path.parents:
         raise ValueError(f"Recording path {stored_path!r} is outside the recordings folder.")
+    return path
+
+
+_LAB_NAME = re.compile(r"^[a-z0-9][a-z0-9_-]{0,99}$")
+
+
+def lab_pack_dir(pack_id: str) -> Path:
+    """A pack's folder under LAB_DIR, and never anything outside it."""
+    if not _LAB_NAME.match(pack_id or ""):
+        raise ValueError(f"{pack_id!r} is not a lab pack id.")
+    root = LAB_DIR.resolve()
+    path = (LAB_DIR / pack_id).resolve()
+    if root not in path.parents:
+        raise ValueError(f"Lab pack {pack_id!r} resolves outside the lab folder.")
+    return path
+
+
+def lab_path(pack_id: str, table: str) -> Path:
+    """The folder of one lab Delta table, e.g. ("semiconductor-v1", "bronze.defects").
+
+    The client names a table from the pack; it never sends a path. Both parts are
+    checked against a strict pattern *and* the resolved path must sit inside
+    LAB_DIR, so "..", absolute paths and other drives are refused twice over.
+    """
+    parts = (table or "").split(".")
+    if len(parts) != 2 or not all(_LAB_NAME.match(p) for p in parts):
+        raise ValueError(f"{table!r} is not a lab table name (layer.table).")
+    pack = lab_pack_dir(pack_id)
+    path = (pack / parts[0] / parts[1]).resolve()
+    if pack not in path.parents:
+        raise ValueError(f"Lab table {table!r} resolves outside its pack folder.")
     return path

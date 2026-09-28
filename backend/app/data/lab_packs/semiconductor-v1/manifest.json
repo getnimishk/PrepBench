@@ -1,0 +1,10 @@
+{
+  "id": "semiconductor-v1",
+  "version": 1,
+  "title": "Semiconductor Hadoop to Databricks migration",
+  "summary": "A fab's yield and equipment data moving off an ageing on-prem Hadoop platform onto a Databricks lakehouse. Every company, figure and person in it is fictional.",
+  "fictional": true,
+  "seed": 20260924,
+  "stations": ["c"],
+  "notebook_verified_on": null
+}

@@ -32,6 +32,7 @@ from app.models.llm_config import LLMProviderConfig, LLMTaskBinding
 from app.models.learning_attempt import LearningAttempt
 from app.models.subject_content_pack import SubjectContentPack
 from app.models.role import Role, RoleDiagnosticAttempt, RoleRequirement
+from app.models.lab_journal_entry import LabJournalEntry
 
 __all__ = [
     "Question",
@@ -74,4 +75,5 @@ __all__ = [
     "Role",
     "RoleRequirement",
     "RoleDiagnosticAttempt",
+    "LabJournalEntry",
 ]
