@@ -19,7 +19,22 @@ import react from '@vitejs/plugin-react';
 // reads of a 330 KB response stalled with "Connection: close", 0 of 200 with
 // keep-alive. Kept-alive, the backend does not close after the response and the
 // client reads to its Content-Length.
-const backendAgent = new http.Agent({ keepAlive: true });
+//
+// A kept-alive socket has its own failure: the backend closes it after an idle
+// timeout and says nothing, so the agent can hand it to a request just as it
+// closes, and that request fails with "socket hang up". When told the backend's
+// timeout (PREPBENCH_API_KEEP_ALIVE_S, set by the browser tests alongside
+// uvicorn's --timeout-keep-alive; see playwright.config.ts), idle sockets are
+// dropped here at half that, so this side always closes first. The agent's
+// `timeout` only destroys free sockets. In-flight requests just get a 'timeout'
+// event, and the proxy doesn't listen for it (no proxyTimeout is set), so a slow
+// AI-grading call is not cut short. Unset (the everyday dev server), the agent is
+// as before.
+const backendKeepAliveS = Number(process.env.PREPBENCH_API_KEEP_ALIVE_S);
+const backendAgent = new http.Agent({
+  keepAlive: true,
+  ...(backendKeepAliveS > 0 ? { timeout: (backendKeepAliveS * 1000) / 2 } : {}),
+});
 
 export default defineConfig({
   plugins: [react()],

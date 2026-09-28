@@ -29,6 +29,23 @@ const backendDir = path.join(repoRoot, 'backend');
 const BACKEND_PORT = 8100;
 const FRONTEND_PORT = 5273;
 
+// How long the backend keeps an idle kept-alive connection open, in seconds.
+//
+// Uvicorn's default is 5 s, and it closes the socket without warning: no
+// "Keep-Alive: timeout=" header, so the dev server's proxy keeps the socket in its
+// pool as if it were good forever. A request that reuses it in the instant
+// uvicorn closes it fails with "socket hang up" or ECONNRESET, and the screen
+// behind it shows an error or never loads. Measured with no app and no proxy,
+// just Node's agent against uvicorn: 2 of 12 reuses at ~5 s idle reset; 0 of 12
+// at 75 s. In a 30-50 minute run with Vite compiling under load, that window
+// came up often enough to fail a few random screens per run.
+//
+// So the backend is given a long keep-alive here, and the same number goes to
+// the dev server (PREPBENCH_API_KEEP_ALIVE_S), which drops its idle sockets well
+// before this. The proxy always closes an idle connection first, and a client
+// closing an idle connection loses nothing.
+const BACKEND_KEEP_ALIVE_S = 75;
+
 // SQLAlchemy wants forward slashes in a sqlite URL, including on Windows.
 const e2eDbPath = path.join(backendDir, 'data', 'e2e_exam_simulator.db').replace(/\\/g, '/');
 
@@ -101,7 +118,7 @@ export default defineConfig({
 
   webServer: [
     {
-      command: `"${python}" -m uvicorn app.main:app --app-dir "${backendDir}" --host 127.0.0.1 --port ${BACKEND_PORT}`,
+      command: `"${python}" -m uvicorn app.main:app --app-dir "${backendDir}" --host 127.0.0.1 --port ${BACKEND_PORT} --timeout-keep-alive ${BACKEND_KEEP_ALIVE_S}`,
       url: `http://127.0.0.1:${BACKEND_PORT}/api/v1/subjects`,
       reuseExistingServer: false,
       timeout: 120_000,
@@ -121,6 +138,7 @@ export default defineConfig({
       timeout: 120_000,
       env: {
         PREPBENCH_API_TARGET: `http://127.0.0.1:${BACKEND_PORT}`,
+        PREPBENCH_API_KEEP_ALIVE_S: String(BACKEND_KEEP_ALIVE_S),
       },
     },
   ],
