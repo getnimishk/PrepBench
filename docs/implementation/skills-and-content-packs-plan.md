@@ -58,7 +58,7 @@ tests, exit criteria and a gate. Don't start a phase until the previous gate has
 | D11 | **The Lakehouse Lab belongs to the seeded "Databricks Data Platform" skill** (`seed_subjects.py`, slug `databricks`). | It already exists as a skill; no umbrella skill needed. |
 | D12 | **Cross-cutting topics** (reconciliation, PII in banking, migration planning, recovery) **stay as chapters** inside technology guides. | Both reviews. Promote one to a skill only if it later gets its own practice and evidence. |
 | D13 | **Review tooling never ships**: `/prototype`, reviewer notes, `PrototypeBanner`, `run.mjs`, `Start.bat` stay in the prototype. | They are for reviewing ideas, not for learners. |
-| D14 | **A new `technical` interview round** (confirmed by the author 2026-09-27). Saved Say-it questions, and later the Lakehouse Lab's questions (its open question 4), use `round_type = "technical"`. Built in Phase 3, task 4a. | `hiring_manager`'s rubric grades STAR structure and "Specificity of Example", i.e. a real story. The scenarios' honesty rule tells learners *without* one to say how they would handle it, so those answers would be marked down unfairly under it. |
+| D14 | **A new `technical` interview round** (confirmed by the author 2026-09-27). Saved Say-it questions, and later the Lakehouse Lab's questions (its open question 4), use `round_type = "technical"`. Built in Phase 3, task 4a. **Defaults confirmed by the author 2026-09-28:** 60–120 s answer, 30 s thinking; plan prompt "What it is → how you'd approach it → the risk you'd watch → how you'd know it worked"; the listening-for text in §7 4a; rubric Technical Accuracy, Structure & Clarity, Trade-off Reasoning, Risks & Failure Modes. | `hiring_manager`'s rubric grades STAR structure and "Specificity of Example", i.e. a real story. The scenarios' honesty rule tells learners *without* one to say how they would handle it, so those answers would be marked down unfairly under it. |
 
 ---
 
@@ -69,8 +69,8 @@ tests, exit criteria and a gate. Don't start a phase until the previous gate has
 | 0 | Docs into the repo: research notes, this plan, Lakehouse plan cross-links | — | **Merged** (PR #33) | PR description |
 | 1 | Content-pack foundation: pack files, loader, validation, API, skill ↔ pack link | 0 merged | **Merged** (PR #34) | `GATE-SK-1-REPORT.md` |
 | 2 | Guides in the Study Library | 1 gate | **Merged** (PR #36) | `GATE-SK-2-REPORT.md` |
-| 3 | Scenario sandbox in the Learning Lab | 2 gate | Gate passed, PR open | `GATE-SK-3-REPORT.md` |
-| 4 | Roles from a job description + diagnostic | 3 gate | Not started | `GATE-SK-4-REPORT.md` |
+| 3 | Scenario sandbox in the Learning Lab | 2 gate | **Merged** (PR #38) | `GATE-SK-3-REPORT.md` |
+| 4 | Roles from a job description + diagnostic | 3 gate | Gate passed, PR open | `GATE-SK-4-REPORT.md` |
 | 5 | Hand over to the Lakehouse Lab plan | 4 gate | Not started | — |
 | Later | See §10 | — | Not planned | — |
 Gate reports go in `docs/implementation/`, next to the existing `GATE-*.md` files.

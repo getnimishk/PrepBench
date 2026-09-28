@@ -69,6 +69,31 @@ export async function createSkillWithPack(
   return { id: body.id, name };
 }
 
+/**
+ * A role (a job the learner is preparing for) through the API, with one
+ * requirement linked to `skillId` when given -- a link a learner confirmed.
+ */
+export async function createRole(
+  request: APIRequestContext,
+  stem: string,
+  skillId?: number,
+): Promise<{ id: number; name: string }> {
+  const name = `${stem} ${tag()}`;
+  const created = await request.post('/api/v1/roles', {
+    data: {
+      name,
+      job_description: 'SAMPLE JOB DESCRIPTION (fictional)\nMandatory skills\n- Data reconciliation for migrations\n- Power BI',
+      lens: 'po',
+      requirements: [
+        { text: 'Data reconciliation and validation for migrations', kind: 'mandatory', subject_id: skillId ?? null },
+        { text: 'Power BI', kind: 'preferred' },
+      ],
+    },
+  });
+  expect(created.status(), await created.text()).toBe(201);
+  return { id: (await created.json()).id, name };
+}
+
 /** One question owned by `prep`, with text unique enough to find on screen. */
 export async function createQuestion(
   request: APIRequestContext,

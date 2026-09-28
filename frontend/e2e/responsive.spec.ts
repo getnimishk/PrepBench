@@ -3,7 +3,7 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import { expect, test } from '@playwright/test';
-import { completedMockWithMisses, createCertification, pickPreparation } from './helpers';
+import { completedMockWithMisses, createCertification, createRole, pickPreparation } from './helpers';
 
 /**
  * The main screens at the widths the plan names: desktop 1280 and 1024, tablet
@@ -20,7 +20,8 @@ const VIEWPORTS = [
   { name: 'phone 390', width: 390, height: 844, phone: true },
 ];
 
-const ROUTES = (prepId: number) => [
+const ROUTES = (prepId: number, roleId: number) => [
+  '/preparations/roles/new', `/preparations/roles/${roleId}`, `/preparations/roles/${roleId}/diagnostic`,
   '/', '/practice', '/review', '/exam-setup', '/question-bank', '/analytics',
   '/lab', '/chart-sandbox', '/scenarios', '/scenarios/adf/1',
   '/design-reviews/1', '/system-design', '/interview-practice', '/preparations/new', `/preparations/${prepId}/edit`,
@@ -32,6 +33,7 @@ for (const viewport of VIEWPORTS) {
   test(`the main screens fit a ${viewport.name} screen`, async ({ page, request }) => {
     test.setTimeout(240_000);
     const prep = await createCertification(request, 'Responsive Prep');
+    const role = await createRole(request, 'Responsive Role');
     await completedMockWithMisses(request, prep, 3, 'Responsive Area');
 
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
@@ -39,7 +41,7 @@ for (const viewport of VIEWPORTS) {
     await pickPreparation(page, prep.name);
 
     const problems: string[] = [];
-    for (const route of ROUTES(prep.id)) {
+    for (const route of ROUTES(prep.id, role.id)) {
       await page.goto(route);
       await expect(page.locator('main h1').first()).toBeVisible();
       await page.waitForLoadState('networkidle');

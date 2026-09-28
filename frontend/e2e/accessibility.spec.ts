@@ -4,7 +4,7 @@
 
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { completedMockWithMisses, createCertification, pickPreparation } from './helpers';
+import { completedMockWithMisses, createCertification, createRole, pickPreparation } from './helpers';
 
 /**
  * Every screen, checked by axe in both themes: WCAG 2.2 A and AA, plus the
@@ -44,14 +44,16 @@ async function seed(request: APIRequestContext) {
   await request.post(`/api/v1/roadmaps/${roadmap.id}/topics`, {
     data: { phase_id: phase.id, title: 'Accessible topic', estimated_hours: 2, success_criteria: 'Explain it.' },
   });
+  const role = await createRole(request, 'Accessible Role');
   return {
     prep, promptId: prompts.items?.[0]?.id as number | undefined, examId: (await drill.json()).id as number,
-    roadmapId: roadmap.id as number,
+    roadmapId: roadmap.id as number, roleId: role.id,
   };
 }
 
-const ROUTES = (prepId: number, roadmapId: number) => [
-  '/', '/preparations', '/preparations/new', `/preparations/${prepId}/edit`, '/practice', '/practice?tab=spaced', '/practice?tab=custom', '/learn',
+const ROUTES = (prepId: number, roadmapId: number, roleId: number) => [
+  '/', '/preparations', '/preparations/new', `/preparations/${prepId}/edit`,
+  '/preparations/roles/new', `/preparations/roles/${roleId}`, `/preparations/roles/${roleId}/diagnostic`, '/practice', '/practice?tab=spaced', '/practice?tab=custom', '/learn',
   '/learn/guides/adf', '/learn/guides/adf/pitfalls', '/scenarios', '/scenarios/adf/1',
   '/review', '/exam-setup', '/question-bank', '/analytics', `/analytics/area?subject=${prepId}&domain=Accessible%20Area`,
   '/roadmaps', `/roadmaps/${roadmapId}/edit`, '/search?q=Accessible', '/profile', '/lab', '/chart-sandbox', '/design-reviews', '/design-reviews/1', '/system-design', '/interview-practice',
@@ -66,7 +68,7 @@ for (const theme of ['light', 'dark'] as const) {
     // suite grew around it; a run on a busy machine needs the room, and a timeout
     // here used to leave the dark theme set for whatever ran next.
     test.setTimeout(900_000);
-    const { prep, promptId, examId, roadmapId } = await seed(request);
+    const { prep, promptId, examId, roadmapId, roleId } = await seed(request);
     // A learner with a name gets their initials in the header instead of an
     // icon: text, so the one variant of the avatar that axe measures contrast on.
     const profile = await (await request.get('/api/v1/profile')).json();
@@ -79,7 +81,7 @@ for (const theme of ['light', 'dark'] as const) {
 
       const focusRoutes = [`/exam/${examId}`, ...(promptId ? [`/system-design/${promptId}/answer`] : [])];
       const violations: string[] = [];
-      for (const route of [...ROUTES(prep.id, roadmapId), ...focusRoutes]) {
+      for (const route of [...ROUTES(prep.id, roadmapId, roleId), ...focusRoutes]) {
         violations.push(...await audit(page, route, theme));
       }
       expect(violations, violations.join('\n')).toEqual([]);

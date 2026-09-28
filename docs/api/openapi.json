@@ -1553,6 +1553,79 @@
         "title": "DetectedRunner",
         "type": "object"
       },
+      "DiagnosticCreate": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticItem"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "lens": {
+            "enum": [
+              "po",
+              "pm",
+              "dm",
+              "em"
+            ],
+            "title": "Lens",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lens",
+          "items"
+        ],
+        "title": "DiagnosticCreate",
+        "type": "object"
+      },
+      "DiagnosticItem": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "default": "",
+            "maxLength": 5000,
+            "title": "Answer",
+            "type": "string"
+          },
+          "confidence": {
+            "enum": [
+              "not-yet",
+              "partly",
+              "confident"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "covered": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Covered",
+            "type": "array"
+          },
+          "fits_requirement": {
+            "default": false,
+            "title": "Fits Requirement",
+            "type": "boolean"
+          },
+          "question_ref": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Question Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question_ref",
+          "confidence"
+        ],
+        "title": "DiagnosticItem",
+        "type": "object"
+      },
       "DiagnosticQuestion": {
         "additionalProperties": false,
         "properties": {
@@ -1596,6 +1669,49 @@
           "chapter"
         ],
         "title": "DiagnosticQuestion",
+        "type": "object"
+      },
+      "DiagnosticResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "lens": {
+            "enum": [
+              "po",
+              "pm",
+              "dm",
+              "em"
+            ],
+            "title": "Lens",
+            "type": "string"
+          },
+          "role_id": {
+            "title": "Role Id",
+            "type": "integer"
+          },
+          "taken_at": {
+            "format": "date-time",
+            "title": "Taken At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "role_id",
+          "taken_at",
+          "lens",
+          "items"
+        ],
+        "title": "DiagnosticResponse",
         "type": "object"
       },
       "DistractorAnalysis": {
@@ -8444,6 +8560,384 @@
           }
         },
         "title": "RoadmapUpdate",
+        "type": "object"
+      },
+      "RoleCreate": {
+        "properties": {
+          "interview_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interview Date"
+          },
+          "job_description": {
+            "default": "",
+            "maxLength": 50000,
+            "title": "Job Description",
+            "type": "string"
+          },
+          "lens": {
+            "default": "po",
+            "enum": [
+              "po",
+              "pm",
+              "dm",
+              "em"
+            ],
+            "title": "Lens",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "requirements": {
+            "items": {
+              "$ref": "#/components/schemas/RoleRequirementIn"
+            },
+            "maxItems": 200,
+            "title": "Requirements",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "RoleCreate",
+        "type": "object"
+      },
+      "RoleRequirementIn": {
+        "properties": {
+          "kind": {
+            "default": "mandatory",
+            "enum": [
+              "mandatory",
+              "preferred"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "subject_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Id"
+          },
+          "text": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "RoleRequirementIn",
+        "type": "object"
+      },
+      "RoleRequirementResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "mandatory",
+              "preferred"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "order_index": {
+            "title": "Order Index",
+            "type": "integer"
+          },
+          "subject_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Id"
+          },
+          "subject_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Name"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "order_index",
+          "text",
+          "kind"
+        ],
+        "title": "RoleRequirementResponse",
+        "type": "object"
+      },
+      "RoleRequirementsReplace": {
+        "properties": {
+          "requirements": {
+            "items": {
+              "$ref": "#/components/schemas/RoleRequirementIn"
+            },
+            "maxItems": 200,
+            "title": "Requirements",
+            "type": "array"
+          }
+        },
+        "required": [
+          "requirements"
+        ],
+        "title": "RoleRequirementsReplace",
+        "type": "object"
+      },
+      "RoleResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "diagnostic_count": {
+            "title": "Diagnostic Count",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "interview_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interview Date"
+          },
+          "is_archived": {
+            "title": "Is Archived",
+            "type": "boolean"
+          },
+          "job_description": {
+            "title": "Job Description",
+            "type": "string"
+          },
+          "lens": {
+            "enum": [
+              "po",
+              "pm",
+              "dm",
+              "em"
+            ],
+            "title": "Lens",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "requirements": {
+            "items": {
+              "$ref": "#/components/schemas/RoleRequirementResponse"
+            },
+            "title": "Requirements",
+            "type": "array"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "job_description",
+          "lens",
+          "is_archived",
+          "created_at",
+          "updated_at",
+          "requirements",
+          "diagnostic_count"
+        ],
+        "title": "RoleResponse",
+        "type": "object"
+      },
+      "RoleSummary": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "diagnostic_count": {
+            "title": "Diagnostic Count",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "interview_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interview Date"
+          },
+          "is_archived": {
+            "title": "Is Archived",
+            "type": "boolean"
+          },
+          "lens": {
+            "enum": [
+              "po",
+              "pm",
+              "dm",
+              "em"
+            ],
+            "title": "Lens",
+            "type": "string"
+          },
+          "linked_count": {
+            "title": "Linked Count",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "requirement_count": {
+            "title": "Requirement Count",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "lens",
+          "is_archived",
+          "created_at",
+          "updated_at",
+          "requirement_count",
+          "linked_count",
+          "diagnostic_count"
+        ],
+        "title": "RoleSummary",
+        "type": "object"
+      },
+      "RoleUpdate": {
+        "properties": {
+          "interview_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interview Date"
+          },
+          "is_archived": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Archived"
+          },
+          "job_description": {
+            "anyOf": [
+              {
+                "maxLength": 50000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Description"
+          },
+          "lens": {
+            "anyOf": [
+              {
+                "enum": [
+                  "po",
+                  "pm",
+                  "dm",
+                  "em"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lens"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "RoleUpdate",
         "type": "object"
       },
       "RoundAnalyticsItem": {
@@ -16481,6 +16975,371 @@
         "summary": "Mark Topic Guide Section Read",
         "tags": [
           "Learning Roadmaps"
+        ]
+      }
+    },
+    "/api/v1/roles": {
+      "get": {
+        "description": "Jobs the learner is preparing for. No readiness: a role has no mocks.",
+        "operationId": "list_roles_api_v1_roles_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "include_archived",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Archived",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RoleSummary"
+                  },
+                  "title": "Response List Roles Api V1 Roles Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Roles",
+        "tags": [
+          "Roles"
+        ]
+      },
+      "post": {
+        "description": "A role from a job description, with the requirements the learner confirmed.",
+        "operationId": "create_role_api_v1_roles_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Role",
+        "tags": [
+          "Roles"
+        ]
+      }
+    },
+    "/api/v1/roles/{role_id}": {
+      "delete": {
+        "description": "The role, its requirements and its diagnostics. Preparations are untouched.",
+        "operationId": "delete_role_api_v1_roles__role_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "title": "Role Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Role",
+        "tags": [
+          "Roles"
+        ]
+      },
+      "get": {
+        "operationId": "get_role_api_v1_roles__role_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "title": "Role Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Role",
+        "tags": [
+          "Roles"
+        ]
+      },
+      "put": {
+        "operationId": "update_role_api_v1_roles__role_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "title": "Role Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Role",
+        "tags": [
+          "Roles"
+        ]
+      }
+    },
+    "/api/v1/roles/{role_id}/diagnostics": {
+      "get": {
+        "description": "Every attempt, oldest first: the first is \"before\", the latest \"after\".",
+        "operationId": "list_diagnostics_api_v1_roles__role_id__diagnostics_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "title": "Role Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DiagnosticResponse"
+                  },
+                  "title": "Response List Diagnostics Api V1 Roles  Role Id  Diagnostics Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Diagnostics",
+        "tags": [
+          "Roles"
+        ]
+      },
+      "post": {
+        "description": "Record an attempt. A retake must ask the first attempt's questions, as its lens.",
+        "operationId": "add_diagnostic_api_v1_roles__role_id__diagnostics_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "title": "Role Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiagnosticCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiagnosticResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Diagnostic",
+        "tags": [
+          "Roles"
+        ]
+      }
+    },
+    "/api/v1/roles/{role_id}/requirements": {
+      "put": {
+        "description": "Replace the requirement list, including the Skill links the learner confirmed.",
+        "operationId": "replace_requirements_api_v1_roles__role_id__requirements_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "title": "Role Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleRequirementsReplace"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replace Requirements",
+        "tags": [
+          "Roles"
         ]
       }
     },

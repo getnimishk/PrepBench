@@ -31,6 +31,7 @@ from app.models.roadmap import (
 from app.models.llm_config import LLMProviderConfig, LLMTaskBinding
 from app.models.learning_attempt import LearningAttempt
 from app.models.subject_content_pack import SubjectContentPack
+from app.models.role import Role, RoleDiagnosticAttempt, RoleRequirement
 
 __all__ = [
     "Question",
@@ -70,4 +71,7 @@ __all__ = [
     "LLMTaskBinding",
     "LearningAttempt",
     "SubjectContentPack",
+    "Role",
+    "RoleRequirement",
+    "RoleDiagnosticAttempt",
 ]

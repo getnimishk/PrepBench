@@ -947,6 +947,48 @@ def apply_lightweight_migrations():
             _log_migration_failure("interview_questions.subject_id / source_ref", exc)
 
         try:
+            # roles, role_requirements, role_diagnostic_attempts: jobs the
+            # learner is preparing for, read from a job description (skills
+            # plan §8, D8). New tables, so create_all covers a fresh database
+            # and this covers an upgrade in place. A requirement's subject_id
+            # is a link the learner confirmed; SET NULL makes a deleted Skill a
+            # gap again rather than deleting the requirement.
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS roles (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name VARCHAR(200) NOT NULL,
+                    interview_date DATE,
+                    job_description TEXT NOT NULL DEFAULT '',
+                    lens VARCHAR(10) NOT NULL DEFAULT 'po',
+                    is_archived BOOLEAN NOT NULL DEFAULT 0,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL
+                )
+            """))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS role_requirements (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+                    order_index INTEGER NOT NULL DEFAULT 0,
+                    text TEXT NOT NULL,
+                    kind VARCHAR(10) NOT NULL DEFAULT 'mandatory',
+                    subject_id INTEGER REFERENCES subjects(id) ON DELETE SET NULL
+                )
+            """))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS role_diagnostic_attempts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+                    taken_at DATETIME NOT NULL,
+                    lens VARCHAR(10) NOT NULL,
+                    items TEXT NOT NULL DEFAULT '[]'
+                )
+            """))
+            conn.commit()
+        except Exception as exc:
+            _log_migration_failure("roles tables", exc)
+
+        try:
             # Every index the models declare, on a database that was upgraded into
             # its schema rather than created with it.
             #

@@ -201,7 +201,7 @@ export const PreparationNewPage: React.FC = () => {
             <Typography variant="h5" component="h2" id="new-preparation-step" sx={{ mt: '4px' }}>
               What are you preparing for?
             </Typography>
-            <Grid template="repeat(2, minmax(0,1fr))" sx={{ mt: '14px' }}>
+            <Grid template="repeat(3, minmax(0,1fr))" sx={{ mt: '14px' }}>
               <KindCard
                 eyebrow="Certification"
                 title="A named exam"
@@ -213,6 +213,12 @@ export const PreparationNewPage: React.FC = () => {
                 title="An open-ended capability"
                 detail="No pass mark. Progress is measured by attempts and analysed answers."
                 onClick={() => chooseKind('skill')}
+              />
+              <KindCard
+                eyebrow="Role"
+                title="A job you want"
+                detail="Paste a job description. You link each requirement to a Skill you are preparing, and the rest are your gaps."
+                onClick={() => navigate('/preparations/roles/new')}
               />
             </Grid>
           </>

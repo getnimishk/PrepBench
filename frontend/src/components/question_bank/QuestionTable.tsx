@@ -11,6 +11,7 @@ import { Edit2, Trash2 } from 'lucide-react';
 import { Question, QuestionType } from '../../types/question';
 import { Actions, Pill } from '../ui/primitives';
 import { NARROW_QUERY } from '../../theme/tokens';
+import { VISUALLY_HIDDEN } from '../ui/visuallyHidden';
 
 interface QuestionTableProps {
   questions: Question[];
@@ -55,11 +56,6 @@ export const QuestionStatus: React.FC<{ question: Question }> = ({ question }) =
 };
 
 /** Read by screen readers, not drawn. */
-const VISUALLY_HIDDEN = {
-  border: 0, clip: 'rect(0 0 0 0)', height: '1px', margin: '-1px', overflow: 'hidden',
-  padding: 0, position: 'absolute', top: 0, left: 0, whiteSpace: 'nowrap', width: '1px',
-} as const;
-
 /** The prototype's bank table: the question, its topic, level, type and status, and a way in. */
 export const QuestionTable: React.FC<QuestionTableProps> = ({
   questions,

@@ -11,7 +11,7 @@ import { PreparationsPage } from './PreparationsPage';
 
 const api = {
   getSubjects: vi.fn(), archiveSubject: vi.fn(),
-  getRoadmaps: vi.fn(), getReviewCounts: vi.fn(), getQuestionBankSummary: vi.fn(),
+  getRoadmaps: vi.fn(), getReviewCounts: vi.fn(), getQuestionBankSummary: vi.fn(), getRoles: vi.fn(),
 };
 vi.mock('../services/api', () => ({
   getSubjects: (...a: any[]) => api.getSubjects(...a),
@@ -19,6 +19,7 @@ vi.mock('../services/api', () => ({
   getRoadmaps: (...a: any[]) => api.getRoadmaps(...a),
   getReviewCounts: (...a: any[]) => api.getReviewCounts(...a),
   getQuestionBankSummary: (...a: any[]) => api.getQuestionBankSummary(...a),
+  getRoles: (...a: any[]) => api.getRoles(...a),
 }));
 
 const refresh = vi.fn();
@@ -46,6 +47,7 @@ const renderPage = () => render(<MemoryRouter><PreparationsPage /></MemoryRouter
 beforeEach(() => {
   api.getSubjects.mockReset();
   api.archiveSubject.mockReset();
+  api.getRoles.mockReset().mockResolvedValue([]);
   api.getRoadmaps.mockReset().mockResolvedValue([
     {
       id: 4, title: 'PSM I syllabus', subject_id: 1, is_archived: false, updated_at: '2026-09-01T00:00:00',
@@ -128,5 +130,28 @@ describe('PreparationsPage', () => {
     const panel = await screen.findByRole('region', { name: 'Scrum / PSM I' });
     expect(await within(panel).findByText('Missed concepts followed by verification checks')).toBeInTheDocument();
     expect(within(panel).getByText('709 questions')).toBeInTheDocument();
+  });
+
+  it('lists the jobs you are preparing for, without a readiness figure', async () => {
+    api.getSubjects.mockResolvedValue([PSM]);
+    api.getRoles.mockResolvedValue([{
+      id: 4, name: 'Technical Product Owner', interview_date: '2026-11-02', lens: 'po', is_archived: false,
+      created_at: 't', updated_at: 't', requirement_count: 13, linked_count: 2, diagnostic_count: 1,
+    }]);
+    renderPage();
+
+    const jobs = await screen.findByRole('region', { name: "Jobs you're preparing for" });
+    expect(await within(jobs).findByText('Technical Product Owner')).toBeInTheDocument();
+    expect(within(jobs).getByText(/2 of 13 requirements linked to a Skill · diagnostic taken 1 time · interview 2 November · readiness needs evaluation/)).toBeInTheDocument();
+    expect(within(jobs).getByRole('link', { name: 'Open Technical Product Owner' })).toHaveAttribute('href', '/preparations/roles/4');
+    expect(within(jobs).queryByText(/%/)).not.toBeInTheDocument();
+  });
+
+  it('offers to start from a job description when there are no jobs yet', async () => {
+    api.getSubjects.mockResolvedValue([PSM]);
+    renderPage();
+    const jobs = await screen.findByRole('region', { name: "Jobs you're preparing for" });
+    expect(await within(jobs).findByText(/None yet/)).toBeInTheDocument();
+    expect(within(jobs).getByRole('link', { name: '+ From a job description' })).toHaveAttribute('href', '/preparations/roles/new');
   });
 });
