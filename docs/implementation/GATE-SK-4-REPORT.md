@@ -168,7 +168,7 @@ Rejected: none.
 
 ```
 ### Handoff — 2026-09-28
-Phase: 4 · Branch: feat/skills-phase-4 · PR: (opening after this report)
+Phase: 4 · Branch: feat/skills-phase-4 · PR: https://github.com/getnimishk/PrepBench/pull/40
 Done: roles tables + /roles API (no readiness; retake must match the first attempt's questions and
   lens); jdParse ported with the numbered-heading fix and its tests; link suggestions that save
   nothing until confirmed; diagnostic selection from confirmed linked Skills' packs with threshold
