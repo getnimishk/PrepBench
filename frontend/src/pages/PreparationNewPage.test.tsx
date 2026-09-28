@@ -96,3 +96,20 @@ describe('PreparationNewPage: the pack-choice step', () => {
     expect(api.attachContentPack).toHaveBeenCalledWith(7, 'adf');
   });
 });
+
+describe('PreparationNewPage: a job you want', () => {
+  it('offers a third kind, a role from a job description, and opens its own flow', async () => {
+    const { Routes, Route } = await import('react-router-dom');
+    const user = userEvent.setup({ delay: null });
+    render(
+      <MemoryRouter initialEntries={['/preparations/new']}>
+        <Routes>
+          <Route path="/preparations/new" element={<PreparationNewPage />} />
+          <Route path="/preparations/roles/new" element={<p>The role flow</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await user.click(screen.getByRole('button', { name: /A job you want/ }));
+    expect(await screen.findByText('The role flow')).toBeInTheDocument();
+  });
+});

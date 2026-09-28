@@ -10,6 +10,7 @@ import { usePreparation } from '../context/PreparationContext';
 import { loadFailed } from '../services/apiError';
 import type { Subject } from '../types/subject';
 import { LoadingState } from '../components/common/States';
+import { JobsSection } from '../components/roles/JobsSection';
 import {
   Actions, Detail, Eyebrow, Grid, PageHead, Panel, PanelHead, Pill, Row, Section,
 } from '../components/ui/primitives';
@@ -250,6 +251,8 @@ export const PreparationsPage: React.FC = () => {
           </Panel>
         </Section>
       )}
+
+      <JobsSection />
     </Box>
   );
 };

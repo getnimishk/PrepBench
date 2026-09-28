@@ -8,6 +8,7 @@ import { isUnreachable } from './apiError';
 import { Question, QuestionDifficulty, QuestionType, QuestionOutcome, QuestionBankSummary } from '../types/question';
 import { ExamSession, ExamDetail, ExamCreateRequest, SaveAnswerRequest, ExamPreview, MockHistoryItem } from '../types/exam';
 import type { SpacedDeck, SpacedGrade, SpacedGradeResult } from '../types/spaced';
+import type { Role, RoleCreate, RoleDiagnostic, RoleDiagnosticItem, RoleRequirementIn, RoleSummary } from '../types/role';
 import type { WireLearningAttempt } from '../types/learning';
 import { ScoreTrendPoint, DomainMasteryItem, DomainDetail } from '../types/analytics';
 import { AppSettings } from '../types/settings';
@@ -1202,5 +1203,50 @@ export const getProfile = async () => {
 
 export const updateProfile = async (update: ProfileUpdate) => {
   const res = await api.put<Profile>('/profile', update);
+  return res.data;
+};
+
+// ==================== Roles (jobs from a job description) ====================
+
+export const getRoles = async (includeArchived = false) => {
+  const res = await api.get<RoleSummary[]>('/roles', { params: includeArchived ? { include_archived: true } : undefined });
+  return res.data;
+};
+
+export const getRole = async (roleId: number) => {
+  const res = await api.get<Role>(`/roles/${roleId}`);
+  return res.data;
+};
+
+/** A role with the requirements -- and Skill links -- the learner confirmed. */
+export const createRole = async (body: RoleCreate) => {
+  const res = await api.post<Role>('/roles', body);
+  return res.data;
+};
+
+export const updateRole = async (roleId: number, body: Partial<Pick<Role, 'name' | 'interview_date' | 'job_description' | 'lens' | 'is_archived'>>) => {
+  const res = await api.put<Role>(`/roles/${roleId}`, body);
+  return res.data;
+};
+
+/** The role, its requirements and its diagnostics. Preparations are untouched. */
+export const deleteRole = async (roleId: number) => {
+  await api.delete(`/roles/${roleId}`);
+};
+
+export const replaceRoleRequirements = async (roleId: number, requirements: RoleRequirementIn[]) => {
+  const res = await api.put<Role>(`/roles/${roleId}/requirements`, { requirements });
+  return res.data;
+};
+
+/** Every attempt, oldest first: the first is "before", the latest "after". */
+export const getRoleDiagnostics = async (roleId: number) => {
+  const res = await api.get<RoleDiagnostic[]>(`/roles/${roleId}/diagnostics`);
+  return res.data;
+};
+
+/** A retake must send the first attempt's questions, in its lens; the server refuses otherwise. */
+export const addRoleDiagnostic = async (roleId: number, body: { lens: RoleDiagnostic['lens']; items: RoleDiagnosticItem[] }) => {
+  const res = await api.post<RoleDiagnostic>(`/roles/${roleId}/diagnostics`, body);
   return res.data;
 };

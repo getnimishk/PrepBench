@@ -44,6 +44,9 @@ import { RoadmapListPage } from './pages/RoadmapListPage';
 import { RoadmapDetailPage } from './pages/RoadmapDetailPage';
 import { ChartSandboxPage } from './pages/ChartSandboxPage';
 import { ScenarioPage } from './pages/ScenarioPage';
+import { RoleDiagnosticPage } from './pages/RoleDiagnosticPage';
+import { RolePreparationNewPage } from './pages/RolePreparationNewPage';
+import { RolePreparationPage } from './pages/RolePreparationPage';
 import { ScenarioSandboxPage } from './pages/ScenarioSandboxPage';
 import { LearningLabPage } from './pages/LearningLabPage';
 import { DesignReviewListPage } from './pages/DesignReviewListPage';
@@ -195,6 +198,9 @@ const App: React.FC = () => {
             <Route path="/preparations" element={<AppLayout><PreparationsPage /></AppLayout>} />
             <Route path="/preparations/new" element={<AppLayout><PreparationNewPage /></AppLayout>} />
             <Route path="/preparations/:subjectId/edit" element={<AppLayout><PreparationEditPage /></AppLayout>} />
+            <Route path="/preparations/roles/new" element={<AppLayout><RolePreparationNewPage /></AppLayout>} />
+            <Route path="/preparations/roles/:roleId" element={<AppLayout><RolePreparationPage /></AppLayout>} />
+            <Route path="/preparations/roles/:roleId/diagnostic" element={<AppLayout><RoleDiagnosticPage /></AppLayout>} />
             <Route path="/practice" element={<AppLayout><PracticeHubPage /></AppLayout>} />
             <Route path="/practice/spaced" element={<AppLayout><SpacedReviewPage /></AppLayout>} />
             <Route path="/learn" element={<AppLayout><StudyLibraryPage /></AppLayout>} />

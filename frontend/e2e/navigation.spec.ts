@@ -3,7 +3,7 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import { expect, test, type Page } from '@playwright/test';
-import { completedMockWithMisses, createCertification, pickPreparation, tag } from './helpers';
+import { completedMockWithMisses, createCertification, createRole, pickPreparation, tag } from './helpers';
 
 /**
  * The release gate's "no console errors" and "no dead navigation", checked the
@@ -53,6 +53,7 @@ test('every screen opens with no console errors, and no link on any of them lead
   })).json();
   const review = (await (await request.get('/api/v1/design-reviews?limit=1')).json()).items[0].id;
   const prompt = (await (await request.get('/api/v1/system-design/prompts?limit=1')).json()).items[0].id;
+  const role = await createRole(request, 'Navigation Role');
 
   let where = '(start)';
   const errors = watchConsole(page, () => where);
@@ -64,7 +65,8 @@ test('every screen opens with no console errors, and no link on any of them lead
     '/question-bank', '/analytics', `/analytics/area?subject=${prep.id}&domain=${encodeURIComponent(area)}`,
     '/roadmaps', `/roadmaps/${roadmap.id}`, `/roadmaps/${roadmap.id}/edit`, `/roadmaps/${roadmap.id}/topics/${topic.id}`,
     `/roadmaps/${roadmap.id}/topics/${topic.id}/guide`, `/roadmaps/${roadmap.id}/topics/${topic.id}/demonstrate`,
-    '/lab', '/chart-sandbox', '/scenarios', '/scenarios/adf/1', '/design-reviews', `/design-reviews/${review}`, '/system-design', `/system-design/${prompt}/answer`,
+    '/lab', '/chart-sandbox', '/scenarios', '/scenarios/adf/1',
+    '/preparations/roles/new', `/preparations/roles/${role.id}`, `/preparations/roles/${role.id}/diagnostic`, '/design-reviews', `/design-reviews/${review}`, '/system-design', `/system-design/${prompt}/answer`,
     '/interview-practice', '/interview-practice/setup', '/interview-practice/library', '/recordings',
     '/search', '/search?q=Navigation', '/profile', '/notifications', '/onboarding', '/settings', '/settings/ai', '/settings/appearance', '/settings/practice',
     '/settings/shortcuts', '/settings/notifications', '/settings/data', '/settings/about', '/settings/states',
