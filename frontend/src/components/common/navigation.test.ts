@@ -6,14 +6,14 @@ import { describe, expect, it } from 'vitest';
 import { NAV_GROUPS, sectionFor } from './navigation';
 
 describe('the navigation table', () => {
-  it("is the prototype's rail: six groups, sixteen destinations, in its order", () => {
+  it("is the prototype's rail: six groups, seventeen destinations, in its order", () => {
     expect(NAV_GROUPS.map((g) => [g.heading, g.items.map((i) => i.label)])).toEqual([
       ['Today', ['Home']],
       ['Certification', ['Roadmaps', 'Study Library', 'Practice', 'Review Queue', 'Mock Exam', 'Question Bank']],
       ['Interview', ['Rounds', 'System Design', 'Design Reviews', 'Recordings']],
       ['Evidence', ['Insights']],
       ['Workspace', ['My Preparations', 'Settings']],
-      ['Learning Lab', ['All Sandboxes', 'Agile Metrics']],
+      ['Learning Lab', ['All Sandboxes', 'Agile Metrics', 'Scenarios']],
     ]);
   });
 
@@ -29,6 +29,8 @@ describe('the navigation table', () => {
     // Learning Lab: hub and sandboxes each highlight their own nav entry.
     ['/lab', 'lab', 'All Sandboxes'],
     ['/chart-sandbox', 'agile-sandbox', 'Agile Metrics'],
+    ['/scenarios', 'scenarios', 'Scenarios'],
+    ['/scenarios/adf/1', 'scenarios', 'Scenarios'],
     ['/practice', 'practice', 'Practice'],
     // The spaced runner is review work, whichever button opened it.
     ['/practice/spaced', 'review', 'Review Queue'],

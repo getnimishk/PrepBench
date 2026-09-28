@@ -49,11 +49,49 @@ export interface Chapter {
   practice_links: PracticeLink[];
 }
 
-/** The prototype's `UnitContent` (services/adf/units.ts): a scenario's check
- *  questions, case study, per-role lenses and Say-it prompt. Opaque here --
- *  the shape a scenario page (Phase 3) will read, not the pack API's own
- *  concern. */
-export type ScenarioContent = Record<string, unknown>;
+/** The four roles a scenario can be practised as: its "lenses". */
+export type ScenarioRole = 'po' | 'pm' | 'dm' | 'em';
+
+export interface ScenarioCheckQuestion {
+  prompt: string;
+  options: string[];
+  /** Index into `options`. */
+  answer: number;
+  why: string;
+}
+
+export interface ScenarioDebriefBlock {
+  title: string;
+  text: string[];
+}
+
+/** What one role is asked about the case, told in the debrief, and asked to say. */
+export interface ScenarioLens {
+  /** The case questions only this role is asked; they follow the shared ones. */
+  tasks: string[];
+  debrief: ScenarioDebriefBlock[];
+  sayIt: { question: string; points: string[] };
+}
+
+/** A written scenario: the check, the case, the debrief and each role's lens.
+ *  The prototype's `UnitContent` (services/adf/units.ts). */
+export interface ScenarioContent {
+  /** One line the learner should be able to say after the guide chapter. */
+  bookmark: string;
+  check: ScenarioCheckQuestion[];
+  /** `tasks` are asked of every role; each lens adds its own. */
+  caseStudy: {
+    setting: string;
+    events: { when: string; what: string }[];
+    pipeline: string[];
+    tasks: string[];
+  };
+  /** The shared debrief: its first two blocks come before the role's own, the rest after. */
+  debrief: ScenarioDebriefBlock[];
+  takeaway: string[];
+  honesty: string;
+  lenses: Record<ScenarioRole, ScenarioLens>;
+}
 
 export interface Scenario {
   id: string;

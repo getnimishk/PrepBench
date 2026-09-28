@@ -108,7 +108,7 @@ describe('Large text reaches the sizes that used to be hard-coded', () => {
     for (const textSize of ['standard', 'large'] as const) {
       const { unmount } = renderAt(textSize, React.createElement(LearningLabPage));
 
-      const live = screen.getByText('Live').closest('.MuiChip-root')!;
+      const live = screen.getAllByText('Live')[0].closest('.MuiChip-root')!;
       const family = screen.getByText('Reliability').closest('.MuiChip-root')!;
       expect(px(live), `${textSize}: Live chip`).toBeCloseTo(expected(textSize, 10), 3);
       expect(px(family), `${textSize}: metric-family chip`).toBeCloseTo(expected(textSize, 9.6), 3);

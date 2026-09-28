@@ -4,6 +4,7 @@
 
 import type { Attempt, Challenge, ConceptId, LearningMode, WireLearningAttempt } from '../../types/learning';
 import { getLearningAttempts, patchLearningAttempt, startLearningAttempt } from '../api';
+import { CONCEPTS } from './concepts';
 import { fingerprint, paramsFor } from './scenarios';
 
 // The only persisted learner entity of the learning layer.
@@ -179,9 +180,21 @@ export function fromWire(w: WireLearningAttempt): Attempt {
   };
 }
 
-/** Every recorded attempt, from the server. */
+/**
+ * Is this attempt one of the Chart Sandbox's own?
+ *
+ * The learning_attempts table is shared: a Learning Lab scenario records its
+ * checks and role lenses there too (as "<pack>/<chapter>" concepts). Mastery,
+ * placement and recommendations are derived from whatever list they are given,
+ * so an attempt at a concept this sandbox doesn't teach must never reach them
+ * -- one would already flip "has history" and skip the placement probe.
+ */
+export const isChartSandboxAttempt = (attempt: Pick<Attempt, 'conceptId'>): boolean =>
+  Object.prototype.hasOwnProperty.call(CONCEPTS, attempt.conceptId);
+
+/** The Chart Sandbox's recorded attempts, from the server. Nothing else's. */
 export async function fetchAttempts(): Promise<Attempt[]> {
-  return (await getLearningAttempts()).map(fromWire);
+  return (await getLearningAttempts()).map(fromWire).filter(isChartSandboxAttempt);
 }
 
 /**

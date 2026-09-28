@@ -4,6 +4,7 @@
 
 from typing import Optional
 from datetime import datetime, UTC
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
@@ -17,6 +18,8 @@ from app.schemas.interview_question import (
     InterviewQuestionCreate,
     InterviewQuestionFilter,
     InterviewQuestionResponse,
+    InterviewQuestionSourceSave,
+    InterviewQuestionSourceSaveResult,
     InterviewQuestionUpdate,
     GenerateInterviewQuestionRequest,
     RoundTypeInfo,
@@ -54,6 +57,7 @@ ROUND_TYPE_LABELS = {
     InterviewRoundType.HIRING_MANAGER: "Hiring Manager",
     InterviewRoundType.SYSTEM_DESIGN: "System Design",
     InterviewRoundType.BEHAVIORAL: "Behavioral",
+    InterviewRoundType.TECHNICAL: "Technical",
 }
 
 
@@ -84,6 +88,58 @@ class InterviewQuestionService:
         if not q:
             raise ResourceNotFoundException("InterviewQuestion", question_id)
         return InterviewQuestionResponse.model_validate(q)
+
+    def save_from_source(self, req: InterviewQuestionSourceSave) -> InterviewQuestionSourceSaveResult:
+        """Create the question for this source and preparation, or update the one saved before.
+
+        The text, prepared answer, talking points, round and preparation are
+        the source's and are replaced on every save. The category is only set
+        when the row is created: after that it is the learner's to change in
+        the library, and a re-save shouldn't undo it.
+        """
+        from app.models.interview_question import InterviewQuestion
+        from app.models.subject import Subject
+
+        if req.subject_id is not None and self.db.get(Subject, req.subject_id) is None:
+            raise ResourceNotFoundException("Subject", req.subject_id)
+
+        def write(question) -> None:
+            question.round_type = req.round_type
+            question.question_text = req.question_text
+            question.prepared_answer = req.prepared_answer
+            question.key_talking_points = req.key_talking_points
+            self.db.commit()
+            self.db.refresh(question)
+
+        question = self.repo.get_by_source(req.source_ref, req.subject_id)
+        created = question is None
+        if created:
+            question = InterviewQuestion(
+                source_ref=req.source_ref,
+                subject_id=req.subject_id,
+                category=req.category,
+                is_ai_generated=False,
+            )
+            self.db.add(question)
+        try:
+            write(question)
+        except IntegrityError:
+            # Two first saves of the same source arrived together and the other
+            # insert won. Still one question: update the row that exists.
+            self.db.rollback()
+            question = self.repo.get_by_source(req.source_ref, req.subject_id)
+            if question is None:
+                raise
+            created = False
+            write(question)
+
+        taken = practice_counts(self.db, [question.id]).get(question.id, (0, None))[0]
+        return InterviewQuestionSourceSaveResult(
+            question=InterviewQuestionResponse.model_validate(question).model_copy(
+                update={"practice_count": taken}
+            ),
+            created=created,
+        )
 
     def update_question(self, question_id: int, req: InterviewQuestionUpdate) -> InterviewQuestionResponse:
         updated = self.repo.update(question_id, req)
@@ -178,6 +234,7 @@ class InterviewQuestionService:
             InterviewRoundType.HIRING_MANAGER: "a hiring manager round -- covering leadership, ownership, prioritization, or team fit",
             InterviewRoundType.SYSTEM_DESIGN: "a spoken/verbal system design round -- a realistic system design scenario suitable for a short spoken walkthrough",
             InterviewRoundType.BEHAVIORAL: "a behavioral round -- a 'tell me about a time...' style question suitable for a STAR-format answer",
+            InterviewRoundType.TECHNICAL: "a technical round -- how a specific technology works, where it breaks, and what the candidate would do about it, answerable without a personal story",
         }[round_type]
 
         return f"""Generate one realistic interview question for {round_guidance}{topic_clause}.

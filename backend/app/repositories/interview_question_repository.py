@@ -23,6 +23,10 @@ class InterviewQuestionRepository:
             query = query.filter(InterviewQuestion.round_type == filter_params.round_type)
         if filter_params.category:
             query = query.filter(InterviewQuestion.category == filter_params.category)
+        if filter_params.subject_id is not None:
+            query = query.filter(InterviewQuestion.subject_id == filter_params.subject_id)
+        if filter_params.source_ref:
+            query = query.filter(InterviewQuestion.source_ref == filter_params.source_ref)
         if filter_params.keyword:
             kw = f"%{filter_params.keyword}%"
             query = query.filter(or_(
@@ -30,6 +34,13 @@ class InterviewQuestionRepository:
                 InterviewQuestion.category.ilike(kw),
             ))
         return query
+
+    def get_by_source(self, source_ref: str, subject_id: Optional[int]) -> Optional[InterviewQuestion]:
+        return self.db.query(InterviewQuestion).filter(
+            InterviewQuestion.source_ref == source_ref,
+            InterviewQuestion.subject_id.is_(None) if subject_id is None
+            else InterviewQuestion.subject_id == subject_id,
+        ).first()
 
     def get_all(self, skip: int = 0, limit: int = 100, filter_params: Optional[InterviewQuestionFilter] = None) -> List[InterviewQuestion]:
         query = self._apply_filters(self.db.query(InterviewQuestion), filter_params)

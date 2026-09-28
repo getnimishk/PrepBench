@@ -918,6 +918,35 @@ def apply_lightweight_migrations():
             _log_migration_failure("subject_content_packs table", exc)
 
         try:
+            # interview_questions.subject_id / source_ref: a scenario's Say-it
+            # answer saved to the interview question library (skills plan D7),
+            # tied to the Skill it came from and to its source, so saving it
+            # again from the same Skill updates that row instead of adding
+            # another. The unique index can't fail on existing data: every
+            # existing row's source_ref is NULL, and NULLs never collide.
+            result = conn.execute(text("PRAGMA table_info(interview_questions)")).fetchall()
+            columns = [row[1] for row in result]
+            if columns and "subject_id" not in columns:
+                conn.execute(text(
+                    "ALTER TABLE interview_questions ADD COLUMN subject_id INTEGER "
+                    "REFERENCES subjects(id) ON DELETE SET NULL"
+                ))
+                conn.commit()
+            if columns and "source_ref" not in columns:
+                conn.execute(text(
+                    "ALTER TABLE interview_questions ADD COLUMN source_ref VARCHAR(150)"
+                ))
+                conn.commit()
+            if columns:
+                conn.execute(text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_interview_questions_source "
+                    "ON interview_questions (source_ref, subject_id)"
+                ))
+                conn.commit()
+        except Exception as exc:
+            _log_migration_failure("interview_questions.subject_id / source_ref", exc)
+
+        try:
             # Every index the models declare, on a database that was upgraded into
             # its schema rather than created with it.
             #

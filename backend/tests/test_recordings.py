@@ -225,6 +225,50 @@ def test_analyze_recording_linked_to_question_gets_content_scores(monkeypatch):
     client.delete(f"/api/v1/recordings/{recording['id']}")
 
 
+def test_technical_round_with_no_provider_is_not_graded(monkeypatch):
+    """Hard rule 2 holds for the new round: no provider, no score -- never a silent 0%."""
+    fake = _FakeProvider(DEFAULT_PROVIDER_NAME, available=False)
+    _register_fake(monkeypatch, fake)
+
+    question = _create_question("technical", "How would you keep a nightly incremental load from losing rows?")
+    recording = _upload(title="Technical, no provider", interview_question_id=question["id"])
+
+    body = client.post(f"/api/v1/recordings/{recording['id']}/analyze", json={}).json()
+    assert body["analysis_status"] == "unavailable"
+    assert body["content_scores"] == []
+    assert body["communication_scores"] == []
+
+    client.delete(f"/api/v1/recordings/{recording['id']}")
+
+
+def test_technical_round_is_graded_against_its_own_rubric(monkeypatch):
+    from app.services.recording_analysis_providers import CONTENT_CATEGORIES_BY_ROUND
+
+    fake = _FakeProvider(DEFAULT_PROVIDER_NAME, available=True, result={
+        "transcript": "I'd move the watermark only after the copy succeeds.",
+        "communication_scores": [{"category": "Clarity", "score": 7, "max_score": 10, "feedback": "Clear."}],
+        "filler_word_count": 0,
+        "summary": "Clear.",
+        "content_scores": [
+            {"category": "Risks & Failure Modes", "score": 8, "max_score": 10, "feedback": "Named both risks."},
+        ],
+        "content_summary": "Named the risk.",
+    })
+    _register_fake(monkeypatch, fake)
+
+    question = _create_question("technical", "How would you make sure a nightly load doesn't duplicate data?")
+    recording = _upload(title="Technical, graded", interview_question_id=question["id"])
+
+    body = client.post(f"/api/v1/recordings/{recording['id']}/analyze", json={}).json()
+    assert body["analysis_status"] == "analyzed"
+    assert fake.last_question_context == {"round_type": "technical", "question_text": question["question_text"]}
+    assert CONTENT_CATEGORIES_BY_ROUND["technical"] == [
+        "Technical Accuracy", "Structure & Clarity", "Trade-off Reasoning", "Risks & Failure Modes",
+    ]
+
+    client.delete(f"/api/v1/recordings/{recording['id']}")
+
+
 def test_analyze_freeform_recording_gets_empty_content_scores(monkeypatch):
     """Critical backward-compat regression test: a recording with no linked
     question must get exactly today's delivery-only behavior -- empty content

@@ -33,13 +33,14 @@ describe('LearningLabPage', () => {
     expect(within(section).getByText('4 · Explain')).toBeInTheDocument();
   });
 
-  it('renders the available sandboxes section and all 3 domain cards', () => {
+  it('renders the available sandboxes section and all 4 cards', () => {
     renderPage();
     const section = screen.getByRole('region', { name: 'Available sandboxes' });
     expect(within(section).getByRole('heading', { level: 2, name: 'Available sandboxes' })).toBeInTheDocument();
 
     // Card titles as h3
     expect(screen.getByRole('heading', { level: 3, name: 'Agile Metrics' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: 'Scenarios' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'Databricks Architecture' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'Financial Learning' })).toBeInTheDocument();
   });
@@ -55,6 +56,19 @@ describe('LearningLabPage', () => {
     // Check all 6 metric families
     for (const family of ['Flow', 'Predictability', 'Quality', 'Team health', 'DORA', 'Reliability']) {
       expect(within(card).getByText(family)).toBeInTheDocument();
+    }
+  });
+
+  it('marks Scenarios as live with a link to /scenarios and says what each scenario has', () => {
+    renderPage();
+    const card = screen.getByRole('heading', { level: 3, name: 'Scenarios' }).closest('article')!;
+    expect(within(card).getByText('Live')).toBeInTheDocument();
+    expect(within(card).getByRole('link', { name: 'Open sandbox: Scenarios' })).toHaveAttribute('href', '/scenarios');
+    // Not metrics: the chips are labelled for what they are.
+    expect(within(card).getByText('Each scenario')).toBeInTheDocument();
+    expect(within(card).queryByText('Metric families')).not.toBeInTheDocument();
+    for (const part of ['Knowledge check', 'Fictional case', 'Role debrief', 'Interview answer']) {
+      expect(within(card).getByText(part)).toBeInTheDocument();
     }
   });
 

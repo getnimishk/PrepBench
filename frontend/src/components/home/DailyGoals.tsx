@@ -5,6 +5,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Button } from '@mui/material';
+import type { InterviewRoundType } from '../../types/interviewQuestion';
 import type { CertificationGoal, DailyGoals as DailyGoalsData, InterviewGoal } from '../../types/subject';
 import { Actions, Bar, BigFigure, Detail, Grid, Metric, MetricRow, Panel, PanelHead, Pill } from '../ui/primitives';
 
@@ -26,11 +27,12 @@ import { Actions, Bar, BigFigure, Detail, Grid, Metric, MetricRow, Panel, PanelH
  * number is.
  */
 
-const ROUND_LABELS: Record<string, string> = {
+const ROUND_LABELS: Record<InterviewRoundType, string> = {
   hr_screening: 'HR screening',
   hiring_manager: 'Hiring manager',
   system_design: 'System design',
   behavioral: 'Behavioural',
+  technical: 'Technical',
 };
 
 const Count: React.FC<{ done: number; target: number; unit: string }> = ({ done, target, unit }) => (
@@ -103,7 +105,7 @@ const signal = (value?: number | null) => (value == null ? 'not analysed yet' : 
 const InterviewPanel: React.FC<{ goal: InterviewGoal }> = ({ goal }) => {
   const navigate = useNavigate();
   const done = goal.state === 'done';
-  const round = goal.longest_since_round ? ROUND_LABELS[goal.longest_since_round] ?? goal.longest_since_round : null;
+  const round = goal.longest_since_round ? ROUND_LABELS[goal.longest_since_round as InterviewRoundType] ?? goal.longest_since_round : null;
 
   return (
     <Panel component="section" aria-labelledby="goal-interview-title" data-testid="goal-interview">

@@ -3128,6 +3128,28 @@
           },
           "round_type": {
             "$ref": "#/components/schemas/InterviewRoundType"
+          },
+          "source_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Ref"
+          },
+          "subject_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Id"
           }
         },
         "required": [
@@ -3138,6 +3160,97 @@
           "created_at"
         ],
         "title": "InterviewQuestionResponse",
+        "type": "object"
+      },
+      "InterviewQuestionSourceSave": {
+        "description": "A question saved from built-in content, e.g. a scenario's Say-it step.\n\nMatched on `source_ref`: the first save creates the question, every later\none updates that same row. The technical round is the default (D14): these\nanswers say how the learner would handle something, not a story of having\ndone it, and the hiring-manager rubric would mark that down.",
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "maxLength": 150,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "key_talking_points": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Talking Points"
+          },
+          "prepared_answer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prepared Answer"
+          },
+          "question_text": {
+            "minLength": 1,
+            "title": "Question Text",
+            "type": "string"
+          },
+          "round_type": {
+            "$ref": "#/components/schemas/InterviewRoundType",
+            "default": "technical"
+          },
+          "source_ref": {
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Source Ref",
+            "type": "string"
+          },
+          "subject_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Id"
+          }
+        },
+        "required": [
+          "source_ref",
+          "question_text"
+        ],
+        "title": "InterviewQuestionSourceSave",
+        "type": "object"
+      },
+      "InterviewQuestionSourceSaveResult": {
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "question": {
+            "$ref": "#/components/schemas/InterviewQuestionResponse"
+          }
+        },
+        "required": [
+          "question",
+          "created"
+        ],
+        "title": "InterviewQuestionSourceSaveResult",
         "type": "object"
       },
       "InterviewQuestionUpdate": {
@@ -3198,7 +3311,8 @@
           "hr_screening",
           "hiring_manager",
           "system_design",
-          "behavioral"
+          "behavioral",
+          "technical"
         ],
         "title": "InterviewRoundType",
         "type": "string"
@@ -12472,6 +12586,38 @@
               ],
               "title": "Keyword"
             }
+          },
+          {
+            "in": "query",
+            "name": "subject_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Subject Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source_ref",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Ref"
+            }
           }
         ],
         "responses": {
@@ -12499,6 +12645,48 @@
           }
         },
         "summary": "List Questions",
+        "tags": [
+          "Interview Questions"
+        ]
+      }
+    },
+    "/api/v1/interview-questions/by-source": {
+      "put": {
+        "description": "Save a question from built-in content; saving the same source again updates it.",
+        "operationId": "save_question_from_source_api_v1_interview_questions_by_source_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InterviewQuestionSourceSave"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InterviewQuestionSourceSaveResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Question From Source",
         "tags": [
           "Interview Questions"
         ]

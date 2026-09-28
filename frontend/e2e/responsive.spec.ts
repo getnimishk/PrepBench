@@ -22,7 +22,7 @@ const VIEWPORTS = [
 
 const ROUTES = (prepId: number) => [
   '/', '/practice', '/review', '/exam-setup', '/question-bank', '/analytics',
-  '/lab', '/chart-sandbox',
+  '/lab', '/chart-sandbox', '/scenarios', '/scenarios/adf/1',
   '/design-reviews/1', '/system-design', '/interview-practice', '/preparations/new', `/preparations/${prepId}/edit`,
   '/learn', '/learn/guides/adf', '/learn/guides/adf/pitfalls',
   '/notifications', '/onboarding', '/settings', '/settings/ai', '/settings/data',

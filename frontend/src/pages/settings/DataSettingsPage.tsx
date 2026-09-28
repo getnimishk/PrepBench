@@ -36,7 +36,8 @@ const COUNT_LABELS: Record<string, string> = {
   interview_sessions: 'Interview sessions',
   system_design_attempts: 'System Design attempts',
   design_review_attempts: 'Design Review attempts',
-  learning_attempts: 'Chart Sandbox answers',
+  // Shared by the Chart Sandbox and the Learning Lab's scenarios.
+  learning_attempts: 'Learning Lab answers (Chart Sandbox and scenarios)',
 };
 
 /** What this app keeps in the browser, by key. */

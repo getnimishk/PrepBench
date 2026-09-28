@@ -13,14 +13,14 @@ import { usePreparation } from '../context/PreparationContext';
 import type { ContentPackDetail } from '../types/contentPack';
 import { Explanation } from '../components/common/Explanation';
 import { ErrorState, LoadingState } from '../components/common/States';
-import { Actions, Detail, Note, PageHead, Panel, PanelHead, Section } from '../components/ui/primitives';
+import { Actions, Detail, Good, Note, PageHead, Panel, PanelHead, Section } from '../components/ui/primitives';
 
 /**
  * One chapter of a built-in guide, read in the Study Library.
  *
- * Practice links into a scenario sandbox aren't rendered yet: the scenario
- * route doesn't exist until Phase 3 of the skills plan, so a chapter simply
- * isn't linked rather than pointing at a route that 404s (D2/plan §6 task 4).
+ * A chapter links to the Learning Lab scenarios that practise it: the ones
+ * written for this chapter, and any the pack names in its practice links.
+ * Only written scenarios are linked -- a planned one can't be opened.
  */
 export const GuideChapterPage: React.FC = () => {
   const { packId, chapterId } = useParams<{ packId: string; chapterId: string }>();
@@ -75,12 +75,23 @@ export const GuideChapterPage: React.FC = () => {
   const prev = pack.chapters[index - 1];
   const next = pack.chapters[index + 1];
 
+  const written = pack.scenario_levels.flatMap((l) => l.scenarios).filter((s) => s.content);
+  const own = written.filter((s) => s.chapter === chapter.id);
+  const linked = chapter.practice_links
+    .map((l) => written.find((s) => s.id === l.scenario_id))
+    .filter((s): s is NonNullable<typeof s> => Boolean(s) && !own.includes(s!));
+  const practice = [...new Set([...own, ...linked])];
+  const scenarioPath = (id: string) => `/scenarios/${pack.pack_id}/${id}`;
+
   return (
     <Box>
       <PageHead
         eyebrow={<RouterLink to={`/learn/guides/${pack.pack_id}`} style={{ color: 'inherit' }}>{pack.title}</RouterLink>}
         title={`${index + 1} · ${chapter.title}`}
         sub={chapter.summary}
+        actions={practice.length > 0 && (
+          <Button variant="contained" color="ink" component={RouterLink} to={scenarioPath(practice[0].id)}>Practise this</Button>
+        )}
       />
 
       {linkedVersion === null && (
@@ -120,6 +131,17 @@ export const GuideChapterPage: React.FC = () => {
       ))}
 
       <Section>
+        {practice.length > 0 && (
+          <Good sx={{ mb: '14px' }}>
+            Practise it in the Learning Lab:{' '}
+            {practice.map((s, i) => (
+              <React.Fragment key={s.id}>
+                {i > 0 && ', '}
+                <RouterLink to={scenarioPath(s.id)}>scenario {s.number}, {s.title}</RouterLink>
+              </React.Fragment>
+            ))}.
+          </Good>
+        )}
         <Actions>
           {prev && <Button variant="outlined" component={RouterLink} to={`/learn/guides/${pack.pack_id}/${prev.id}`}>Previous: {prev.title}</Button>}
           {next && <Button variant="outlined" component={RouterLink} to={`/learn/guides/${pack.pack_id}/${next.id}`}>Next: {next.title}</Button>}
