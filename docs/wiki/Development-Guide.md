@@ -36,6 +36,20 @@ npm run dev
 
 CI installs `requirements.lock`, so a green run means the same tree that is green locally. If you change a dependency, regenerate the lock or CI is testing something else.
 
+### Optional: Lakehouse Lab engine
+
+The Lakehouse Lab's Station C runs real Delta Lake operations with the `deltalake` package. It is **optional**: without it, PrepBench starts and works exactly as before, and the Lab says plainly that the real engine isn't installed. It never shows a simulated result in its place.
+
+`requirements-lab.txt` adds it (plus `tzdata`, which Windows needs for UTC timestamps). pyarrow is not needed and isn't installed.
+
+```bash
+uv pip install --system-certs -p backend/.venv/Scripts/python.exe -r backend/requirements-lab.txt
+```
+
+- Only `app/services/lab/engine.py` imports `deltalake`, and only lazily; a test checks that importing the app doesn't load it.
+- Lab tables live in `backend/data/lab/` (or `PREPBENCH_LAB_DIR`), never beside the database. The tests redirect it to a temp folder.
+- The engine tests are marked `lab` and skip themselves when `deltalake` is missing. To run them, use an environment that has it: `pytest -m lab`. Run the default suite **without** it too.
+
 ## Tests
 
 ```bash
