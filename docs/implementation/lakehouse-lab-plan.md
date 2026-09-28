@@ -4,7 +4,8 @@
 **Sources of truth:** [PRD](../specs/lakehouse-lab.md) · [System design](../specs/lakehouse-lab-design.md) · `CLAUDE.md` (repo root, not tracked; read it first)
 
 > **Read first (added 2026-09-27):**
-> - **The skills plan runs before this one** (its D10). This plan continues after its Phase 4.
+> - **The skills plan runs before this one** (its D10). This plan continues after its Phase 4. **The skills plan is
+>   complete (2026-09-28); its §9 lists what this plan inherits.**
 > - **The lab belongs to the seeded `databricks` skill** (skills plan D11): its pages and learning attempts use that
 >   subject's id, and its interview questions use `interview_questions.subject_id` / `source_ref` from skills plan
 >   Phase 3.
@@ -36,7 +37,7 @@ This plan is written to be picked up **cold, in a new session**. Each phase is s
 
 | Phase | Scope | Depends on | Status | Gate report |
 |---|---|---|---|---|
-| 0 | Engine spike + scenario inconsistencies | — | **Engine spike: ✅ done 2026-09-24.** Open question 9: ⏳ needs the author's decisions (§3) | design §10 |
+| 0 | Engine spike + scenario inconsistencies | — | **Gate passed.** Engine spike ✅ 2026-09-24; open question 9 ✅ resolved by the author 2026-09-28 (§3) | design §10; PR description |
 | 1A | Backend foundation + Station C engine API | PR #32 merged, Phase 0 gate | Not started | `GATE-LL-1A-REPORT.md` |
 | 1B | Page shell + Station C UI + journal | 1A gate | Not started | `GATE-LL-1B-REPORT.md` |
 | 2 | Station F: Migration Factory | 1B gate | Not started | `GATE-LL-2-REPORT.md` |
@@ -78,7 +79,8 @@ A phase **passes** only when every box below is ticked **with evidence in the ga
 
 **Engine spike: done.** The results and the four design changes are in design §10. Nothing more to do there.
 
-**Remaining: open question 9.** The author decides these, and the answers go into the pack's content, not into code:
+**Open question 9: resolved by the author 2026-09-28.** The answers go into the pack's content, not into code. The
+author chose the suggested default in all three rows below (recorded in the PRD, open question 9):
 
 | # | Contradiction in the source scenario | Decision needed | Suggested default |
 |---|---|---|---|
@@ -87,8 +89,8 @@ A phase **passes** only when every box below is ticked **with evidence in the ga
 | 3 | Budget line items sum to ~$10.5M low end, stated "~$11M" | Consistent totals | State the range as **~$10.5M–$13M**, or drop the budget from the pack. The Factory only needs relative costs |
 
 **Exit criteria:**
-- [ ] The three decisions are recorded in the PRD (open question 9 → resolved).
-- [ ] PR #32 is merged.
+- [x] The three decisions are recorded in the PRD (open question 9 → resolved), 2026-09-28.
+- [x] PR #32 is merged.
 
 ---
 
@@ -264,7 +266,7 @@ A phase **passes** only when every box below is ticked **with evidence in the ga
 
 | Item | What | Key point |
 |---|---|---|
-| P1-1 | Station results → an interview question with `key_talking_points` | Talking points come from **this learner's observed results only**. Round type (open question 4) is **decided: `technical`** (skills plan D14, confirmed 2026-09-27), built in skills plan Phase 3 |
+| P1-1 | Station results → an interview question with `key_talking_points` | Talking points come from **this learner's observed results only**. Round type (open question 4) is **decided: `technical`** (skills plan D14, confirmed 2026-09-27), built in skills plan Phase 3. Save through `PUT /interview-questions/by-source`; a question is unique per (`source_ref`, `subject_id`) |
 | P1-2 | Station D: Reconciliation Detective | The score is defects found vs the manifest. It reuses `compare_tables` |
 | P1-3 | JD-PO-005 pack | Content only, **no code**. This proves Goal 5. **Now content for the role flow built in skills plan Phase 4** (roles from a job description); check what that phase already covers before starting |
 | P1-4 | Diagnostic before/after view | ~~From the learner's own ratings~~ **Delivered by skills plan Phase 4** (the role diagnostic, self-rated, before/after). Nothing to build here |

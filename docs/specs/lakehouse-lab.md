@@ -89,7 +89,7 @@ This is based on a training scenario the author supplied, with all names and fig
 
 The JD-PO-005 pack (P1-3) reuses this engine with its own framing and regional defect batch (Arabic-script names, Hijri dates, AED rounding).
 
-**Before this pack is treated as reference material, fix the source document's internal inconsistencies** (see Open questions 9).
+The source document's three internal inconsistencies are **resolved** (open question 9, decided by the author 2026-09-28); the pack follows those decisions, not the source's conflicting figures.
 
 ## 6. User stories
 
@@ -276,7 +276,7 @@ PrepBench has **no telemetry**, so metrics come from the learner's own local dat
 | 6 | Provenance of the existing seeded question content (for example `PSM_I_Question_Bank.json`) before anything is sold. | Author / legal | Before any commercial release |
 | 7 | Pricing model: noncommercial + commercial licence, open core, or free engine with paid packs. | Author | No, because packs stay separable (P2) |
 | 8 | Who verifies the notebook exports on Free Edition, and how often after Databricks changes? | Author | Yes, before P0-11 ships as "verified" |
-| 9 | The source scenario contradicts itself in three places:<br>• job-cluster vs all-purpose DBU ratio: "roughly a third" in one section, "2–3x-plus" in another<br>• wave numbering: waves 9–11 are Finance in the wave plan but "high-risk" in the timeline<br>• the budget's low end sums to ~$10.5M, not $11M<br>Resolve these before the pack is written. Cost ratios become teaching constants, never quoted prices. | Author | Yes, before the P0-8 content is written |
+| 9 | ~~The source scenario contradicts itself in three places.~~ **Resolved (author, 2026-09-28):**<br>• **DBU ratio** ("roughly a third" vs "2–3x-plus"): the Factory's cost lever uses a **teaching constant of 0.5×** (job-cluster vs all-purpose), labelled "illustrative; check the current rate card". No ratio is ever quoted as fact.<br>• **Wave numbering** (waves 9–11 "Finance" vs "high-risk"): **follow the wave plan (Part 4.2)**: waves 1–2 pilot, 3–6 supply chain, 7–9 finance, 10–11 yield, 12 telemetry. The timeline's (Part 5) phases map to waves 1–2, 3–9, 10–11 and 12.<br>• **Budget** (line items sum to ~$10.5M, stated "~$11M"): state the range as **~$10.5M–$13M**. The Factory itself uses relative costs only. | Author | — |
 | 10 | Should Station F share the Agile Metrics sandbox's composition and coupling-ledger code, or have its own model that follows the same pattern? | Engineering | No |
 
 ## 10. Timeline and phasing
@@ -285,7 +285,7 @@ There's no hard deadline, because no interview is scheduled. **Recommendation: s
 
 | Phase | Scope | Exit criteria |
 |---|---|---|
-| 0 · Spike | Open questions 1 and 9 | ✅ Engine check done 2026-09-24 (design §10). **Remaining:** fix the scenario's inconsistencies (open question 9). |
+| 0 · Spike | Open questions 1 and 9 | ✅ Engine check done 2026-09-24 (design §10). ✅ Scenario inconsistencies resolved 2026-09-28 (open question 9). |
 | 1 · Delta first | P0-1, P0-2, P0-3, P0-4, P0-9, P0-10, P0-11, P0-12 (Station C only, default upstream) | Full test suite green with and without the engine. Notebook verified on Free Edition. |
 | 2 · The program | P0-8 (Station F), linked to Station C for the yield-wave validation | A count-based plan visibly fails where the complexity-weighted plan holds. A cutover without a consumer map breaks a report. |
 | 3 · The pipeline flow | P0-5, P0-6, P0-7 | A watermark mistake in A shows up as real rows in C. The ledger completeness test passes. |

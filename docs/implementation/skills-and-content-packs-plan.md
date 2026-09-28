@@ -70,8 +70,8 @@ tests, exit criteria and a gate. Don't start a phase until the previous gate has
 | 1 | Content-pack foundation: pack files, loader, validation, API, skill ↔ pack link | 0 merged | **Merged** (PR #34) | `GATE-SK-1-REPORT.md` |
 | 2 | Guides in the Study Library | 1 gate | **Merged** (PR #36) | `GATE-SK-2-REPORT.md` |
 | 3 | Scenario sandbox in the Learning Lab | 2 gate | **Merged** (PR #38) | `GATE-SK-3-REPORT.md` |
-| 4 | Roles from a job description + diagnostic | 3 gate | Gate passed, PR open | `GATE-SK-4-REPORT.md` |
-| 5 | Hand over to the Lakehouse Lab plan | 4 gate | Not started | — |
+| 4 | Roles from a job description + diagnostic | 3 gate | **Merged** (PR #40) | `GATE-SK-4-REPORT.md` |
+| 5 | Hand over to the Lakehouse Lab plan | 4 gate | **Done** 2026-09-28 (this plan is complete through Phase 4; work continues in `lakehouse-lab-plan.md`) | PR description |
 | Later | See §10 | — | Not planned | — |
 Gate reports go in `docs/implementation/`, next to the existing `GATE-*.md` files.
 
@@ -351,6 +351,18 @@ before/after view, with readiness still "Needs evaluation"; the gate passes.
 
 ## 9. Phase 5: hand over to the Lakehouse Lab plan
 
+**Done 2026-09-28.** This plan is complete through Phase 4 (PRs #33, #34, #36, #38, #40); the §10 items stay
+unplanned. What the Lakehouse Lab plan inherits, checked against the code on `main`:
+- the seeded `databricks` skill (`backend/app/utils/seed_subjects.py`, slug `databricks`) for D11;
+- `learning_attempts` with the scenario encoding of Phase 3 (`frontend/src/services/scenarios/scenarioAttempts.ts`),
+  and the Chart Sandbox reading only its own concepts' attempts, so a lab attempt can't move its figures;
+- `interview_questions.subject_id` / `source_ref` and `PUT /interview-questions/by-source`. **Note:** a saved
+  question is unique per **(`source_ref`, `subject_id`)**, not per `source_ref` (Phase 3 code review), so the lab's
+  P1-1 questions are per learner preparation;
+- the `technical` round (D14, defaults confirmed 2026-09-28);
+- roles and the role diagnostic (Phase 4), which cover the Lakehouse plan's P1-4 and give P1-3 its home.
+
+The original task list:
 - Mark this plan's Status complete through Phase 4.
 - Continue with `lakehouse-lab-plan.md` from its Phase 0/1A. Per D11 its pages and learning attempts use the
   `databricks` skill's `subject_id`, and its interview questions (its P1-1) use `interview_questions.subject_id` /
