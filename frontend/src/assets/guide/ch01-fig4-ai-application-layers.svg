@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 500" role="img" aria-labelledby="t4 d4" font-family="Arial, Helvetica, sans-serif">
+  <title id="t4">An AI application is more than the model</title>
+  <desc id="d4">A user talks to an AI application. Inside the application are an interface, the model (an LLM that generates), context (documents, history, retrieved passages), tools (APIs, databases, code), and application logic covering authentication, permissions, orchestration, safety and monitoring.</desc>
+  <defs>
+    <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1f4e78"/></marker>
+  </defs>
+  <rect width="760" height="500" fill="#ffffff"/>
+  <rect x="310" y="10" width="140" height="38" rx="19" fill="#e6eef8" stroke="#1f4e78" stroke-width="2"/>
+  <text x="380" y="35" font-size="16" text-anchor="middle" fill="#1a1a1a">User</text>
+  <line x1="380" y1="48" x2="380" y2="80" stroke="#1f4e78" stroke-width="2" marker-end="url(#a4)"/>
+  <rect x="20" y="84" width="720" height="404" rx="18" fill="#f4f7fb" stroke="#1f4e78" stroke-width="2"/>
+  <text x="44" y="112" font-size="18" font-weight="bold" fill="#1a1a1a">AI application</text>
+  <rect x="44" y="126" width="672" height="40" rx="8" fill="#e6eef8" stroke="#1f4e78" stroke-width="1.5"/>
+  <text x="380" y="152" font-size="15" text-anchor="middle" fill="#1a1a1a">Interface: chat window, app screen or API</text>
+  <rect x="44" y="184" width="208" height="180" rx="12" fill="#fff4d6" stroke="#b36b00" stroke-width="2.5"/>
+  <text x="148" y="214" font-size="17" font-weight="bold" text-anchor="middle" fill="#1a1a1a">Model</text>
+  <text x="148" y="240" font-size="14" text-anchor="middle" fill="#333333">The LLM</text>
+  <text x="148" y="290" font-size="15" font-weight="bold" text-anchor="middle" fill="#7a4a00">Generates language</text>
+  <rect x="276" y="184" width="208" height="180" rx="12" fill="#e6eef8" stroke="#1f4e78" stroke-width="2"/>
+  <text x="380" y="214" font-size="17" font-weight="bold" text-anchor="middle" fill="#1a1a1a">Context</text>
+  <text x="380" y="240" font-size="14" text-anchor="middle" fill="#333333">Documents</text>
+  <text x="380" y="260" font-size="14" text-anchor="middle" fill="#333333">Conversation history</text>
+  <text x="380" y="280" font-size="14" text-anchor="middle" fill="#333333">Retrieved passages</text>
+  <text x="380" y="330" font-size="15" font-weight="bold" text-anchor="middle" fill="#1f4e78">Informs the model</text>
+  <rect x="508" y="184" width="208" height="180" rx="12" fill="#e6eef8" stroke="#1f4e78" stroke-width="2"/>
+  <text x="612" y="214" font-size="17" font-weight="bold" text-anchor="middle" fill="#1a1a1a">Tools</text>
+  <text x="612" y="240" font-size="14" text-anchor="middle" fill="#333333">APIs</text>
+  <text x="612" y="260" font-size="14" text-anchor="middle" fill="#333333">Databases</text>
+  <text x="612" y="280" font-size="14" text-anchor="middle" fill="#333333">Code execution</text>
+  <text x="612" y="330" font-size="15" font-weight="bold" text-anchor="middle" fill="#1f4e78">Take actions</text>
+  <line x1="252" y1="274" x2="272" y2="274" stroke="#1f4e78" stroke-width="2" marker-end="url(#a4)" marker-start="url(#a4)"/>
+  <line x1="484" y1="274" x2="504" y2="274" stroke="#1f4e78" stroke-width="2" marker-end="url(#a4)" marker-start="url(#a4)"/>
+  <rect x="44" y="382" width="672" height="84" rx="10" fill="#e6eef8" stroke="#1f4e78" stroke-width="2"/>
+  <text x="380" y="410" font-size="16" font-weight="bold" text-anchor="middle" fill="#1a1a1a">Application logic</text>
+  <text x="380" y="434" font-size="14" text-anchor="middle" fill="#333333">Authentication, permissions, orchestration (what runs, in what order)</text>
+  <text x="380" y="454" font-size="14" text-anchor="middle" fill="#333333">Safety checks, monitoring, business rules</text>
+</svg>

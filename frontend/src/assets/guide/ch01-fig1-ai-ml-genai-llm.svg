@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 450" role="img" aria-labelledby="t1 d1" font-family="Arial, Helvetica, sans-serif">
+  <title id="t1">AI, machine learning, generative AI and LLM as nested boxes</title>
+  <desc id="d1">Four nested boxes. Artificial intelligence is the largest. Inside it is machine learning, then generative AI, then large language models.</desc>
+  <rect width="760" height="450" fill="#ffffff"/>
+  <rect x="20" y="16" width="720" height="384" rx="18" fill="#f4f7fb" stroke="#1f4e78" stroke-width="2"/>
+  <text x="44" y="48" font-size="17" font-weight="bold" fill="#1a1a1a">Artificial intelligence (AI)</text>
+  <text x="44" y="68" font-size="14" fill="#333333">The broad field: systems that do tasks we associate with intelligent behaviour</text>
+  <rect x="60" y="86" width="640" height="296" rx="16" fill="#e6eef8" stroke="#1f4e78" stroke-width="2"/>
+  <text x="84" y="116" font-size="17" font-weight="bold" fill="#1a1a1a">Machine learning (ML)</text>
+  <text x="84" y="136" font-size="14" fill="#333333">Software that learns patterns from data instead of every rule being hand-written</text>
+  <rect x="100" y="154" width="560" height="214" rx="14" fill="#d5e3f5" stroke="#1f4e78" stroke-width="2"/>
+  <text x="124" y="184" font-size="17" font-weight="bold" fill="#1a1a1a">Generative AI</text>
+  <text x="124" y="204" font-size="14" fill="#333333">ML that creates new content: text, images, audio, video, code</text>
+  <rect x="140" y="222" width="480" height="128" rx="12" fill="#fff4d6" stroke="#b36b00" stroke-width="2.5"/>
+  <text x="164" y="254" font-size="17" font-weight="bold" fill="#1a1a1a">Large language model (LLM)</text>
+  <text x="164" y="276" font-size="14" fill="#333333">A generative model trained on very large amounts of text</text>
+  <text x="164" y="300" font-size="14" fill="#333333">Produces: explanations, emails, code, SQL, structured JSON, translations</text>
+  <text x="164" y="326" font-size="13" fill="#7a4a00">Much narrower than "AI". This is the part this course focuses on.</text>
+  <text x="380" y="428" font-size="13" text-anchor="middle" fill="#555555">A rough picture only: not every useful way of sorting AI fits one hierarchy.</text>
+</svg>

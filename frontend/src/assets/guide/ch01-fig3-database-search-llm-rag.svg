@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 520" role="img" aria-labelledby="t3 d3" font-family="Arial, Helvetica, sans-serif">
+  <title id="t3">Database, search engine, LLM and RAG compared</title>
+  <desc id="d3">Four rows. A database retrieves a stored value. A search engine retrieves relevant documents. An LLM generates a response. RAG combines search and an LLM: search finds passages, the LLM writes the answer from them.</desc>
+  <defs>
+    <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1f4e78"/></marker>
+  </defs>
+  <rect width="760" height="520" fill="#ffffff"/>
+  <text x="24" y="30" font-size="16" font-weight="bold" fill="#1a1a1a">Database: retrieves a stored record</text>
+  <rect x="24" y="42" width="200" height="54" rx="10" fill="#e6eef8" stroke="#1f4e78" stroke-width="2"/>
+  <text x="124" y="74" font-size="15" text-anchor="middle" fill="#1a1a1a">Query (SQL)</text>
+  <line x1="224" y1="69" x2="268" y2="69" stroke="#1f4e78" stroke-width="2" marker-end="url(#a3)"/>
+  <rect x="272" y="42" width="220" height="54" rx="10" fill="#e6eef8" stroke="#1f4e78" stroke-width="2"/>
+  <text x="382" y="74" font-size="15" text-anchor="middle" fill="#1a1a1a">Look up the stored row</text>
+  <line x1="492" y1="69" x2="536" y2="69" stroke="#1f4e78" stroke-width="2" marker-end="url(#a3)"/>
+  <rect x="540" y="42" width="196" height="54" rx="10" fill="#e6eef8" stroke="#1f4e78" stroke-width="2"/>
+  <text x="638" y="74" font-size="15" text-anchor="middle" fill="#1a1a1a">The stored value</text>
+  <text x="24" y="140" font-size="16" font-weight="bold" fill="#1a1a1a">Search engine: retrieves relevant documents</text>
+  <rect x="24" y="152" width="200" height="54" rx="10" fill="#e6eef8" stroke="#1f4e78" stroke-width="2"/>
+  <text x="124" y="184" font-size="15" text-anchor="middle" fill="#1a1a1a">Question</text>
+  <line x1="224" y1="179" x2="268" y2="179" stroke="#1f4e78" stroke-width="2" marker-end="url(#a3)"/>
+  <rect x="272" y="152" width="220" height="54" rx="10" fill="#e6eef8" stroke="#1f4e78" stroke-width="2"/>
+  <text x="382" y="184" font-size="15" text-anchor="middle" fill="#1a1a1a">Search the index</text>
+  <line x1="492" y1="179" x2="536" y2="179" stroke="#1f4e78" stroke-width="2" marker-end="url(#a3)"/>
+  <rect x="540" y="152" width="196" height="54" rx="10" fill="#e6eef8" stroke="#1f4e78" stroke-width="2"/>
+  <text x="638" y="184" font-size="15" text-anchor="middle" fill="#1a1a1a">Relevant documents</text>
+  <text x="24" y="250" font-size="16" font-weight="bold" fill="#1a1a1a">LLM on its own: generates a response</text>
+  <rect x="24" y="262" width="200" height="54" rx="10" fill="#e6eef8" stroke="#1f4e78" stroke-width="2"/>
+  <text x="124" y="294" font-size="15" text-anchor="middle" fill="#1a1a1a">Prompt</text>
+  <line x1="224" y1="289" x2="268" y2="289" stroke="#1f4e78" stroke-width="2" marker-end="url(#a3)"/>
+  <rect x="272" y="262" width="220" height="54" rx="10" fill="#fff4d6" stroke="#b36b00" stroke-width="2.5"/>
+  <text x="382" y="294" font-size="15" text-anchor="middle" fill="#1a1a1a">Language model</text>
+  <line x1="492" y1="289" x2="536" y2="289" stroke="#1f4e78" stroke-width="2" marker-end="url(#a3)"/>
+  <rect x="540" y="262" width="196" height="54" rx="10" fill="#e6eef8" stroke="#1f4e78" stroke-width="2"/>
+  <text x="638" y="284" font-size="15" text-anchor="middle" fill="#1a1a1a">Generated text</text>
+  <text x="638" y="303" font-size="12" text-anchor="middle" fill="#7a4a00">can sound right and be wrong</text>
+  <text x="24" y="360" font-size="16" font-weight="bold" fill="#1a1a1a">RAG: search finds the facts, the LLM words the answer</text>
+  <rect x="24" y="372" width="118" height="70" rx="10" fill="#e6eef8" stroke="#1f4e78" stroke-width="2"/>
+  <text x="83" y="412" font-size="15" text-anchor="middle" fill="#1a1a1a">Question</text>
+  <line x1="142" y1="407" x2="170" y2="407" stroke="#1f4e78" stroke-width="2" marker-end="url(#a3)"/>
+  <rect x="174" y="372" width="140" height="70" rx="10" fill="#e6eef8" stroke="#1f4e78" stroke-width="2"/>
+  <text x="244" y="403" font-size="15" text-anchor="middle" fill="#1a1a1a">Search your</text>
+  <text x="244" y="422" font-size="15" text-anchor="middle" fill="#1a1a1a">documents</text>
+  <line x1="314" y1="407" x2="342" y2="407" stroke="#1f4e78" stroke-width="2" marker-end="url(#a3)"/>
+  <rect x="346" y="372" width="130" height="70" rx="10" fill="#e6eef8" stroke="#1f4e78" stroke-width="2"/>
+  <text x="411" y="403" font-size="15" text-anchor="middle" fill="#1a1a1a">Relevant</text>
+  <text x="411" y="422" font-size="15" text-anchor="middle" fill="#1a1a1a">passages</text>
+  <line x1="476" y1="407" x2="504" y2="407" stroke="#1f4e78" stroke-width="2" marker-end="url(#a3)"/>
+  <rect x="508" y="372" width="108" height="70" rx="10" fill="#fff4d6" stroke="#b36b00" stroke-width="2.5"/>
+  <text x="562" y="412" font-size="15" text-anchor="middle" fill="#1a1a1a">LLM</text>
+  <line x1="616" y1="407" x2="644" y2="407" stroke="#1f4e78" stroke-width="2" marker-end="url(#a3)"/>
+  <rect x="648" y="372" width="88" height="70" rx="10" fill="#e6eef8" stroke="#1f4e78" stroke-width="2"/>
+  <text x="692" y="412" font-size="15" text-anchor="middle" fill="#1a1a1a">Answer</text>
+  <text x="380" y="490" font-size="13" text-anchor="middle" fill="#555555">A model generates. A search system retrieves. An application can combine both (RAG, covered in Phase 5).</text>
+</svg>

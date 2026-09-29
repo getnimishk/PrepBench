@@ -21,6 +21,7 @@ import { LoadingState } from '../components/common/States';
 import {
   Actions, Bar, Detail, Eyebrow, Good, Grid, Note, PageHead, Panel, Pill, Row, Section, Sub,
 } from '../components/ui/primitives';
+import { GuideMarkdown } from '../components/guide/GuideMarkdown';
 import { MONO_STACK } from '../theme/tokens';
 
 /**
@@ -67,6 +68,7 @@ export const TopicGuidePage: React.FC = () => {
   const [drafting, setDrafting] = useState(false);
 
   const [editorOpen, setEditorOpen] = useState(false);
+  const [editorTab, setEditorTab] = useState<'write' | 'preview'>('write');
   const [editing, setEditing] = useState<TopicGuideSection | null>(null);
   const [form, setForm] = useState<TopicGuideSectionWrite>(EMPTY);
   const [saving, setSaving] = useState(false);
@@ -130,6 +132,7 @@ export const TopicGuidePage: React.FC = () => {
 
   const openEditor = (section: TopicGuideSection | null) => {
     setEditing(section);
+    setEditorTab('write');
     setForm(section ? {
       title: section.title,
       body: section.body,
@@ -283,9 +286,9 @@ export const TopicGuidePage: React.FC = () => {
                   {provenance(active)}
                 </Pill>
 
-                <Typography component="div" variant="body1" sx={{ mt: '14px', whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
-                  {active.body}
-                </Typography>
+                <Box sx={{ mt: '14px' }}>
+                  <GuideMarkdown text={active.body} />
+                </Box>
 
                 {active.example && (
                   <Box
@@ -300,7 +303,10 @@ export const TopicGuidePage: React.FC = () => {
                 )}
 
                 {active.common_mistake && (
-                  <Note sx={{ mt: '14px' }}><b>Commonly missed:</b> {active.common_mistake}</Note>
+                  <Note sx={{ mt: '14px' }}>
+                    <Box component="b" sx={{ display: 'block', mb: '4px' }}>Commonly missed:</Box>
+                    <GuideMarkdown text={active.common_mistake} />
+                  </Note>
                 )}
 
                 {active.check_question && (
@@ -329,7 +335,9 @@ export const TopicGuidePage: React.FC = () => {
                         Compare with the model answer
                       </Button>
                     ) : (
-                      <Good sx={{ mt: '12px' }}>{active.check_answer}</Good>
+                      <Good sx={{ mt: '12px' }}>
+                        <GuideMarkdown text={active.check_answer ?? ''} />
+                      </Good>
                     )}
                   </Section>
                 )}
@@ -376,14 +384,78 @@ export const TopicGuidePage: React.FC = () => {
       <Dialog open={editorOpen} onClose={() => setEditorOpen(false)} fullWidth maxWidth="md">
         <DialogTitle>{editing ? 'Edit section' : 'Write a section'}</DialogTitle>
         <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField label="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required fullWidth />
-            <TextField label="Explanation" value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} required multiline minRows={5} fullWidth />
-            <TextField label="Example (optional)" value={form.example ?? ''} onChange={(e) => setForm({ ...form, example: e.target.value })} multiline minRows={2} fullWidth />
-            <TextField label="Common mistake (optional)" value={form.common_mistake ?? ''} onChange={(e) => setForm({ ...form, common_mistake: e.target.value })} multiline minRows={2} fullWidth />
-            <TextField label="Check question (optional)" value={form.check_question ?? ''} onChange={(e) => setForm({ ...form, check_question: e.target.value })} fullWidth />
-            <TextField label="Model answer (optional)" value={form.check_answer ?? ''} onChange={(e) => setForm({ ...form, check_answer: e.target.value })} multiline minRows={2} fullWidth />
-          </Stack>
+          <Detail sx={{ mt: 1, mb: 2 }}>
+            Supports Markdown, headings, lists, tables, links, ```mermaid diagrams, ```svg vector graphics, and ![alt](guide:filename.ext) images.
+          </Detail>
+          <Box sx={{ display: 'flex', gap: '8px', mb: 2, borderBottom: '1px solid', borderColor: 'divider', pb: 1 }}>
+            <Button
+              size="small"
+              variant={editorTab === 'write' ? 'contained' : 'outlined'}
+              onClick={() => setEditorTab('write')}
+              aria-pressed={editorTab === 'write'}
+            >
+              Write
+            </Button>
+            <Button
+              size="small"
+              variant={editorTab === 'preview' ? 'contained' : 'outlined'}
+              onClick={() => setEditorTab('preview')}
+              aria-pressed={editorTab === 'preview'}
+            >
+              Preview
+            </Button>
+          </Box>
+          {editorTab === 'write' ? (
+            <Stack spacing={2}>
+              <TextField label="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required fullWidth />
+              <TextField label="Explanation" value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} required multiline minRows={5} fullWidth />
+              <TextField label="Example (optional)" value={form.example ?? ''} onChange={(e) => setForm({ ...form, example: e.target.value })} multiline minRows={2} fullWidth />
+              <TextField label="Common mistake (optional)" value={form.common_mistake ?? ''} onChange={(e) => setForm({ ...form, common_mistake: e.target.value })} multiline minRows={2} fullWidth />
+              <TextField label="Check question (optional)" value={form.check_question ?? ''} onChange={(e) => setForm({ ...form, check_question: e.target.value })} fullWidth />
+              <TextField label="Model answer (optional)" value={form.check_answer ?? ''} onChange={(e) => setForm({ ...form, check_answer: e.target.value })} multiline minRows={2} fullWidth />
+            </Stack>
+          ) : (
+            <Box sx={{ minHeight: 280, py: 1 }}>
+              <Typography variant="h5" component="h3" sx={{ mb: '8px' }}>
+                {form.title.trim() || 'Untitled section'}
+              </Typography>
+              {form.body.trim() ? (
+                <GuideMarkdown text={form.body} />
+              ) : (
+                <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                  No explanation written yet.
+                </Typography>
+              )}
+              {form.example?.trim() ? (
+                <Box
+                  sx={{
+                    mt: '10px', p: '11px 12px', borderRadius: '9px', bgcolor: 'pb.surface2', border: '1px solid',
+                    borderColor: 'divider', fontFamily: MONO_STACK, fontSize: (t) => t.typography.pxToRem(12), color: 'text.secondary',
+                    whiteSpace: 'pre-wrap',
+                  }}
+                >
+                  {form.example}
+                </Box>
+              ) : null}
+              {form.common_mistake?.trim() ? (
+                <Note sx={{ mt: '14px' }}>
+                  <Box component="b" sx={{ display: 'block', mb: '4px' }}>Commonly missed:</Box>
+                  <GuideMarkdown text={form.common_mistake} />
+                </Note>
+              ) : null}
+              {form.check_question?.trim() ? (
+                <Section>
+                  <Eyebrow>Check yourself</Eyebrow>
+                  <Typography variant="subtitle2" component="p" sx={{ mt: '4px' }}>{form.check_question}</Typography>
+                  {form.check_answer?.trim() ? (
+                    <Good sx={{ mt: '12px' }}>
+                      <GuideMarkdown text={form.check_answer} />
+                    </Good>
+                  ) : null}
+                </Section>
+              ) : null}
+            </Box>
+          )}
           {editing?.source === 'ai' && (
             <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
               This section was drafted by AI. After you save, it will show as drafted by AI and edited by you.

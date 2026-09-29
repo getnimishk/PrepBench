@@ -20,12 +20,13 @@ const VIEWPORTS = [
   { name: 'phone 390', width: 390, height: 844, phone: true },
 ];
 
-const ROUTES = (prepId: number, roleId: number) => [
+const ROUTES = (prepId: number, roleId: number, roadmapId: number, topicId: number) => [
   '/preparations/roles/new', `/preparations/roles/${roleId}`, `/preparations/roles/${roleId}/diagnostic`,
   '/', '/practice', '/review', '/exam-setup', '/question-bank', '/analytics',
   '/lab', '/chart-sandbox', '/scenarios', '/scenarios/adf/1',
   '/design-reviews/1', '/system-design', '/interview-practice', '/preparations/new', `/preparations/${prepId}/edit`,
   '/learn', '/learn/guides/adf', '/learn/guides/adf/pitfalls',
+  `/roadmaps/${roadmapId}/topics/${topicId}/guide`,
   '/notifications', '/onboarding', '/settings', '/settings/ai', '/settings/data',
 ];
 
@@ -36,12 +37,40 @@ for (const viewport of VIEWPORTS) {
     const role = await createRole(request, 'Responsive Role');
     await completedMockWithMisses(request, prep, 3, 'Responsive Area');
 
+    const roadmap = await (await request.post('/api/v1/roadmaps', { data: { title: 'Responsive plan', subject_id: prep.id } })).json();
+    const phase = await (await request.post(`/api/v1/roadmaps/${roadmap.id}/phases`, { data: { name: 'Responsive phase' } })).json();
+    const topic = await (await request.post(`/api/v1/roadmaps/${roadmap.id}/topics`, {
+      data: { phase_id: phase.id, title: 'Responsive topic', estimated_hours: 2, success_criteria: 'Explain it.' },
+    })).json();
+    await request.post(`/api/v1/roadmaps/${roadmap.id}/topics/${topic.id}/guide/sections`, {
+      data: {
+        title: 'Responsive Diagrams',
+        body: `
+### Responsive Flow
+\`\`\`mermaid
+flowchart LR
+  A[Component Alpha Very Long Name] --> B[Component Beta Very Long Name] --> C[Component Gamma]
+\`\`\`
+
+### Responsive SVG
+\`\`\`svg
+<svg viewBox="0 0 600 200" width="600" height="200" xmlns="http://www.w3.org/2000/svg">
+  <title>Wide Vector Diagram</title>
+  <rect x="10" y="10" width="580" height="180" rx="10" fill="#3157d5" />
+</svg>
+\`\`\`
+
+![Responsive Asset](guide:ch01-fig1-ai-ml-genai-llm.svg)
+        `.trim(),
+      },
+    });
+
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await page.goto('/');
     await pickPreparation(page, prep.name);
 
     const problems: string[] = [];
-    for (const route of ROUTES(prep.id, role.id)) {
+    for (const route of ROUTES(prep.id, role.id, roadmap.id, topic.id)) {
       await page.goto(route);
       await expect(page.locator('main h1').first()).toBeVisible();
       await page.waitForLoadState('networkidle');
