@@ -200,6 +200,90 @@ def test_narrow_reference_sheets_are_preserved_as_resources(roadmap_ids):
     assert cli["rows"] == [["Create Topic", "kafka-topics.sh --create", "kafka-topics.bat --create"]]
 
 
+def test_reference_sheet_with_syllabus_tokens_in_note_row_is_preserved_as_resource(roadmap_ids):
+    """
+    A 4-column reference sheet (such as Portfolio Projects) whose body or note
+    row contains words like 'hours', 'topics', and 'phases' must not be
+    misclassified as a syllabus header and silently dropped. It should be
+    imported as a resource (or reported in ignored_sheets with a warning).
+    """
+    content = _make_workbook({
+        "Syllabus": _syllabus_rows(),
+        "Portfolio Projects": [
+            ["Project", "Description", "Tech Stack", "Deliverables"],
+            [
+                "Agentic RAG",
+                "Build an agentic pipeline over 20 hours covering topics from phases 1 and 2",
+                "LangChain, FastAPI",
+                "Working demo and repository",
+            ],
+            ["Fine-Tuning", "LoRA fine-tuning for domain evaluation", "PyTorch, HuggingFace", "Model weights"],
+        ],
+    })
+    preview, detail = _import(content, "roadmap.xlsx", roadmap_ids)
+
+    resource_titles = {r["title"] for r in preview["resources"]}
+    # Must either be imported as a resource or reported in ignored_sheets with a warning (never silently dropped).
+    assert "Portfolio Projects" in resource_titles or (
+        "Portfolio Projects" in preview["ignored_sheets"]
+        and any("Portfolio Projects" in w for w in preview["warnings"])
+    )
+    assert "Portfolio Projects" in resource_titles
+    assert "Portfolio Projects" not in preview["ignored_sheets"]
+
+    proj = next(r for r in detail["resources"] if r["title"] == "Portfolio Projects")
+    assert proj["columns"] == ["Project", "Description", "Tech Stack", "Deliverables"]
+    assert len(proj["rows"]) == 2
+    assert proj["rows"][0][0] == "Agentic RAG"
+
+
+def test_sheet_classified_as_syllabus_yielding_no_rows_falls_back_to_resource_if_narrow(roadmap_ids):
+    """
+    A sheet with 2-4 header cells in row 1 scoring as syllabus but yielding no
+    topic rows falls back to being imported as a resource.
+    """
+    content = _make_workbook({
+        "Syllabus": _syllabus_rows(),
+        "Skill Reference": [
+            ["Phase", "Topic", "Hours"],  # 3 columns, scores 3 against SYLLABUS_TOKENS
+            ["Foundations", None, 5],     # No topic title, so _read_syllabus returns []
+        ],
+    })
+    preview, detail = _import(content, "roadmap.xlsx", roadmap_ids)
+
+    titles = {r["title"] for r in preview["resources"]}
+    assert "Skill Reference" in titles
+    assert "Skill Reference" not in preview["ignored_sheets"]
+    res = next(r for r in detail["resources"] if r["title"] == "Skill Reference")
+    assert res["columns"] == ["Phase", "Topic", "Hours"]
+    assert len(res["rows"]) == 1
+
+
+def test_sheet_classified_as_syllabus_yielding_no_rows_warns_and_ignores_when_not_resource():
+    """
+    A sheet classified as syllabus that yields no topic rows and cannot fall
+    back to a resource (e.g. >4 columns) must be reported in ignored_sheets
+    with a warning rather than silently dropped.
+    """
+    content = _make_workbook({
+        "Syllabus": _syllabus_rows(),
+        "Empty Advanced Syllabus": [
+            ["Phase", "Module", "Section", "Topic", "Hours"],  # 5 columns
+            ["Phase 1", "Module 1", "Section 1", None, None],  # No topic title
+        ],
+    })
+    res = client.post(
+        "/api/v1/roadmaps/import/validate",
+        files={"file": ("roadmap.xlsx", content, "application/octet-stream")},
+    )
+    assert res.status_code == 200
+    preview = res.json()
+
+    assert "Empty Advanced Syllabus" in preview["ignored_sheets"]
+    assert any("Empty Advanced Syllabus" in w and "ignored" in w.lower() for w in preview["warnings"])
+
+
+
 def test_progress_sheet_with_uncached_formulas_warns_instead_of_importing_blanks():
     """
     openpyxl writes formulas with no cached result, which is exactly what a
