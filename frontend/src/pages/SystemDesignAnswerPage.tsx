@@ -270,7 +270,7 @@ export const SystemDesignAnswerPage: React.FC = () => {
 
   const written = SECTIONS.filter((s) => sections[s.key].trim()).length;
   const canSubmit = !submitting && hasContent(sections);
-  const submitIcon = submitting ? <CircularProgress size={16} color="inherit" /> : undefined;
+  const submitIcon = submitting ? <CircularProgress aria-hidden size={16} color="inherit" /> : undefined;
 
   return (
     <Box>

@@ -140,7 +140,7 @@ export const SystemDesignResultsPage: React.FC = () => {
                 color="ink"
                 disabled={regrading}
                 onClick={regrade}
-                startIcon={regrading ? <CircularProgress size={14} color="inherit" /> : undefined}
+                startIcon={regrading ? <CircularProgress aria-hidden size={14} color="inherit" /> : undefined}
               >
                 {regrading ? 'Grading…' : 'Grade again'}
               </Button>

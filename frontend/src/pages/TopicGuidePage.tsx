@@ -220,7 +220,7 @@ export const TopicGuidePage: React.FC = () => {
             </Button>
             <Button
               variant="contained"
-              startIcon={drafting ? <CircularProgress size={16} color="inherit" /> : <Sparkles size={16} />}
+              startIcon={drafting ? <CircularProgress aria-hidden size={16} color="inherit" /> : <Sparkles size={16} />}
               disabled={drafting || !guide.drafting_available}
               onClick={() => void draft()}
             >

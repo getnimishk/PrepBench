@@ -278,7 +278,7 @@ const DrillSetup: React.FC<{ subject: Subject }> = ({ subject }) => {
 
       {loading && (
         <Stack direction="row" spacing={1.5} sx={{ mt: 3, alignItems: 'center' }}>
-          <CircularProgress size={16} />
+          <CircularProgress aria-hidden size={16} />
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>Assembling the drill…</Typography>
         </Stack>
       )}

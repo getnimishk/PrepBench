@@ -185,7 +185,7 @@ export const InterviewSessionSetupPage: React.FC = () => {
 
       <Box sx={{ ...panel, mt: 2 }}>
         <Typography variant="overline" sx={{ color: 'text.secondary' }}>You will be asked</Typography>
-        {!plan && !planError && <CircularProgress size={18} sx={{ display: 'block', mt: 1 }} />}
+        {!plan && !planError && <CircularProgress aria-label="Loading the question plan" size={18} sx={{ display: 'block', mt: 1 }} />}
         {planError && <Alert severity="error" sx={{ mt: 1 }}>{planError}</Alert>}
         {plan && plan.length === 0 && (
           <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>

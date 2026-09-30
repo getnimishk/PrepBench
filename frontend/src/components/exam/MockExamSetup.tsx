@@ -357,7 +357,7 @@ const CertificationSetup: React.FC<{ subject: Subject }> = ({ subject }) => {
 
           <Panel component="section" aria-labelledby="domain-weighting">
             <PanelHead eyebrow="Domain weighting" title="In proportion to your bank" titleId="domain-weighting" />
-            {!chosen && !previewError && <CircularProgress size={18} sx={{ mt: 1 }} />}
+            {!chosen && !previewError && <CircularProgress aria-label="Loading domain weighting" size={18} sx={{ mt: 1 }} />}
             {chosen?.can_start && (chosen.domain_plan?.length ?? 0) > 0 && (
               <Box sx={{ overflowX: 'auto' }}>
                 <Table size="small" aria-label="Questions per domain">

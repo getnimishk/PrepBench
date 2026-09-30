@@ -284,7 +284,7 @@ export const AnswerConsole: React.FC<{
 
         {phase === 'saving' && (
           <Stack sx={{ alignItems: 'center', gap: 1.5 }}>
-            <CircularProgress size={28} />
+            <CircularProgress aria-hidden size={28} />
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>Saving your answer…</Typography>
           </Stack>
         )}

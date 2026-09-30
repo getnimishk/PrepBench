@@ -777,7 +777,7 @@ export const ExamRunnerPage: React.FC = () => {
             color="ink"
             onClick={handleFinish}
             disabled={finishing}
-            startIcon={finishing ? <CircularProgress size={16} color="inherit" /> : undefined}
+            startIcon={finishing ? <CircularProgress aria-hidden size={16} color="inherit" /> : undefined}
           >
             {finishing ? 'Submitting…' : 'Yes, submit'}
           </Button>

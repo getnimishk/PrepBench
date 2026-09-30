@@ -214,7 +214,7 @@ export const InterviewLibraryPage: React.FC = () => {
         </TextField>
       </Stack>
 
-      {!questions && !loadError && <CircularProgress size={22} sx={{ mt: 3 }} />}
+      {!questions && !loadError && <CircularProgress aria-label="Loading questions" size={22} sx={{ mt: 3 }} />}
       {questions && shown.length === 0 && (
         <Typography variant="body2" sx={{ color: 'text.secondary', mt: 3 }}>
           No questions here yet. Import some, or have one written on the practice page.
