@@ -2,7 +2,8 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { type APIRequestContext, type Page } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { pickPreparation, tag } from './helpers';
 import { dbRow, dbRows } from './db';
 
@@ -331,7 +332,16 @@ test('the certification journey, from picking PSM I to an updated readiness, che
     }
   }
   await page.getByRole('button', { name: 'Finish', exact: true }).click();
+  // Submitting grades all eighty answers and recomputes readiness before the
+  // page moves on to the review. With the suite on four workers that took longer
+  // than the five seconds a URL check waits, twice in three runs -- so wait on the
+  // submission itself, and require that it succeeded, rather than on a clock.
+  const submitted = page.waitForResponse(
+    (r) => r.request().method() === 'POST' && r.url().endsWith(`/api/v1/exams/${mockId}/finish`),
+    { timeout: 30_000 },
+  );
   await page.getByRole('button', { name: 'Yes, submit' }).click();
+  expect((await submitted).status(), 'the paper was submitted').toBe(200);
 
   await expect(page).toHaveURL(new RegExp(`/exam-review/${mockId}`));
   await expect(page.getByText('80 of 80 correct')).toBeVisible();

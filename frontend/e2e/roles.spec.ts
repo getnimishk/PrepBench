@@ -2,9 +2,10 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import { expect, test, type Page } from '@playwright/test';
+import { type Page } from '@playwright/test';
+import { expect, test } from './fixtures';
 import AxeBuilder from '@axe-core/playwright';
-import { createSkillWithPack } from './helpers';
+import { createSkillWithPack, trackApi, waitForApiIdle } from './helpers';
 
 /**
  * A job you want (skills-and-content-packs-plan.md Phase 4), end to end: paste
@@ -92,6 +93,7 @@ test('a role is created from a job description, linked to a confirmed skill, dia
 
 for (const theme of ['light', 'dark'] as const) {
   test(`the role pages, with a before/after table, pass axe in the ${theme} theme and fit a 390px phone`, async ({ page, request }) => {
+    await trackApi(page);
     test.setTimeout(180_000);
     const skill = await createSkillWithPack(request, `Roles Axe ${theme}`, 'adf');
     const created = await request.post('/api/v1/roles', {
@@ -116,7 +118,7 @@ for (const theme of ['light', 'dark'] as const) {
         await page.setViewportSize({ width: 1280, height: 800 });
         await page.goto(route);
         await expect(page.locator('main h1').first()).toBeVisible();
-        await page.waitForLoadState('networkidle');
+        await waitForApiIdle(page);
         const results = await new AxeBuilder({ page }).withTags(tags).analyze();
         const violations = results.violations.map((v) => `${route} — ${v.id}: ${v.nodes.slice(0, 3).map((n) => n.target.join(' ')).join(' | ')}`);
         expect(violations, violations.join('\n')).toEqual([]);

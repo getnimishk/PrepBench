@@ -2,8 +2,9 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import { expect, test, type Page } from '@playwright/test';
-import { createCertification, createQuestion, tag } from './helpers';
+import { type Page } from '@playwright/test';
+import { expect, test } from './fixtures';
+import { createCertification, createQuestion, tag, trackApi, waitForApiIdle } from './helpers';
 
 /**
  * What happens when the server stops answering, simulated by refusing every API
@@ -103,13 +104,14 @@ const CLAIMS = [
 ];
 
 test('no screen calls data it could not read empty', async ({ page }) => {
+  await trackApi(page);
   test.setTimeout(120_000);
   await cutOff(page);
   for (const { route, failure } of SCREENS) {
     await page.goto(route);
     const main = page.locator('main');
     await expect(main.getByText(failure).first(), route).toBeVisible();
-    await page.waitForLoadState('networkidle');
+    await waitForApiIdle(page);
     for (const claim of CLAIMS) {
       await expect(main, `${route} claims ${claim}`).not.toContainText(claim);
     }

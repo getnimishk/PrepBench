@@ -3,143 +3,94 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import { defineConfig, devices } from '@playwright/test';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import type { Frontend } from './e2e/fixtures';
 
 /**
- * Browser tests, against a real backend and a throwaway database.
+ * Browser tests, against real backends and throwaway databases.
  *
- * The one rule this file exists to keep: an E2E run must never touch the
+ * The one rule this suite exists to keep: an E2E run must never touch the
  * learner's own data. These tests create and delete preparations, and the real
  * backend/data/exam_simulator.db holds question banks the learner imported by
  * hand that cannot be regenerated from seeds.
  *
- * So the backend is started here, on its own port, with SQLALCHEMY_DATABASE_URI
- * pointed at backend/data/e2e_exam_simulator.db -- deleted before every run, then
- * built and seeded by the app's own startup exactly as a fresh install would be.
- * The dev server is started on its own port too, proxying to that backend, so a
- * copy of the app you already have open on 5173/8000 is left alone.
+ * So no test talks to the app you may have open on 5173/8000. Each worker
+ * starts its own (e2e/fixtures.ts): a backend on 8100+n pointed at its own
+ * e2e_exam_simulator_w<n>.db, recordings and secrets folders, and a frontend on
+ * 5273+n proxying to it. Every database starts as a copy of a template that
+ * e2e/global-setup.ts builds once a run the way a fresh install would, after
+ * clearing everything e2e_* the last run left in backend/data.
+ *
+ * Workers run side by side because none can see another's data. Within a
+ * worker, tests still run one after another against the same app, so a spec
+ * whose tests build on each other keeps working.
+ *
+ * Two frontends, one per project:
+ *
+ * - `chromium` (every spec but the navigation crawl) runs against the production
+ *   build, served by `vite preview`. Built once up front, so no screen waits on the
+ *   dev server compiling it on its first visit -- in a run that opens every screen
+ *   several times over, that compilation was a large share of the wall-clock time
+ *   and the usual reason a first visit brushed a timeout.
+ * - `chromium-dev` runs only navigation.spec.ts, against the dev server. The
+ *   production build strips React's development warnings (a missing key,
+ *   validateDOMNesting, StrictMode's double-run effects), and the crawl's "no
+ *   console errors" is the check that catches them. So that one spec keeps the
+ *   dev server; it opens every screen and follows every link, which the preview
+ *   project would only repeat.
  */
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(here, '..');
-const backendDir = path.join(repoRoot, 'backend');
+// Two by default. Each worker is a Chrome plus a backend and a frontend. Four
+// were tried first, on an 8-thread, 16 GB machine: runs took about eleven
+// minutes, but the machine was saturated (tests 1.5-3x slower than alone, free
+// memory down to 0.8 GB) and every run turned up a different timing race -- a
+// save still in flight, a late response. Some were the app's (the Question Bank
+// could show a late answer to an earlier request; fixed), some the tests'
+// (waiting on a clock rather than on the request; fixed), and they kept coming.
+// Two keep most of the gain with far less contention. PREPBENCH_E2E_WORKERS
+// overrides it; 1 runs the suite as it used to, one test at a time.
+const workers = Number(process.env.PREPBENCH_E2E_WORKERS ?? 2);
 
-const BACKEND_PORT = 8100;
-const FRONTEND_PORT = 5273;
-
-// How long the backend keeps an idle kept-alive connection open, in seconds.
-//
-// Uvicorn's default is 5 s, and it closes the socket without warning: no
-// "Keep-Alive: timeout=" header, so the dev server's proxy keeps the socket in its
-// pool as if it were good forever. A request that reuses it in the instant
-// uvicorn closes it fails with "socket hang up" or ECONNRESET, and the screen
-// behind it shows an error or never loads. Measured with no app and no proxy,
-// just Node's agent against uvicorn: 2 of 12 reuses at ~5 s idle reset; 0 of 12
-// at 75 s. In a 30-50 minute run with Vite compiling under load, that window
-// came up often enough to fail a few random screens per run.
-//
-// So the backend is given a long keep-alive here, and the same number goes to
-// the dev server (PREPBENCH_API_KEEP_ALIVE_S), which drops its idle sockets well
-// before this. The proxy always closes an idle connection first, and a client
-// closing an idle connection loses nothing.
-const BACKEND_KEEP_ALIVE_S = 75;
-
-// SQLAlchemy wants forward slashes in a sqlite URL, including on Windows.
-const e2eDbPath = path.join(backendDir, 'data', 'e2e_exam_simulator.db').replace(/\\/g, '/');
-
-// Recorded answers go here, never beside the learner's own in backend/data/recordings.
-const e2eRecordingsDir = path.join(backendDir, 'data', 'e2e_recordings');
-
-// And provider keys, never into the learner's own .llm_secrets.json -- the same
-// redirect the backend tests make in conftest.py.
-const e2eSecretsDir = path.join(backendDir, 'data', 'e2e_secrets');
-
-const python = process.platform === 'win32'
-  ? path.join(backendDir, '.venv', 'Scripts', 'python.exe')
-  : path.join(backendDir, '.venv', 'bin', 'python');
-
-// Start every run from an empty database.
-//
-// Done here, as the config loads, rather than in globalSetup: Playwright starts
-// the web servers before globalSetup runs, so deleting the file there would race
-// a backend that already has it open.
-//
-// Only in the main process. Worker processes load this file too, and a worker
-// deleting the database out from under a running backend is the one outcome
-// worse than a stale file -- on Linux the unlink succeeds silently and the next
-// connection creates a new empty database mid-run. TEST_WORKER_INDEX is set in
-// workers and nowhere else.
-if (process.env.TEST_WORKER_INDEX === undefined) {
-  for (const suffix of ['', '-wal', '-shm', '-journal']) {
-    fs.rmSync(`${e2eDbPath}${suffix}`, { force: true });
-  }
-  fs.rmSync(e2eRecordingsDir, { recursive: true, force: true });
-  fs.rmSync(e2eSecretsDir, { recursive: true, force: true });
-}
-
-export default defineConfig({
+export default defineConfig<object, { frontend: Frontend }>({
   testDir: './e2e',
-  // One worker: every test shares one backend and one database, and several of
-  // them assert on what a preparation owns. Parallel runs would see each other's
-  // rows and fail for reasons that have nothing to do with the code under test.
-  workers: 1,
+  globalSetup: './e2e/global-setup.ts',
+  workers,
+  // Spec files are spread across workers; the tests inside a file run in order
+  // on one, unless the file opts in (the chunked crawls do).
   fullyParallel: false,
   retries: process.env.CI ? 1 : 0,
   timeout: 45_000,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
 
   use: {
-    baseURL: `http://127.0.0.1:${FRONTEND_PORT}`,
+    ...devices['Desktop Chrome'],
+    // Locally, the Chrome that is already installed. Downloading Playwright's
+    // own browser means fetching a large binary through Norton's TLS
+    // interception on this machine, which is exactly the kind of download it
+    // breaks. CI has no such problem and uses the bundled build.
+    ...(process.env.CI ? {} : { channel: 'chrome' }),
+    // Interview practice records from the microphone. A fake device gives the
+    // browser a real audio stream to encode, with no prompt and no hardware.
+    permissions: ['microphone'],
+    launchOptions: {
+      args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
+    },
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
 
+  // chromium-dev first: Playwright hands out tests in project order, and its one
+  // test -- the three-minute navigation crawl -- listed second started only once
+  // every other test had been handed out, and ran on alone at the end of the run.
   projects: [
     {
+      name: 'chromium-dev',
+      testMatch: /navigation\.spec\.ts$/,
+      use: { frontend: 'dev' },
+    },
+    {
       name: 'chromium',
-      use: {
-        ...devices['Desktop Chrome'],
-        // Locally, the Chrome that is already installed. Downloading Playwright's
-        // own browser means fetching a large binary through Norton's TLS
-        // interception on this machine, which is exactly the kind of download it
-        // breaks. CI has no such problem and uses the bundled build.
-        ...(process.env.CI ? {} : { channel: 'chrome' }),
-        // Interview practice records from the microphone. A fake device gives the
-        // browser a real audio stream to encode, with no prompt and no hardware.
-        permissions: ['microphone'],
-        launchOptions: {
-          args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
-        },
-      },
-    },
-  ],
-
-  webServer: [
-    {
-      command: `"${python}" -m uvicorn app.main:app --app-dir "${backendDir}" --host 127.0.0.1 --port ${BACKEND_PORT} --timeout-keep-alive ${BACKEND_KEEP_ALIVE_S}`,
-      url: `http://127.0.0.1:${BACKEND_PORT}/api/v1/subjects`,
-      reuseExistingServer: false,
-      timeout: 120_000,
-      env: {
-        SQLALCHEMY_DATABASE_URI: `sqlite:///${e2eDbPath}`,
-        PREPBENCH_RECORDINGS_DIR: e2eRecordingsDir,
-        PREPBENCH_SECRETS_DIR: e2eSecretsDir,
-        // Blank, so a GEMINI_API_KEY in the developer's .env cannot turn into a
-        // provider row and make a test's behaviour depend on a live AI service.
-        GEMINI_API_KEY: '',
-      },
-    },
-    {
-      command: `npm run dev -- --port ${FRONTEND_PORT} --strictPort`,
-      url: `http://127.0.0.1:${FRONTEND_PORT}`,
-      reuseExistingServer: false,
-      timeout: 120_000,
-      env: {
-        PREPBENCH_API_TARGET: `http://127.0.0.1:${BACKEND_PORT}`,
-        PREPBENCH_API_KEEP_ALIVE_S: String(BACKEND_KEEP_ALIVE_S),
-      },
+      testIgnore: /navigation\.spec\.ts$/,
+      use: { frontend: 'preview' },
     },
   ],
 });

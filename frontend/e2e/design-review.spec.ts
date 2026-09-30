@@ -2,7 +2,8 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import { expect, test, type APIRequestContext } from '@playwright/test';
+import { type APIRequestContext } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 /**
  * A design review, end to end: scenario, options, choice, justification, commit,

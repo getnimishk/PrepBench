@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { createCertification, createQuestion, pickPreparation, tag } from './helpers';
 
 /**
@@ -37,8 +37,16 @@ test('a mock survives a reload mid-paper, then submits, scores and updates readi
   await expect(page.getByText(/Question 2 of 3/)).toBeVisible();
 
   // Answer the second wrong, and reload without navigating: the pick must have
-  // been saved on its own.
+  // been saved on its own. Its save is waited for -- and required to succeed --
+  // before the reload: the palette marks the question answered the moment it is
+  // picked, and with the suite on several workers the save was sometimes still in
+  // flight when the reload cut it off (the page warns before leaving then; this
+  // test accepts that warning), which tests a race, not resuming.
+  const saved = page.waitForResponse(
+    (r) => r.request().method() === 'POST' && /\/api\/v1\/exams\/\d+\/answer$/.test(r.url()),
+  );
   await page.getByRole('radio', { name: 'Wrong' }).check();
+  expect((await saved).status(), 'the pick was saved').toBe(200);
   await page.getByRole('button', { name: 'Questions' }).click();
   await expect(page.getByRole('button', { name: /^Question 2, answered/ })).toBeVisible();
   page.on('dialog', (dialog) => dialog.accept());

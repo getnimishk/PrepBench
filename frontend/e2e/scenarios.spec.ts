@@ -2,9 +2,10 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { type APIRequestContext, type Page } from '@playwright/test';
+import { expect, test } from './fixtures';
 import AxeBuilder from '@axe-core/playwright';
-import { createSkillWithPack, pickPreparation } from './helpers';
+import { createSkillWithPack, pickPreparation, trackApi, waitForApiIdle } from './helpers';
 
 /**
  * The Learning Lab's scenario sandbox (skills-and-content-packs-plan.md Phase 3),
@@ -120,6 +121,7 @@ test('the guide chapter a scenario practises links to it', async ({ page, reques
 
 for (const theme of ['light', 'dark'] as const) {
   test(`a fully open scenario passes axe in the ${theme} theme and fits a 390px phone`, async ({ page, request }) => {
+    await trackApi(page);
     test.setTimeout(180_000);
     const prep = await createSkillWithPack(request, `Scenarios Axe ${theme}`, 'adf');
     await request.put('/api/v1/settings', { data: { theme } });
@@ -132,7 +134,7 @@ for (const theme of ['light', 'dark'] as const) {
       for (const route of ['/scenarios', '/scenarios/adf/1']) {
         await page.goto(route);
         await expect(page.locator('main h1').first()).toBeVisible();
-        await page.waitForLoadState('networkidle');
+        await waitForApiIdle(page);
         const results = await new AxeBuilder({ page }).withTags(tags).analyze();
         const violations = results.violations.map((v) => `${route} — ${v.id}: ${v.nodes.slice(0, 3).map((n) => n.target.join(' ')).join(' | ')}`);
         expect(violations, violations.join('\n')).toEqual([]);

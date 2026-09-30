@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import { expect, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, type APIRequestContext, type Page, type Request } from '@playwright/test';
 
 /**
  * Shared set-up for the browser tests.
@@ -135,6 +135,191 @@ export async function pickPreparation(page: Page, name: string): Promise<void> {
 
 export function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * "The screen has its data", without networkidle.
+ *
+ * networkidle waits for 500 ms with no connection of any kind open -- a fixed
+ * half second on every screen, and it counts things that are not the screen's
+ * data (fonts from Google, say). What a check needs is narrower: everything the
+ * screen asked the app itself for has arrived -- its API calls, its bundled
+ * images (a study guide's `guide:` figures), and its code, since each screen and
+ * tab loads its own JavaScript chunk on demand and shows a spinner until it has.
+ * Tracking only the API missed those chunks: axe once audited a Practice tab
+ * still showing its loading spinner. So every same-origin request is tracked,
+ * third-party ones are not, with a 100 ms quiet window so a request one response
+ * sets off is not missed.
+ *
+ * API calls are counted inside the page, where the app makes them: every fetch
+ * and XMLHttpRequest to the app's own origin, from the moment it starts until it
+ * settles -- which an XHR's loadend and a fetch's promise always do, whether it
+ * succeeded, failed or was cancelled. They were first counted from Playwright's
+ * request events instead, and a screen that cancels its calls when you move on
+ * (Home does, on the way to a scenario) left requests for which Playwright
+ * reported neither an end nor a failure: in flight forever, and a test failing
+ * on a page that had long finished loading. Code chunks, styles and images are
+ * not cancelled that way, and are still counted from Playwright's events.
+ *
+ * The tracker has to be on the page before it navigates. Attached at the moment
+ * of waiting, it would not see a request the page made while loading -- it would
+ * count nothing in flight and report idle while the data is still coming, which
+ * is a check passing on a half-loaded screen. Hence two calls: trackApi(page) up
+ * front, waitForApiIdle(page) at each point that needs the data.
+ */
+const QUIET_MS = 100;
+
+interface ResourceTracker {
+  pending: Set<Request>;
+  lastActivity: number;
+}
+
+const trackers = new WeakMap<Page, ResourceTracker>();
+
+const RESOURCE_TYPES = new Set(['script', 'stylesheet', 'image', 'font']);
+
+function isOwnResource(request: Request): boolean {
+  // The app's own code, styles and images -- not a third party's, and not a
+  // data: URL, which makes no request to wait for.
+  if (!RESOURCE_TYPES.has(request.resourceType())) return false;
+  const url = new URL(request.url());
+  return url.hostname === '127.0.0.1' || url.hostname === 'localhost';
+}
+
+interface InPageCount { count: number; msSinceLast: number; urls: string[] }
+
+/** Runs in the page, before any of its own scripts: counts its same-origin fetch and XHR calls. */
+function countApiCalls(): void {
+  type State = { count: number; last: number; pending: Map<number, string>; next: number };
+  const w = window as unknown as { __pbApiCalls?: State };
+  if (w.__pbApiCalls) return;
+  const state: State = { count: 0, last: performance.now(), pending: new Map(), next: 0 };
+  w.__pbApiCalls = state;
+
+  const own = (url: string) => {
+    try { return new URL(url, location.href).origin === location.origin; } catch { return false; }
+  };
+  const begin = (url: string) => {
+    const id = state.next;
+    state.next += 1;
+    state.pending.set(id, url);
+    state.count += 1;
+    state.last = performance.now();
+    return id;
+  };
+  const end = (id: number) => {
+    if (!state.pending.delete(id)) return;
+    state.count -= 1;
+    state.last = performance.now();
+  };
+
+  const fetch = window.fetch;
+  window.fetch = function (input: RequestInfo | URL, init?: RequestInit) {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    if (!own(url)) return fetch.call(this, input, init);
+    const id = begin(url);
+    return fetch.call(this, input, init).finally(() => end(id));
+  };
+
+  const open = XMLHttpRequest.prototype.open;
+  const send = XMLHttpRequest.prototype.send;
+  const urls = new WeakMap<XMLHttpRequest, string>();
+  XMLHttpRequest.prototype.open = function (this: XMLHttpRequest, ...args: unknown[]) {
+    urls.set(this, String(args[1]));
+    return (open as (...a: unknown[]) => void).apply(this, args);
+  };
+  XMLHttpRequest.prototype.send = function (this: XMLHttpRequest, body?: Document | XMLHttpRequestBodyInit | null) {
+    const url = urls.get(this) ?? '';
+    if (own(url)) {
+      const id = begin(url);
+      // loadend follows load, error, abort and timeout alike.
+      this.addEventListener('loadend', () => end(id), { once: true });
+    }
+    return send.call(this, body);
+  };
+}
+
+async function inPageCount(page: Page): Promise<InPageCount> {
+  try {
+    return await page.evaluate(() => {
+      const s = (window as unknown as { __pbApiCalls?: { count: number; last: number; pending: Map<number, string> } }).__pbApiCalls;
+      if (!s) return { count: 0, msSinceLast: Number.POSITIVE_INFINITY, urls: [] };
+      return { count: s.count, msSinceLast: performance.now() - s.last, urls: [...s.pending.values()] };
+    });
+  } catch {
+    // Mid-navigation: the old document is gone and the new one not yet ready. Not idle.
+    return { count: 1, msSinceLast: 0, urls: ['(page navigating)'] };
+  }
+}
+
+/** Start tracking `page`'s own requests. Call before its first goto; calling again is harmless. */
+export async function trackApi(page: Page): Promise<void> {
+  if (trackers.has(page)) return;
+  const tracker: ResourceTracker = { pending: new Set(), lastActivity: Date.now() };
+  trackers.set(page, tracker);
+  const settle = (request: Request) => {
+    if (tracker.pending.delete(request)) tracker.lastActivity = Date.now();
+  };
+  page.on('request', (request) => {
+    if (!isOwnResource(request)) return;
+    tracker.pending.add(request);
+    tracker.lastActivity = Date.now();
+  });
+  page.on('requestfinished', settle);
+  page.on('requestfailed', settle);
+  await page.addInitScript(countApiCalls);
+}
+
+// What the app shows while something is loading: an indeterminate spinner or
+// bar (MUI's determinate ones are value bars -- a score, a progress count -- and
+// stay), or a diagram still drawing (aria-busy while mermaid renders, which is
+// computation, not a request). Not inside a [data-specimen]: the Interface
+// states page shows a loading state as a sample, spinning forever by design.
+const LOADING = ':is(.MuiCircularProgress-indeterminate, .MuiLinearProgress-indeterminate, [aria-busy="true"]):not([data-specimen] *)';
+
+/**
+ * Wait until none of `page`'s same-origin requests is in flight, none has
+ * started or ended for 100 ms, and nothing on the page says it is still loading
+ * -- all three at once. The last is not redundant: a screen can wait on a timer
+ * before it asks for anything (Practice's Custom tab waits 250 ms after each
+ * change before it fetches its preview), and with nothing in flight during that
+ * gap the first two alone called it ready while it still showed "Checking your
+ * bank…". Fails naming what was still pending, rather than returning early.
+ */
+export async function waitForApiIdle(page: Page, timeoutMs = 15_000): Promise<void> {
+  const tracker = trackers.get(page);
+  if (!tracker) throw new Error('waitForApiIdle: call trackApi(page) before the page navigates, or requests made while it loads go unseen.');
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const calls = await inPageCount(page);
+    const quiet = calls.count === 0 && calls.msSinceLast >= QUIET_MS
+      && tracker.pending.size === 0 && Date.now() - tracker.lastActivity >= QUIET_MS;
+    const loading = quiet ? await page.locator(LOADING).count() : 0;
+    if (quiet && loading === 0) return;
+    if (Date.now() > deadline) {
+      const pending = [...calls.urls, ...[...tracker.pending].map((r) => `${r.method()} ${r.url()}`)];
+      throw new Error(`waitForApiIdle: not idle after ${timeoutMs} ms; still in flight: ${pending.join(', ') || '(none)'}`
+        + (loading ? `; ${loading} loading indicator(s) still on the page` : ''));
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
+/**
+ * Wait until a change made in place -- a new viewport size, a theme switch -- has
+ * finished drawing: two animation frames, so React has re-rendered for the new
+ * media query or theme and the browser has laid that out, then until no CSS
+ * transition is still running. A theme switch fades backgrounds but not text, so
+ * measuring mid-fade would check contrast on colours no learner sees at rest.
+ * Only transitions: a spinner's animation never ends and is not being waited on.
+ */
+export async function waitForTransitionsToSettle(page: Page): Promise<void> {
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
+  await expect.poll(() => page.evaluate(() => document.getAnimations()
+    .filter((a) => 'transitionProperty' in a && a.playState === 'running').length), { message: 'a CSS transition is still running' })
+    .toBe(0);
 }
 
 /**
