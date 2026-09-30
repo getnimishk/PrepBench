@@ -1,0 +1,173 @@
+# Tokens and cost
+
+**Course:** Agentic AI, from first principles to production · Module 1 Foundations · lesson 3 of 8 · **about 3 hours** · paper draft for review.  
+**Success criterion:** Estimate the cost of one run of a 2-page document task: input token count, output estimate, tool or context overhead, caching assumption, unit prices with their date, total cost, and an uncertainty range.
+
+> Sources (read 2026-09-29 and 2026-09-30; details and gaps in docs/research/agentic-ai): Sources (all read 2026-09-29; see docs/research/agentic-ai/phase-1-foundations-notes.md for detail): Hugging Face LLM Course ch.2 Tokenizers; Anthropic docs 'Token counting', 'Models overview', 'Pricing' and 'Prompt caching'. Prices, token counts and cache rules are Anthropic's, on that date; other providers differ. The support-desk company and volumes are fictional.
+
+---
+
+## Part 1 · What a token is
+
+A neural network works on numbers, not letters. So before your text reaches the model, a tokenizer cuts it into small pieces called tokens, and a lookup table turns each piece into an ID. The network then turns those IDs into numerical representations it can process, and the tokenizer converts its output IDs back into text on the way out.
+
+Why not just use whole words? A word-by-word scheme needs a huge vocabulary and treats 'dog' and 'dogs' as unrelated. Letter-by-letter avoids that, but then a single word becomes ten or more pieces, each carrying almost no meaning. Most modern systems use subword tokens: common words stay whole, and rare words are broken into reusable pieces that often line up with useful patterns. They do not always line up with linguistic meaning, because the pieces are chosen by how well they compress text, not by a grammar rulebook.
+
+Analogy (mine, not from a source): think of Lego bricks. Everyday words are one big brick; a rare word is built from a few smaller bricks. You are charged and limited by the number of bricks, not the number of words.
+
+What is universal and what is not. Universal: models work on tokens, and you pay and are limited by tokens. Vendor-specific: the exact splitting, the tokens-per-word ratio and the prices. Those differ by provider and by model, and the examples below use Anthropic's.
+
+**Worked example**
+
+The Hugging Face course, with the tokenizer used in its example, splits 'tokenization' into 'token' + 'ization'. Other tokenizers may split it differently. Anthropic's docs say one million tokens is roughly 555 thousand words on its current tokenizer, about 1.8 tokens per word. That is an Anthropic-specific approximation, not a rule for all models. On it, a 2-page, 1,000-word document is roughly 1,800 tokens. Use a token counter for the real number.
+
+**Common mistake**
+
+Thinking one token equals one word. It usually does not, and the ratio changes with the language, the content (code and numbers split into more pieces) and the model.
+
+**Check yourself.** A colleague says 'the limit is 1,000 words, so we are fine'. What is wrong with measuring in words, and what would you measure instead?
+
+<details><summary>Model answer (write yours first)</summary>
+
+Models limit and bill by tokens, and words map to tokens unevenly: rare words, code, numbers and other languages produce more tokens per word. Measure the actual token count with the target model's counter, and leave headroom because the count is an estimate.
+
+</details>
+
+---
+
+## Part 2 · Why tokens drive cost and speed
+
+You pay per million tokens (MTok), and the price for tokens you send (input) differs from the price for tokens the model writes (output). For these Anthropic models output costs more per token than input. On Anthropic's price table read on 2026-09-29, Sonnet 5.5 was $2 per MTok in and $10 out, and Haiku 4.5 was $1 in and $5 out. These are one vendor's prices on one day. Check the current page before you plan with them.
+
+Speed follows a similar logic. Anthropic says latency depends on prompt length, output length and how much the model thinks. Think of the wait as several parts added together: the time before the first word appears, the time to generate the rest, any tool or retrieval calls, and queueing and network effects. More tokens usually make a call slower and dearer, but they are not the only factor.
+
+Everything you put in the request counts as input: the instructions, the conversation so far, any documents, and the tool descriptions. In a chat that keeps growing, the earlier turns are counted as input again on every new turn, so input grows each time. Tools add tokens too: Anthropic lists a fixed tool-use system prompt (286 tokens on Sonnet 5.5) on top of your own tool definitions and results.
+
+**Worked example**
+
+Fictional example. A support desk sends about 3,000 input tokens and gets about 500 tokens back for each question, 10,000 questions a day.
+- Sonnet 5.5: 3,000 x $2/MTok + 500 x $10/MTok = $0.0110 per question, so $110 a day, about $3,300 a 30-day month.
+- Haiku 4.5: $0.0055 per question, so $55 a day, about $1,650 a month.
+The cheaper tier halves the bill, but only if it is good enough for this job. That has to be tested, not assumed. These figures count model tokens only. Search, retrieval, hosting and retries are extra (for example, Anthropic charges $10 per 1,000 web searches on top of tokens).
+
+**Common mistake**
+
+Estimating cost from input only. Output tokens are priced higher, so a chatty answer can cost more than the question that prompted it.
+
+**Check yourself.** Using the prices above, what does one question cost on Sonnet 5.5 if the input is 6,000 tokens and the output is 1,000 tokens? Which side is larger?
+
+<details><summary>Model answer (write yours first)</summary>
+
+6,000 x $2/MTok = $0.012 for input, and 1,000 x $10/MTok = $0.010 for output, so $0.022 in total. Input is larger here because there are six times as many input tokens, even though each output token costs five times as much.
+
+</details>
+
+---
+
+## Part 3 · The same text is not the same count everywhere
+
+Each model family has its own tokenizer, so identical text can turn into different numbers of tokens on different models. Anthropic states that its Claude models from Opus 4.7 onward use a newer tokenizer that produces about 30 percent more tokens for the same text, depending on content, and tells you to recount with the model you actually plan to use.
+
+Two consequences. First, a count measured on one model can understate the cost on another. Second, Anthropic calls its own counter an estimate that can differ slightly from what is billed, so budgets need a safety margin.
+
+**Worked example**
+
+A prompt measured at 3,000 tokens on an older model could come out near 3,900 on a model with the newer tokenizer. That is about 30 percent more input on every call, before any change in what you send. But 30 percent is an average that depends on content, so do not multiply by 1.3 to convert. Measure the prompt again with the new model's counter.
+
+**Common mistake**
+
+Reusing token counts from an old model, or from another vendor's online tokenizer, to size the budget for a different model.
+
+**Check yourself.** You measured your prompt at 3,000 tokens on last year's model and you are moving to a newer one. What should you do before you commit to a cost estimate?
+
+<details><summary>Model answer (write yours first)</summary>
+
+Recount the prompt with the new model's own token counter, because tokenizers differ (Anthropic reports about 30 percent more tokens on its newer tokenizer). Then add headroom, since the count is an estimate.
+
+</details>
+
+---
+
+## Part 4 · The levers that cut the bill
+
+From Anthropic's docs: (1) Pick a smaller tier when it is good enough. (2) Batch requests that do not need an instant answer, which Anthropic prices at 50 percent off input and output (a batch only suits work that can wait). (3) Reuse a stable prefix with prompt caching: cache reads cost 10 percent of the base input price (Anthropic lists 5 percent on Opus 5.5 and 2.5 percent on Fable 5.1). Writing to the cache costs more than normal input: 1.25 times the base input price for the default 5-minute cache and 2 times for a 1-hour cache. Anthropic says the 5-minute cache pays for itself after one read. (4) Send less. Anthropic also warns that more context is not automatically better: as context grows, accuracy and recall degrade, so trimming what you send can help quality as well as cost.
+
+Caching has rules. The cached part is a prefix, built in the order tools, then system prompt, then messages, and a change anywhere at or before the cache point makes it a different prefix that has to be written again. Prompts below a minimum size are not cached at all, and no error tells you so: that minimum is 512 tokens on Sonnet 5.5 but 4,096 on Haiku 4.5. Check the cache fields in the response to confirm a hit. Anthropic also offers automatic caching for growing conversations.
+
+Every lever has a cost of its own. A smaller model may fail more often, batching adds delay, and caching only helps if the cached part really is identical from call to call. (This last paragraph is my reasoning, not a quote.)
+
+**Worked example**
+
+Same fictional desk on Sonnet 5.5. Suppose 2,000 of the 3,000 input tokens are a fixed instruction block that can be cached. Those 2,000 are read at 10 percent of $2, that is $0.20/MTok. Cost per question: 1,000 x $2/MTok + 2,000 x $0.20/MTok + 500 x $10/MTok = $0.0074, so $74 a day for the reads. Now add the writes. Worst case, the cache expires and is rewritten every 5 minutes: 288 writes x 2,000 tokens x $2.50/MTok (1.25 x $2) = $1.44 a day. Total about $75.44 a day, or about $2,263 a month, down from $3,300. Try the same on Haiku 4.5: its minimum cacheable size is 4,096 tokens, so this 2,000-token prefix would not be cached at all.
+
+**Common mistake**
+
+Picking the cheapest model per token and calling it the cheapest design. If it fails more often you pay for retries, reviews and unhappy users. Compare cost per correct answer, not cost per token.
+
+**Check yourself.** Give two ways to cut this agent's cost that do not change the model, and one risk of each.
+
+<details><summary>Model answer (write yours first)</summary>
+
+Cache the fixed instruction block (risks: writes cost 1.25x, the prefix must be identical and above the model's minimum size, and it expires after 5 minutes unless refreshed), and trim the context you send (risk: you may drop information the answer needs). Batching non-urgent work is a third option, with the risk of added delay.
+
+</details>
+
+---
+
+## Part 5 · The product view: cost per successful task
+
+Price per token is not what a product owner is judged on. The number that matters is cost per successful task: what you spend on attempts, retries, tools and checking, divided by the tasks that actually worked. A cheap model that fails often can cost more per success than a dearer one that rarely fails. Latency works the same way: a user experiences the whole task time, not one call.
+
+Learn to say it as one unit-economics sentence: 'This agent costs about X per resolved ticket at Y percent success and Z seconds median, and we can move X by changing A or B.' That is what interviewers for product and program roles listen for. (This section is my framing, built on the token figures above.)
+
+**Worked example**
+
+Fictional. One attempt costs $0.011 on Sonnet 5.5 in the desk example. If 80 percent of attempts succeed and a failed attempt is simply retried, the cost per successful task is about $0.011 / 0.8 = $0.0137. A model that costs $0.006 per attempt but succeeds only 40 percent of the time costs $0.006 / 0.4 = $0.015 per success. That is higher than Sonnet's, even though its price per token is lower.
+
+**Common mistake**
+
+Comparing models on price per token alone. Compare cost per successful task, and include tools, retrieval, retries and human review.
+
+**Check yourself.** Model A costs $0.011 per attempt with 80 percent success. Model B costs $0.006 per attempt with 40 percent success. Which is cheaper per successful task, and what else would you check before choosing?
+
+<details><summary>Model answer (write yours first)</summary>
+
+A: 0.011 / 0.8 = about $0.0138. B: 0.006 / 0.4 = $0.015. So A is cheaper per success. Also check latency per task, the cost of failures that reach users, human-review cost, and whether the success rates were measured on your own test set.
+
+</details>
+
+---
+
+## Do it: lab
+
+1. Pick a 2-page document you own. Count its tokens with one provider's token counter (Anthropic's counting endpoint is free).
+2. Count the same document with a second provider's tokenizer or counter (OpenAI or Google, or a Hugging Face tokenizer offline). Note the difference and explain it in one sentence.
+3. Open each provider's price page and write down input and output price per MTok, with the date.
+4. Estimate the cost of sending the document once and getting a 300-token summary. Add any tool or context overhead, and say whether caching applies and why (check the minimum cacheable size).
+5. Give a range, not a single number, and say what could make it wrong.
+
+**Done when:** your write-up has both counts, the prices with dates, the cost with its range and assumptions, and the explanation for the difference.
+
+---
+
+## Interview check
+
+**Question.** How would you estimate the monthly cost of a customer-support assistant?
+
+<details><summary>A strong answer has this shape</summary>
+
+1. Count tokens per request: input (instructions, history, retrieved text, tool definitions) and output. They are priced differently, so keep them apart.
+2. Multiply by volume and the price per million tokens for the chosen model, with the date of the price.
+3. Adjust for caching (writes cost more than normal input, reads cost less, and there is a minimum size) and for batching if the work can wait.
+4. Add what tokens do not cover: tools such as search, retrieval, hosting and retries.
+5. Convert to cost per successful task, give a range, and say what could move it.
+
+</details>
+
+---
+
+## Evidence to keep
+
+Keep your cost write-up: both token counts, the dated prices, the range, and one sentence giving the cost per successful task.
+
+---

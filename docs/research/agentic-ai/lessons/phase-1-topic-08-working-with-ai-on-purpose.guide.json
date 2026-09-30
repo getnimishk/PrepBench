@@ -1,0 +1,71 @@
+{
+  "topic_title": "Working with AI on purpose: four properties and the 4Ds",
+  "roadmap": "Agentic AI Mastery Roadmap",
+  "sources": "Claude Academy 'AI Fluency: Framework and Foundations' lessons 1 to 3, 6, 8 and 10 to 12 (the 4Ds and three modes) and 'AI Capabilities and Limitations' lessons 1, 2, 10, 12 and 13 (four properties, steerability, property pairs), read 2026-09-30 through page summaries; lessons 5, 7 and 11 of the second course did not load. Only AI Fluency lesson 1 was read from a transcript, which the user supplied. These are one vendor's courses. The table of fixes and the mapping from property pairs to the 4Ds are our own synthesis.",
+  "sections": [
+    {
+      "title": "Why this matters",
+      "body": "Lessons 2 to 6 described how a model behaves. This lesson adds the other half: what you do about it. The machine side is four properties. The human side is four skills. Together they let you decide what to hand to an AI, how to ask, how to check, and what you still own. It is also the review you will end every build with.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": "Why is knowing how the model behaves not enough to work well with it?",
+      "check_answer": "Because the results depend on your choices as well: what you delegate, how clearly you describe it, how you check the output and whether you take responsibility for it. A model can be strong on a task and still give a poor result if the task is unclear or unchecked."
+    },
+    {
+      "title": "The machine side: four properties",
+      "body": "The Claude Academy Capabilities course describes generative AI by four properties, each a spectrum rather than a switch: the same mechanism gives both the strength and the limit. The fixes in the last column are consistent with our earlier lessons.\n\n| Property | Strong when | Weak when | Typical fix |\n|---|---|---|---|\n| Next-token prediction | Well-worn patterns: summarising, reformatting, explaining common ideas | Specifics: names, dates, numbers, citations | Verify specifics; ground answers in supplied documents |\n| Knowledge | Common, recent-within-training, consistent topics | Rare, niche, local, contested or after the cutoff | Supply it or fetch it: search, retrieval, tools |\n| Working memory | Material fits and the important part sits at the edges | Very long inputs, buried details, expecting memory across sessions | Curate context, restate key points, summarise, retrieve |\n| Steerability | Short, concrete, checkable instructions | Long chains of reasoning, vague goals | Structured output, checkpoints, state the goal |\n\nSteerability deserves one more sentence. The course says instruction-following is pattern matching, tight for short concrete instructions and loose for long reasoning. Two typical failures are reasoning drift (an early error carries through every later step) and letter over spirit (the instruction is met literally but not what you meant). The fix for the second is to state the goal as well as the instruction.",
+      "example": "Fictional. 'Summarise this meeting' is strong on all four: a common pattern, general knowledge, short input and a short instruction. 'Compute quarterly revenue by region from this 80-page export' is weak on three at once: numbers, a long input and a long chain of steps.",
+      "common_mistake": "Treating an AI as either reliable or unreliable everywhere. It is strong and weak along four predictable axes, so trust has to be set task by task.",
+      "check_question": "Place 'draft a polite refusal email' and 'list the three most cited papers on topic X with page numbers' on the four properties.",
+      "check_answer": "The email is strong on all four: a common pattern, general knowledge, a short input and a concrete instruction. The citation list is weak on next-token prediction (specific titles, counts and page numbers invite fabrication) and on knowledge (which papers are most cited may be niche or after the cutoff), so it needs verification against a real source."
+    },
+    {
+      "title": "The human side: the 4Ds",
+      "body": "The Claude Academy AI Fluency course names four skills. The definitions below are our paraphrase.\n\n- **Delegation:** deciding what you do and what the AI does. It has three parts: problem awareness (know your goal and the work), platform awareness (know what this system can and cannot do) and task delegation (split the work).\n- **Description:** saying clearly what you want: the product (the output), the process (how to approach it) and the performance (how the AI should behave with you).\n- **Discernment:** judging what came back: the product, the process (the reasoning) and the performance.\n- **Diligence:** owning the outcome: choosing tools responsibly, being open about where AI helped, and verifying and vouching for what you share.\n\nThe course also names three modes: automation (the AI runs a defined task), augmentation (you and the AI work as partners) and agency (you set the rules and the AI works autonomously). Agents live in the third.\n\n```mermaid\nflowchart LR\n  accTitle: The four skills as a loop\n  accDescr: Delegation decides what to hand over. Description says it clearly. The AI does the work. Discernment checks the result and, if it is not good enough, returns to a better description. When it is good enough, Diligence owns the outcome and records that AI helped.\n  DEL[Delegation: decide what to hand over] --> DES[Description: say it clearly]\n  DES --> WORK[The AI does the work]\n  WORK --> DIS[Discernment: check the result]\n  DIS -->|Not good enough| DES\n  DIS -->|Good enough| DIL[Diligence: own it and say AI helped]\n```",
+      "example": "Fictional. Delegation: the AI drafts the first version of a status report; you decide what to escalate. Description: audience, format, what to leave out, how blunt to be. Discernment: check every number against its source. Diligence: note that AI drafted it.",
+      "common_mistake": "Working only on the prompt and the check. People skip Delegation (what to hand over at all) and Diligence (who owns the result).",
+      "check_question": "Which D is missing here: 'I asked for a summary, it looked good, and I sent it to the client without saying AI wrote it'?",
+      "check_answer": "Diligence is missing (nothing was disclosed and nobody vouched for the content), and Discernment was thin because 'it looked good' is not a check. Delegation may also have been skipped: was a client summary the right thing to hand over?"
+    },
+    {
+      "title": "Putting them together: name the pair, pick the D",
+      "body": "The Capabilities course says real failures are usually two properties meeting, and that naming the pair points to the fix. Its two examples: next-token prediction plus knowledge gives fabricated specifics and citations; working memory plus steerability gives drift over long conversations. Linking each pair to a D is our own synthesis:\n\n1. What went wrong, in one sentence?\n2. Which two properties met?\n3. Which D fixes it? Verification is Discernment; restating the goal or re-supplying context is Description; deciding a step should not be the AI's at all is Delegation.\n\nThe course calls the aim calibrated trust: place the task on each property and match how much you check to where it sits.",
+      "example": "Fictional. Forty messages into a long chat, an assistant ignores your formatting rule. Working memory (the rule is far back) met steerability (it follows instructions by pattern). Fix it through Description: restate the rule and the goal, or start a fresh session with a summary.",
+      "common_mistake": "Rewording the prompt for every failure. Name the pair first; sometimes the fix is a check, or handing a step to code.",
+      "check_question": "Name the pair and a fix: the assistant states a confident but wrong statistic with a citation that does not exist.",
+      "check_answer": "Next-token prediction met knowledge. Fix through Discernment: open the cited source and check the number, or supply the source yourself and require a quote from it. Do not accept a specific figure you cannot trace."
+    },
+    {
+      "title": "Do it: lab",
+      "body": "1. Choose one real task you do at work, not a toy.\n2. Place it on each of the four properties as strong, middle or weak, with one line of reason each.\n3. Write your delegation: what the AI does, what you do, what you review.\n4. Write the description in three lines: the product, the process and the performance.\n5. Say how you will check the result (product, process, performance) and what would make you re-describe.\n6. Write the one sentence you would give if someone asked whether AI was involved.\n7. Run it once with a model, then write a short review: what worked, what failed, and which pair of properties collided.\n\n**Done when:** you have a one-page plan and a one-paragraph review, and the review names a failure with the pair-and-fix method (or says why there was none).",
+      "example": null,
+      "common_mistake": null,
+      "check_question": null,
+      "check_answer": null
+    },
+    {
+      "title": "Interview check",
+      "body": "Answer aloud first, then compare. Do not memorise the words; understand the shape.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": "How do you decide what to hand to an AI agent and what to keep?",
+      "check_answer": "1. Start from the problem and the work, and know what this system can and cannot do: where it is strong and weak on the four properties for this task.\n2. Hand over well-patterned, checkable steps where a mistake is cheap. Keep decisions, judgment and anything irreversible, and put a person on approval for risky actions.\n3. Describe the product, the process and the behaviour you want, clearly.\n4. Decide in advance how you will check the output and the steps.\n5. Record AI's part, disclose it where needed, and own the result.\n6. Match the mode to the task: automation for a defined task, augmentation as partners, agency only with limits and gates."
+    },
+    {
+      "title": "Evidence to keep",
+      "body": "Keep the one-page plan and the review. It is the template for the 4D review that closes every build in this course.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": null,
+      "check_answer": null
+    },
+    {
+      "title": "Sources and what is unverified",
+      "body": "Claude Academy 'AI Fluency: Framework and Foundations' lessons 1 to 3, 6, 8 and 10 to 12 (the 4Ds and three modes) and 'AI Capabilities and Limitations' lessons 1, 2, 10, 12 and 13 (four properties, steerability, property pairs), read 2026-09-30 through page summaries; lessons 5, 7 and 11 of the second course did not load. Only AI Fluency lesson 1 was read from a transcript, which the user supplied. These are one vendor's courses. The table of fixes and the mapping from property pairs to the 4Ds are our own synthesis.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": null,
+      "check_answer": null
+    }
+  ]
+}
