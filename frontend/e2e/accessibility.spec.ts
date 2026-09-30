@@ -41,22 +41,46 @@ async function seed(request: APIRequestContext) {
   expect(drill.status(), await drill.text()).toBe(201);
   const roadmap = await (await request.post('/api/v1/roadmaps', { data: { title: 'Accessible plan', subject_id: prep.id } })).json();
   const phase = await (await request.post(`/api/v1/roadmaps/${roadmap.id}/phases`, { data: { name: 'Accessible phase' } })).json();
-  await request.post(`/api/v1/roadmaps/${roadmap.id}/topics`, {
+  const topic = await (await request.post(`/api/v1/roadmaps/${roadmap.id}/topics`, {
     data: { phase_id: phase.id, title: 'Accessible topic', estimated_hours: 2, success_criteria: 'Explain it.' },
+  })).json();
+  await request.post(`/api/v1/roadmaps/${roadmap.id}/topics/${topic.id}/guide/sections`, {
+    data: {
+      title: 'Accessible Diagrams Section',
+      body: `
+### Architecture Flow
+\`\`\`mermaid
+flowchart TD
+  accTitle: Accessible System Flowchart
+  accDescr: High level flow
+  A[Client] --> B[Server]
+\`\`\`
+
+### Vector Diagram
+\`\`\`svg
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <title>Accessible Circle</title>
+  <circle cx="50" cy="50" r="40" fill="#3157d5" />
+</svg>
+\`\`\`
+
+![Bundled Guide Asset](guide:ch01-fig1-ai-ml-genai-llm.svg)
+      `.trim(),
+    },
   });
   const role = await createRole(request, 'Accessible Role');
   return {
     prep, promptId: prompts.items?.[0]?.id as number | undefined, examId: (await drill.json()).id as number,
-    roadmapId: roadmap.id as number, roleId: role.id,
+    roadmapId: roadmap.id as number, roleId: role.id, topicId: topic.id as number,
   };
 }
 
-const ROUTES = (prepId: number, roadmapId: number, roleId: number) => [
+const ROUTES = (prepId: number, roadmapId: number, roleId: number, topicId: number) => [
   '/', '/preparations', '/preparations/new', `/preparations/${prepId}/edit`,
   '/preparations/roles/new', `/preparations/roles/${roleId}`, `/preparations/roles/${roleId}/diagnostic`, '/practice', '/practice?tab=spaced', '/practice?tab=custom', '/learn',
   '/learn/guides/adf', '/learn/guides/adf/pitfalls', '/scenarios', '/scenarios/adf/1',
   '/review', '/exam-setup', '/question-bank', '/analytics', `/analytics/area?subject=${prepId}&domain=Accessible%20Area`,
-  '/roadmaps', `/roadmaps/${roadmapId}/edit`, '/search?q=Accessible', '/profile', '/lab', '/chart-sandbox', '/design-reviews', '/design-reviews/1', '/system-design', '/interview-practice',
+  '/roadmaps', `/roadmaps/${roadmapId}/edit`, `/roadmaps/${roadmapId}/topics/${topicId}/guide`, '/search?q=Accessible', '/profile', '/lab', '/chart-sandbox', '/design-reviews', '/design-reviews/1', '/system-design', '/interview-practice',
   '/interview-practice/library', '/interview-practice/setup', '/recordings', '/notifications', '/onboarding',
   '/settings', '/settings/ai', '/settings/appearance', '/settings/practice', '/settings/shortcuts',
   '/settings/notifications', '/settings/data', '/settings/about', '/settings/states',
@@ -68,7 +92,7 @@ for (const theme of ['light', 'dark'] as const) {
     // suite grew around it; a run on a busy machine needs the room, and a timeout
     // here used to leave the dark theme set for whatever ran next.
     test.setTimeout(900_000);
-    const { prep, promptId, examId, roadmapId, roleId } = await seed(request);
+    const { prep, promptId, examId, roadmapId, roleId, topicId } = await seed(request);
     // A learner with a name gets their initials in the header instead of an
     // icon: text, so the one variant of the avatar that axe measures contrast on.
     const profile = await (await request.get('/api/v1/profile')).json();
@@ -81,7 +105,7 @@ for (const theme of ['light', 'dark'] as const) {
 
       const focusRoutes = [`/exam/${examId}`, ...(promptId ? [`/system-design/${promptId}/answer`] : [])];
       const violations: string[] = [];
-      for (const route of [...ROUTES(prep.id, roadmapId, roleId), ...focusRoutes]) {
+      for (const route of [...ROUTES(prep.id, roadmapId, roleId, topicId), ...focusRoutes]) {
         violations.push(...await audit(page, route, theme));
       }
       expect(violations, violations.join('\n')).toEqual([]);

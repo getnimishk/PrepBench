@@ -136,7 +136,89 @@ Once imported, **Schedule** projects a Gantt from estimated hours ÷ your weekly
 > [!NOTE]
 > The projection runs from **today**, not from your original start date. When you fall behind, it shows where you will actually land rather than redrawing a plan you have already missed. With either input missing it says which one, rather than drawing an empty chart.
 
+---
+
+# Study Guide Content (Markdown & Diagrams)
+
+Study-guide section bodies, common mistakes, and check answers support client-side, offline Markdown with interactive and accessible diagrams. Content authors can write rich explanations without needing external network access or backend rendering.
+
+### Supported blocks
+
+1. **Markdown & CommonMark**:
+   - Headings: Use `### Heading 3` or `#### Heading 4` (rendered as `h3` and `h4` to preserve section title hierarchy).
+   - Paragraphs, bold/italic emphasis, unordered lists (`-`), ordered lists (`1.`), blockquotes (`>`).
+   - Inline code (` `code` `), fenced code blocks, and GFM tables.
+   - Links: Standard `http://` or `https://` links automatically open in a new tab with `rel="noopener noreferrer"`.
+   - Raw HTML: Rendered as plain text for security (scripts and event handlers are never executed).
+
+2. **Mermaid Diagrams**:
+   - Use fenced code blocks with language `mermaid`.
+   - Supported diagram types: `flowchart`, `graph`, `sequenceDiagram`, `stateDiagram-v2`, `stateDiagram`, `classDiagram`, and `erDiagram`.
+   - Include `accTitle:` and `accDescr:` inside the diagram for accessible screen-reader descriptions.
+   - A collapsible "Diagram source" drawer is automatically included beneath each diagram for review and copying.
+
+3. **Inline SVG Diagrams**:
+   - Use fenced code blocks with language `svg`.
+   - Must contain a standalone `<svg>...</svg>` root element with a `<title>` tag for accessibility.
+   - Validated and rendered safely as a sandboxed data-URI image (scripts, external resources, and event handlers are rejected).
+
+4. **Bundled Guide Images**:
+   - Use `![Descriptive Alt Text](guide:filename.svg)` to reference bundled assets from `frontend/src/assets/guide/`.
+   - External image URLs are intentionally blocked to ensure 100% offline functionality and learner privacy.
+
+### Authoring Examples
+
+#### 1. Markdown with GFM Table
+```markdown
+### Key Characteristics
+| Metric | Kafka | RabbitMQ |
+|---|---|---|
+| Model | Append-only log | Smart broker queue |
+| Replay | By offset | Not supported |
+```
+
+#### 2. Mermaid Flowchart
+````markdown
+```mermaid
+flowchart TD
+  accTitle: Request Processing Pipeline
+  accDescr: Client sends request through API Gateway to Service
+  Client[Client] --> Gateway[API Gateway]
+  Gateway --> Service[Order Service]
+```
+````
+
+#### 3. Mermaid Sequence Diagram
+````markdown
+```mermaid
+sequenceDiagram
+  accTitle: User Authentication Flow
+  accDescr: Browser exchanges credentials for JWT token
+  Browser->>AuthService: POST /login
+  AuthService-->>Browser: 200 OK + JWT
+```
+````
+
+#### 4. Inline SVG Diagram
+````markdown
+```svg
+<svg viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
+  <title>Cache Layer Layout</title>
+  <rect x="10" y="10" width="80" height="40" rx="4" fill="#3157d5" />
+  <text x="50" y="35" fill="#fff" font-size="12" text-anchor="middle">Redis L1</text>
+  <rect x="110" y="10" width="80" height="40" rx="4" fill="#3157d5" />
+  <text x="150" y="35" fill="#fff" font-size="12" text-anchor="middle">Postgres</text>
+</svg>
+```
+````
+
+#### 5. Bundled Guide Image
+```markdown
+![AI Application Stack](guide:ch01-fig1-ai-ml-genai-llm.svg)
+```
+
 ## See also
 
 - [Architecture](Architecture) — the service and repository layers these sit in
 - [AI Providers](AI-Providers) — required for the optional content audit
+

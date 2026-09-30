@@ -174,3 +174,48 @@ test('mock answers picked while the server is unreachable are kept, sent when it
   await expect(page.getByText('Saved · every answer is on the server')).toBeVisible();
   await expect.poll(answered).toBe(2);
 });
+
+test('study guide with diagrams still renders when the API is cut off after load', async ({ page, request }) => {
+  const roadmap = await (await request.post('/api/v1/roadmaps', { data: { title: `Offline Guide ${tag()}` } })).json();
+  const phase = await (await request.post(`/api/v1/roadmaps/${roadmap.id}/phases`, { data: { name: 'Phase 1' } })).json();
+  const topic = await (await request.post(`/api/v1/roadmaps/${roadmap.id}/topics`, {
+    data: { phase_id: phase.id, title: 'Offline Topic', learning_objective: 'Obj', success_criteria: 'Crit' },
+  })).json();
+
+  await request.post(`/api/v1/roadmaps/${roadmap.id}/topics/${topic.id}/guide/sections`, {
+    data: {
+      title: 'Offline Diagram Section',
+      body: `
+### Offline Architecture Flow
+\`\`\`mermaid
+flowchart TD
+  accTitle: Offline Flow
+  A[Node 1] --> B[Node 2]
+\`\`\`
+
+### Offline SVG
+\`\`\`svg
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <title>Offline SVG Diagram</title>
+  <circle cx="50" cy="50" r="40" fill="#3157d5" />
+</svg>
+\`\`\`
+
+![Offline Asset](guide:ch01-fig1-ai-ml-genai-llm.svg)
+      `.trim(),
+    },
+  });
+
+  await page.goto(`/roadmaps/${roadmap.id}/topics/${topic.id}/guide`);
+  await expect(page.locator('img[alt*="Offline Flow"]')).toBeVisible();
+
+  // Cut off API requests
+  await cutOff(page);
+
+  // Diagrams and content still render client-side offline
+  await expect(page.locator('img[alt*="Offline Flow"]')).toBeVisible();
+  await expect(page.locator('img[alt*="Offline SVG Diagram"]')).toBeVisible();
+  await expect(page.locator('img[alt="Offline Asset"]')).toBeVisible();
+  await expect(page.getByText('Diagram source')).toBeVisible();
+});
+
