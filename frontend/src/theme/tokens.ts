@@ -58,9 +58,9 @@ export const TOKENS: Record<'light' | 'dark', Tokens> = {
   },
 };
 
-/** The prototype's type stack: Inter, then the platform's own sans. */
+/** The prototype's type stack: Inter (bundled, so it works offline), then the platform's own sans. */
 export const FONT_STACK =
-  'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  '"Inter Variable", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 
 /** The prototype's monospace stack, for code, keys and table references. */
 export const MONO_STACK = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
