@@ -28,6 +28,7 @@ export function useDiagramTheme(): DiagramTheme {
   const mode = muiTheme.palette.mode === 'dark' ? 'dark' : 'light';
   const textScale = (muiTheme.typography.fontSize || 14) / 14;
   const fontSizePx = Math.round(14 * textScale);
+  // Mermaid's own setting is a CSS length string, not a size in this app's type scale.
   const diagramFontSize = `${fontSizePx}px`;
 
   const themeVariables = useMemo<Record<string, string | boolean>>(() => ({
@@ -37,26 +38,26 @@ export function useDiagramTheme(): DiagramTheme {
     background: 'transparent',
     primaryColor: pb.surface2,
     primaryTextColor: pb.text,
-    primaryBorderColor: pb.line,
-    lineColor: pb.line,
+    primaryBorderColor: pb.muted,
+    lineColor: pb.muted,
     secondaryColor: pb.surface2,
     tertiaryColor: pb.bg,
     textColor: pb.text,
     mainBkg: pb.surface2,
-    nodeBorder: pb.line,
+    nodeBorder: pb.muted,
     nodeTextColor: pb.text,
     clusterBkg: pb.surface,
-    clusterBorder: pb.line,
+    clusterBorder: pb.muted,
     titleColor: pb.text,
     edgeLabelBackground: pb.surface,
     actorBkg: pb.surface2,
-    actorBorder: pb.line,
+    actorBorder: pb.muted,
     actorTextColor: pb.text,
-    actorLineColor: pb.line,
+    actorLineColor: pb.muted,
     signalColor: pb.text,
     signalTextColor: pb.text,
     labelBoxBkgColor: pb.surface,
-    labelBoxBorderColor: pb.line,
+    labelBoxBorderColor: pb.muted,
     labelTextColor: pb.text,
     loopTextColor: pb.text,
     noteBkgColor: pb.warningSoft,
@@ -64,10 +65,10 @@ export function useDiagramTheme(): DiagramTheme {
     noteTextColor: pb.warning,
   }), [
     mode,
-    fontSizePx,
+    diagramFontSize,
     pb.surface2,
     pb.text,
-    pb.line,
+    pb.muted,
     pb.bg,
     pb.surface,
     pb.warningSoft,

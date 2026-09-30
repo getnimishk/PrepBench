@@ -7,7 +7,7 @@ import { Box } from '@mui/material';
 import { Note } from '../ui/primitives';
 import { MONO_STACK } from '../../theme/tokens';
 import { sanitizeSvg } from './sanitizeSvg';
-import { extractSvgAlt } from './guideUtils';
+import { diagramMaxWidth, diagramMinWidth, extractSvgAlt } from './guideUtils';
 
 export const SafeSvg: React.FC<{ source: string }> = ({ source }) => {
   const result = sanitizeSvg(source);
@@ -65,7 +65,9 @@ export const SafeSvg: React.FC<{ source: string }> = ({ source }) => {
           alt={alt}
           sx={{
             display: 'block',
-            maxWidth: '100%',
+            width: '100%',
+            minWidth: diagramMinWidth(source),
+            maxWidth: diagramMaxWidth(source),
             height: 'auto',
           }}
         />

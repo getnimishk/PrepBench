@@ -9,7 +9,7 @@ import { Box, Typography } from '@mui/material';
 import { MONO_STACK } from '../../theme/tokens';
 import { MermaidDiagram } from './MermaidDiagram';
 import { SafeSvg } from './SafeSvg';
-import { GUIDE_IMAGE_MAP, PreContext } from './guideUtils';
+import { DIAGRAM_MIN_WIDTH_PX, GUIDE_IMAGE_MAP, PreContext } from './guideUtils';
 
 const MarkdownCode: React.FC<{ className?: string; children?: React.ReactNode }> = ({ className, children }) => {
   const inPre = useContext(PreContext);
@@ -293,11 +293,10 @@ export const GuideMarkdown: React.FC<GuideMarkdownProps> = ({ text }) => {
                   component="img"
                   src={resolvedUrl}
                   alt={cleanAlt}
-                  sx={{
-                    display: 'block',
-                    maxWidth: '100%',
-                    height: 'auto',
-                  }}
+                  sx={filename.toLowerCase().endsWith('.svg')
+                    // A vector figure has no size of its own: fill the box, but scroll rather than shrink below readable.
+                    ? { display: 'block', width: '100%', minWidth: `${DIAGRAM_MIN_WIDTH_PX}px`, height: 'auto' }
+                    : { display: 'block', maxWidth: '100%', height: 'auto' }}
                 />
               </Box>
             </Box>

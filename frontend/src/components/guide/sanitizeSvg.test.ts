@@ -192,4 +192,23 @@ describe('sanitizeSvg', () => {
     expect(result2.ok).toBe(false);
     expect(result2.reason).toMatch(/@import/i);
   });
+
+  it('accepts the word "Entity" in a label (an ER diagram) but still rejects a real ENTITY declaration', () => {
+    const label = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 40"><text x="4" y="20">Entity: Customer</text></svg>';
+    expect(sanitizeSvg(label).ok).toBe(true);
+    expect(sanitizeSvg('<!ENTITY x "y"><svg xmlns="http://www.w3.org/2000/svg"/>').ok).toBe(false);
+  });
+
+  it('accepts an attribute whose text merely contains "data:" or "javascript:" in the middle', () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 40"><g aria-label="Metadata: flow of javascript: events"><rect width="10" height="10"/></g></svg>';
+    expect(sanitizeSvg(svg).ok).toBe(true);
+  });
+
+  it('still rejects a value that starts with a scripting or data scheme, and protocol-relative or relative hrefs', () => {
+    const wrap = (inner: string) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">${inner}</svg>`;
+    expect(sanitizeSvg(wrap('<rect fill="  javascript:alert(1)" width="1" height="1"/>')).ok).toBe(false);
+    expect(sanitizeSvg(wrap('<rect fill="data:text/html,x" width="1" height="1"/>')).ok).toBe(false);
+    expect(sanitizeSvg(wrap('<image href="//evil.example/x.png" width="5" height="5"/>')).ok).toBe(false);
+    expect(sanitizeSvg(wrap('<image href="x.png" width="5" height="5"/>')).ok).toBe(false);
+  });
 });

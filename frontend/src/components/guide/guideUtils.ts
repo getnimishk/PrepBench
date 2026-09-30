@@ -83,7 +83,37 @@ export function queueMermaidRender<T>(task: () => Promise<T>): Promise<T> {
 
 export function getNextMermaidId(): string {
   renderCounter += 1;
-  return `pb-mermaid-${Date.now()}-${renderCounter}`;
+  // Counter first, so one id is never a prefix of another (`-1-` vs `-10-`): the cleanup below matches by prefix.
+  return `pb-mermaid-${renderCounter}-${Date.now()}`;
+}
+
+/**
+ * The width an SVG is drawn at when nothing squeezes it, read from its viewBox.
+ * Used so a wide diagram scrolls inside its box on a narrow screen instead of
+ * shrinking until the text is unreadable. Returns null when it cannot be read.
+ */
+export function svgNaturalWidth(svgSource: string): number | null {
+  const match = svgSource.match(/viewBox\s*=\s*["']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+[\d.]+\s*["']/i);
+  if (!match) return null;
+  const width = Number.parseFloat(match[1]);
+  return Number.isFinite(width) && width > 0 ? width : null;
+}
+
+/** A diagram is squeezed to no less than this fraction of its own width; below that its box scrolls sideways. */
+export const DIAGRAM_MIN_SCALE = 0.65;
+
+/** For a vector image whose width cannot be read (a bundled file), the smallest width it is drawn at. */
+export const DIAGRAM_MIN_WIDTH_PX = 480;
+
+export function diagramMinWidth(svgSource: string): string {
+  const natural = svgNaturalWidth(svgSource);
+  return natural ? `${Math.round(natural * DIAGRAM_MIN_SCALE)}px` : `${DIAGRAM_MIN_WIDTH_PX}px`;
+}
+
+/** A diagram is never drawn larger than its own width: stretching a small one to the column doubles its text. */
+export function diagramMaxWidth(svgSource: string): string | undefined {
+  const natural = svgNaturalWidth(svgSource);
+  return natural ? `${Math.round(natural)}px` : undefined;
 }
 
 export function extractSvgAlt(source: string): string {

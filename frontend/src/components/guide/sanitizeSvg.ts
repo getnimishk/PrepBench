@@ -50,7 +50,9 @@ export function sanitizeSvg(source: string): SanitizeSvgResult {
   if (/<!\s*DOCTYPE/i.test(source)) {
     return { ok: false, reason: 'DOCTYPE declarations are not allowed' };
   }
-  if (/<!\s*ENTITY/i.test(source) || /\bENTITY\b/i.test(source)) {
+  // Only a real declaration. The bare word is fine in a label (an ER diagram says "Entity"), and any entity
+  // definition needs a DOCTYPE, which is rejected above.
+  if (/<!\s*ENTITY/i.test(source)) {
     return { ok: false, reason: 'ENTITY declarations are not allowed' };
   }
 
@@ -126,8 +128,9 @@ export function sanitizeSvg(source: string): SanitizeSvgResult {
         return { ok: false, reason: `Forbidden event attribute "${attr.name}"` };
       }
 
-      // javascript: or data: values
-      if (/(?:javascript|data)\s*:/i.test(attrValue)) {
+      // javascript: or data: values. A scheme is only a scheme at the start of a value:
+      // "Metadata: flow" is a label, not a URI.
+      if (/^\s*(?:javascript|data)\s*:/i.test(attrValue)) {
         return { ok: false, reason: `Forbidden URI scheme in attribute "${attr.name}"` };
       }
 

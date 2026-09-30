@@ -8,7 +8,7 @@ import { Note } from '../ui/primitives';
 import { MONO_STACK } from '../../theme/tokens';
 import { useDiagramTheme } from './useDiagramTheme';
 import {
-  extractMermaidAlt, getNextMermaidId, queueMermaidRender, validateMermaidSource,
+  diagramMaxWidth, diagramMinWidth, extractMermaidAlt, getNextMermaidId, queueMermaidRender, validateMermaidSource,
 } from './guideUtils';
 
 export const MermaidDiagram: React.FC<{ source: string }> = ({ source }) => {
@@ -16,6 +16,8 @@ export const MermaidDiagram: React.FC<{ source: string }> = ({ source }) => {
   const [renderResult, setRenderResult] = useState<{
     loading: boolean;
     dataUri?: string;
+    minWidth?: string;
+    maxWidth?: string;
     error?: string;
   }>({ loading: true });
 
@@ -53,14 +55,16 @@ export const MermaidDiagram: React.FC<{ source: string }> = ({ source }) => {
           const { svg } = await mermaid.render(id, source);
           if (!cancelled) {
             const dataUri = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-            setRenderResult({ loading: false, dataUri });
+            setRenderResult({
+              loading: false, dataUri, minWidth: diagramMinWidth(svg), maxWidth: diagramMaxWidth(svg),
+            });
           }
         } finally {
           const el = document.getElementById(id);
           if (el) el.remove();
           const dEl = document.getElementById(`d${id}`);
           if (dEl) dEl.remove();
-          document.querySelectorAll(`[id*="${id}"]`).forEach((n) => n.remove());
+          document.querySelectorAll(`[id^="${id}"], [id^="d${id}"]`).forEach((n) => n.remove());
         }
       } catch (err) {
         if (!cancelled) {
@@ -151,7 +155,11 @@ export const MermaidDiagram: React.FC<{ source: string }> = ({ source }) => {
           alt={alt}
           sx={{
             display: 'block',
-            maxWidth: '100%',
+            width: '100%',
+            // Fit the column, but never larger than the diagram's own width, and never so small that its
+            // text cannot be read: below that, the box scrolls sideways instead.
+            minWidth: renderResult.minWidth,
+            maxWidth: renderResult.maxWidth,
             height: 'auto',
           }}
         />
