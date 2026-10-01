@@ -73,6 +73,13 @@ class Roadmap(Base):
 
     is_archived = Column(Boolean, default=False, nullable=False, server_default="0")
 
+    # The imported workbook's sheets in workbook order, as
+    # [{"name", "kind": syllabus|tracker|resource, "resource_id"?}]. NULL for
+    # roadmaps that never came from a multi-sheet workbook (and for those
+    # imported before this column existed -- not backfilled, since the sheet
+    # names were never recorded); the detail response derives a layout then.
+    sheet_layout = Column(JSON, nullable=True)
+
     created_at = Column(DateTime, default=_utc_now_naive)
     updated_at = Column(DateTime, default=_utc_now_naive, onupdate=_utc_now_naive)
 

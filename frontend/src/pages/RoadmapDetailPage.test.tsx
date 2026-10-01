@@ -8,7 +8,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { RoadmapDetailPage } from './RoadmapDetailPage';
-import { RoadmapDetail, RoadmapSchedule, RoadmapTopic } from '../types/roadmap';
+import { RoadmapDetail, RoadmapResource, RoadmapSchedule, RoadmapSheet, RoadmapTopic } from '../types/roadmap';
 
 const mockGetRoadmap = vi.fn();
 const mockGetRoadmapSchedule = vi.fn();
@@ -70,9 +70,36 @@ function makeDetail(overrides: Partial<RoadmapDetail> = {}): RoadmapDetail {
       },
     ],
     resources: [],
+    sheets: [{ name: 'Kafka Syllabus', kind: 'syllabus' }],
     ...overrides,
   };
 }
+
+function makeResource(id: number, title: string): RoadmapResource {
+  return {
+    id, roadmap_id: 1, title, order_index: id,
+    columns: [`${title} column`], rows: [[`${title} cell`]],
+  };
+}
+
+/** A workbook with a syllabus, a tracker and two reference sheets, over two phases. */
+function makeMultiSheet(sheets?: RoadmapSheet[]): RoadmapDetail {
+  return makeDetail({
+    phases: [
+      { id: 1, roadmap_id: 1, name: 'Phase A', order_index: 0, topics: [makeTopic(1, { phase_id: 1 })] },
+      { id: 2, roadmap_id: 1, name: 'Phase B', order_index: 1, topics: [makeTopic(3, { phase_id: 2 })] },
+    ],
+    resources: [makeResource(11, 'Commands'), makeResource(12, 'Glossary')],
+    sheets: sheets ?? [
+      { name: 'Master Syllabus', kind: 'syllabus' },
+      { name: 'Progress Tracker', kind: 'tracker' },
+      { name: 'Commands', kind: 'resource', resource_id: 11 },
+      { name: 'Glossary', kind: 'resource', resource_id: 12 },
+    ],
+  });
+}
+
+const tabNames = () => screen.getAllByRole('tab').map((t) => t.textContent);
 
 function makeSchedule(overrides: Partial<RoadmapSchedule> = {}): RoadmapSchedule {
   return {
@@ -307,5 +334,98 @@ describe('RoadmapDetailPage', () => {
     mockGetRoadmap.mockResolvedValue(makeDetail());
     await user.click(screen.getByRole('button', { name: /retry/i }));
     await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
+  });
+});
+
+describe('RoadmapDetailPage sheet tabs', () => {
+  it('keeps the original tabs for a single-sheet roadmap', async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
+    expect(tabNames()).toEqual(['Syllabus', 'Phase overview', 'Schedule']);
+  });
+
+  it('keeps the single Reference tables tab and button for a single-sheet roadmap', async () => {
+    mockGetRoadmap.mockResolvedValue(makeDetail({ resources: [makeResource(11, 'Commands')] }));
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
+    expect(tabNames()).toEqual(['Syllabus', 'Phase overview', 'Schedule', 'Reference tables (1)']);
+    expect(screen.getByRole('button', { name: 'Reference tables (1)' })).toBeInTheDocument();
+  });
+
+  it('shows one tab per sheet in workbook order, then Schedule', async () => {
+    mockGetRoadmap.mockResolvedValue(makeMultiSheet());
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
+
+    expect(tabNames()).toEqual(['Master Syllabus', 'Progress Tracker', 'Commands', 'Glossary', 'Schedule']);
+    expect(screen.getByRole('tab', { name: 'Master Syllabus' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('button', { name: /reference tables/i })).not.toBeInTheDocument();
+  });
+
+  it('has no separate Phase overview tab when a tracker exists; the header button selects the tracker', async () => {
+    const user = userEvent.setup();
+    mockGetRoadmap.mockResolvedValue(makeMultiSheet());
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
+
+    expect(screen.queryByRole('tab', { name: 'Phase overview' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Phase overview' }));
+    expect(screen.getByRole('tab', { name: 'Progress Tracker' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('Phase by phase')).toBeInTheDocument();
+  });
+
+  it('adds a Phase overview tab before Schedule when there is no tracker sheet', async () => {
+    const user = userEvent.setup();
+    mockGetRoadmap.mockResolvedValue(makeMultiSheet([
+      { name: 'Master Syllabus', kind: 'syllabus' },
+      { name: 'Commands', kind: 'resource', resource_id: 11 },
+    ]));
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
+
+    expect(tabNames()).toEqual(['Master Syllabus', 'Commands', 'Phase overview', 'Schedule']);
+    await user.click(screen.getByRole('button', { name: 'Phase overview' }));
+    expect(screen.getByRole('tab', { name: 'Phase overview' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('shows only its own table on a resource tab', async () => {
+    const user = userEvent.setup();
+    mockGetRoadmap.mockResolvedValue(makeMultiSheet());
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('tab', { name: 'Glossary' }));
+    expect(screen.getByRole('heading', { name: 'Glossary' })).toBeInTheDocument();
+    expect(screen.getByText('Glossary cell')).toBeInTheDocument();
+    expect(screen.queryByText('Commands cell')).not.toBeInTheDocument();
+    expect(screen.queryByText('Topic 1')).not.toBeInTheDocument();
+  });
+
+  it('opens the syllabus on a phase picked in the journey view', async () => {
+    const user = userEvent.setup();
+    mockGetRoadmap.mockResolvedValue(makeMultiSheet());
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('tab', { name: 'Progress Tracker' }));
+    await user.click(screen.getByRole('button', { name: 'Open Phase B' }));
+
+    expect(screen.getByRole('tab', { name: 'Master Syllabus' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('Topic 3')).toBeInTheDocument();
+    expect(screen.queryByText('Topic 1')).not.toBeInTheDocument();
+  });
+
+  it('gives several syllabus sheets one tab and names the others', async () => {
+    mockGetRoadmap.mockResolvedValue(makeMultiSheet([
+      { name: 'Core', kind: 'syllabus' },
+      { name: 'Advanced', kind: 'syllabus' },
+      { name: 'Extras', kind: 'syllabus' },
+      { name: 'Commands', kind: 'resource', resource_id: 11 },
+    ]));
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
+
+    expect(tabNames()).toEqual(['Core', 'Commands', 'Phase overview', 'Schedule']);
+    expect(screen.getByText('Also includes topics from: Advanced, Extras')).toBeInTheDocument();
   });
 });

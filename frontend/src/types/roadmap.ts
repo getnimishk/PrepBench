@@ -37,6 +37,16 @@ export interface RoadmapResource {
   rows: string[][];
 }
 
+/** One tab of the roadmap page: a sheet of the imported workbook. */
+export type RoadmapSheetKind = 'syllabus' | 'tracker' | 'resource';
+
+export interface RoadmapSheet {
+  name: string;
+  kind: RoadmapSheetKind;
+  /** Set for kind 'resource': which RoadmapResource this sheet is. */
+  resource_id?: number | null;
+}
+
 export interface RoadmapProgress {
   total_topics: number;
   not_started_count: number;
@@ -74,6 +84,8 @@ export interface RoadmapSummary {
 export interface RoadmapDetail extends RoadmapSummary {
   phases: RoadmapPhase[];
   resources: RoadmapResource[];
+  /** The tabs, in workbook order. Always filled in by the server. */
+  sheets: RoadmapSheet[];
 }
 
 export type ScheduleStatus = 'actual' | 'projected' | 'unschedulable' | 'skipped';
@@ -137,6 +149,11 @@ export interface RoadmapImportResource {
   rows: string[][];
 }
 
+export interface RoadmapImportSheet {
+  name: string;
+  kind: RoadmapSheetKind;
+}
+
 export interface RoadmapImportPreview {
   title: string;
   description?: string | null;
@@ -144,6 +161,8 @@ export interface RoadmapImportPreview {
   phases: string[];
   topics: RoadmapImportTopic[];
   resources: RoadmapImportResource[];
+  /** Workbook order; empty for JSON/CSV/Markdown. */
+  sheets: RoadmapImportSheet[];
   warnings: string[];
   ignored_sheets: string[];
 }
@@ -154,6 +173,7 @@ export interface RoadmapImportConfirm {
   source_filename?: string | null;
   topics: RoadmapImportTopic[];
   resources: RoadmapImportResource[];
+  sheets?: RoadmapImportSheet[];
   start_date?: string | null;
   weekly_hours_budget?: number | null;
 }

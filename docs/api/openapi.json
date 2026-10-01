@@ -8290,6 +8290,14 @@
             "title": "Resources",
             "type": "array"
           },
+          "sheets": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RoadmapSheet"
+            },
+            "title": "Sheets",
+            "type": "array"
+          },
           "source_filename": {
             "anyOf": [
               {
@@ -8416,6 +8424,14 @@
             "title": "Resources",
             "type": "array"
           },
+          "sheets": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RoadmapImportSheet"
+            },
+            "title": "Sheets",
+            "type": "array"
+          },
           "source_filename": {
             "anyOf": [
               {
@@ -8506,6 +8522,14 @@
               "$ref": "#/components/schemas/RoadmapImportResource"
             },
             "title": "Resources",
+            "type": "array"
+          },
+          "sheets": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RoadmapImportSheet"
+            },
+            "title": "Sheets",
             "type": "array"
           },
           "source_filename": {
@@ -8609,6 +8633,29 @@
           "resource_count"
         ],
         "title": "RoadmapImportResult",
+        "type": "object"
+      },
+      "RoadmapImportSheet": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "syllabus",
+              "tracker",
+              "resource"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "kind"
+        ],
+        "title": "RoadmapImportSheet",
         "type": "object"
       },
       "RoadmapImportTopic": {
@@ -9259,6 +9306,41 @@
           "schedule_status"
         ],
         "title": "RoadmapScheduleItem",
+        "type": "object"
+      },
+      "RoadmapSheet": {
+        "description": "One tab of the roadmap page: a sheet of the imported workbook.",
+        "properties": {
+          "kind": {
+            "enum": [
+              "syllabus",
+              "tracker",
+              "resource"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "resource_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Id"
+          }
+        },
+        "required": [
+          "name",
+          "kind"
+        ],
+        "title": "RoadmapSheet",
         "type": "object"
       },
       "RoadmapSummaryResponse": {

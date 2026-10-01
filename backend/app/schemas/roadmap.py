@@ -217,9 +217,19 @@ class RoadmapSummaryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class RoadmapSheet(BaseModel):
+    """One tab of the roadmap page: a sheet of the imported workbook."""
+
+    name: str
+    kind: Literal["syllabus", "tracker", "resource"]
+    # Set for kind == "resource": which RoadmapResource this sheet is.
+    resource_id: Optional[int] = None
+
+
 class RoadmapDetailResponse(RoadmapSummaryResponse):
     phases: List[RoadmapPhaseResponse] = []
     resources: List[RoadmapResourceResponse] = []
+    sheets: List[RoadmapSheet] = []
 
 
 # -------------------------------------------------------------- schedule
@@ -290,6 +300,11 @@ class RoadmapImportResource(BaseModel):
     rows: List[List[str]] = []
 
 
+class RoadmapImportSheet(BaseModel):
+    name: str
+    kind: Literal["syllabus", "tracker", "resource"]
+
+
 class RoadmapImportPreview(BaseModel):
     """What the staged-review UI renders before anything is written."""
 
@@ -299,6 +314,8 @@ class RoadmapImportPreview(BaseModel):
     phases: List[str] = []
     topics: List[RoadmapImportTopic] = []
     resources: List[RoadmapImportResource] = []
+    # Workbook order; empty for JSON/CSV/Markdown.
+    sheets: List[RoadmapImportSheet] = []
     warnings: List[str] = []
     ignored_sheets: List[str] = []
 
@@ -315,6 +332,7 @@ class RoadmapImportConfirm(BaseModel):
     source_filename: Optional[str] = None
     topics: List[RoadmapImportTopic] = []
     resources: List[RoadmapImportResource] = []
+    sheets: List[RoadmapImportSheet] = []
     start_date: Optional[date] = None
     weekly_hours_budget: Optional[float] = Field(default=None, gt=0)
 

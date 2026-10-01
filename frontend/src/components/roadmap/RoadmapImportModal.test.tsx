@@ -38,6 +38,10 @@ function makePreview(overrides: Partial<RoadmapImportPreview> = {}): RoadmapImpo
       },
     ],
     resources: [{ title: 'CLI Command Reference', columns: ['Category', 'Command'], rows: [['Create', 'kafka-topics.sh']] }],
+    sheets: [
+      { name: 'Master Syllabus', kind: 'syllabus' },
+      { name: 'CLI Command Reference', kind: 'resource' },
+    ],
     warnings: [],
     ignored_sheets: [],
     ...overrides,
@@ -116,6 +120,26 @@ describe('RoadmapImportModal', () => {
       }));
     });
     await waitFor(() => expect(onImported).toHaveBeenCalledWith(9));
+  });
+
+  it('sends the sheet layout back on confirm so the roadmap keeps its tabs', async () => {
+    const user = userEvent.setup();
+    mockValidate.mockResolvedValue(makePreview());
+    mockConfirm.mockResolvedValue({ roadmap_id: 9, title: 'Apache Kafka Mastery', phase_count: 1, topic_count: 1, resource_count: 1 });
+    renderModal();
+
+    await user.upload(screen.getByTestId('roadmap-file-input'), makeFile());
+    await waitFor(() => expect(screen.getByText('1 topics')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /^import roadmap$/i }));
+
+    await waitFor(() => {
+      expect(mockConfirm).toHaveBeenCalledWith(expect.objectContaining({
+        sheets: [
+          { name: 'Master Syllabus', kind: 'syllabus' },
+          { name: 'CLI Command Reference', kind: 'resource' },
+        ],
+      }));
+    });
   });
 
   it('shows the backend error when the file cannot be parsed', async () => {

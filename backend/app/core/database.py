@@ -669,6 +669,18 @@ def apply_lightweight_migrations():
             _log_migration_failure("roadmaps.subject_id", exc)
 
         try:
+            # roadmaps.sheet_layout: the imported workbook's sheets in order.
+            # Nullable and not backfilled -- sheet names were never recorded
+            # for earlier imports, so there is nothing to recover.
+            result = conn.execute(text("PRAGMA table_info(roadmaps)")).fetchall()
+            columns = [row[1] for row in result]
+            if columns and "sheet_layout" not in columns:
+                conn.execute(text("ALTER TABLE roadmaps ADD COLUMN sheet_layout JSON"))
+                conn.commit()
+        except Exception as exc:
+            _log_migration_failure("roadmaps.sheet_layout", exc)
+
+        try:
             # learning_attempts: the sandbox and study evidence, moved off the
             # browser.
             #

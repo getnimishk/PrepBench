@@ -21,7 +21,7 @@ from app.schemas.roadmap import (
     RoadmapSummaryResponse, RoadmapDetailResponse,
     RoadmapPhaseCreate, RoadmapPhaseUpdate, RoadmapPhaseResponse,
     RoadmapTopicCreate, RoadmapTopicUpdate, RoadmapTopicResponse,
-    RoadmapResourceResponse,
+    RoadmapResourceResponse, RoadmapSheet,
     RoadmapSchedule, RoadmapScheduleItem, RoadmapPhaseScheduleItem,
     TopicDemonstrationCreate, TopicDemonstrationResponse, TopicDemonstrationResult,
 )
@@ -267,7 +267,31 @@ class RoadmapService:
             progress=self.build_progress(topics),
             phases=phases,
             resources=resources,
+            sheets=self._build_sheets(roadmap, bool(topics), resources),
         )
+
+    @staticmethod
+    def _build_sheets(
+        roadmap: Roadmap, has_topics: bool, resources: List[RoadmapResourceResponse],
+    ) -> List[RoadmapSheet]:
+        """
+        The roadmap page's tabs. The layout stored at import wins, minus any
+        resource entry whose resource has since gone; otherwise one is derived
+        (a Syllabus, then each resource), so older and non-Excel roadmaps get
+        the same shape.
+        """
+        stored = roadmap.sheet_layout
+        if stored:
+            live_ids = {r.id for r in resources}
+            return [
+                RoadmapSheet(**entry) for entry in stored
+                if entry.get("kind") != "resource" or entry.get("resource_id") in live_ids
+            ]
+        if not has_topics and not resources:
+            return []
+        return [RoadmapSheet(name="Syllabus", kind="syllabus")] + [
+            RoadmapSheet(name=r.title, kind="resource", resource_id=r.id) for r in resources
+        ]
 
     # ============================================================== queries
 
