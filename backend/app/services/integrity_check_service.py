@@ -26,9 +26,22 @@ class IntegrityCheckService:
         import file (each item at minimum has 'text' and 'options' keys, where
         each option has an 'option_text' key)."""
         db_questions = self.repo.get_all_unpaginated()
-        db_by_norm_text = {
-            QuestionValidator._normalize(q.text): q for q in db_questions
-        }
+        # One question per normalized text to match against -- the first --
+        # and every further copy reported as an extra row. Collapsed into one
+        # dict entry, a second copy (a bank imported twice) used to vanish:
+        # counted in db_total, matched nowhere, listed nowhere.
+        db_by_norm_text: Dict[str, Any] = {}
+        duplicate_questions: List[dict] = []
+        for q in db_questions:
+            norm = QuestionValidator._normalize(q.text)
+            if norm in db_by_norm_text:
+                duplicate_questions.append({
+                    "db_id": q.id,
+                    "text": q.text[:120],
+                    "duplicate_of": db_by_norm_text[norm].id,
+                })
+            else:
+                db_by_norm_text[norm] = q
 
         missing_questions: List[dict] = []
         option_mismatches: List[dict] = []
@@ -65,7 +78,7 @@ class IntegrityCheckService:
             {"db_id": q.id, "text": q.text[:120]}
             for norm, q in db_by_norm_text.items()
             if norm not in matched_norm_texts
-        ]
+        ] + duplicate_questions
 
         return {
             "source_total": len(source_questions),
