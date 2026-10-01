@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 560" role="img" aria-labelledby="t5 d5" font-family="Arial, Helvetica, sans-serif">
+  <title id="t5">Which component did what: a reimbursement question</title>
+  <desc id="d5">Six steps from an employee's question to the answer. Each step is labelled with the component that did the work. Only the last step, writing the explanation, is done by the LLM.</desc>
+  <defs>
+    <marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1f4e78"/></marker>
+  </defs>
+  <rect width="760" height="560" fill="#ffffff"/>
+  <text x="40" y="30" font-size="16" font-weight="bold" fill="#1a1a1a">What happens</text>
+  <text x="440" y="30" font-size="16" font-weight="bold" fill="#1a1a1a">Which component did the work</text>
+  <line x1="40" y1="40" x2="720" y2="40" stroke="#c9d3e0" stroke-width="1.5"/>
+
+  <rect x="40" y="56" width="340" height="52" rx="10" fill="#e6eef8" stroke="#1f4e78" stroke-width="2"/>
+  <text x="210" y="87" font-size="15" text-anchor="middle" fill="#1a1a1a">1. Employee asks: "Why was my claim rejected?"</text>
+  <text x="440" y="87" font-size="15" fill="#333333">The employee (user)</text>
+  <line x1="210" y1="108" x2="210" y2="134" stroke="#1f4e78" stroke-width="2" marker-end="url(#a5)"/>
+
+  <rect x="40" y="138" width="340" height="52" rx="10" fill="#e6eef8" stroke="#1f4e78" stroke-width="2"/>
+  <text x="210" y="169" font-size="15" text-anchor="middle" fill="#1a1a1a">2. Application receives it and starts the steps</text>
+  <text x="440" y="169" font-size="15" fill="#333333">The application (orchestrates everything)</text>
+  <line x1="210" y1="190" x2="210" y2="216" stroke="#1f4e78" stroke-width="2" marker-end="url(#a5)"/>
+
+  <rect x="40" y="220" width="340" height="52" rx="10" fill="#e6eef8" stroke="#1f4e78" stroke-width="2"/>
+  <text x="210" y="251" font-size="15" text-anchor="middle" fill="#1a1a1a">3. Check who is asking and what they may see</text>
+  <text x="440" y="251" font-size="15" fill="#333333">The access-control system</text>
+  <line x1="210" y1="272" x2="210" y2="298" stroke="#1f4e78" stroke-width="2" marker-end="url(#a5)"/>
+
+  <rect x="40" y="302" width="340" height="52" rx="10" fill="#e6eef8" stroke="#1f4e78" stroke-width="2"/>
+  <text x="210" y="333" font-size="15" text-anchor="middle" fill="#1a1a1a">4. Look up the reimbursement record</text>
+  <text x="440" y="333" font-size="15" fill="#333333">The database (system of record)</text>
+  <line x1="210" y1="354" x2="210" y2="380" stroke="#1f4e78" stroke-width="2" marker-end="url(#a5)"/>
+
+  <rect x="40" y="384" width="340" height="52" rx="10" fill="#e6eef8" stroke="#1f4e78" stroke-width="2"/>
+  <text x="210" y="415" font-size="15" text-anchor="middle" fill="#1a1a1a">5. Find the relevant company policy text</text>
+  <text x="440" y="415" font-size="15" fill="#333333">The retrieval system</text>
+  <line x1="210" y1="436" x2="210" y2="462" stroke="#1f4e78" stroke-width="2" marker-end="url(#a5)"/>
+
+  <rect x="40" y="466" width="340" height="52" rx="10" fill="#fff4d6" stroke="#b36b00" stroke-width="2.5"/>
+  <text x="210" y="497" font-size="15" text-anchor="middle" fill="#1a1a1a">6. Write the explanation from the record and policy</text>
+  <text x="440" y="490" font-size="15" font-weight="bold" fill="#7a4a00">The LLM</text>
+  <text x="440" y="510" font-size="13" fill="#7a4a00">The only step that generates language</text>
+  <text x="380" y="546" font-size="13" text-anchor="middle" fill="#555555">Fictional example. The facts came from steps 3 to 5. The model only put them into words.</text>
+</svg>

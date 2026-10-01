@@ -1,0 +1,71 @@
+{
+  "topic_title": "Knowledge and its limits",
+  "roadmap": "Agentic AI Mastery Roadmap",
+  "sources": "Anthropic docs 'Models overview' (knowledge cutoff rows, read 2026-09-29); OpenAI 'Models' page (cutoff range, read 2026-09-29, via a page summary); Claude Academy 'AI Capabilities and Limitations' lesson 6 (capability and limitation zones, the four failure modes, mitigations) and lesson 12 (fabricated citations as two properties meeting), read 2026-09-30 through page summaries. The mapping from each failure mode to a fix, and every example, are ours. Unverified: cutoff dates change with every model and were read from vendor pages, one of them through a summary.",
+  "sections": [
+    {
+      "title": "Why this matters",
+      "body": "Every model answers from what its training gave it. That is a fixed store, and it has an edge: a date after which the model has seen nothing. Many 'the AI got it wrong' stories are really 'the AI never had it': a policy written last month, a customer's record, a niche field. This lesson gives you names for the ways knowledge fails and a fix for each, and it explains why retrieval (RAG) exists, which you build in Module 5.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": "What is the difference between a model not knowing something and getting something wrong?",
+      "check_answer": "Not knowing: the information was never in its training because it is new, private or niche. Getting it wrong: the model had a pattern and produced a plausible but incorrect continuation. Both can sound equally confident, so the tone does not tell you which one you are looking at. You have to know which zone the question is in."
+    },
+    {
+      "title": "What a model knows, and where it stops",
+      "body": "A model's knowledge comes from the text it was trained on. It ends at a cutoff date, and the model has no live access to anything after it unless a search or another tool is connected.\n\nVendors publish these dates, and Anthropic's models page separates two: a 'reliable knowledge cutoff' (where knowledge is most extensive and reliable) and a broader 'training data cutoff'. On 2026-09-29 it listed June 2026 for both on Fable 5.1, Opus 5.5 and Sonnet 5.5, and February 2025 (reliable) and July 2025 (training data) on Haiku 4.5. OpenAI's models page listed knowledge cutoffs between April and May 2026 for its flagship models. These are dated facts that change with every model, so read the page for the model you use.\n\nThe Claude Academy Capabilities course describes a capability zone (topics that are frequent, recent within the training data and consistent across sources) and a limitation zone (rare, after the cutoff, niche, local or contested).",
+      "example": "Fictional. A model with a June 2026 cutoff is asked in October 2026 about a regulation that took effect in August. It has no knowledge of it. It may answer from an older version of the rule or invent a plausible one, and the reply sounds the same either way.",
+      "common_mistake": "Assuming a recent model knows recent things. A model's cutoff is earlier than the day you use it, sometimes by many months, so anything newer is invisible to it.",
+      "check_question": "A model has a June 2026 cutoff. Name two kinds of question it cannot answer reliably even though it is fluent.",
+      "check_answer": "Anything after the cutoff, such as news, new rules and current prices, and anything it never saw, such as your company's private documents or a customer's record. Niche topics with thin coverage are a third."
+    },
+    {
+      "title": "Four ways knowledge fails",
+      "body": "The names below come from the Claude Academy Capabilities course; the explanations and examples are ours.\n\n- **Staleness:** old information presented as current.\n- **Uneven coverage:** strong on common topics, thin on specialised, local or rare ones.\n- **Inherited bias:** assumptions about what is normal, absorbed from the text it saw.\n- **Source amnesia:** it cannot tell you where a fact came from.",
+      "example": "Staleness: quoting last year's tax rate as current. Uneven coverage: a detailed answer about a mainstream framework and a vague one about an obscure internal tool. Inherited bias: assuming the 'typical' customer lives in one country. Source amnesia: asked 'where did you get that?', it produces a plausible citation that may not exist.",
+      "common_mistake": "Asking a model for its source and trusting the citation. Unless the answer was built from documents you supplied, a citation is generated text like any other and has to be opened and checked.",
+      "check_question": "Give one example of each failure mode from a job you know.",
+      "check_answer": "Any four honest examples: an outdated figure (staleness), a weak answer about your own niche tool or region (uneven coverage), an assumption about a 'normal' user or process that is not true for you (inherited bias), and a confident reference you cannot find (source amnesia)."
+    },
+    {
+      "title": "What fixes each one",
+      "body": "Most fixes follow one rule: if the model should not be relying on its memory, put the information in front of it or send it to fetch it. The course names web search, retrieval-augmented generation (RAG) and other tools as the mitigations. Matching each failure mode to a fix is our own synthesis:\n\n- Staleness: search or retrieval of current sources.\n- Uneven coverage: supply the domain documents, and have an expert check.\n- Inherited bias: state who and what you mean, and ask for alternatives.\n- Source amnesia: answer only from documents you supplied and require a quote you can open.\n\n```mermaid\nflowchart TD\n  accTitle: Can the model be trusted alone\n  accDescr: If the question is recent, private or niche, supply the information or fetch it with search, retrieval or a tool. Otherwise, if a wrong detail would be costly, verify a sample against an independent source. If not, use the answer.\n  Q1{Recent, private or niche?}\n  Q2{Would a wrong detail be costly?}\n  A1[Supply it or fetch it: search, retrieval, a tool]\n  A2[Verify a sample against an independent source]\n  A3[Use the answer]\n  Q1 -->|Yes| A1\n  Q1 -->|No| Q2\n  Q2 -->|Yes| A2\n  Q2 -->|No| A3\n```",
+      "example": "Fictional. Question: 'What is our travel reimbursement limit?'. It is private, so the answer has to come from the policy document. Retrieve the policy, give it to the model, and ask it to quote the line that states the limit.",
+      "common_mistake": "Using search or retrieval and then never checking what it returned. Fetching fixes what the model lacks, not what the source gets wrong.",
+      "check_question": "Choose a fix for each: yesterday's exchange rate; an obscure internal tool; 'where did you read that?'.",
+      "check_answer": "Exchange rate: fetch it with a tool or a live source. Internal tool: supply its documentation and have someone who knows it check the answer. 'Where did you read that?': answer only from documents you supplied and require a quote you can open, since the model cannot recall a source on its own."
+    },
+    {
+      "title": "Do it: lab",
+      "body": "1. Pick a field you know well. Write 5 questions: 2 mainstream, 2 niche or local, and 1 about something recent that should fall after the model's cutoff (look up the model's cutoff on its vendor page and note it).\n2. Ask a model all five and score each answer: right, partly right, wrong, or invented.\n3. For each problem, name the failure mode: staleness, uneven coverage, inherited bias or unknown source.\n4. Supply a short, correct paragraph for the worst answer and ask again. Note whether and how the answer changed.\n5. If your tool has web search, ask the recent question with search on and off and note the difference.\n6. Write 5 sentences: which questions you would never ask a model alone from now on, and what you would do instead.\n\n**Done when:** you have a table of 5 questions with score, failure mode and fix, plus your 5-sentence conclusion.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": null,
+      "check_answer": null
+    },
+    {
+      "title": "Interview check",
+      "body": "Answer aloud first, then compare. Do not memorise the words; understand the shape.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": "A stakeholder wants the assistant to answer questions about our latest HR policy. What could go wrong, and how would you design it?",
+      "check_answer": "1. The model has a knowledge cutoff and has never seen a private, recent policy, so it may answer from general knowledge or invent something plausible, in the same confident tone.\n2. Design: keep the policy in one authoritative place, retrieve the relevant passages at question time, tell the model to answer only from them and to quote the line, and to say so when the policy does not cover the question.\n3. Add access control so people see only what they may, and an update path so the index changes when the policy does.\n4. Evaluate on real questions before launch, and keep a person on anything high-stakes."
+    },
+    {
+      "title": "Evidence to keep",
+      "body": "Keep the scored table and the 5-sentence conclusion. You will reuse your three worst questions as the first test cases in Module 3.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": null,
+      "check_answer": null
+    },
+    {
+      "title": "Sources and what is unverified",
+      "body": "Anthropic docs 'Models overview' (knowledge cutoff rows, read 2026-09-29); OpenAI 'Models' page (cutoff range, read 2026-09-29, via a page summary); Claude Academy 'AI Capabilities and Limitations' lesson 6 (capability and limitation zones, the four failure modes, mitigations) and lesson 12 (fabricated citations as two properties meeting), read 2026-09-30 through page summaries. The mapping from each failure mode to a fix, and every example, are ours. Unverified: cutoff dates change with every model and were read from vendor pages, one of them through a summary.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": null,
+      "check_answer": null
+    }
+  ]
+}
