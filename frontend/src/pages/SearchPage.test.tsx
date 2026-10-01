@@ -83,6 +83,30 @@ beforeEach(() => {
 });
 
 describe('SearchPage', () => {
+  it('shows the results for the latest query when an earlier one answers after it', async () => {
+    // "sprin" is held back; typing on to "sprint" searches again and that
+    // answer comes first. When "sprin" finally answers it must not replace
+    // the results for what is now in the box.
+    let answerFirst!: (value: SearchResponse) => void;
+    searchEverything.mockImplementation((q: string) => (q === 'sprin'
+      ? new Promise<SearchResponse>((resolve) => { answerFirst = resolve; })
+      : Promise.resolve(FULL)));
+    const user = userEvent.setup();
+    renderAt('/search?q=sprin');
+    await waitFor(() => expect(searchEverything).toHaveBeenCalledWith('sprin', 7, 6));
+
+    await user.type(screen.getByRole('searchbox', { name: 'Search' }), 't');
+    expect(await screen.findByText('Who owns the Sprint Goal?')).toBeInTheDocument();
+
+    answerFirst(response({
+      query: 'sprin',
+      questions: { total: 1, items: [{ id: 99, text: 'A stale answer to an older query', domain: 'X', topic: 'Y', difficulty: 'easy' }] },
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.queryByText('A stale answer to an older query')).not.toBeInTheDocument();
+    expect(screen.getByText('Who owns the Sprint Goal?')).toBeInTheDocument();
+  });
+
   it('asks for nothing until something is typed', () => {
     renderAt('/search');
     expect(screen.getByRole('heading', { name: 'Find anything in PSM I', level: 1 })).toBeInTheDocument();

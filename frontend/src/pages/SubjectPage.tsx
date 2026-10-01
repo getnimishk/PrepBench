@@ -61,15 +61,22 @@ export const SubjectPage: React.FC = () => {
   const facts = useOverviewFacts(subject?.id);
 
   useEffect(() => {
+    // Moving from one preparation's page to another's keeps this component
+    // mounted with a new id. The earlier preparation's answer, arriving after
+    // the new one's, would otherwise fill this page with the wrong preparation
+    // under the new one's address -- so only the current id's answer counts.
+    let cancelled = false;
     setLoading(true);
     setError(null);
     Promise.all([getSubject(id), getSubjectCoverage(id)])
       .then(([s, c]) => {
+        if (cancelled) return;
         setSubject(s);
         setCoverage(c);
       })
-      .catch((err) => setError(loadFailed('Could not load this preparation', err)))
-      .finally(() => setLoading(false));
+      .catch((err) => { if (!cancelled) setError(loadFailed('Could not load this preparation', err)); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [id, loadAttempt]);
 
   if (loading) {
