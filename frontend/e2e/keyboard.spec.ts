@@ -3,7 +3,7 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import { expect, test } from './fixtures';
-import { createCertification, createQuestion, escapeRegExp, pickPreparation, tag } from './helpers';
+import { createCertification, createQuestion, escapeRegExp, pickPreparation, tag, trackApi, waitForApiIdle } from './helpers';
 
 /**
  * The app without a mouse: skipping to the page, seeing where focus is, a
@@ -96,15 +96,22 @@ test('a paper can be answered, flagged and moved through from the keyboard alone
 
 test('a roadmap, a design review and a question each open from their lists without a mouse', async ({ page, request }) => {
   // Each list used to open its items only on a click of the card or the row.
+  //
+  // Each list is left to finish loading before an item is focused: a list
+  // that redraws once its data settles replaces the element that had focus,
+  // and the Enter after it went nowhere -- seen once in 165 runs under load.
+  await trackApi(page);
   const title = `Keyboard roadmap ${tag()}`;
   const roadmap = await (await request.post('/api/v1/roadmaps', { data: { title } })).json();
   await page.goto('/roadmaps');
+  await waitForApiIdle(page);
   await page.getByRole('link', { name: title, exact: true }).focus();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(new RegExp(`/roadmaps/${roadmap.id}$`));
 
   const { items } = await (await request.get('/api/v1/design-reviews?limit=1')).json();
   await page.goto('/design-reviews');
+  await waitForApiIdle(page);
   await page.getByRole('link', { name: items[0].title, exact: true }).focus();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(new RegExp(`/design-reviews/${items[0].id}$`));
@@ -114,6 +121,7 @@ test('a roadmap, a design review and a question each open from their lists witho
   await createQuestion(request, prep, text);
   await page.goto('/question-bank');
   await pickPreparation(page, prep.name);
+  await waitForApiIdle(page);
   await page.getByRole('button', { name: new RegExp(escapeRegExp(text)) }).focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('dialog', { name: 'Question review' })).toBeVisible();

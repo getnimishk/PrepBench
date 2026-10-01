@@ -12,34 +12,34 @@ import { dbRow } from './db';
  * Bank over that bank, a 300-topic roadmap, and Insights across twenty areas.
  *
  * Budgets are for the production build these tests run against (vite preview;
- * see playwright.config.ts), measured on 2026-09-30 where this test actually
- * runs: in a full suite on four workers, sharing the machine with three other
- * browsers, backends and frontends. Each is double the slower of two such runs,
- * rounded up to the next half second, with a one-second floor so a busy machine
- * does not fail a step that normally takes 200 ms. They catch a screen that
- * grinds, not a few milliseconds. Each measurement is attached to the report.
- * The backend's own timings and query counts are in backend/scripts/perf_gate.py.
+ * see playwright.config.ts), measured on 2026-10-01 where this test runs: in
+ * its own project, which starts only once every other test has finished, so it
+ * has the machine to itself, on its worker's own fresh copy of the template
+ * database. Each is double the slower of two full-suite runs, rounded up to the
+ * next half second, with a one-second floor so a busy moment does not fail a
+ * step that normally takes 200 ms. They catch a screen that grinds, not a few
+ * milliseconds. Each measurement is attached to the report. The backend's own
+ * timings and query counts are in backend/scripts/perf_gate.py.
  *
- * Measured in two four-worker full-suite runs (ms): import checked 5894/4959,
- * import saved 2599/2529, question bank 910/1740, syllabus 3470/3384, phase
- * overview 467/651, schedule 1345/1790, insights 2071/1979, home 2276/2024 --
- * 1.5 to 2.8 times what the same steps took with the suite on one worker, which
- * is the contention, not the screens. Four is the most contended setting
- * supported (PREPBENCH_E2E_WORKERS); at the default two these budgets have more
- * room. Re-measure the same way before raising the worker count past four.
+ * Measured (ms): import checked 1559/1040, import saved 1124/2193, question bank
+ * 513/392, syllabus 1340/1286, phase overview 183/203, schedule 463/568,
+ * insights 523/551, home 440/514. Run alongside the rest of the suite on four
+ * workers the same steps took 1.5 to 3 times as long, and the budgets then had
+ * to be two to four times these -- loose enough to miss a real slowdown, which
+ * is why this test now runs alone. Re-measure the same way if they change.
  */
 
 const BUDGETS_MS: Record<string, number> = {
-  'import: 2,000 rows checked': 12_000,
-  'import: 2,000 rows saved': 5_500,
-  'question bank: first page of 2,000': 3_500,
+  'import: 2,000 rows checked': 3_500,
+  'import: 2,000 rows saved': 4_500,
+  'question bank: first page of 2,000': 1_500,
   // The 300-topic syllabus is the heaviest render in the app -- 300 rows, each
   // with a link, a status control and a progress bar.
-  'roadmap: 300 topics, syllabus': 7_000,
-  'roadmap: 300 topics, phase overview': 1_500,
-  'roadmap: 300 topics, schedule': 4_000,
-  'insights: twenty areas': 4_500,
-  'home: with the mock': 5_000,
+  'roadmap: 300 topics, syllabus': 3_000,
+  'roadmap: 300 topics, phase overview': 1_000,
+  'roadmap: 300 topics, schedule': 1_500,
+  'insights: twenty areas': 1_500,
+  'home: with the mock': 1_500,
 };
 
 test('screens stay usable with a large bank, a large roadmap and many areas', async ({ page, request }, testInfo) => {

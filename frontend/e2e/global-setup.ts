@@ -25,8 +25,22 @@ import { killTree, portInUse, startBackend } from './servers';
  *    Each worker copies it rather than repeating that.
  * 4. Build the production bundle every worker's `vite preview` serves.
  *    `npm run build` type-checks first, so a type error stops the run here.
+ *
+ * And first of all, refuse a spec that takes `test` from @playwright/test
+ * rather than ./fixtures: it gets no app of its own -- no baseURL, no backend --
+ * and fails confusingly (`new URL(undefined)`), as one written alongside the
+ * change to per-worker apps did.
  */
 export default async function globalSetup(config: FullConfig): Promise<void> {
+  const e2eDir = path.join(frontendDir, 'e2e');
+  const unfixtured = fs.readdirSync(e2eDir)
+    .filter((name) => name.endsWith('.spec.ts'))
+    .filter((name) => /import\s*\{[^}]*\btest\b[^}]*\}\s*from\s*'@playwright\/test'/.test(fs.readFileSync(path.join(e2eDir, name), 'latin1')));
+  if (unfixtured.length) {
+    throw new Error(`${unfixtured.join(', ')}: import { expect, test } from './fixtures', not from '@playwright/test' -- `
+      + 'each worker\'s app (its baseURL, backend and database) comes from the fixture.');
+  }
+
   const workers = config.workers;
 
   for (const name of fs.readdirSync(E2E_DATA_DIR)) {
