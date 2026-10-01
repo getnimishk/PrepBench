@@ -5,6 +5,7 @@
 from typing import Optional
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from app.models.exam_session import ExamSession, ExamStatus
 from app.models.exam_answer import ExamAnswer
 
@@ -74,26 +75,39 @@ class ExamRepository:
         """
         Upsert an exam answer for a (session_id, question_id) pair.
 
-        The explicit check-then-act pattern is retained for clarity, but the
-        UniqueConstraint on (session_id, question_id) defined in the model now
-        provides a hard DB-level backstop: if two concurrent requests both see
-        existing=None and both attempt an INSERT, one will get an IntegrityError
-        rather than silently creating a duplicate row.
+        Check, then insert or update. The UniqueConstraint on (session_id,
+        question_id) is the backstop for two requests that both see no row and
+        both insert: the second gets an IntegrityError. That is not a failed
+        save -- the row it wanted now exists -- so it rolls back and updates
+        that row instead. Left uncaught it was a 500, and the exam page, told
+        the save was refused, took the learner's pick back off the screen. The
+        page sends one save per pick, flag and move, so a pick and a flag made
+        within moments of each other on a busy machine can arrive together.
         """
         existing = self.get_answer(answer.session_id, answer.question_id)
         if existing:
-            existing.selected_option_ids = answer.selected_option_ids
-            existing.is_correct          = answer.is_correct
-            existing.time_spent_seconds  = answer.time_spent_seconds
-            existing.confidence_level    = answer.confidence_level
-            existing.is_flagged          = answer.is_flagged
-            existing.is_bookmarked       = answer.is_bookmarked
-            existing.user_notes          = answer.user_notes
-            self.db.commit()
-            self.db.refresh(existing)
-            return existing
-        else:
+            return self._update_answer(existing, answer)
+        try:
             self.db.add(answer)
             self.db.commit()
-            self.db.refresh(answer)
-            return answer
+        except IntegrityError:
+            self.db.rollback()
+            existing = self.get_answer(answer.session_id, answer.question_id)
+            if existing is None:
+                # Not the (session, question) collision: some other constraint.
+                raise
+            return self._update_answer(existing, answer)
+        self.db.refresh(answer)
+        return answer
+
+    def _update_answer(self, existing: ExamAnswer, answer: ExamAnswer) -> ExamAnswer:
+        existing.selected_option_ids = answer.selected_option_ids
+        existing.is_correct          = answer.is_correct
+        existing.time_spent_seconds  = answer.time_spent_seconds
+        existing.confidence_level    = answer.confidence_level
+        existing.is_flagged          = answer.is_flagged
+        existing.is_bookmarked       = answer.is_bookmarked
+        existing.user_notes          = answer.user_notes
+        self.db.commit()
+        self.db.refresh(existing)
+        return existing
