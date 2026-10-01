@@ -72,6 +72,7 @@ export const RoadmapImportModal: React.FC<Props> = ({ open, onClose, onImported 
         source_filename: preview.source_filename,
         topics: preview.topics,
         resources: preview.resources,
+        sheets: preview.sheets,
         start_date: startDate || null,
         weekly_hours_budget: weeklyHours ? Number(weeklyHours) : null,
       });

@@ -12,7 +12,7 @@ import {
   getRoadmap, getRoadmapSchedule, updateRoadmapTopic, updateRoadmap,
 } from '../services/api';
 import {
-  RoadmapDetail, RoadmapSchedule, RoadmapTopic, RoadmapTopicStatus,
+  RoadmapDetail, RoadmapResource, RoadmapSchedule, RoadmapTopic, RoadmapTopicStatus,
 } from '../types/roadmap';
 import { RoadmapTableView, type StatusFilter } from '../components/roadmap/RoadmapTableView';
 import { RoadmapJourneyView } from '../components/roadmap/RoadmapJourneyView';
@@ -23,7 +23,98 @@ import { LoadingState } from '../components/common/States';
 import { Bar, BigFigure, Detail, Eyebrow, Grid, PageHead, Panel, Section } from '../components/ui/primitives';
 import { MONO_STACK } from '../theme/tokens';
 
-type ViewTab = 'table' | 'journey' | 'gantt' | 'resources';
+/** What a tab shows. 'resources' is the single-sheet view's one tab holding every reference table. */
+type TabKind = 'syllabus' | 'tracker' | 'resource' | 'journey' | 'gantt' | 'resources';
+
+interface TabSpec {
+  /** Stable across reloads: 'sheet:<index>', 'view:journey', 'view:schedule', ... */
+  key: string;
+  label: string;
+  kind: TabKind;
+  resource?: RoadmapResource;
+  /** Further sheets of the same kind whose rows were merged into this one. */
+  alsoFrom?: string[];
+}
+
+/**
+ * The page's tabs. One roadmap sheet or none: exactly the original views. More
+ * than one: a tab per sheet in workbook order, then the app's own views (Phase
+ * overview only when no tracker sheet already shows the journey, then Schedule).
+ * Several syllabus (or tracker) sheets have already been merged into one set of
+ * topics, so they share the first one's tab.
+ */
+function buildTabs(roadmap: RoadmapDetail): TabSpec[] {
+  const { sheets, resources } = roadmap;
+  if (sheets.length <= 1) {
+    const single: TabSpec[] = [
+      { key: 'view:table', label: 'Syllabus', kind: 'syllabus' },
+      { key: 'view:journey', label: 'Phase overview', kind: 'journey' },
+      { key: 'view:schedule', label: 'Schedule', kind: 'gantt' },
+    ];
+    if (resources.length > 0) {
+      single.push({ key: 'view:resources', label: `Reference tables (${resources.length})`, kind: 'resources' });
+    }
+    return single;
+  }
+
+  const tabs: TabSpec[] = [];
+  const byKind = new Map<'syllabus' | 'tracker', TabSpec>();
+  sheets.forEach((sheet, index) => {
+    if (sheet.kind === 'resource') {
+      const resource = resources.find((r) => r.id === sheet.resource_id);
+      if (resource) tabs.push({ key: `sheet:${index}`, label: sheet.name, kind: 'resource', resource });
+      return;
+    }
+    const first = byKind.get(sheet.kind);
+    if (first) {
+      first.alsoFrom = [...(first.alsoFrom ?? []), sheet.name];
+      return;
+    }
+    const tab: TabSpec = { key: `sheet:${index}`, label: sheet.name, kind: sheet.kind };
+    byKind.set(sheet.kind, tab);
+    tabs.push(tab);
+  });
+  if (!byKind.has('tracker')) tabs.push({ key: 'view:journey', label: 'Phase overview', kind: 'journey' });
+  tabs.push({ key: 'view:schedule', label: 'Schedule', kind: 'gantt' });
+  return tabs;
+}
+
+const ResourceTable: React.FC<{ resource: RoadmapResource }> = ({ resource }) => (
+  <Section>
+    <Panel component="section" aria-labelledby={`resource-${resource.id}`}>
+      <Eyebrow>Sheet</Eyebrow>
+      <Typography variant="h5" component="h2" id={`resource-${resource.id}`} sx={{ mb: '12px' }}>
+        {resource.title}
+      </Typography>
+      {/* Scrolls sideways on a phone, so it must be reachable from the keyboard. */}
+      <TableContainer sx={{ overflowX: 'auto' }} tabIndex={0} role="region" aria-label={`${resource.title} table`}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              {resource.columns.map((column) => <TableCell key={column}>{column}</TableCell>)}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {resource.rows.map((row, index) => (
+              <TableRow key={index}>
+                {row.map((cell, cellIndex) => (
+                  <TableCell
+                    key={cellIndex}
+                    sx={cellIndex > 0
+                      ? { fontFamily: MONO_STACK, fontSize: (t) => t.typography.pxToRem(11), color: 'text.secondary' }
+                      : { fontWeight: 700 }}
+                  >
+                    {cell}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Panel>
+  </Section>
+);
 
 const hours = (h: number) => (Number.isInteger(h) ? `${h}h` : `${h.toFixed(1)}h`);
 
@@ -48,7 +139,8 @@ export const RoadmapDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [tab, setTab] = useState<ViewTab>('table');
+  // A key, not a position: tabs come from the workbook and are rebuilt on every refresh.
+  const [tabKey, setTabKey] = useState<string | null>(null);
   const [busyTopicId, setBusyTopicId] = useState<number | null>(null);
   const [phaseFilter, setPhaseFilter] = useState<'all' | number>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -157,6 +249,11 @@ export const RoadmapDetailPage: React.FC = () => {
   const phaseCount = roadmap.phases.length;
   const phasesWithTopics = roadmap.phases.filter((ph) => ph.topics.length > 0).length;
   const totalHours = p.total_estimated_hours;
+  const tabs = buildTabs(roadmap);
+  const activeTab = tabs.find((t) => t.key === tabKey) ?? tabs[0];
+  const multiSheet = roadmap.sheets.length > 1;
+  const journeyKey = tabs.find((t) => t.kind === 'tracker' || t.kind === 'journey')?.key ?? 'view:journey';
+  const syllabusKey = tabs.find((t) => t.kind === 'syllabus')?.key;
   const perTopic = totalHours != null && p.total_topics > 0 ? totalHours / p.total_topics : null;
 
   return (
@@ -171,10 +268,10 @@ export const RoadmapDetailPage: React.FC = () => {
         actions={(
           <>
             <Button variant="outlined" component={RouterLink} to="/roadmaps">← All roadmaps</Button>
-            <Button variant="outlined" onClick={() => setTab('journey')}>Phase overview</Button>
+            <Button variant="outlined" onClick={() => setTabKey(journeyKey)}>Phase overview</Button>
             <Button variant="outlined" component={RouterLink} to={`/roadmaps/${id}/edit`}>Edit plan</Button>
-            {roadmap.resources.length > 0 && (
-              <Button variant="outlined" onClick={() => setTab('resources')}>
+            {!multiSheet && roadmap.resources.length > 0 && (
+              <Button variant="outlined" onClick={() => setTabKey('view:resources')}>
                 Reference tables ({roadmap.resources.length})
               </Button>
             )}
@@ -235,23 +332,22 @@ export const RoadmapDetailPage: React.FC = () => {
       </Section>
 
       <Tabs
-        value={tab}
-        onChange={(_, value) => setTab(value)}
+        value={activeTab.key}
+        onChange={(_, value) => setTabKey(value)}
         variant="scrollable"
         scrollButtons="auto"
         allowScrollButtonsMobile
         aria-label="Roadmap views"
         sx={{ mt: '22px', borderBottom: 1, borderColor: 'divider' }}
       >
-        <Tab label="Syllabus" value="table" />
-        <Tab label="Phase overview" value="journey" />
-        <Tab label="Schedule" value="gantt" />
-        {roadmap.resources.length > 0 && (
-          <Tab label={`Reference tables (${roadmap.resources.length})`} value="resources" />
-        )}
+        {tabs.map((t) => <Tab key={t.key} label={t.label} value={t.key} />)}
       </Tabs>
 
-      {tab === 'table' && (
+      {activeTab.alsoFrom && activeTab.alsoFrom.length > 0 && (
+        <Detail sx={{ mt: '12px' }}>Also includes topics from: {activeTab.alsoFrom.join(', ')}</Detail>
+      )}
+
+      {activeTab.kind === 'syllabus' && (
         <RoadmapTableView
           roadmapId={id}
           phases={roadmap.phases}
@@ -268,59 +364,27 @@ export const RoadmapDetailPage: React.FC = () => {
         />
       )}
 
-      {tab === 'journey' && (
+      {(activeTab.kind === 'journey' || activeTab.kind === 'tracker') && (
         <RoadmapJourneyView
           roadmapId={id}
           phases={roadmap.phases}
           onOpenPhase={(phaseId) => {
             setPhaseFilter(phaseId);
             setStatusFilter('all');
-            setTab('table');
+            if (syllabusKey) setTabKey(syllabusKey);
           }}
         />
       )}
 
-      {tab === 'gantt' && schedule && (
+      {activeTab.kind === 'gantt' && schedule && (
         <RoadmapGanttView schedule={schedule} onConfigureSchedule={() => setScheduleOpen(true)} />
       )}
 
-      {tab === 'resources' && (
+      {activeTab.kind === 'resource' && activeTab.resource && <ResourceTable resource={activeTab.resource} />}
+
+      {activeTab.kind === 'resources' && (
         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-          {roadmap.resources.map((resource) => (
-            <Section key={resource.id}>
-              <Panel component="section" aria-labelledby={`resource-${resource.id}`}>
-                <Eyebrow>Sheet</Eyebrow>
-                <Typography variant="h5" component="h2" id={`resource-${resource.id}`} sx={{ mb: '12px' }}>
-                  {resource.title}
-                </Typography>
-                <TableContainer sx={{ overflowX: 'auto' }}>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        {resource.columns.map((column) => <TableCell key={column}>{column}</TableCell>)}
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {resource.rows.map((row, index) => (
-                        <TableRow key={index}>
-                          {row.map((cell, cellIndex) => (
-                            <TableCell
-                              key={cellIndex}
-                              sx={cellIndex > 0
-                                ? { fontFamily: MONO_STACK, fontSize: (t) => t.typography.pxToRem(11), color: 'text.secondary' }
-                                : { fontWeight: 700 }}
-                            >
-                              {cell}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Panel>
-            </Section>
-          ))}
+          {roadmap.resources.map((resource) => <ResourceTable key={resource.id} resource={resource} />)}
         </Box>
       )}
 

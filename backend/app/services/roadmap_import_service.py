@@ -30,7 +30,7 @@ from app.core.logging_config import logger
 from app.models.roadmap import Roadmap, RoadmapPhase, RoadmapTopic, RoadmapResource, RoadmapTopicStatus
 from app.schemas.roadmap import (
     RoadmapImportPreview, RoadmapImportTopic, RoadmapImportResource,
-    RoadmapImportConfirm, RoadmapImportResult,
+    RoadmapImportConfirm, RoadmapImportResult, RoadmapImportSheet,
 )
 from app.services.roadmap_service import RoadmapService
 
@@ -199,6 +199,8 @@ class RoadmapImportService:
         tracker_records: List[Dict[str, Any]] = []
         tracker_sheets: List[str] = []
         resources: List[RoadmapImportResource] = []
+        # Workbook order, with the kind each sheet was actually imported as.
+        sheets: List[RoadmapImportSheet] = []
 
         for worksheet in workbook.worksheets:
             header_row, headers, kind = self._classify_sheet(worksheet)
@@ -207,10 +209,12 @@ class RoadmapImportService:
                 sheet_topics = self._read_syllabus(worksheet, header_row, headers, warnings)
                 if sheet_topics:
                     syllabus_rows.extend(sheet_topics)
+                    sheets.append(RoadmapImportSheet(name=worksheet.title, kind="syllabus"))
                 else:
                     resource = self._fallback_resource(worksheet)
                     if resource:
                         resources.append(resource)
+                        sheets.append(RoadmapImportSheet(name=worksheet.title, kind="resource"))
                     else:
                         ignored_sheets.append(worksheet.title)
                         warnings.append(
@@ -222,10 +226,12 @@ class RoadmapImportService:
                 if sheet_records:
                     tracker_sheets.append(worksheet.title)
                     tracker_records.extend(sheet_records)
+                    sheets.append(RoadmapImportSheet(name=worksheet.title, kind="tracker"))
                 else:
                     resource = self._fallback_resource(worksheet)
                     if resource:
                         resources.append(resource)
+                        sheets.append(RoadmapImportSheet(name=worksheet.title, kind="resource"))
                     else:
                         ignored_sheets.append(worksheet.title)
                         warnings.append(
@@ -237,6 +243,7 @@ class RoadmapImportService:
                 resource = self._read_resource(worksheet, header_row, headers)
                 if resource:
                     resources.append(resource)
+                    sheets.append(RoadmapImportSheet(name=worksheet.title, kind="resource"))
                 else:
                     ignored_sheets.append(worksheet.title)
             else:
@@ -244,7 +251,11 @@ class RoadmapImportService:
 
         if not syllabus_rows and tracker_records:
             # A tracker alone still describes topics and phases; use it as the
-            # curriculum rather than refusing the file.
+            # curriculum rather than refusing the file. Its sheet is then the
+            # syllabus as far as the roadmap page is concerned.
+            for sheet in sheets:
+                if sheet.kind == "tracker":
+                    sheet.kind = "syllabus"
             syllabus_rows = [
                 RoadmapImportTopic(
                     title=rec["title"],
@@ -266,6 +277,7 @@ class RoadmapImportService:
             phases=self._ordered_phase_names(syllabus_rows),
             topics=syllabus_rows,
             resources=resources,
+            sheets=sheets,
             warnings=warnings,
             ignored_sheets=ignored_sheets,
         )
@@ -715,14 +727,31 @@ class RoadmapImportService:
                 self.db.add(topic)
                 topic_counters[phase_name] += 1
 
+            resource_ids: Dict[str, int] = {}
             for index, resource in enumerate(req.resources):
-                self.db.add(RoadmapResource(
+                row = RoadmapResource(
                     roadmap_id=roadmap.id,
                     title=resource.title,
                     order_index=index,
                     columns=resource.columns,
                     rows=resource.rows,
-                ))
+                )
+                self.db.add(row)
+                self.db.flush()
+                # Excel sheet names are unique, so the title identifies the sheet.
+                resource_ids.setdefault(resource.title, row.id)
+
+            if req.sheets:
+                layout: List[Dict[str, Any]] = []
+                for sheet in req.sheets:
+                    entry: Dict[str, Any] = {"name": sheet.name, "kind": sheet.kind}
+                    if sheet.kind == "resource":
+                        resource_id = resource_ids.get(sheet.name)
+                        if resource_id is None:
+                            continue
+                        entry["resource_id"] = resource_id
+                    layout.append(entry)
+                roadmap.sheet_layout = layout
 
             self.db.commit()
             self.db.refresh(roadmap)
