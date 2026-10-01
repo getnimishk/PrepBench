@@ -185,6 +185,12 @@ class RoadmapResource(Base):
     columns = Column(JSON, default=list)  # list[str] header row
     rows = Column(JSON, default=list)     # list[list[str]] body rows
 
+    # "reference" (material to read -- also listed in the Study Library) or
+    # "plan" (a sheet with planning columns: hours, status, dates -- Roadmaps
+    # only). Set by the importer from the header row and changeable by the
+    # learner. Rows from before the column existed are "reference".
+    purpose = Column(String(10), nullable=False, default="reference", server_default="reference")
+
     created_at = Column(DateTime, default=_utc_now_naive)
 
     roadmap = relationship("Roadmap", back_populates="resources")

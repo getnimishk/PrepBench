@@ -83,6 +83,9 @@ import {
   RoadmapPlanRequest,
   RoadmapTopic,
   RoadmapTopicUpdateRequest,
+  RoadmapResource,
+  RoadmapResourcePurpose,
+  ReferenceSheet,
   RoadmapImportPreview,
   RoadmapImportConfirm,
   RoadmapImportResult,
@@ -751,6 +754,23 @@ export const getRoadmaps = async (includeArchived = false) => {
 
 export const getRoadmap = async (roadmapId: number) => {
   const res = await api.get<RoadmapDetail>(`/roadmaps/${roadmapId}`);
+  return res.data;
+};
+
+/** One preparation's reference sheets, for the Study Library -- one request, no rows. */
+export const getReferenceSheets = async (subjectId: number) => {
+  const res = await api.get<ReferenceSheet[]>(`/roadmaps/reference-sheets`, {
+    params: { subject_id: subjectId },
+  });
+  return res.data;
+};
+
+export const updateRoadmapResource = async (
+  roadmapId: number,
+  resourceId: number,
+  purpose: RoadmapResourcePurpose,
+) => {
+  const res = await api.patch<RoadmapResource>(`/roadmaps/${roadmapId}/resources/${resourceId}`, { purpose });
   return res.data;
 };
 

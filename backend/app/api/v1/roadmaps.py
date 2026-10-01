@@ -12,6 +12,7 @@ from app.schemas.roadmap import (
     RoadmapCreate, RoadmapUpdate, RoadmapPlanUpdate, RoadmapSummaryResponse, RoadmapDetailResponse,
     RoadmapPhaseCreate, RoadmapPhaseUpdate, RoadmapPhaseResponse,
     RoadmapTopicCreate, RoadmapTopicUpdate, RoadmapTopicResponse,
+    RoadmapResourceResponse, RoadmapResourceUpdate, ReferenceSheetResponse,
     RoadmapSchedule, RoadmapImportPreview, RoadmapImportConfirm, RoadmapImportResult,
     TopicDemonstrationCreate, TopicDemonstrationResponse, TopicDemonstrationResult,
     TopicGuideDraftResult, TopicGuideResponse, TopicGuideSectionResponse, TopicGuideSectionWrite,
@@ -41,6 +42,18 @@ def confirm_roadmap_import(req: RoadmapImportConfirm, db: Session = Depends(get_
 
 
 # -------------------------------------------------------------- roadmaps
+
+# Also a literal path, so it stays above "/{roadmap_id}".
+@router.get("/reference-sheets", response_model=List[ReferenceSheetResponse])
+def list_reference_sheets(
+    subject_id: int = Query(description="The preparation whose reference sheets to list."),
+    db: Session = Depends(get_db),
+):
+    """One preparation's reference sheets (not its plan sheets), across its
+    unarchived roadmaps -- what the Study Library lists. One request, so the
+    library need not fetch every roadmap's detail to find them."""
+    return RoadmapService(db).list_reference_sheets(subject_id)
+
 
 @router.get("", response_model=List[RoadmapSummaryResponse])
 def list_roadmaps(
@@ -109,6 +122,17 @@ def get_roadmap_schedule(
             roadmap_id, draft={"start_date": start_date, "weekly_hours_budget": weekly_hours_budget},
         )
     return service.build_schedule(roadmap_id)
+
+
+# ------------------------------------------------------------- resources
+
+@router.patch("/{roadmap_id}/resources/{resource_id}", response_model=RoadmapResourceResponse)
+def update_resource(
+    roadmap_id: int, resource_id: int, req: RoadmapResourceUpdate, db: Session = Depends(get_db),
+):
+    """Change what an extra sheet is for: "reference" (also in the Study Library)
+    or "plan" (Roadmaps only)."""
+    return RoadmapService(db).update_resource(roadmap_id, resource_id, req)
 
 
 # ---------------------------------------------------------------- phases

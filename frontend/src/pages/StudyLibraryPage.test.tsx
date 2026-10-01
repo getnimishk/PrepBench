@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { StudyLibraryPage, chooseRoadmap, topicToContinue } from './StudyLibraryPage';
@@ -24,6 +24,7 @@ const mockGetRoadmaps = vi.fn();
 const mockGetRoadmap = vi.fn();
 const mockGetDomainDetail = vi.fn();
 const mockGetContentPack = vi.fn();
+const mockGetReferenceSheets = vi.fn();
 const mockPreparation = vi.fn();
 
 vi.mock('../services/api', () => ({
@@ -31,6 +32,7 @@ vi.mock('../services/api', () => ({
   getRoadmap: (...a: any[]) => mockGetRoadmap(...a),
   getDomainDetail: (...a: any[]) => mockGetDomainDetail(...a),
   getContentPack: (...a: any[]) => mockGetContentPack(...a),
+  getReferenceSheets: (...a: any[]) => mockGetReferenceSheets(...a),
 }));
 
 vi.mock('../context/PreparationContext', () => ({
@@ -89,6 +91,7 @@ beforeEach(() => {
   mockGetRoadmaps.mockResolvedValue([summary()]);
   mockGetRoadmap.mockResolvedValue(detail());
   mockGetDomainDetail.mockResolvedValue(AREA);
+  mockGetReferenceSheets.mockResolvedValue([]);
 });
 
 describe('StudyLibraryPage', () => {
@@ -220,6 +223,79 @@ describe('StudyLibraryPage: Guide panel', () => {
     expect(mockGetContentPack).toHaveBeenCalledWith('adf', 1);
     expect(screen.getByRole('link', { name: 'Read chapter 1: What it is' })).toHaveAttribute('href', '/learn/guides/adf/what-it-is');
     expect(screen.getByRole('link', { name: 'All chapters' })).toHaveAttribute('href', '/learn/guides/adf');
+  });
+});
+
+describe('StudyLibraryPage: Your reference sheets', () => {
+  const sheet = (id: number, name: string, roadmapId = 4, roadmapTitle = 'PSM I syllabus') => ({
+    resource_id: id, name, roadmap_id: roadmapId, roadmap_title: roadmapTitle,
+  });
+
+  it('lists the preparation’s reference sheets with a link to each one’s Roadmaps tab', async () => {
+    mockGetReferenceSheets.mockResolvedValue([sheet(11, 'Mental Model'), sheet(12, 'Framework Comparison', 5, 'Other plan')]);
+    renderPage();
+
+    const panel = await screen.findByRole('region', { name: 'Your reference sheets' });
+    expect(mockGetReferenceSheets).toHaveBeenCalledWith(1);
+    expect(within(panel).getByText('Mental Model')).toBeInTheDocument();
+    expect(within(panel).getByText('PSM I syllabus')).toBeInTheDocument();
+    expect(within(panel).getByRole('link', { name: 'Open Mental Model in PSM I syllabus' }))
+      .toHaveAttribute('href', '/roadmaps/4?resource=11');
+    expect(within(panel).getByRole('link', { name: 'Open Framework Comparison in Other plan' }))
+      .toHaveAttribute('href', '/roadmaps/5?resource=12');
+  });
+
+  it('adds no panel when the preparation has no reference sheets', async () => {
+    renderPage();
+    await screen.findByRole('region', { name: 'Scrum Events' });
+    await waitFor(() => expect(mockGetReferenceSheets).toHaveBeenCalled());
+    expect(screen.queryByRole('region', { name: 'Your reference sheets' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Your reference sheets')).not.toBeInTheDocument();
+  });
+
+  it('asks for nothing when no preparation is selected', async () => {
+    mockPreparation.mockReturnValue({ selected: null, loading: false });
+    renderPage();
+    await screen.findByText('Learn');
+    expect(mockGetReferenceSheets).not.toHaveBeenCalled();
+  });
+
+  it('says the sheets could not be loaded, and retries', async () => {
+    const user = userEvent.setup();
+    mockGetReferenceSheets.mockRejectedValueOnce(new Error('network'));
+    renderPage();
+
+    const panel = await screen.findByRole('region', { name: 'Your reference sheets' });
+    expect(within(panel).getByText(/Could not load your reference sheets/)).toBeInTheDocument();
+
+    mockGetReferenceSheets.mockResolvedValue([sheet(11, 'Mental Model')]);
+    await user.click(within(panel).getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('Mental Model')).toBeInTheDocument();
+  });
+
+  it('shows only the latest preparation’s sheets when an earlier answer arrives late', async () => {
+    const OTHER = { ...PSM, id: 2, name: 'Databricks' } as unknown as Subject;
+    let releaseFirst: (v: unknown) => void = () => undefined;
+    mockGetReferenceSheets.mockImplementation((id: number) => (
+      id === 1
+        ? new Promise((resolve) => { releaseFirst = resolve; })
+        : Promise.resolve([sheet(21, 'Delta Notes', 9, 'Lakehouse plan')])
+    ));
+
+    const view = renderPage();
+    await waitFor(() => expect(mockGetReferenceSheets).toHaveBeenCalledWith(1));
+
+    // Switch preparation while the first answer is still outstanding.
+    mockPreparation.mockReturnValue({ selected: OTHER, loading: false });
+    view.rerender(<MemoryRouter><StudyLibraryPage /></MemoryRouter>);
+    expect(await screen.findByText('Delta Notes')).toBeInTheDocument();
+
+    // The first preparation's answer now lands, late.
+    releaseFirst([sheet(11, 'Mental Model')]);
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(screen.getByText('Delta Notes')).toBeInTheDocument();
+    expect(screen.queryByText('Mental Model')).not.toBeInTheDocument();
   });
 });
 

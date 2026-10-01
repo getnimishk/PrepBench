@@ -5,12 +5,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Box, Button } from '@mui/material';
-import { getContentPack, getDomainDetail, getRoadmap, getRoadmaps } from '../services/api';
+import { getContentPack, getDomainDetail, getReferenceSheets, getRoadmap, getRoadmaps } from '../services/api';
 import { apiErrorMessage } from '../services/apiError';
 import { usePreparation } from '../context/PreparationContext';
 import type { DomainDetail } from '../types/analytics';
 import type { ContentPackDetail } from '../types/contentPack';
-import type { RoadmapDetail, RoadmapPhase, RoadmapSummary, RoadmapTopic, RoadmapTopicStatus } from '../types/roadmap';
+import type {
+  ReferenceSheet, RoadmapDetail, RoadmapPhase, RoadmapSummary, RoadmapTopic, RoadmapTopicStatus,
+} from '../types/roadmap';
 import type { Subject } from '../types/subject';
 import { ErrorState, LoadingState } from '../components/common/States';
 import {
@@ -367,6 +369,79 @@ const GuideSection: React.FC<{ preparation: Subject | null }> = ({ preparation }
   );
 };
 
+// ---- Reference sheets -----------------------------------------------------
+
+/** The selected preparation's reference sheets, each linking to its Roadmaps tab.
+ *
+ * Only this preparation's roadmaps (the server filters on it): nothing is
+ * shared between preparations. Plan sheets are not here -- they stay in
+ * Roadmaps. No panel at all when there are none, so a preparation without any
+ * is not shown an empty box.
+ */
+const ReferenceSheetsSection: React.FC<{ preparation: Subject | null }> = ({ preparation }) => {
+  const [sheets, setSheets] = useState<ReferenceSheet[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const preparationId = preparation?.id ?? null;
+
+  useEffect(() => {
+    setSheets([]);
+    setError(null);
+    if (preparationId === null) return undefined;
+    // Only the latest request's answer counts: switching preparation while an
+    // earlier answer is still in flight must not show the old one's sheets.
+    let cancelled = false;
+    getReferenceSheets(preparationId)
+      .then((result) => { if (!cancelled) setSheets(result); })
+      .catch((err) => { if (!cancelled) setError(apiErrorMessage(err, '')); });
+    return () => { cancelled = true; };
+  }, [preparationId, attempt]);
+
+  if (error !== null) {
+    return (
+      <Section>
+        <Panel component="section" aria-label="Your reference sheets">
+          <ErrorState
+            what="Could not load your reference sheets."
+            saved="nothing_to_save"
+            detail={error}
+            onRetry={() => setAttempt((n) => n + 1)}
+          />
+        </Panel>
+      </Section>
+    );
+  }
+  if (sheets.length === 0) return null;
+
+  return (
+    <Section>
+      <Panel component="section" aria-labelledby="reference-sheets-title">
+        <PanelHead eyebrow="Reference" title="Your reference sheets" titleId="reference-sheets-title">
+          <Detail>{sheets.length} {sheets.length === 1 ? 'sheet' : 'sheets'} from your roadmaps</Detail>
+        </PanelHead>
+        {sheets.map((sheet) => (
+          <Row
+            key={sheet.resource_id}
+            title={sheet.name}
+            detail={sheet.roadmap_title}
+            action={(
+              <Button
+                size="small"
+                variant="outlined"
+                component={RouterLink}
+                to={`/roadmaps/${sheet.roadmap_id}?resource=${sheet.resource_id}`}
+                aria-label={`Open ${sheet.name} in ${sheet.roadmap_title}`}
+              >
+                Open
+              </Button>
+            )}
+          />
+        ))}
+      </Panel>
+    </Section>
+  );
+};
+
 // ---- the page ------------------------------------------------------------
 
 export const StudyLibraryPage: React.FC = () => {
@@ -445,6 +520,8 @@ export const StudyLibraryPage: React.FC = () => {
       </Section>
 
       <GuideSection preparation={selected} />
+
+      <ReferenceSheetsSection preparation={selected} />
     </Box>
   );
 };

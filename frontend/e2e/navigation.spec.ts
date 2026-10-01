@@ -4,7 +4,7 @@
 
 import { type Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { completedMockWithMisses, createCertification, createRole, pickPreparation, tag, trackApi, waitForApiIdle } from './helpers';
+import { completedMockWithMisses, createCertification, createRole, createSheetRoadmap, pickPreparation, tag, trackApi, waitForApiIdle } from './helpers';
 
 /**
  * The release gate's "no console errors" and "no dead navigation", checked the
@@ -61,6 +61,7 @@ test('every screen opens with no console errors, and no link on any of them lead
   const topic = await (await request.post(`/api/v1/roadmaps/${roadmap.id}/topics`, {
     data: { phase_id: phase.id, title: 'Navigation topic', success_criteria: 'Explain it.' },
   })).json();
+  const sheets = await createSheetRoadmap(request, prep.id, 'Navigation');
   const review = (await (await request.get('/api/v1/design-reviews?limit=1')).json()).items[0].id;
   const prompt = (await (await request.get('/api/v1/system-design/prompts?limit=1')).json()).items[0].id;
   const role = await createRole(request, 'Navigation Role');
@@ -89,7 +90,9 @@ test('every screen opens with no console errors, and no link on any of them lead
     '/practice', '/practice?tab=weak', '/practice?tab=spaced', '/practice?tab=custom', '/practice?tab=mock', '/practice/spaced',
     '/learn', '/learn/guides/adf', '/learn/guides/adf/pitfalls', '/review', '/exam-setup', '/exam-setup?kind=drill', `/exam-review/${mock}`,
     '/question-bank', '/analytics', `/analytics/area?subject=${prep.id}&domain=${encodeURIComponent(area)}`,
-    '/roadmaps', `/roadmaps/${roadmap.id}`, `/roadmaps/${roadmap.id}/edit`, `/roadmaps/${roadmap.id}/topics/${topic.id}`,
+    '/roadmaps', `/roadmaps/${roadmap.id}`,
+    `/roadmaps/${sheets.roadmapId}`, `/roadmaps/${sheets.roadmapId}?resource=${sheets.referenceId}`,
+    `/roadmaps/${sheets.roadmapId}?resource=${sheets.planId}`, `/roadmaps/${roadmap.id}/edit`, `/roadmaps/${roadmap.id}/topics/${topic.id}`,
     `/roadmaps/${roadmap.id}/topics/${topic.id}/guide`, `/roadmaps/${roadmap.id}/topics/${topic.id}/demonstrate`,
     '/lab', '/chart-sandbox', '/scenarios', '/scenarios/adf/1',
     '/preparations/roles/new', `/preparations/roles/${role.id}`, `/preparations/roles/${role.id}/diagnostic`, '/design-reviews', `/design-reviews/${review}`, '/system-design', `/system-design/${prompt}/answer`,

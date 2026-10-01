@@ -21,7 +21,7 @@ from app.schemas.roadmap import (
     RoadmapSummaryResponse, RoadmapDetailResponse,
     RoadmapPhaseCreate, RoadmapPhaseUpdate, RoadmapPhaseResponse,
     RoadmapTopicCreate, RoadmapTopicUpdate, RoadmapTopicResponse,
-    RoadmapResourceResponse, RoadmapSheet,
+    RoadmapResourceResponse, RoadmapResourceUpdate, ReferenceSheetResponse, RoadmapSheet,
     RoadmapSchedule, RoadmapScheduleItem, RoadmapPhaseScheduleItem,
     TopicDemonstrationCreate, TopicDemonstrationResponse, TopicDemonstrationResult,
 )
@@ -516,6 +516,30 @@ class RoadmapService:
             self.db.rollback()
             raise
         return RoadmapTopicResponse.model_validate(self.repo.save(topic))
+
+    # ------------------------------------------------------------ resources
+
+    def update_resource(
+        self, roadmap_id: int, resource_id: int, req: RoadmapResourceUpdate,
+    ) -> RoadmapResourceResponse:
+        resource = self.repo.get_resource(resource_id)
+        # A resource that exists but belongs to another roadmap is a 404 here,
+        # the same as for topics: the URL names both, and they must agree.
+        if not resource or resource.roadmap_id != roadmap_id:
+            raise ResourceNotFoundException("RoadmapResource", resource_id)
+        resource.purpose = req.purpose
+        return RoadmapResourceResponse.model_validate(self.repo.save(resource))
+
+    def list_reference_sheets(self, subject_id: int) -> List[ReferenceSheetResponse]:
+        """The preparation's reference sheets, for the Study Library. Only
+        roadmaps linked to this preparation: an unassigned roadmap belongs to
+        none, and nothing is shared between preparations."""
+        return [
+            ReferenceSheetResponse(
+                resource_id=rid, name=name, roadmap_id=roadmap_id, roadmap_title=roadmap_title,
+            )
+            for rid, name, roadmap_id, roadmap_title in self.repo.list_reference_sheets(subject_id)
+        ]
 
     def delete_topic(self, roadmap_id: int, topic_id: int) -> None:
         self.repo.delete_topic(self._get_topic_or_404(roadmap_id, topic_id))

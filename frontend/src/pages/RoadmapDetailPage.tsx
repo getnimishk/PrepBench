@@ -2,17 +2,17 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import React, { useCallback, useEffect, useState } from 'react';
-import { Link as RouterLink, useLocation, useParams } from 'react-router-dom';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Link as RouterLink, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import {
-  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Tab, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, Tabs, TextField, Typography,
+  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, Switch, Tab, Table,
+  TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, TextField, Typography,
 } from '@mui/material';
 import {
-  getRoadmap, getRoadmapSchedule, updateRoadmapTopic, updateRoadmap,
+  getRoadmap, getRoadmapSchedule, updateRoadmapTopic, updateRoadmap, updateRoadmapResource,
 } from '../services/api';
 import {
-  RoadmapDetail, RoadmapResource, RoadmapSchedule, RoadmapTopic, RoadmapTopicStatus,
+  RoadmapDetail, RoadmapResource, RoadmapResourcePurpose, RoadmapSchedule, RoadmapTopic, RoadmapTopicStatus,
 } from '../types/roadmap';
 import { RoadmapTableView, type StatusFilter } from '../components/roadmap/RoadmapTableView';
 import { RoadmapJourneyView } from '../components/roadmap/RoadmapJourneyView';
@@ -79,13 +79,36 @@ function buildTabs(roadmap: RoadmapDetail): TabSpec[] {
   return tabs;
 }
 
-const ResourceTable: React.FC<{ resource: RoadmapResource }> = ({ resource }) => (
+interface ResourceTableProps {
+  resource: RoadmapResource;
+  busy: boolean;
+  onPurposeChange: (resource: RoadmapResource, purpose: RoadmapResourcePurpose) => void;
+}
+
+const ResourceTable: React.FC<ResourceTableProps> = ({ resource, busy, onPurposeChange }) => (
   <Section>
     <Panel component="section" aria-labelledby={`resource-${resource.id}`}>
-      <Eyebrow>Sheet</Eyebrow>
-      <Typography variant="h5" component="h2" id={`resource-${resource.id}`} sx={{ mb: '12px' }}>
-        {resource.title}
-      </Typography>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px 16px', mb: '12px' }}>
+        <Box>
+          <Eyebrow>Sheet</Eyebrow>
+          <Typography variant="h5" component="h2" id={`resource-${resource.id}`}>
+            {resource.title}
+          </Typography>
+        </Box>
+        {/* On for a reference sheet, off for a plan sheet; the Study Library lists the former. */}
+        <FormControlLabel
+          sx={{ mr: 0, '& .MuiFormControlLabel-label': { fontSize: (t) => t.typography.pxToRem(13) } }}
+          control={(
+            <Switch
+              size="small"
+              checked={resource.purpose === 'reference'}
+              disabled={busy}
+              onChange={(e) => onPurposeChange(resource, e.target.checked ? 'reference' : 'plan')}
+            />
+          )}
+          label="Show in Study Library"
+        />
+      </Box>
       {/* Scrolls sideways on a phone, so it must be reachable from the keyboard. */}
       <TableContainer sx={{ overflowX: 'auto' }} tabIndex={0} role="region" aria-label={`${resource.title} table`}>
         <Table size="small">
@@ -144,6 +167,15 @@ export const RoadmapDetailPage: React.FC = () => {
   const [busyTopicId, setBusyTopicId] = useState<number | null>(null);
   const [phaseFilter, setPhaseFilter] = useState<'all' | number>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  // A set, not one id: with several tables on a page, a second switch changed while
+  // the first is still saving must not clear the first one's "busy".
+  const [busyResourceIds, setBusyResourceIds] = useState<ReadonlySet<number>>(new Set());
+
+  // /roadmaps/:id?resource=<id> opens that sheet. An id that is not one of this
+  // roadmap's falls back to the default tab, silently.
+  const [searchParams] = useSearchParams();
+  const linkedResourceId = Number(searchParams.get('resource')) || null;
+  const scrolledTo = useRef<number | null>(null);
 
   const [notesTopic, setNotesTopic] = useState<RoadmapTopic | null>(null);
   const [notesDraft, setNotesDraft] = useState('');
@@ -180,6 +212,23 @@ export const RoadmapDetailPage: React.FC = () => {
     load();
   }, [load]);
 
+  // A new link starts from its own tab, not from wherever the last one left off.
+  useEffect(() => {
+    setTabKey(null);
+    scrolledTo.current = null;
+  }, [linkedResourceId]);
+
+  // Single-sheet roadmaps keep every reference table on one tab, so the link
+  // scrolls to its table. (A multi-sheet roadmap's tab is the target itself.)
+  // Once per link: a status change refreshes the roadmap and must not re-scroll.
+  useEffect(() => {
+    if (loading || !roadmap || linkedResourceId === null || tabKey !== null) return;
+    if (roadmap.sheets.length > 1 || scrolledTo.current === linkedResourceId) return;
+    if (!roadmap.resources.some((r) => r.id === linkedResourceId)) return;
+    scrolledTo.current = linkedResourceId;
+    document.getElementById(`resource-${linkedResourceId}`)?.scrollIntoView?.({ block: 'start' });
+  }, [loading, roadmap, linkedResourceId, tabKey]);
+
   const refreshQuietly = async () => {
     // Re-fetch without flipping the page back into its loading state -- a
     // status change shouldn't blank the table the user is working in.
@@ -202,6 +251,26 @@ export const RoadmapDetailPage: React.FC = () => {
       setActionError(apiErrorMessage(err, 'Failed to update this topic.'));
     } finally {
       setBusyTopicId(null);
+    }
+  };
+
+  const handlePurposeChange = async (resource: RoadmapResource, purpose: RoadmapResourcePurpose) => {
+    setBusyResourceIds((ids) => new Set(ids).add(resource.id));
+    setActionError(null);
+    try {
+      const updated = await updateRoadmapResource(id, resource.id, purpose);
+      setRoadmap((current) => current && {
+        ...current,
+        resources: current.resources.map((r) => (r.id === updated.id ? { ...r, purpose: updated.purpose } : r)),
+      });
+    } catch (err) {
+      setActionError(apiErrorMessage(err, 'Failed to change where this sheet is shown.'));
+    } finally {
+      setBusyResourceIds((ids) => {
+        const next = new Set(ids);
+        next.delete(resource.id);
+        return next;
+      });
     }
   };
 
@@ -250,7 +319,12 @@ export const RoadmapDetailPage: React.FC = () => {
   const phasesWithTopics = roadmap.phases.filter((ph) => ph.topics.length > 0).length;
   const totalHours = p.total_estimated_hours;
   const tabs = buildTabs(roadmap);
-  const activeTab = tabs.find((t) => t.key === tabKey) ?? tabs[0];
+  const linkedTab = linkedResourceId === null ? undefined : (
+    tabs.find((t) => t.kind === 'resource' && t.resource?.id === linkedResourceId)
+    ?? (roadmap.resources.some((r) => r.id === linkedResourceId)
+      ? tabs.find((t) => t.kind === 'resources') : undefined)
+  );
+  const activeTab = tabs.find((t) => t.key === tabKey) ?? linkedTab ?? tabs[0];
   const multiSheet = roadmap.sheets.length > 1;
   const journeyKey = tabs.find((t) => t.kind === 'tracker' || t.kind === 'journey')?.key ?? 'view:journey';
   const syllabusKey = tabs.find((t) => t.kind === 'syllabus')?.key;
@@ -380,11 +454,24 @@ export const RoadmapDetailPage: React.FC = () => {
         <RoadmapGanttView schedule={schedule} onConfigureSchedule={() => setScheduleOpen(true)} />
       )}
 
-      {activeTab.kind === 'resource' && activeTab.resource && <ResourceTable resource={activeTab.resource} />}
+      {activeTab.kind === 'resource' && activeTab.resource && (
+        <ResourceTable
+          resource={activeTab.resource}
+          busy={busyResourceIds.has(activeTab.resource.id)}
+          onPurposeChange={handlePurposeChange}
+        />
+      )}
 
       {activeTab.kind === 'resources' && (
         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-          {roadmap.resources.map((resource) => <ResourceTable key={resource.id} resource={resource} />)}
+          {roadmap.resources.map((resource) => (
+            <ResourceTable
+              key={resource.id}
+              resource={resource}
+              busy={busyResourceIds.has(resource.id)}
+              onPurposeChange={handlePurposeChange}
+            />
+          ))}
         </Box>
       )}
 

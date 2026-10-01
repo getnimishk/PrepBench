@@ -681,6 +681,22 @@ def apply_lightweight_migrations():
             _log_migration_failure("roadmaps.sheet_layout", exc)
 
         try:
+            # roadmap_resources.purpose: reference (also shown in the Study
+            # Library) or plan (Roadmaps only). Every existing row is a
+            # reference sheet, which is what the default says -- nothing is
+            # guessed from content for rows imported before the column.
+            result = conn.execute(text("PRAGMA table_info(roadmap_resources)")).fetchall()
+            columns = [row[1] for row in result]
+            if columns and "purpose" not in columns:
+                conn.execute(text(
+                    "ALTER TABLE roadmap_resources ADD COLUMN purpose VARCHAR(10) "
+                    "NOT NULL DEFAULT 'reference'"
+                ))
+                conn.commit()
+        except Exception as exc:
+            _log_migration_failure("roadmap_resources.purpose", exc)
+
+        try:
             # learning_attempts: the sandbox and study evidence, moved off the
             # browser.
             #
