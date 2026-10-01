@@ -13,12 +13,12 @@ export interface ExamAnswer {
   session_id: number;
   question_id: number;
   selected_option_ids: number[];
-  is_correct?: boolean;
+  is_correct?: boolean | null;
   time_spent_seconds: number;
   confidence_level: ConfidenceLevel;
   is_flagged: boolean;
   is_bookmarked: boolean;
-  user_notes?: string;
+  user_notes?: string | null;
   /** When this answer was looked at after the mock. Absent means it was not. */
   reviewed_at?: string | null;
 }
@@ -35,21 +35,21 @@ export interface ExamSession {
   title: string;
   exam_mode: ExamMode;
   status: ExamStatus;
-  certification?: string;
+  certification?: string | null;
   session_kind: SessionKind;
-  subject_id?: number;
+  subject_id?: number | null;
   total_questions: number;
   answered_questions: number;
   correct_count: number;
-  score_percentage?: number;
+  score_percentage?: number | null;
   passing_percentage: number;
-  is_passed?: string;
-  time_allowed_seconds?: number;
+  is_passed?: string | null;
+  time_allowed_seconds?: number | null;
   time_spent_seconds: number;
   current_question_index: number;
   question_ids_order: number[];
   start_time: string;
-  end_time?: string;
+  end_time?: string | null;
   answers: ExamAnswer[];
 }
 
