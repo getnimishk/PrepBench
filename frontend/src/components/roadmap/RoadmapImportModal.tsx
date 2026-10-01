@@ -118,7 +118,7 @@ export const RoadmapImportModal: React.FC<Props> = ({ open, onClose, onImported 
 
         {validating && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 2 }}>
-            <CircularProgress size={18} /> <Typography variant="body2">Reading file…</Typography>
+            <CircularProgress aria-hidden size={18} /> <Typography variant="body2">Reading file…</Typography>
           </Box>
         )}
 
@@ -216,7 +216,7 @@ export const RoadmapImportModal: React.FC<Props> = ({ open, onClose, onImported 
           variant="contained"
           onClick={handleConfirm}
           disabled={!preview || preview.topics.length === 0 || importing}
-          startIcon={importing ? <CircularProgress size={16} color="inherit" /> : undefined}
+          startIcon={importing ? <CircularProgress aria-hidden size={16} color="inherit" /> : undefined}
         >
           {importing ? 'Importing…' : 'Import Roadmap'}
         </Button>

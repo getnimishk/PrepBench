@@ -220,7 +220,7 @@ export const QuestionDetailPanel: React.FC<QuestionDetailPanelProps> = ({
             <Box sx={{ mt: '18px', pt: '14px', borderTop: '1px solid', borderColor: 'divider' }}>
               <Button
                 variant="outlined"
-                startIcon={researching ? <CircularProgress size={16} color="inherit" /> : undefined}
+                startIcon={researching ? <CircularProgress aria-hidden size={16} color="inherit" /> : undefined}
                 onClick={handleResearch}
                 disabled={researching}
               >

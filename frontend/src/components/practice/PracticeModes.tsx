@@ -96,7 +96,7 @@ function useStart() {
 
 const Checking: React.FC = () => (
   <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center', mt: 2 }}>
-    <CircularProgress size={16} />
+    <CircularProgress aria-hidden size={16} />
     <Detail component="span">Checking your bank…</Detail>
   </Stack>
 );

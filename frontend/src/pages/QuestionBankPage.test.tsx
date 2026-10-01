@@ -192,6 +192,27 @@ describe('QuestionBankPage', () => {
     expect(screen.getByText('1 of 1 questions')).toBeInTheDocument();
   });
 
+  it('shows the answer to the latest request when an earlier one comes back after it', async () => {
+    // The first list is held back; a newer request (a search) answers first. When
+    // the first finally answers it must not replace the newer list -- that is how
+    // another preparation's questions stayed on screen in the browser tests.
+    let answerFirst!: (value: unknown) => void;
+    mockGetQuestions
+      .mockImplementationOnce(() => new Promise((resolve) => { answerFirst = resolve; }))
+      .mockResolvedValue({ items: [makeQuestion(2, 'Latest answer')], total: 1 });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(screen.getByPlaceholderText(/search question text/i), 'IAM');
+    await waitFor(() => expect(screen.getByText('Latest answer')).toBeInTheDocument());
+
+    await act(async () => {
+      answerFirst({ items: [makeQuestion(1, 'Stale answer')], total: 1 });
+    });
+    expect(screen.queryByText('Stale answer')).not.toBeInTheDocument();
+    expect(screen.getByText('Latest answer')).toBeInTheDocument();
+  });
+
   it('shows an empty state when no questions match the filters', async () => {
     mockGetQuestions.mockResolvedValue({ items: [], total: 0 });
     renderPage();

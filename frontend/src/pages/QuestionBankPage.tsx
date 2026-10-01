@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import React, { useCallback, useEffect, useId, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box, Typography, Button, TextField, InputAdornment, MenuItem, LinearProgress, Alert, Chip, Dialog,
@@ -159,14 +159,26 @@ export const QuestionBankPage: React.FC = () => {
     setPage(0);
   }, [debouncedKeyword, domain, difficulty, questionType, outcome, certification, reviewedFilter, scopedSubjectId]);
 
+  // Only the answer to the latest request is shown. The page asks once before it
+  // knows the preparation (every bank) and again once it does, and the answers can
+  // come back in either order: the first one arriving last replaced the
+  // preparation's own questions with every bank's -- another preparation's rows on
+  // screen, until something refetched. Seen under load in the browser tests'
+  // isolation check.
+  const summaryRequest = useRef(0);
+  const questionsRequest = useRef(0);
+
   const fetchSummary = useCallback(() => {
+    const request = ++summaryRequest.current;
     // Supporting figures: a summary that cannot be read costs its panels, not the table.
     getQuestionBankSummary(scopedSubjectId)
-      .then(setSummary)
-      .catch(() => setSummary(null));
+      .then((next) => { if (request === summaryRequest.current) setSummary(next); })
+      .catch(() => { if (request === summaryRequest.current) setSummary(null); });
   }, [scopedSubjectId]);
 
   const fetchQuestions = useCallback(async () => {
+    const request = ++questionsRequest.current;
+    const latest = () => request === questionsRequest.current;
     setLoading(true);
     setFetchError(null);
     try {
@@ -183,13 +195,15 @@ export const QuestionBankPage: React.FC = () => {
         skip: page * rowsPerPage,
         limit: rowsPerPage,
       });
+      if (!latest()) return;
       setQuestions(res.items);
       setTotal(res.total);
     } catch (err) {
+      if (!latest()) return;
       console.error(err);
       setFetchError(loadFailed('Could not load the Question Bank', err));
     } finally {
-      setLoading(false);
+      if (latest()) setLoading(false);
     }
   }, [debouncedKeyword, domain, difficulty, questionType, outcome, certification, reviewedFilter, scopedSubjectId, page, rowsPerPage]);
 
@@ -478,7 +492,7 @@ export const QuestionBankPage: React.FC = () => {
               <Button variant="outlined" onClick={() => setStagedQuestions(null)}>Exit staging mode</Button>
               <Button
                 variant="outlined"
-                startIcon={autoRefining ? <CircularProgress size={16} color="inherit" /> : <Sparkles size={16} />}
+                startIcon={autoRefining ? <CircularProgress aria-hidden size={16} color="inherit" /> : <Sparkles size={16} />}
                 onClick={handleAutoRefineStagedBatch}
                 disabled={autoRefining}
               >
@@ -487,7 +501,7 @@ export const QuestionBankPage: React.FC = () => {
               <Button
                 variant="contained"
                 color="ink"
-                startIcon={committing ? <CircularProgress size={16} color="inherit" /> : <CheckCircle2 size={16} />}
+                startIcon={committing ? <CircularProgress aria-hidden size={16} color="inherit" /> : <CheckCircle2 size={16} />}
                 onClick={handleCommitStagedBatch}
                 disabled={committing}
               >

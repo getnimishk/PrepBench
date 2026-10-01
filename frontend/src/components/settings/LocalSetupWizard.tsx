@@ -225,7 +225,7 @@ export const LocalSetupWizard: React.FC<Props> = ({ open, onClose, onConnected }
             </Typography>
             <Button
               variant="contained"
-              startIcon={detecting ? <CircularProgress size={14} color="inherit" /> : <Search size={16} />}
+              startIcon={detecting ? <CircularProgress aria-hidden size={14} color="inherit" /> : <Search size={16} />}
               onClick={handleDetect}
               disabled={detecting}
             >
@@ -269,7 +269,7 @@ export const LocalSetupWizard: React.FC<Props> = ({ open, onClose, onConnected }
               <Button
                 size="small"
                 variant="outlined"
-                startIcon={refreshingCatalog ? <CircularProgress size={12} /> : <RefreshCw size={14} />}
+                startIcon={refreshingCatalog ? <CircularProgress aria-hidden size={12} /> : <RefreshCw size={14} />}
                 onClick={handleRefreshCatalog}
                 disabled={refreshingCatalog}
               >
@@ -445,7 +445,7 @@ export const LocalSetupWizard: React.FC<Props> = ({ open, onClose, onConnected }
               variant="contained"
               onClick={handleConnect}
               disabled={connecting}
-              startIcon={connecting ? <CircularProgress size={14} color="inherit" /> : <CheckCircle2 size={16} />}
+              startIcon={connecting ? <CircularProgress aria-hidden size={14} color="inherit" /> : <CheckCircle2 size={16} />}
             >
               {connecting ? 'Checking…' : 'Connect and test'}
             </Button>

@@ -2,9 +2,12 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { type APIRequestContext, type Page } from '@playwright/test';
+import { expect, test } from './fixtures';
 import AxeBuilder from '@axe-core/playwright';
-import { completedMockWithMisses, createCertification, createRole, pickPreparation } from './helpers';
+import {
+  completedMockWithMisses, createCertification, createRole, pickPreparation, trackApi, waitForApiIdle, waitForTransitionsToSettle,
+} from './helpers';
 
 /**
  * Every screen, checked by axe in both themes: WCAG 2.2 A and AA, plus the
@@ -20,13 +23,27 @@ const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-prac
 // The prototype's --bg in each theme.
 const BACKGROUND = { light: 'rgb(246, 246, 243)', dark: 'rgb(17, 19, 16)' } as const;
 
-async function audit(page: Page, route: string, theme: keyof typeof BACKGROUND): Promise<string[]> {
-  await page.goto(route);
-  // Checked once the page has its heading and the theme has been applied, so
-  // contrast is measured on what a learner actually sees.
-  await expect(page.locator('main h1').first()).toBeVisible();
-  await expect.poll(() => page.locator('body').evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(BACKGROUND[theme]);
-  await page.waitForLoadState('networkidle');
+type Theme = keyof typeof BACKGROUND;
+
+/** Wait until the page is fully in `theme`: its background, every fade finished, any data it refetched. */
+async function settleIn(page: Page, route: string, theme: Theme): Promise<void> {
+  await expect.poll(() => page.locator('body').evaluate((el) => getComputedStyle(el).backgroundColor), { message: `${route} in the ${theme} theme` })
+    .toBe(BACKGROUND[theme]);
+  await waitForTransitionsToSettle(page);
+  await waitForApiIdle(page);
+}
+
+/** Switch theme with the header's own button, then leave nothing hovered or focused that the audit would see. */
+async function switchTo(page: Page, route: string, theme: Theme): Promise<void> {
+  // The button is named for what it does: "Dark mode" while the page is light.
+  await page.getByRole('banner').getByRole('button', { name: theme === 'dark' ? 'Dark mode' : 'Light mode' }).click();
+  await page.mouse.move(0, 0);
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await expect(page.getByRole('tooltip'), 'the theme button\'s tooltip has closed').toHaveCount(0);
+  await settleIn(page, route, theme);
+}
+
+async function audit(page: Page, route: string, theme: Theme): Promise<string[]> {
   const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
   return results.violations.map((v) => `${theme} ${route} — ${v.id} (${v.impact}): ${v.nodes.slice(0, 3).map((n) => n.target.join(' ')).join(' | ')}`);
 }
@@ -86,34 +103,87 @@ const ROUTES = (prepId: number, roadmapId: number, roleId: number, topicId: numb
   '/settings/notifications', '/settings/data', '/settings/about', '/settings/states',
 ];
 
-for (const theme of ['light', 'dark'] as const) {
-  test(`every screen passes an automated accessibility check in the ${theme} theme`, async ({ page, request }) => {
-    // 38 screens audited with axe, twice over. Seven minutes was enough until the
-    // suite grew around it; a run on a busy machine needs the room, and a timeout
-    // here used to leave the dark theme set for whatever ran next.
-    test.setTimeout(900_000);
-    const { prep, promptId, examId, roadmapId, roleId, topicId } = await seed(request);
-    // A learner with a name gets their initials in the header instead of an
-    // icon: text, so the one variant of the avatar that axe measures contrast on.
-    const profile = await (await request.get('/api/v1/profile')).json();
-    await request.put('/api/v1/profile', { data: { display_name: 'Ada Lovelace', email: profile.email ?? '' } });
-    await request.put('/api/v1/settings', { data: { theme } });
-    try {
-      await page.goto('/');
-      await pickPreparation(page, prep.name);
-      await expect(page.getByRole('banner').getByRole('link', { name: 'Profile: Ada Lovelace' })).toHaveText('AL');
+interface Ids { prepId: number; roadmapId: number; roleId: number; topicId: number; examId: number; promptId?: number }
 
-      const focusRoutes = [`/exam/${examId}`, ...(promptId ? [`/system-design/${promptId}/answer`] : [])];
-      const violations: string[] = [];
-      for (const route of [...ROUTES(prep.id, roadmapId, roleId, topicId), ...focusRoutes]) {
-        violations.push(...await audit(page, route, theme));
-      }
-      expect(violations, violations.join('\n')).toEqual([]);
-    } finally {
+/** Every screen audited, the focus screens (no sidebar) included. */
+const allRoutes = (ids: Ids) => [
+  ...ROUTES(ids.prepId, ids.roadmapId, ids.roleId, ids.topicId),
+  `/exam/${ids.examId}`, ...(ids.promptId ? [`/system-design/${ids.promptId}/answer`] : []),
+];
+
+// The screens are audited in parts that run side by side on separate workers:
+// forty-seven screens twice over is minutes of work, and a run cannot finish
+// before its longest test does. Every third screen goes to a part, so the heavy
+// and light ones spread evenly; the last test below proves the parts between
+// them cover every screen exactly once.
+const PARTS = 3;
+const part = <T>(items: T[], index: number) => items.filter((_, i) => i % PARTS === index);
+
+test.describe('every screen passes an automated accessibility check in both themes', () => {
+  test.describe.configure({ mode: 'parallel' });
+
+  // Each screen is opened once, in the light theme, audited, switched to dark with
+  // the header's button and audited again, then switched back so the next screen
+  // opens light. Both audits run the full rule set: a theme can break more than
+  // contrast (a link told apart from its sentence by colour alone, say).
+  for (let index = 0; index < PARTS; index += 1) {
+    test(`part ${index + 1} of ${PARTS}`, async ({ page, request }) => {
+      await trackApi(page);
+      // A timeout here used to leave the dark theme set for whatever ran next --
+      // hence the finally.
+      test.setTimeout(600_000);
+      const { prep, promptId, examId, roadmapId, roleId, topicId } = await seed(request);
+      // A learner with a name gets their initials in the header instead of an
+      // icon: text, so the one variant of the avatar that axe measures contrast on.
+      const profile = await (await request.get('/api/v1/profile')).json();
+      await request.put('/api/v1/profile', { data: { display_name: 'Ada Lovelace', email: profile.email ?? '' } });
       await request.put('/api/v1/settings', { data: { theme: 'light' } });
-      await request.put('/api/v1/profile', { data: { display_name: profile.display_name ?? '', email: profile.email ?? '' } });
-    }
+      try {
+        await page.goto('/');
+        await pickPreparation(page, prep.name);
+        await expect(page.getByRole('banner').getByRole('link', { name: 'Profile: Ada Lovelace' })).toHaveText('AL');
+
+        const routes = part(allRoutes({ prepId: prep.id, roadmapId, roleId, topicId, examId, promptId }), index);
+        await auditBothThemes(page, routes);
+      } finally {
+        await request.put('/api/v1/settings', { data: { theme: 'light' } });
+        await request.put('/api/v1/profile', { data: { display_name: profile.display_name ?? '', email: profile.email ?? '' } });
+      }
+    });
+  }
+
+  test('the parts cover every screen exactly once', () => {
+    const ids: Ids = { prepId: 11, roadmapId: 12, roleId: 13, topicId: 14, examId: 15, promptId: 16 };
+    const every = allRoutes(ids);
+    const parts = Array.from({ length: PARTS }, (_, index) => part(every, index));
+    expect(parts.flat().sort()).toEqual([...every].sort());
+    expect(new Set(parts.flat()).size).toBe(every.length);
+    for (const p of parts) expect(p.length, 'no part is empty').toBeGreaterThan(0);
   });
+});
+
+async function auditBothThemes(page: Page, routes: string[]): Promise<void> {
+  const violations: string[] = [];
+  // Every (screen, theme) pair actually audited, so the end can prove none was skipped.
+  const audited: string[] = [];
+  for (const route of routes) {
+    await page.goto(route);
+    // Audited once the page has its heading, its theme and its data, so contrast
+    // is measured on what a learner actually sees.
+    await expect(page.locator('main h1').first(), `${route} has a heading`).toBeVisible();
+    await settleIn(page, route, 'light');
+    violations.push(...await audit(page, route, 'light'));
+    audited.push(`${route} light`);
+
+    await switchTo(page, route, 'dark');
+    violations.push(...await audit(page, route, 'dark'));
+    audited.push(`${route} dark`);
+
+    await switchTo(page, route, 'light');
+  }
+  expect(violations, violations.join('\n')).toEqual([]);
+  expect(audited.length, 'every screen audited in both themes').toBe(routes.length * 2);
+  expect(new Set(audited).size, 'no (screen, theme) pair audited twice in place of another').toBe(routes.length * 2);
 }
 
 // Controls fade their background but not their text colour, so a theme switch

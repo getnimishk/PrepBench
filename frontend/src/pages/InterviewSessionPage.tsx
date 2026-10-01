@@ -286,7 +286,7 @@ export const InterviewSessionPage: React.FC = () => {
                 <Box sx={{ mt: '16px' }} aria-live="polite">
                   {saved.analysing && (
                     <Stack direction="row" sx={{ alignItems: 'center', gap: 1.5 }}>
-                      <CircularProgress size={16} />
+                      <CircularProgress aria-hidden size={16} />
                       <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                         Analysing your answer. You can move on; it keeps going.
                       </Typography>

@@ -2,8 +2,8 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import { expect, test } from '@playwright/test';
-import { completedMockWithMisses, createCertification, createQuestion, pickPreparation, tag, type CreatedPreparation } from './helpers';
+import { expect, test } from './fixtures';
+import { completedMockWithMisses, createCertification, createQuestion, pickPreparation, tag, type CreatedPreparation, trackApi, waitForApiIdle } from './helpers';
 import { dbRow, dbRows } from './db';
 
 /**
@@ -94,6 +94,7 @@ test('Home describes the picked preparation rather than guessing one', async ({ 
  * roadmaps, review, recommendations, practice history, analytics or evidence.
  */
 test('three preparations keep their own evidence on every screen, and the first is unchanged after the others', async ({ page, request }) => {
+  await trackApi(page);
   test.setTimeout(240_000);
   page.setDefaultTimeout(20_000);
   const t = tag();
@@ -170,7 +171,7 @@ test('three preparations keep their own evidence on every screen, and the first 
     await pickPreparation(page, p.name);
     // Recommendations: Home's goal is this preparation's own review, or none for a skill.
     if (!isSkill) await expect(page.getByText(`questions to review today · ${p.name}`)).toBeVisible();
-    await page.waitForLoadState('networkidle');
+    await waitForApiIdle(page);
     for (const o of others) await expect(page.getByText(`questions to review today · ${o.name}`)).toHaveCount(0);
 
     // Questions.
@@ -206,7 +207,7 @@ test('three preparations keep their own evidence on every screen, and the first 
     // Analytics.
     await page.goto('/analytics');
     if (!isSkill) await expect(page.getByRole('link', { name: new RegExp(`^${area(p)}: 0%`) }).last()).toBeVisible();
-    await page.waitForLoadState('networkidle');
+    await waitForApiIdle(page);
     for (const o of others) await expect(page.getByText(area(o))).toHaveCount(0);
 
     // Scores, from the server: only this preparation's mock counts.

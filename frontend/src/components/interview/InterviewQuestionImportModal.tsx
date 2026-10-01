@@ -155,7 +155,7 @@ export const InterviewQuestionImportModal: React.FC<Props> = ({ open, onClose, o
             variant="contained"
             onClick={handleImport}
             disabled={!canImport || importing}
-            startIcon={importing ? <CircularProgress size={16} color="inherit" /> : undefined}
+            startIcon={importing ? <CircularProgress aria-hidden size={16} color="inherit" /> : undefined}
           >
             {importing ? 'Importing…' : 'Import'}
           </Button>

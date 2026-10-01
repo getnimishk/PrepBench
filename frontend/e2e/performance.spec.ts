@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { pickPreparation, tag } from './helpers';
 import { dbRow } from './db';
 
@@ -11,13 +11,36 @@ import { dbRow } from './db';
  * opened with a lot of it -- a 2,000-row import through the dialog, the Question
  * Bank over that bank, a 300-topic roadmap, and Insights across twenty areas.
  *
- * Budgets are for the development server these tests run against, which is
- * several times slower than the production build; they catch a screen that
+ * Budgets are for the production build these tests run against (vite preview;
+ * see playwright.config.ts), measured on 2026-09-30 where this test actually
+ * runs: in a full suite on four workers, sharing the machine with three other
+ * browsers, backends and frontends. Each is double the slower of two such runs,
+ * rounded up to the next half second, with a one-second floor so a busy machine
+ * does not fail a step that normally takes 200 ms. They catch a screen that
  * grinds, not a few milliseconds. Each measurement is attached to the report.
  * The backend's own timings and query counts are in backend/scripts/perf_gate.py.
+ *
+ * Measured in two four-worker full-suite runs (ms): import checked 5894/4959,
+ * import saved 2599/2529, question bank 910/1740, syllabus 3470/3384, phase
+ * overview 467/651, schedule 1345/1790, insights 2071/1979, home 2276/2024 --
+ * 1.5 to 2.8 times what the same steps took with the suite on one worker, which
+ * is the contention, not the screens. Four is the most contended setting
+ * supported (PREPBENCH_E2E_WORKERS); at the default two these budgets have more
+ * room. Re-measure the same way before raising the worker count past four.
  */
 
-const BUDGET_MS = 5_000;
+const BUDGETS_MS: Record<string, number> = {
+  'import: 2,000 rows checked': 12_000,
+  'import: 2,000 rows saved': 5_500,
+  'question bank: first page of 2,000': 3_500,
+  // The 300-topic syllabus is the heaviest render in the app -- 300 rows, each
+  // with a link, a status control and a progress bar.
+  'roadmap: 300 topics, syllabus': 7_000,
+  'roadmap: 300 topics, phase overview': 1_500,
+  'roadmap: 300 topics, schedule': 4_000,
+  'insights: twenty areas': 4_500,
+  'home: with the mock': 5_000,
+};
 
 test('screens stay usable with a large bank, a large roadmap and many areas', async ({ page, request }, testInfo) => {
   test.setTimeout(420_000);
@@ -58,8 +81,8 @@ test('screens stay usable with a large bank, a large roadmap and many areas', as
   });
 
   // 2. The Question Bank over 2,000 questions. Measured as a move within the open
-  // app, not a cold page load: the development server compiles on the first visit,
-  // which is the server's time and not the screen's.
+  // app, not a cold page load: a cold load adds fetching the bundle, which is the
+  // server's time and not the screen's.
   await page.keyboard.press('Escape');
   await page.reload();
   await expect(page.getByText(new RegExp(`Large bank ${t} question \\d+`)).first()).toBeVisible({ timeout: 60_000 });
@@ -122,14 +145,11 @@ test('screens stay usable with a large bank, a large roadmap and many areas', as
   });
 
   await testInfo.attach('timings', { body: JSON.stringify(timings, null, 2), contentType: 'application/json' });
-  console.log('Frontend timings (ms, dev server):', JSON.stringify(timings));
+  console.log('Frontend timings (ms, production build):', JSON.stringify(timings));
+  // Every step measured has a budget, and every budget was measured: a renamed or
+  // new step fails here rather than going unchecked.
+  expect(Object.keys(timings).sort()).toEqual(Object.keys(BUDGETS_MS).sort());
   for (const [step, ms] of Object.entries(timings)) {
-    // The 300-topic table is the heaviest render in the app -- 300 rows, each with
-    // a link, a status control and a progress bar. Measured at 2.0s in the
-    // production build, and roughly four times that through the development
-    // server these tests use, so it gets its own budget rather than a smaller
-    // roadmap that would prove nothing.
-    const budget = (step === 'roadmap: 300 topics, table' || step === 'roadmap: 300 topics, syllabus') ? 12_000 : BUDGET_MS;
-    expect(ms, `${step} took ${ms} ms`).toBeLessThan(budget);
+    expect(ms, `${step} took ${ms} ms (budget ${BUDGETS_MS[step]} ms)`).toBeLessThan(BUDGETS_MS[step]);
   }
 });

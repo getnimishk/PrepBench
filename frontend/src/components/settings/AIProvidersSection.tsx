@@ -147,7 +147,7 @@ export const AIProvidersSection: React.FC = () => {
   if (loading) {
     return (
       <Box sx={{ mb: 5, display: 'flex', alignItems: 'center', gap: 2 }}>
-        <CircularProgress size={20} />
+        <CircularProgress aria-hidden size={20} />
         <Typography variant="body2" color="text.secondary">Loading AI providers…</Typography>
       </Box>
     );
@@ -183,7 +183,7 @@ export const AIProvidersSection: React.FC = () => {
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
             <Button
               variant="outlined"
-              startIcon={detecting ? <CircularProgress size={14} /> : <Search size={16} />}
+              startIcon={detecting ? <CircularProgress aria-hidden size={14} /> : <Search size={16} />}
               onClick={handleDetect}
               disabled={detecting}
             >
@@ -191,7 +191,7 @@ export const AIProvidersSection: React.FC = () => {
             </Button>
             <Button
               variant="outlined"
-              startIcon={refreshingCatalog ? <CircularProgress size={14} /> : <RefreshCw size={16} />}
+              startIcon={refreshingCatalog ? <CircularProgress aria-hidden size={14} /> : <RefreshCw size={16} />}
               onClick={handleRefreshCatalog}
               disabled={refreshingCatalog}
             >
@@ -298,7 +298,7 @@ export const AIProvidersSection: React.FC = () => {
                           onClick={() => handleVerify(p)}
                           disabled={verifying === p.id}
                         >
-                          {verifying === p.id ? <CircularProgress size={16} /> : <RefreshCw size={16} />}
+                          {verifying === p.id ? <CircularProgress aria-hidden size={16} /> : <RefreshCw size={16} />}
                         </IconButton>
                       </span>
                     </Tooltip>

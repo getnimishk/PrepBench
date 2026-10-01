@@ -35,9 +35,10 @@ backend/data/local_models.custom.json
 
 # Personal audio recordings
 backend/data/recordings/
-# Recordings made by the browser tests
-backend/data/e2e_recordings/
-backend/data/e2e_secrets/
+# Recordings and provider keys made by the browser tests: one folder per
+# worker (e2e_recordings_w0, ...) and one for the template database's backend.
+backend/data/e2e_recordings*/
+backend/data/e2e_secrets*/
 
 # Logs
 logs/

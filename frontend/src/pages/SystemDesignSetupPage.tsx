@@ -173,7 +173,7 @@ export const SystemDesignSetupPage: React.FC = () => {
             <Button
               variant="contained"
               color="ink"
-              startIcon={generating ? <CircularProgress size={16} color="inherit" /> : <Sparkles size={16} />}
+              startIcon={generating ? <CircularProgress aria-hidden size={16} color="inherit" /> : <Sparkles size={16} />}
               onClick={handleGenerate}
               disabled={generating}
             >

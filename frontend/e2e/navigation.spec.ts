@@ -2,8 +2,9 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import { expect, test, type Page } from '@playwright/test';
-import { completedMockWithMisses, createCertification, createRole, pickPreparation, tag } from './helpers';
+import { type Page } from '@playwright/test';
+import { expect, test } from './fixtures';
+import { completedMockWithMisses, createCertification, createRole, pickPreparation, tag, trackApi, waitForApiIdle } from './helpers';
 
 /**
  * The release gate's "no console errors" and "no dead navigation", checked the
@@ -17,27 +18,36 @@ import { completedMockWithMisses, createCertification, createRole, pickPreparati
 
 const NOT_FOUND = 'Nothing at this address';
 
-function watchConsole(page: Page, where: () => string): string[] {
-  const errors: string[] = [];
+function watchConsole(page: Page, where: () => string, errors: string[]): void {
   page.on('console', (message) => {
     if (message.type() === 'error') errors.push(`${where()}: ${message.text()}`);
   });
   page.on('pageerror', (error) => errors.push(`${where()}: ${error.message}`));
-  return errors;
 }
 
+// Screens opened in one tab before the crawl moves to a fresh one. Every screen
+// here comes from the dev server as several hundred separate modules, and one tab
+// taking sixty of those in a row grew by gigabytes; on a machine with a few GB of
+// memory to spare, Chrome then failed to allocate for a module mid-crawl
+// (net::ERR_INSUFFICIENT_RESOURCES), the app never mounted, and a screen that
+// works was reported headless. A fresh tab in the same context keeps the chosen
+// preparation (localStorage), and closing the old one frees its memory.
+const SCREENS_PER_TAB = 10;
+
 async function landed(page: Page, route: string) {
-  // 15s, not the 5s default: Vite's dev server compiles a route on its first
-  // visit, and a page that has never been hit before in this run can occasionally
-  // take longer than 5s to serve -- not a broken screen, just an uncompiled one.
-  // This crawl visits every screen once each, so the first visit is the common
-  // case, not the exception.
+  // 15s, not the 5s default. This spec alone runs against Vite's dev server (the
+  // chromium-dev project in playwright.config.ts), so React's development warnings
+  // reach the console check below. The dev server compiles a route on its first
+  // visit, and a page never hit before in this run can occasionally take longer
+  // than 5s to serve -- not a broken screen, just an uncompiled one. This crawl
+  // visits every screen once each, so the first visit is the common case here.
   await expect(page.locator('main h1').first(), `${route} has a heading`).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole('heading', { name: NOT_FOUND }), `${route} is a real page`).toHaveCount(0);
-  await page.waitForLoadState('networkidle');
+  await waitForApiIdle(page);
 }
 
 test('every screen opens with no console errors, and no link on any of them leads nowhere', async ({ page, request }) => {
+  await trackApi(page);
   test.setTimeout(600_000);
   page.setDefaultTimeout(20_000);
   const t = tag();
@@ -56,7 +66,23 @@ test('every screen opens with no console errors, and no link on any of them lead
   const role = await createRole(request, 'Navigation Role');
 
   let where = '(start)';
-  const errors = watchConsole(page, () => where);
+  const errors: string[] = [];
+  watchConsole(page, () => where, errors);
+
+  let tab = page;
+  let opened = 0;
+  const open = async (href: string) => {
+    if (opened > 0 && opened % SCREENS_PER_TAB === 0) {
+      const next = await page.context().newPage();
+      next.setDefaultTimeout(20_000);
+      await trackApi(next);
+      watchConsole(next, () => where, errors);
+      await tab.close();
+      tab = next;
+    }
+    opened += 1;
+    await tab.goto(href);
+  };
 
   const routes = [
     '/', '/preparations', '/preparations/new', `/preparations/${prep.id}/edit`, `/subjects/${prep.id}`,
@@ -79,9 +105,9 @@ test('every screen opens with no console errors, and no link on any of them lead
   const links = new Set<string>();
   for (const route of routes) {
     where = route;
-    await page.goto(route);
-    await landed(page, route);
-    const hrefs = await page.locator('main a[href^="/"], nav a[href^="/"]').evaluateAll(
+    await open(route);
+    await landed(tab, route);
+    const hrefs = await tab.locator('main a[href^="/"], nav a[href^="/"]').evaluateAll(
       (anchors) => anchors.map((a) => (a as HTMLAnchorElement).getAttribute('href') ?? ''),
     );
     hrefs.forEach((href) => links.add(href));
@@ -110,16 +136,16 @@ test('every screen opens with no console errors, and no link on any of them lead
   });
   for (const href of toFollow) {
     where = `link ${href}`;
-    await page.goto(href);
-    await landed(page, href);
+    await open(href);
+    await landed(tab, href);
   }
 
   // And an address nothing answers to says so, with a way on.
   where = '/no-such-page';
-  await page.goto(`/no-such-page-${t}`);
-  await expect(page.getByRole('heading', { name: NOT_FOUND })).toBeVisible();
-  await page.getByRole('link', { name: 'Go to Home' }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await open(`/no-such-page-${t}`);
+  await expect(tab.getByRole('heading', { name: NOT_FOUND })).toBeVisible();
+  await tab.getByRole('link', { name: 'Go to Home' }).click();
+  await expect(tab).toHaveURL(/\/$/);
 
   expect(errors, `console errors:\n${errors.join('\n')}`).toEqual([]);
   expect(links.size).toBeGreaterThan(20);

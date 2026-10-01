@@ -15,9 +15,14 @@ import { EmptyState, ErrorState, LoadingState, SaveStatus, type SaveState } from
  * Rendered with the same components the screens use, so what is here is what a
  * learner sees. The examples are the product's own situations; the buttons are
  * shown inert, because on this page there is nothing for them to act on.
+ *
+ * data-specimen marks each frame as a sample of a state, not this page's own:
+ * its "Loading" spinner turns forever by design, and the browser tests' wait for
+ * a screen to finish loading (waitForApiIdle in e2e/helpers.ts) skips what is
+ * inside one.
  */
 const Frame: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
-  <Box component="figure" aria-label={label} sx={{ m: 0, border: '1px solid', borderColor: 'divider', borderRadius: 3, bgcolor: 'background.paper', overflow: 'hidden' }}>
+  <Box component="figure" data-specimen aria-label={label} sx={{ m: 0, border: '1px solid', borderColor: 'divider', borderRadius: 3, bgcolor: 'background.paper', overflow: 'hidden' }}>
     <Typography component="figcaption" variant="overline" sx={{ display: 'block', px: 2, pt: 1, color: 'text.secondary' }}>
       {label}
     </Typography>

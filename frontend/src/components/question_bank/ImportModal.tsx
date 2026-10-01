@@ -228,7 +228,7 @@ export const ImportModal: React.FC<Props> = ({ open, onClose, onSuccess, onOpenA
               <Detail sx={{ mt: '4px' }}>Markdown (.md), JSON, CSV or Excel (.xlsx)</Detail>
               {validating && (
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mt: 2 }}>
-                  <CircularProgress size={20} />
+                  <CircularProgress aria-hidden size={20} />
                   <Typography variant="body2">Checking every row…</Typography>
                 </Box>
               )}
@@ -347,7 +347,7 @@ export const ImportModal: React.FC<Props> = ({ open, onClose, onSuccess, onOpenA
               variant="outlined"
               disabled={repairing || validating}
               onClick={handleAutoRepair}
-              startIcon={repairing ? <CircularProgress size={16} color="inherit" /> : undefined}
+              startIcon={repairing ? <CircularProgress aria-hidden size={16} color="inherit" /> : undefined}
             >
               {repairing ? 'Repairing…' : 'Repair the file'}
             </Button>
@@ -356,7 +356,7 @@ export const ImportModal: React.FC<Props> = ({ open, onClose, onSuccess, onOpenA
               color="ink"
               disabled={importing || actualImportCount === 0}
               onClick={handleConfirmImport}
-              startIcon={importing ? <CircularProgress size={16} color="inherit" /> : undefined}
+              startIcon={importing ? <CircularProgress aria-hidden size={16} color="inherit" /> : undefined}
             >
               {importing ? 'Importing…' : `Import ${actualImportCount} question${actualImportCount === 1 ? '' : 's'}`}
             </Button>
