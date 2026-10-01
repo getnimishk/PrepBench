@@ -51,10 +51,10 @@ class SettingsRepository:
         return created
 
     def update(self, fields: dict) -> AppSettings:
-        settings = self.get()
-        if not settings:
-            settings = AppSettings(id=SETTINGS_ID)
-            self.db.add(settings)
+        # Through get_or_create, not its own add: a save racing the first read
+        # on a fresh install would otherwise insert the singleton row twice,
+        # and the loser fail with a 500 for the reason get_or_create explains.
+        settings = self.get_or_create()
 
         for field, value in fields.items():
             setattr(settings, field, value)
