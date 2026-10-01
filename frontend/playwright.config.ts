@@ -89,7 +89,21 @@ export default defineConfig<object, { frontend: Frontend }>({
     },
     {
       name: 'chromium',
-      testIgnore: /navigation\.spec\.ts$/,
+      testIgnore: [/navigation\.spec\.ts$/, /performance\.spec\.ts$/],
+      use: { frontend: 'preview' },
+    },
+    // The performance budgets, measured with the machine to themselves: this
+    // project starts only once both others have finished, so its one test runs
+    // alone. Measured alongside the rest, the same steps took 1.5-3x longer --
+    // the budgets had to allow for that, and could no longer tell a screen that
+    // had slowed from a machine that was busy.
+    //
+    // A dependency that fails skips this project, so a red run reports no
+    // timings. To measure on its own: npx playwright test --project=performance --no-deps
+    {
+      name: 'performance',
+      testMatch: /performance\.spec\.ts$/,
+      dependencies: ['chromium-dev', 'chromium'],
       use: { frontend: 'preview' },
     },
   ],

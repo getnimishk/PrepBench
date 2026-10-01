@@ -189,3 +189,60 @@ def test_skipped_answer_is_not_recorded_as_incorrect():
         "A skipped (never-answered) question was recorded with is_correct=False "
         "instead of None -- it will be miscounted as a wrong answer in analytics."
     )
+
+
+def test_two_first_saves_of_one_answer_end_as_one_row_not_a_failure():
+    """Regression test: two saves of the same answer arriving together.
+
+    The exam page sends a save for each pick, flag and move. When two of them
+    for a question not yet answered reach the server together, both find no
+    row and both insert; the unique (session, question) constraint stops the
+    second. That raised an uncaught IntegrityError -- a 500 -- and the page,
+    told the save had failed, took the learner's pick back off the screen.
+
+    Reproduced deterministically: one answer is saved normally, then the
+    repository is made to see "no row yet" once, as the second of two
+    concurrent requests would, so its insert really collides.
+    """
+    from app.models.exam_answer import ExamAnswer
+    from app.repositories.exam_repository import ExamRepository
+    from tests.conftest import TestingSessionLocal
+
+    question, cert = _create_question_with_options(n_options=2)
+    res = client.post("/api/v1/exams", json={
+        "title": "Concurrent save", "exam_mode": "timed", "certification": cert, "total_questions": 1,
+    })
+    assert res.status_code == 201, res.text
+    session_id = res.json()["id"]
+    first, second = (o["id"] for o in question["options"])
+
+    saved = client.post(f"/api/v1/exams/{session_id}/answer", json={
+        "question_id": question["id"], "selected_option_ids": [first],
+    })
+    assert saved.status_code == 200, saved.text
+
+    db = TestingSessionLocal()
+    try:
+        repo = ExamRepository(db)
+        real_get_answer = repo.get_answer
+        calls = {"n": 0}
+
+        def sees_no_row_the_first_time(session_id_, question_id_):
+            calls["n"] += 1
+            return None if calls["n"] == 1 else real_get_answer(session_id_, question_id_)
+
+        repo.get_answer = sees_no_row_the_first_time
+        result = repo.save_answer(ExamAnswer(
+            session_id=session_id, question_id=question["id"], selected_option_ids=[second],
+            is_correct=False, time_spent_seconds=3, is_flagged=True, is_bookmarked=False,
+        ))
+        assert calls["n"] == 2, "the insert should have collided and fallen back to the existing row"
+
+        rows = db.query(ExamAnswer).filter_by(session_id=session_id, question_id=question["id"]).all()
+        assert len(rows) == 1
+        # The later save wins: the pick and the flag it carried are what is stored.
+        assert rows[0].id == result.id
+        assert rows[0].selected_option_ids == [second]
+        assert rows[0].is_flagged is True
+    finally:
+        db.close()

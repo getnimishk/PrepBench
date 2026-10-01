@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 /**
  * The app's promise is that a network call leaves the machine only when the
@@ -27,6 +27,9 @@ test('loading the app and its screens asks no host but its own', async ({ page, 
   for (const route of SCREENS) {
     await page.goto(route);
     await expect(page.locator('main')).toBeVisible();
+    // networkidle, not waitForApiIdle, on purpose: that one waits only for the
+    // app's own requests, and a request to any other host -- the very thing
+    // this test looks for -- is what it would not wait on.
     await page.waitForLoadState('networkidle');
   }
 
