@@ -5,7 +5,7 @@
 import { type Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import {
-  completedMockWithMisses, createCertification, createRole, pickPreparation, trackApi, waitForApiIdle, waitForTransitionsToSettle,
+  completedMockWithMisses, createCertification, createRole, createSheetRoadmap, pickPreparation, trackApi, waitForApiIdle, waitForTransitionsToSettle,
 } from './helpers';
 
 /**
@@ -30,13 +30,19 @@ const VIEWPORTS = [
   { name: 'phone 390', width: 390, height: 844, phone: true },
 ];
 
-const ROUTES = (prepId: number, roleId: number, roadmapId: number, topicId: number) => [
+const ROUTES = (
+  prepId: number, roleId: number, roadmapId: number, topicId: number,
+  sheets: { roadmapId: number; referenceId: number; planId: number },
+) => [
   '/preparations/roles/new', `/preparations/roles/${roleId}`, `/preparations/roles/${roleId}/diagnostic`,
   '/', '/practice', '/review', '/exam-setup', '/question-bank', '/analytics',
   '/lab', '/chart-sandbox', '/scenarios', '/scenarios/adf/1',
   '/design-reviews/1', '/system-design', '/interview-practice', '/preparations/new', `/preparations/${prepId}/edit`,
   '/learn', '/learn/guides/adf', '/learn/guides/adf/pitfalls',
   `/roadmaps/${roadmapId}/topics/${topicId}/guide`,
+  // A multi-sheet roadmap: its scrolling tab strip, a reference sheet and a plan sheet.
+  `/roadmaps/${sheets.roadmapId}`, `/roadmaps/${sheets.roadmapId}?resource=${sheets.referenceId}`,
+  `/roadmaps/${sheets.roadmapId}?resource=${sheets.planId}`,
   '/notifications', '/onboarding', '/settings', '/settings/ai', '/settings/data',
 ];
 
@@ -134,7 +140,8 @@ flowchart LR
       await page.goto('/');
       await pickPreparation(page, prep.name);
 
-      const routes = part(ROUTES(prep.id, role.id, roadmap.id, topic.id), index);
+      const sheets = await createSheetRoadmap(request, prep.id, 'Responsive');
+      const routes = part(ROUTES(prep.id, role.id, roadmap.id, topic.id, sheets), index);
       const problems: string[] = [];
       // Every (screen, width) pair actually checked, so the end can prove none was skipped.
       const resized: string[] = [];
@@ -172,7 +179,7 @@ flowchart LR
   }
 
   test('the parts cover every screen exactly once', () => {
-    const every = ROUTES(11, 12, 13, 14);
+    const every = ROUTES(11, 12, 13, 14, { roadmapId: 15, referenceId: 16, planId: 17 });
     const parts = Array.from({ length: PARTS }, (_, index) => part(every, index));
     expect(parts.flat().sort()).toEqual([...every].sort());
     expect(new Set(parts.flat()).size).toBe(every.length);

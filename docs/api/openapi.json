@@ -7841,6 +7841,35 @@
         "title": "RecordingsFolder",
         "type": "object"
       },
+      "ReferenceSheetResponse": {
+        "description": "One reference sheet, as the Study Library lists it: no rows, just where it lives.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "resource_id": {
+            "title": "Resource Id",
+            "type": "integer"
+          },
+          "roadmap_id": {
+            "title": "Roadmap Id",
+            "type": "integer"
+          },
+          "roadmap_title": {
+            "title": "Roadmap Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resource_id",
+          "name",
+          "roadmap_id",
+          "roadmap_title"
+        ],
+        "title": "ReferenceSheetResponse",
+        "type": "object"
+      },
       "RestoreOp": {
         "additionalProperties": false,
         "properties": {
@@ -8580,6 +8609,15 @@
             "title": "Columns",
             "type": "array"
           },
+          "purpose": {
+            "default": "reference",
+            "enum": [
+              "reference",
+              "plan"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          },
           "rows": {
             "default": [],
             "items": {
@@ -9095,6 +9133,15 @@
             "title": "Order Index",
             "type": "integer"
           },
+          "purpose": {
+            "default": "reference",
+            "enum": [
+              "reference",
+              "plan"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          },
           "roadmap_id": {
             "title": "Roadmap Id",
             "type": "integer"
@@ -9122,6 +9169,23 @@
           "order_index"
         ],
         "title": "RoadmapResourceResponse",
+        "type": "object"
+      },
+      "RoadmapResourceUpdate": {
+        "properties": {
+          "purpose": {
+            "enum": [
+              "reference",
+              "plan"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          }
+        },
+        "required": [
+          "purpose"
+        ],
+        "title": "RoadmapResourceUpdate",
         "type": "object"
       },
       "RoadmapResults": {
@@ -17860,6 +17924,55 @@
         ]
       }
     },
+    "/api/v1/roadmaps/reference-sheets": {
+      "get": {
+        "description": "One preparation's reference sheets (not its plan sheets), across its\nunarchived roadmaps -- what the Study Library lists. One request, so the\nlibrary need not fetch every roadmap's detail to find them.",
+        "operationId": "list_reference_sheets_api_v1_roadmaps_reference_sheets_get",
+        "parameters": [
+          {
+            "description": "The preparation whose reference sheets to list.",
+            "in": "query",
+            "name": "subject_id",
+            "required": true,
+            "schema": {
+              "description": "The preparation whose reference sheets to list.",
+              "title": "Subject Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReferenceSheetResponse"
+                  },
+                  "title": "Response List Reference Sheets Api V1 Roadmaps Reference Sheets Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Reference Sheets",
+        "tags": [
+          "Learning Roadmaps"
+        ]
+      }
+    },
     "/api/v1/roadmaps/{roadmap_id}": {
       "delete": {
         "operationId": "delete_roadmap_api_v1_roadmaps__roadmap_id__delete",
@@ -18188,6 +18301,68 @@
           }
         },
         "summary": "Save Roadmap Plan",
+        "tags": [
+          "Learning Roadmaps"
+        ]
+      }
+    },
+    "/api/v1/roadmaps/{roadmap_id}/resources/{resource_id}": {
+      "patch": {
+        "description": "Change what an extra sheet is for: \"reference\" (also in the Study Library)\nor \"plan\" (Roadmaps only).",
+        "operationId": "update_resource_api_v1_roadmaps__roadmap_id__resources__resource_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "roadmap_id",
+            "required": true,
+            "schema": {
+              "title": "Roadmap Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "resource_id",
+            "required": true,
+            "schema": {
+              "title": "Resource Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoadmapResourceUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoadmapResourceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Resource",
         "tags": [
           "Learning Roadmaps"
         ]

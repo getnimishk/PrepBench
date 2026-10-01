@@ -14,12 +14,14 @@ const mockGetRoadmap = vi.fn();
 const mockGetRoadmapSchedule = vi.fn();
 const mockUpdateRoadmapTopic = vi.fn();
 const mockUpdateRoadmap = vi.fn();
+const mockUpdateRoadmapResource = vi.fn();
 
 vi.mock('../services/api', () => ({
   getRoadmap: (...args: any[]) => mockGetRoadmap(...args),
   getRoadmapSchedule: (...args: any[]) => mockGetRoadmapSchedule(...args),
   updateRoadmapTopic: (...args: any[]) => mockUpdateRoadmapTopic(...args),
   updateRoadmap: (...args: any[]) => mockUpdateRoadmap(...args),
+  updateRoadmapResource: (...args: any[]) => mockUpdateRoadmapResource(...args),
 }));
 
 function makeTopic(id: number, overrides: Partial<RoadmapTopic> = {}): RoadmapTopic {
@@ -75,9 +77,9 @@ function makeDetail(overrides: Partial<RoadmapDetail> = {}): RoadmapDetail {
   };
 }
 
-function makeResource(id: number, title: string): RoadmapResource {
+function makeResource(id: number, title: string, purpose: RoadmapResource['purpose'] = 'reference'): RoadmapResource {
   return {
-    id, roadmap_id: 1, title, order_index: id,
+    id, roadmap_id: 1, title, order_index: id, purpose,
     columns: [`${title} column`], rows: [[`${title} cell`]],
   };
 }
@@ -120,9 +122,9 @@ function makeSchedule(overrides: Partial<RoadmapSchedule> = {}): RoadmapSchedule
   };
 }
 
-function renderPage() {
+function renderPage(entry = '/roadmaps/1') {
   return render(
-    <MemoryRouter initialEntries={['/roadmaps/1']}>
+    <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route path="/roadmaps/:roadmapId" element={<RoadmapDetailPage />} />
         <Route path="/roadmaps" element={<div>Roadmap List Page</div>} />
@@ -427,5 +429,135 @@ describe('RoadmapDetailPage sheet tabs', () => {
 
     expect(tabNames()).toEqual(['Core', 'Commands', 'Phase overview', 'Schedule']);
     expect(screen.getByText('Also includes topics from: Advanced, Extras')).toBeInTheDocument();
+  });
+});
+
+describe('RoadmapDetailPage sheet purpose and deep links', () => {
+  beforeEach(() => {
+    mockUpdateRoadmapResource.mockImplementation(async (_r: number, resourceId: number, purpose: string) => ({
+      ...makeResource(resourceId, 'x'), purpose,
+    }));
+  });
+
+  const stateOf = (name: RegExp | string) => screen.getByRole('switch', { name });
+
+  it('shows a Show in Study Library switch on a resource tab: on for reference, off for plan', async () => {
+    const user = userEvent.setup();
+    mockGetRoadmap.mockResolvedValue({
+      ...makeMultiSheet(),
+      resources: [makeResource(11, 'Commands'), makeResource(12, 'Glossary', 'plan')],
+    });
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('tab', { name: 'Commands' }));
+    expect(stateOf('Show in Study Library')).toBeChecked();
+    await user.click(screen.getByRole('tab', { name: 'Glossary' }));
+    expect(stateOf('Show in Study Library')).not.toBeChecked();
+  });
+
+  it('calls the PATCH when the switch is turned off, and shows the new state', async () => {
+    const user = userEvent.setup();
+    mockGetRoadmap.mockResolvedValue(makeMultiSheet());
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('tab', { name: 'Glossary' }));
+    await user.click(stateOf('Show in Study Library'));
+
+    await waitFor(() => expect(mockUpdateRoadmapResource).toHaveBeenCalledWith(1, 12, 'plan'));
+    await waitFor(() => expect(stateOf('Show in Study Library')).not.toBeChecked());
+
+    await user.click(stateOf('Show in Study Library'));
+    await waitFor(() => expect(mockUpdateRoadmapResource).toHaveBeenLastCalledWith(1, 12, 'reference'));
+    await waitFor(() => expect(stateOf('Show in Study Library')).toBeChecked());
+  });
+
+  it('keeps the switch where it was and says so when the PATCH fails', async () => {
+    const user = userEvent.setup();
+    mockUpdateRoadmapResource.mockRejectedValue(new Error('boom'));
+    mockGetRoadmap.mockResolvedValue(makeMultiSheet());
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('tab', { name: 'Glossary' }));
+    await user.click(stateOf('Show in Study Library'));
+
+    expect(await screen.findByText(/Failed to change where this sheet is shown/)).toBeInTheDocument();
+    expect(stateOf('Show in Study Library')).toBeChecked();
+  });
+
+  it('puts a switch on each table of a single-sheet roadmap’s Reference tables tab', async () => {
+    const user = userEvent.setup();
+    mockGetRoadmap.mockResolvedValue(makeDetail({
+      resources: [makeResource(11, 'Commands'), makeResource(12, 'Glossary')],
+    }));
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('tab', { name: 'Reference tables (2)' }));
+    const switches = screen.getAllByRole('switch', { name: 'Show in Study Library' });
+    expect(switches).toHaveLength(2);
+
+    await user.click(switches[1]);
+    await waitFor(() => expect(mockUpdateRoadmapResource).toHaveBeenCalledWith(1, 12, 'plan'));
+  });
+
+  it('opens a multi-sheet roadmap on the linked resource’s tab', async () => {
+    mockGetRoadmap.mockResolvedValue(makeMultiSheet());
+    renderPage('/roadmaps/1?resource=12');
+    await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
+
+    expect(screen.getByRole('tab', { name: 'Glossary' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('heading', { name: 'Glossary' })).toBeInTheDocument();
+  });
+
+  it('lets the learner leave the linked tab', async () => {
+    const user = userEvent.setup();
+    mockGetRoadmap.mockResolvedValue(makeMultiSheet());
+    renderPage('/roadmaps/1?resource=12');
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Glossary' })).toHaveAttribute('aria-selected', 'true'));
+
+    await user.click(screen.getByRole('tab', { name: 'Commands' }));
+    expect(screen.getByRole('tab', { name: 'Commands' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it.each(['999', 'abc', '0', ''])('falls back to the default tab, silently, for ?resource=%s', async (value) => {
+    mockGetRoadmap.mockResolvedValue(makeMultiSheet());
+    renderPage(`/roadmaps/1?resource=${value}`);
+    await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
+
+    expect(screen.getByRole('tab', { name: 'Master Syllabus' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('opens Reference tables and scrolls to the linked table on a single-sheet roadmap', async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    mockGetRoadmap.mockResolvedValue(makeDetail({
+      resources: [makeResource(11, 'Commands'), makeResource(12, 'Glossary')],
+    }));
+    renderPage('/roadmaps/1?resource=12');
+    await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
+
+    expect(screen.getByRole('tab', { name: 'Reference tables (2)' })).toHaveAttribute('aria-selected', 'true');
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledTimes(1));
+    expect((scrollIntoView.mock.contexts[0] as HTMLElement).id).toBe('resource-12');
+  });
+
+  it('does not scroll again when the roadmap refreshes after a switch change', async () => {
+    const user = userEvent.setup();
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    mockGetRoadmap.mockResolvedValue(makeDetail({
+      resources: [makeResource(11, 'Commands'), makeResource(12, 'Glossary')],
+    }));
+    renderPage('/roadmaps/1?resource=12');
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledTimes(1));
+
+    await user.click(screen.getAllByRole('switch', { name: 'Show in Study Library' })[0]);
+    await waitFor(() => expect(mockUpdateRoadmapResource).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getAllByRole('switch', { name: 'Show in Study Library' })[0]).not.toBeChecked());
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
   });
 });

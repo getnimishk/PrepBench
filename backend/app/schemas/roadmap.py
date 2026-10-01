@@ -80,6 +80,11 @@ class RoadmapPhaseResponse(BaseModel):
 
 # ------------------------------------------------------------- resources
 
+# reference: material to read, also listed in the Study Library.
+# plan: a sheet with planning columns (hours, status, dates); Roadmaps only.
+ResourcePurpose = Literal["reference", "plan"]
+
+
 class RoadmapResourceCreate(BaseModel):
     title: str
     columns: List[str] = []
@@ -87,15 +92,29 @@ class RoadmapResourceCreate(BaseModel):
     order_index: Optional[int] = None
 
 
+class RoadmapResourceUpdate(BaseModel):
+    purpose: ResourcePurpose
+
+
 class RoadmapResourceResponse(BaseModel):
     id: int
     roadmap_id: int
     title: str
     order_index: int
+    purpose: ResourcePurpose = "reference"
     columns: List[str] = []
     rows: List[List[str]] = []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ReferenceSheetResponse(BaseModel):
+    """One reference sheet, as the Study Library lists it: no rows, just where it lives."""
+
+    resource_id: int
+    name: str
+    roadmap_id: int
+    roadmap_title: str
 
 
 # -------------------------------------------------------------- progress
@@ -298,6 +317,7 @@ class RoadmapImportResource(BaseModel):
     title: str
     columns: List[str] = []
     rows: List[List[str]] = []
+    purpose: ResourcePurpose = "reference"
 
 
 class RoadmapImportSheet(BaseModel):

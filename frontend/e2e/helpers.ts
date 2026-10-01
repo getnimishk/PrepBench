@@ -47,6 +47,53 @@ export async function createCertification(
   return { id: body.id, name, certification };
 }
 
+export interface SheetRoadmap {
+  roadmapId: number;
+  /** A reference sheet (listed in the Study Library) and a plan sheet (Roadmaps only). */
+  referenceId: number;
+  planId: number;
+  referenceName: string;
+  planName: string;
+  title: string;
+}
+
+/**
+ * A three-sheet roadmap -- a syllabus, a reference sheet and a plan sheet --
+ * imported the way the modal does, then linked to a preparation.
+ */
+export async function createSheetRoadmap(
+  request: APIRequestContext,
+  prepId: number,
+  stem: string,
+): Promise<SheetRoadmap> {
+  const t = tag();
+  const title = `${stem} sheets ${t}`;
+  const referenceName = `${stem} reference ${t}`;
+  const planName = `${stem} work plan ${t}`;
+  const confirm = await request.post('/api/v1/roadmaps/import/confirm', {
+    data: {
+      title,
+      topics: [{ title: `${stem} topic`, phase_name: 'Phase 1', estimated_hours: 2 }],
+      resources: [
+        { title: referenceName, columns: ['Term', 'Meaning'], rows: [['Alpha', 'First letter']], purpose: 'reference' },
+        { title: planName, columns: ['Item', 'Est. hours'], rows: [['Write it up', '3']], purpose: 'plan' },
+      ],
+      sheets: [
+        { name: `${stem} syllabus`, kind: 'syllabus' },
+        { name: referenceName, kind: 'resource' },
+        { name: planName, kind: 'resource' },
+      ],
+    },
+  });
+  expect(confirm.status(), await confirm.text()).toBe(201);
+  const roadmapId = (await confirm.json()).roadmap_id as number;
+  const linked = await request.put(`/api/v1/roadmaps/${roadmapId}`, { data: { subject_id: prepId } });
+  expect(linked.status(), await linked.text()).toBe(200);
+  const detail = await (await request.get(`/api/v1/roadmaps/${roadmapId}`)).json();
+  const idOf = (name: string) => detail.resources.find((r: { title: string }) => r.title === name).id as number;
+  return { roadmapId, referenceId: idOf(referenceName), planId: idOf(planName), referenceName, planName, title };
+}
+
 export interface CreatedSkill {
   id: number;
   name: string;

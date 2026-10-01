@@ -6,7 +6,7 @@ import { type APIRequestContext, type Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import AxeBuilder from '@axe-core/playwright';
 import {
-  completedMockWithMisses, createCertification, createRole, pickPreparation, trackApi, waitForApiIdle, waitForTransitionsToSettle,
+  completedMockWithMisses, createCertification, createRole, createSheetRoadmap, pickPreparation, trackApi, waitForApiIdle, waitForTransitionsToSettle,
 } from './helpers';
 
 /**
@@ -86,28 +86,37 @@ flowchart TD
     },
   });
   const role = await createRole(request, 'Accessible Role');
+  const sheets = await createSheetRoadmap(request, prep.id, 'Accessible');
   return {
-    prep, promptId: prompts.items?.[0]?.id as number | undefined, examId: (await drill.json()).id as number,
+    sheets, prep, promptId: prompts.items?.[0]?.id as number | undefined, examId: (await drill.json()).id as number,
     roadmapId: roadmap.id as number, roleId: role.id, topicId: topic.id as number,
   };
 }
 
-const ROUTES = (prepId: number, roadmapId: number, roleId: number, topicId: number) => [
+const ROUTES = (prepId: number, roadmapId: number, roleId: number, topicId: number, sheets: SheetIds) => [
   '/', '/preparations', '/preparations/new', `/preparations/${prepId}/edit`,
   '/preparations/roles/new', `/preparations/roles/${roleId}`, `/preparations/roles/${roleId}/diagnostic`, '/practice', '/practice?tab=spaced', '/practice?tab=custom', '/learn',
   '/learn/guides/adf', '/learn/guides/adf/pitfalls', '/scenarios', '/scenarios/adf/1',
   '/review', '/exam-setup', '/question-bank', '/analytics', `/analytics/area?subject=${prepId}&domain=Accessible%20Area`,
-  '/roadmaps', `/roadmaps/${roadmapId}/edit`, `/roadmaps/${roadmapId}/topics/${topicId}/guide`, '/search?q=Accessible', '/profile', '/lab', '/chart-sandbox', '/design-reviews', '/design-reviews/1', '/system-design', '/interview-practice',
+  '/roadmaps', `/roadmaps/${roadmapId}/edit`,
+  // A multi-sheet roadmap: its first tab, a reference sheet's tab, a plan sheet's tab.
+  `/roadmaps/${sheets.roadmapId}`, `/roadmaps/${sheets.roadmapId}?resource=${sheets.referenceId}`,
+  `/roadmaps/${sheets.roadmapId}?resource=${sheets.planId}`,
+   `/roadmaps/${roadmapId}/topics/${topicId}/guide`, '/search?q=Accessible', '/profile', '/lab', '/chart-sandbox', '/design-reviews', '/design-reviews/1', '/system-design', '/interview-practice',
   '/interview-practice/library', '/interview-practice/setup', '/recordings', '/notifications', '/onboarding',
   '/settings', '/settings/ai', '/settings/appearance', '/settings/practice', '/settings/shortcuts',
   '/settings/notifications', '/settings/data', '/settings/about', '/settings/states',
 ];
 
-interface Ids { prepId: number; roadmapId: number; roleId: number; topicId: number; examId: number; promptId?: number }
+interface SheetIds { roadmapId: number; referenceId: number; planId: number }
+interface Ids {
+  prepId: number; roadmapId: number; roleId: number; topicId: number; examId: number; promptId?: number;
+  sheets: SheetIds;
+}
 
 /** Every screen audited, the focus screens (no sidebar) included. */
 const allRoutes = (ids: Ids) => [
-  ...ROUTES(ids.prepId, ids.roadmapId, ids.roleId, ids.topicId),
+  ...ROUTES(ids.prepId, ids.roadmapId, ids.roleId, ids.topicId, ids.sheets),
   `/exam/${ids.examId}`, ...(ids.promptId ? [`/system-design/${ids.promptId}/answer`] : []),
 ];
 
@@ -132,7 +141,7 @@ test.describe('every screen passes an automated accessibility check in both them
       // A timeout here used to leave the dark theme set for whatever ran next --
       // hence the finally.
       test.setTimeout(600_000);
-      const { prep, promptId, examId, roadmapId, roleId, topicId } = await seed(request);
+      const { prep, promptId, examId, roadmapId, roleId, topicId, sheets } = await seed(request);
       // A learner with a name gets their initials in the header instead of an
       // icon: text, so the one variant of the avatar that axe measures contrast on.
       const profile = await (await request.get('/api/v1/profile')).json();
@@ -143,7 +152,7 @@ test.describe('every screen passes an automated accessibility check in both them
         await pickPreparation(page, prep.name);
         await expect(page.getByRole('banner').getByRole('link', { name: 'Profile: Ada Lovelace' })).toHaveText('AL');
 
-        const routes = part(allRoutes({ prepId: prep.id, roadmapId, roleId, topicId, examId, promptId }), index);
+        const routes = part(allRoutes({ prepId: prep.id, roadmapId, roleId, topicId, examId, promptId, sheets }), index);
         await auditBothThemes(page, routes);
       } finally {
         await request.put('/api/v1/settings', { data: { theme: 'light' } });
@@ -153,7 +162,10 @@ test.describe('every screen passes an automated accessibility check in both them
   }
 
   test('the parts cover every screen exactly once', () => {
-    const ids: Ids = { prepId: 11, roadmapId: 12, roleId: 13, topicId: 14, examId: 15, promptId: 16 };
+    const ids: Ids = {
+      prepId: 11, roadmapId: 12, roleId: 13, topicId: 14, examId: 15, promptId: 16,
+      sheets: { roadmapId: 17, referenceId: 18, planId: 19 },
+    };
     const every = allRoutes(ids);
     const parts = Array.from({ length: PARTS }, (_, index) => part(every, index));
     expect(parts.flat().sort()).toEqual([...every].sort());

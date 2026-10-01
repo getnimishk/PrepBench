@@ -167,6 +167,27 @@ class RoadmapRepository:
         self.db.refresh(resource)
         return resource
 
+    def get_resource(self, resource_id: int) -> Optional[RoadmapResource]:
+        return self.db.get(RoadmapResource, resource_id)
+
+    def list_reference_sheets(self, subject_id: int) -> list:
+        """(resource_id, title, roadmap_id, roadmap_title) of one preparation's
+        reference sheets. Columns only -- the rows are not needed to list them."""
+        return (
+            self.db.query(
+                RoadmapResource.id, RoadmapResource.title, Roadmap.id, Roadmap.title,
+            )
+            .join(Roadmap, Roadmap.id == RoadmapResource.roadmap_id)
+            .filter(
+                Roadmap.subject_id == subject_id,
+                Roadmap.is_archived.is_(False),
+                RoadmapResource.purpose == "reference",
+            )
+            .order_by(Roadmap.created_at.desc(), Roadmap.id.desc(),
+                      RoadmapResource.order_index, RoadmapResource.id)
+            .all()
+        )
+
     def list_resources(self, roadmap_id: int) -> List[RoadmapResource]:
         return (
             self.db.query(RoadmapResource)

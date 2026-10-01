@@ -28,11 +28,16 @@ export interface RoadmapPhase {
   topics: RoadmapTopic[];
 }
 
+/** What an extra sheet is for: reference material (also listed in the Study
+ *  Library) or a plan sheet with hours/status/dates (Roadmaps only). */
+export type RoadmapResourcePurpose = 'reference' | 'plan';
+
 export interface RoadmapResource {
   id: number;
   roadmap_id: number;
   title: string;
   order_index: number;
+  purpose: RoadmapResourcePurpose;
   columns: string[];
   rows: string[][];
 }
@@ -45,6 +50,14 @@ export interface RoadmapSheet {
   kind: RoadmapSheetKind;
   /** Set for kind 'resource': which RoadmapResource this sheet is. */
   resource_id?: number | null;
+}
+
+/** One reference sheet as the Study Library lists it. */
+export interface ReferenceSheet {
+  resource_id: number;
+  name: string;
+  roadmap_id: number;
+  roadmap_title: string;
 }
 
 export interface RoadmapProgress {
@@ -147,6 +160,7 @@ export interface RoadmapImportResource {
   title: string;
   columns: string[];
   rows: string[][];
+  purpose?: RoadmapResourcePurpose;
 }
 
 export interface RoadmapImportSheet {

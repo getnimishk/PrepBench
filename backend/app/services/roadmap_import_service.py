@@ -45,6 +45,27 @@ TRACKER_TOKENS = ("status", "progress", "start date", "started",
 
 DEFAULT_PHASE_NAME = "General"
 
+# A header that names one of these makes an extra sheet a *plan* sheet (hours,
+# status, dates -- things you track) rather than a *reference* sheet (things
+# you read). Matched as whole words, case-insensitively: "Est. Hours" and
+# "Due date" count, "Procedure" and "Update" do not -- a plain substring test
+# would take "due" out of "procedure" and "date" out of "update".
+PLAN_HEADER_PATTERN = re.compile(
+    r"\b(hours?|hrs?|estimates?|estimated|est|priority|status|due|dates?|deadline)\b",
+    re.IGNORECASE,
+)
+
+
+def _header_words(header: str) -> str:
+    """"estimated_hours" and "estimatedHours" read as "estimated hours": an
+    underscore is a word character to a regex, and camelCase has no break at
+    all, so neither would otherwise match as whole words."""
+    return re.sub(r"[_\-/]+", " ", re.sub(r"(?<=[a-z])(?=[A-Z])", " ", header or ""))
+
+
+def _resource_purpose(columns: List[str]) -> str:
+    return "plan" if any(PLAN_HEADER_PATTERN.search(_header_words(c)) for c in columns) else "reference"
+
 # Spreadsheets routinely end a table with a totals line ("TOTAL ESTIMATED
 # HOURS | 134"). Imported naively that becomes a 134-hour topic in a phantom
 # phase, which then corrupts every hours figure derived from it.
@@ -503,7 +524,9 @@ class RoadmapImportService:
                 rows.append(values)
         if not rows:
             return None
-        return RoadmapImportResource(title=worksheet.title, columns=populated, rows=rows)
+        return RoadmapImportResource(
+            title=worksheet.title, columns=populated, rows=rows, purpose=_resource_purpose(populated),
+        )
 
     # --------------------------------------------------------------- json
 
@@ -529,14 +552,15 @@ class RoadmapImportService:
             phase_name = _clean(topic.get("phase") or topic.get("phase_name")) or DEFAULT_PHASE_NAME
             topics.append(self._json_topic(topic, phase_name))
 
-        resources = [
-            RoadmapImportResource(
+        resources = []
+        for r in data.get("resources") or []:
+            columns = [str(c) for c in (r.get("columns") or [])]
+            resources.append(RoadmapImportResource(
                 title=_clean(r.get("title")) or "Reference",
-                columns=[str(c) for c in (r.get("columns") or [])],
+                columns=columns,
                 rows=[[_clean(c) or "" for c in row] for row in (r.get("rows") or [])],
-            )
-            for r in data.get("resources") or []
-        ]
+                purpose=_resource_purpose(columns),
+            ))
 
         return RoadmapImportPreview(
             title=_clean(data.get("title")) or default_title,
@@ -735,6 +759,7 @@ class RoadmapImportService:
                     order_index=index,
                     columns=resource.columns,
                     rows=resource.rows,
+                    purpose=resource.purpose,
                 )
                 self.db.add(row)
                 self.db.flush()
