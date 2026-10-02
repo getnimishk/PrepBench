@@ -364,6 +364,24 @@ describe('RoadmapDetailPage sheet tabs', () => {
     expect(screen.queryByRole('button', { name: /reference tables/i })).not.toBeInTheDocument();
   });
 
+  it('gives a resource missing from the layout a tab after the layout’s own, in (order_index, id) order', async () => {
+    const detail = makeMultiSheet();
+    detail.resources = [
+      ...detail.resources,
+      { ...makeResource(21, 'Later orphan'), order_index: 9 },
+      { ...makeResource(23, 'Tie, higher id'), order_index: 5 },
+      { ...makeResource(22, 'Tie, lower id'), order_index: 5 },
+    ];
+    mockGetRoadmap.mockResolvedValue(detail);
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
+
+    expect(tabNames()).toEqual([
+      'Master Syllabus', 'Progress Tracker', 'Commands', 'Glossary',
+      'Tie, lower id', 'Tie, higher id', 'Later orphan', 'Schedule',
+    ]);
+  });
+
   it('has no separate Phase overview tab when a tracker exists; the header button selects the tracker', async () => {
     const user = userEvent.setup();
     mockGetRoadmap.mockResolvedValue(makeMultiSheet());
@@ -385,7 +403,7 @@ describe('RoadmapDetailPage sheet tabs', () => {
     renderPage();
     await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
 
-    expect(tabNames()).toEqual(['Master Syllabus', 'Commands', 'Phase overview', 'Schedule']);
+    expect(tabNames()).toEqual(['Master Syllabus', 'Commands', 'Glossary', 'Phase overview', 'Schedule']);
     await user.click(screen.getByRole('button', { name: 'Phase overview' }));
     expect(screen.getByRole('tab', { name: 'Phase overview' })).toHaveAttribute('aria-selected', 'true');
   });
@@ -427,7 +445,7 @@ describe('RoadmapDetailPage sheet tabs', () => {
     renderPage();
     await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
 
-    expect(tabNames()).toEqual(['Core', 'Commands', 'Phase overview', 'Schedule']);
+    expect(tabNames()).toEqual(['Core', 'Commands', 'Glossary', 'Phase overview', 'Schedule']);
     expect(screen.getByText('Also includes topics from: Advanced, Extras')).toBeInTheDocument();
   });
 });
@@ -510,6 +528,17 @@ describe('RoadmapDetailPage sheet purpose and deep links', () => {
 
     expect(screen.getByRole('tab', { name: 'Glossary' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('heading', { name: 'Glossary' })).toBeInTheDocument();
+  });
+
+  it('opens the tab of a resource the stored layout does not mention', async () => {
+    const detail = makeMultiSheet();
+    detail.resources = [...detail.resources, makeResource(13, 'Orphan sheet')];
+    mockGetRoadmap.mockResolvedValue(detail);
+    renderPage('/roadmaps/1?resource=13');
+    await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
+
+    expect(screen.getByRole('tab', { name: 'Orphan sheet' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('heading', { name: 'Orphan sheet' })).toBeInTheDocument();
   });
 
   it('lets the learner leave the linked tab', async () => {

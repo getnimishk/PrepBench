@@ -20,6 +20,16 @@ interface Props {
   onImported: (roadmapId: number) => void;
 }
 
+/** "2 reference sheets · 1 plan sheet": only the non-zero parts. A preview
+ *  resource with no purpose is a reference sheet, as the importer stores it. */
+function describeSheetSplit(resources: RoadmapImportPreview['resources']): string {
+  const plan = resources.filter((r) => r.purpose === 'plan').length;
+  const reference = resources.length - plan;
+  const noun = (n: number, kind: string) => `${n} ${kind} sheet${n === 1 ? '' : 's'}`;
+  return [reference > 0 && noun(reference, 'reference'), plan > 0 && noun(plan, 'plan')]
+    .filter(Boolean).join(' · ');
+}
+
 export const RoadmapImportModal: React.FC<Props> = ({ open, onClose, onImported }) => {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<RoadmapImportPreview | null>(null);
@@ -85,6 +95,7 @@ export const RoadmapImportModal: React.FC<Props> = ({ open, onClose, onImported 
     }
   };
 
+  const sheetSplit = preview ? describeSheetSplit(preview.resources) : '';
   const totalHours = preview
     ? preview.topics.reduce((sum, t) => sum + (t.estimated_hours || 0), 0)
     : 0;
@@ -113,7 +124,8 @@ export const RoadmapImportModal: React.FC<Props> = ({ open, onClose, onImported 
           {file && <Typography variant="body2" sx={{ mt: 1 }}>{file.name}</Typography>}
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
             Accepts .xlsx, .json, .md, and .csv. A spreadsheet needs a table with Phase and Topic
-            columns; extra reference sheets are kept alongside the roadmap.
+            columns; extra sheets are kept alongside the roadmap, and reference sheets also
+            appear in the Study Library.
           </Typography>
         </Box>
 
@@ -129,9 +141,7 @@ export const RoadmapImportModal: React.FC<Props> = ({ open, onClose, onImported 
               <Chip icon={<CheckCircle2 size={14} />} color="success"
                     label={`${preview.topics.length} topics`} />
               <Chip label={`${preview.phases.length} phases`} variant="outlined" />
-              {preview.resources.length > 0 && (
-                <Chip label={`${preview.resources.length} reference sheets`} variant="outlined" />
-              )}
+              {sheetSplit && <Chip label={sheetSplit} variant="outlined" />}
               {totalHours > 0 && <Chip label={`${totalHours}h estimated`} variant="outlined" />}
             </Box>
 
@@ -182,10 +192,13 @@ export const RoadmapImportModal: React.FC<Props> = ({ open, onClose, onImported 
               </Grid>
             </Grid>
 
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+            <Typography variant="subtitle2" component="h3" sx={{ fontWeight: 700, mb: 1 }}>
               Preview
             </Typography>
-            <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 300 }}>
+            <TableContainer
+              component={Paper} variant="outlined" sx={{ maxHeight: 300 }}
+              tabIndex={0} role="region" aria-label="Preview of the topics to import"
+            >
               <Table size="small" stickyHeader>
                 <TableHead>
                   <TableRow>
