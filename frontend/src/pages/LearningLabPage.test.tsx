@@ -41,7 +41,7 @@ describe('LearningLabPage', () => {
     // Card titles as h3
     expect(screen.getByRole('heading', { level: 3, name: 'Agile Metrics' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'Scenarios' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 3, name: 'Databricks Architecture' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: 'Lakehouse Lab' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'Financial Learning' })).toBeInTheDocument();
   });
 
@@ -72,13 +72,21 @@ describe('LearningLabPage', () => {
     }
   });
 
-  it('renders Databricks and Financial sandboxes as coming soon with disabled buttons', () => {
+  it('marks the Lakehouse Lab as live with a link to /databricks-sandbox', () => {
     renderPage();
-    const databricksCard = screen.getByRole('heading', { level: 3, name: 'Databricks Architecture' }).closest('article')!;
-    expect(within(databricksCard).getByText('Coming soon')).toBeInTheDocument();
-    const dbBtn = within(databricksCard).getByRole('button', { name: 'Databricks Architecture is not yet available' });
-    expect(dbBtn).toBeDisabled();
+    const card = screen.getByRole('heading', { level: 3, name: 'Lakehouse Lab' }).closest('article')!;
+    expect(within(card).getByText('Live')).toBeInTheDocument();
+    expect(within(card).getByRole('link', { name: 'Open sandbox: Lakehouse Lab' })).toHaveAttribute('href', '/databricks-sandbox');
+    expect(within(card).getByText('Covers')).toBeInTheDocument();
+    for (const part of ['Delta Lake · real engine', 'ADF', 'ADLS', 'Migration waves', 'Reconciliation']) {
+      expect(within(card).getByText(part)).toBeInTheDocument();
+    }
+    // The old placeholder's copy is gone: this is not about cluster sizing any more.
+    expect(within(card).queryByText(/cluster sizing/i)).not.toBeInTheDocument();
+  });
 
+  it('renders Financial Learning as coming soon with a disabled button', () => {
+    renderPage();
     const financeCard = screen.getByRole('heading', { level: 3, name: 'Financial Learning' }).closest('article')!;
     expect(within(financeCard).getByText('Coming soon')).toBeInTheDocument();
     const finBtn = within(financeCard).getByRole('button', { name: 'Financial Learning is not yet available' });

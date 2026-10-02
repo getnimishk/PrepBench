@@ -10,6 +10,9 @@ import { ExamSession, ExamDetail, ExamCreateRequest, SaveAnswerRequest, ExamPrev
 import type { SpacedDeck, SpacedGrade, SpacedGradeResult } from '../types/spaced';
 import type { Role, RoleCreate, RoleDiagnostic, RoleDiagnosticItem, RoleRequirementIn, RoleSummary } from '../types/role';
 import type { WireLearningAttempt } from '../types/learning';
+import type {
+  EngineStatus, JournalEntry, LabOperation, LabOperationResult, LabPackDetail, LabPackSummary, LabResetResult,
+} from '../types/lakehouse';
 import { ScoreTrendPoint, DomainMasteryItem, DomainDetail } from '../types/analytics';
 import { AppSettings } from '../types/settings';
 import type { AboutReport, AppNotification, ReviewScheduleRules, StorageReport } from '../types/system';
@@ -1270,3 +1273,59 @@ export const addRoleDiagnostic = async (roleId: number, body: { lens: RoleDiagno
   const res = await api.post<RoleDiagnostic>(`/roles/${roleId}/diagnostics`, body);
   return res.data;
 };
+
+// ---- Lakehouse Lab ----
+
+const LAKEHOUSE = '/lab/lakehouse';
+
+/** Whether the optional Delta engine is installed. Never an error. */
+export const getLakehouseEngine = async () => {
+  const res = await api.get<EngineStatus>(`${LAKEHOUSE}/engine`);
+  return res.data;
+};
+
+export const getLakehousePacks = async () => {
+  const res = await api.get<LabPackSummary[]>(`${LAKEHOUSE}/packs`);
+  return res.data;
+};
+
+export const getLakehousePack = async (packId: string) => {
+  const res = await api.get<LabPackDetail>(`${LAKEHOUSE}/packs/${encodeURIComponent(packId)}`);
+  return res.data;
+};
+
+/**
+ * One allow-listed operation on the real engine. The server answers 200 with
+ * `ok: false` and the engine's own error for an expected failure; a missing
+ * engine is a 503 whose detail carries the install command.
+ */
+export const runLakehouseOperation = async (op: LabOperation) => {
+  const res = await api.post<LabOperationResult>(`${LAKEHOUSE}/ops`, op);
+  return res.data;
+};
+
+export const resetLakehousePack = async (packId: string) => {
+  const res = await api.post<LabResetResult>(`${LAKEHOUSE}/packs/${encodeURIComponent(packId)}/reset`);
+  return res.data;
+};
+
+export const getLakehouseJournal = async (packId?: string) => {
+  const res = await api.get<JournalEntry[]>(`${LAKEHOUSE}/journal`, packId ? { params: { pack_id: packId } } : undefined);
+  return res.data;
+};
+
+export const deleteLakehouseJournalEntry = async (entryUid: string) => {
+  await api.delete(`${LAKEHOUSE}/journal/${encodeURIComponent(entryUid)}`);
+};
+
+/** A file the server renders, as text, for the page to offer as a download. */
+const getLakehouseText = async (path: string, params?: Record<string, string>) => {
+  const res = await api.get<string>(`${LAKEHOUSE}${path}`, { params, responseType: 'text', transformResponse: (d) => d });
+  return res.data;
+};
+
+export const getLakehouseJournalMarkdown = (packId?: string) =>
+  getLakehouseText('/journal/export.md', packId ? { pack_id: packId } : undefined);
+
+export const getLakehouseNotebook = (packId: string) =>
+  getLakehouseText(`/packs/${encodeURIComponent(packId)}/notebook`, { station: 'c' });

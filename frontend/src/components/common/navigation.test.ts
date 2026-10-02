@@ -13,7 +13,7 @@ describe('the navigation table', () => {
       ['Interview', ['Rounds', 'System Design', 'Design Reviews', 'Recordings']],
       ['Evidence', ['Insights']],
       ['Workspace', ['My Preparations', 'Settings']],
-      ['Learning Lab', ['All Sandboxes', 'Agile Metrics', 'Scenarios']],
+      ['Learning Lab', ['All Sandboxes', 'Agile Metrics', 'Scenarios', 'Lakehouse Lab']],
     ]);
   });
 
@@ -29,6 +29,7 @@ describe('the navigation table', () => {
     // Learning Lab: hub and sandboxes each highlight their own nav entry.
     ['/lab', 'lab', 'All Sandboxes'],
     ['/chart-sandbox', 'agile-sandbox', 'Agile Metrics'],
+    ['/databricks-sandbox', 'databricks-sandbox', 'Lakehouse Lab'],
     ['/scenarios', 'scenarios', 'Scenarios'],
     ['/scenarios/adf/1', 'scenarios', 'Scenarios'],
     ['/practice', 'practice', 'Practice'],
