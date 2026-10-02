@@ -11,7 +11,7 @@
 
 The context window is all the text the model can use when it produces a response, including the response itself. Anthropic calls it a working memory, and separates it from the large body of data the model was trained on.
 
-Analogy (mine): a desk. Only what is on the desk right now can be used. The model does not 'forget' the rest, because it was never on the desk. It cannot condition on anything outside the window. If you want it to use something, you put it there.
+Analogy (mine): a desk. Only what is on the desk right now can be used. The model does not 'forget' the rest, because it was never on the desk. (A chat product can keep a saved history and put parts of it back on the desk for you. That is the application's memory, not the model's.) It cannot condition on anything outside the window. If you want it to use something, you put it there.
 
 Everything in the request takes space on the desk: the system prompt, every message, tool results, images and documents, and the definitions of any tools. The reply counts too, including any 'thinking' the model does. This is about space on the desk, which is not exactly the same as what you are billed for (billing is covered in Tokens and cost).
 
@@ -39,7 +39,7 @@ As of 2026-09-29 Anthropic lists a 1M-token window for its current large models 
 
 The important warning from Anthropic is that more context is not automatically better. As the token count grows, accuracy and recall degrade, a phenomenon Anthropic calls context rot, so curating what is in context matters as much as how much fits. Long requests are also billed for every token: on the 1M-window models Anthropic bills long context at standard rates, so a 900K-token request costs the same per token as a 9K one, which makes a big window a way to spend a lot quickly.
 
-If the input alone exceeds the window, the request is rejected ('prompt is too long'). On newer models, if input plus the maximum output would exceed the window, the API accepts the request and stops generation when the window is full, reporting a specific stop reason.
+If the input alone exceeds the window, the request is rejected ('prompt is too long'). In Anthropic's API (vendor-specific behaviour, not a general rule), on newer models, if input plus the maximum output would exceed the window, the API accepts the request and stops generation when the window is full, reporting a specific stop reason.
 
 **Worked example**
 
@@ -87,9 +87,9 @@ At the start and again at the end. Models tend to use information at the edges o
 
 ## Part 4 · Keeping a growing conversation inside the window
 
-Chat products such as claude.ai can manage the window on a rolling first-in, first-out basis. Through the API, history simply accumulates until you manage it.
+Chat products manage the window in their own way. Anthropic says claude.ai can use a rolling first-in, first-out approach; other products may summarise or trim instead. Through the API, history simply accumulates until you manage it.
 
-Anthropic describes three tools. Token counting lets you measure a request before you send it. Server-side compaction (in beta for recent models) summarises earlier parts of a long conversation on the server so it can continue past the limit. Context editing offers more targeted strategies, such as clearing old tool results in agent workflows.
+Anthropic describes three tools. Token counting lets you measure a request before you send it. Server-side compaction (an Anthropic feature, in beta for recent models when this was written) summarises earlier parts of a long conversation on the server so it can continue past the limit. Context editing offers more targeted strategies, such as clearing old tool results in agent workflows.
 
 Cached prefixes still occupy the window: caching changes what you pay for those tokens, not whether they count.
 
@@ -145,7 +145,7 @@ Full context: a single 60-page contract analysed once, where volume is tiny and 
 2. Estimate tokens for the whole corpus (use a counter on a sample page and scale up) and for a retrieved 3,000-token slice.
 3. Compute cost per question and per day for both, using a real price page and its date.
 4. Fill a 4-row table (cost, retrieval quality, latency, failure mode) for full-context and for retrieval, and end with a one-line recommendation and the condition that would change it.
-5. Position test: put one required fact in the first line, the middle and the last line of a long prompt built from your own document. Ask the same question each time and record whether the model uses the fact.
+5. Position test: put one required fact in the first line, the middle and the last line of a long prompt built from your own document. Ask the same question each time, repeat each position three times, and record how often the model uses the fact. One run can mislead.
 
 **Done when:** your table has numbers for cost and reasoned entries for the other three rows, and your recommendation states what evidence would change it.
 
@@ -153,7 +153,7 @@ Full context: a single 60-page contract analysed once, where volume is tiny and 
 
 ## Interview check
 
-**Question.** Should we paste our whole knowledge base into every prompt?
+**Question.** Should we paste our whole knowledge base into every prompt? (Also prepare a follow-up answer: Finance wants answers in under 2 seconds, Legal says the documents are access-controlled, and the budget is fixed. What changes?)
 
 <details><summary>A strong answer has this shape</summary>
 

@@ -9,7 +9,7 @@
 
 ## Part 1 · The one trick: predict the next token
 
-An LLM does one thing. Given the text so far, it predicts what comes next. The Hugging Face course calls this causal language modelling: predict the next word from the previous words. To write a long answer the model does this over and over. It predicts one token, adds it to the text, and predicts the next one.
+At its core, an LLM does one thing. Given the text so far, it predicts what comes next. (An application built on it can add tools, retrieval and rules around that core.) The Hugging Face course calls this causal language modelling: predict the next word from the previous words. To write a long answer the model does this over and over. It predicts one token, adds it to the text, and predicts the next one.
 
 The word 'causal' matters. While generating, the model may only look at earlier tokens, never later ones. The course explains that the original design restricted the decoder to past words, so it could not 'cheat' with future information. Models built like this, called decoder-only, are the text-generation kind.
 
@@ -17,7 +17,7 @@ Everything you see an assistant do (answer, summarise, translate, write code) co
 
 **Worked example**
 
-Text so far: 'The capital of France is'. The most likely next token is ' Paris'. Add it, then predict what follows, which may be a full stop. A 200-word answer is roughly 200-plus of these steps in a row.
+Text so far: 'The capital of France is'. The most likely next token is ' Paris'. Add it, then predict what follows, which may be a full stop. A 200-word answer takes more than 200 of these steps in a row, because a token is often smaller than a word.
 
 **Common mistake**
 
@@ -39,7 +39,7 @@ To predict the next token well, the model must know which earlier words matter. 
 
 Its example is translation. Deciding how to conjugate 'like' in French depends on 'You' earlier in the sentence, so the model has to pay attention to 'You'. Analogy (mine, not from a source): a highlighter that the model moves over the text, brighter on the words that help with the current decision.
 
-The 2017 paper that introduced the transformer describes an architecture 'based solely on attention mechanisms', dispensing with recurrence and convolutions entirely. Almost every modern LLM is a transformer.
+The 2017 paper that introduced the transformer describes an architecture 'based solely on attention mechanisms', dispensing with recurrence and convolutions entirely. Most widely used LLMs today are transformers.
 
 **Worked example**
 
@@ -65,7 +65,7 @@ Before transformers, language models were mostly built on recurrent and convolut
 
 It also reported better results in its tested task, translation: 28.4 BLEU (a translation-quality score) for English to German and 41.8 for English to French, trained in 3.5 days on eight GPUs. Those figures are history, useful to show the claim, and you do not need to memorise them.
 
-The interview-ready version: transformers won because they trained faster on modern hardware and scaled up to very large models, and quality improved as they grew. (The 'scaled up' clause is common background knowledge, not something the two sources here state directly.)
+The interview-ready version: transformers took over because they trained faster on modern hardware and were later scaled to very large models, and quality improved as they grew. (The 'scaled up' clause is common background knowledge, not something the two sources here state directly.)
 
 **Worked example**
 
@@ -111,7 +111,7 @@ Pretraining (from scratch) and fine-tuning (adapting a pretrained model) both ch
 
 ## Part 5 · Fine-tuning leaves fingerprints
 
-Fine-tuning does more than teach a model to follow instructions; it also shapes how the model behaves. Ouyang et al. (2022) fine-tuned models on human feedback and reported that people preferred the outputs of a 1.3 billion parameter model over those of the 175 billion parameter GPT-3, with better truthfulness and fewer toxic outputs. The same kind of feedback can teach less welcome habits. Sharma et al. (2023) found that five leading AI assistants tended to agree with what a user already believed, and that human raters sometimes preferred a convincingly written agreeable answer to a correct one. The authors point to human preference judgments as a probable driver.
+Fine-tuning does more than teach a model to follow instructions; it also shapes how the model behaves. Ouyang et al. (2022) fine-tuned models on human feedback and reported that people preferred the outputs of a 1.3 billion parameter model over those of the 175 billion parameter GPT-3, with better truthfulness and fewer toxic outputs. Human feedback has also been linked to less welcome habits. Sharma et al. (2023) found that five leading AI assistants tended to agree with what a user already believed, and that human raters sometimes preferred a convincingly written agreeable answer to a correct one. The authors point to human preference judgments as a probable driver.
 
 The Claude Academy Capabilities course calls such habits fingerprints and lists four: too agreeable, too wordy, over-cautious, and confident in a way that does not track accuracy. The first is supported by the paper above. The other three are that course's description and were not tested here. The practical point: how sure a model sounds, and how readily it agrees with you, are not evidence that it is right.
 

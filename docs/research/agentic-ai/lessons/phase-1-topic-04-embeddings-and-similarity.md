@@ -11,7 +11,7 @@
 
 An embedding is a list of floating-point numbers (a vector) that represents a piece of text so that meaning can be compared with arithmetic. OpenAI's guide puts it that way: a vector of numbers that captures semantic meaning.
 
-Analogy (mine): a map of meaning. Every text gets a position. Texts about similar things land close together, and unrelated texts land far apart. A real embedding has hundreds or thousands of numbers instead of two, so you cannot draw it, but the idea is the same.
+Analogy (mine): a map of meaning. Every text gets a position. Texts about similar things land close together, and unrelated texts land far apart. A real embedding has hundreds or thousands of numbers instead of two, so you cannot draw it directly (tools can squash it down to two or three dimensions for a picture), but the idea is the same.
 
 To measure how close two positions are, the docs recommend cosine similarity, which compares the direction the two vectors point in. A value near 1 means very similar, near 0 means unrelated. OpenAI notes that its vectors are normalised to length 1, so cosine similarity gives the same ranking as Euclidean (straight-line) distance.
 
@@ -59,11 +59,11 @@ For example search, clustering and classification. To find the right paragraph y
 
 ## Part 3 · Practical facts and limits
 
-As of the OpenAI page read on 2026-09-29, its two third-generation embedding models were text-embedding-3-small (1,536 numbers per vector by default, 62.3 percent on the MTEB benchmark, 8,192 tokens maximum input) and text-embedding-3-large (3,072 numbers, 64.6 percent, 8,192 tokens). Both accept a dimensions setting that shortens the vector without losing the concept-carrying properties, the page says. These are one vendor's models on one date. Newer models may exist.
+As of the OpenAI page read on 2026-09-29, its two third-generation embedding models were text-embedding-3-small (1,536 numbers per vector by default, 62.3 percent on the MTEB benchmark, 8,192 tokens maximum input) and text-embedding-3-large (3,072 numbers, 64.6 percent, 8,192 tokens). Both accept a dimensions setting that shortens the vector. The page says the shorter vector keeps its concept-carrying properties, but test the effect on your own data. These are one vendor's models on one date. Newer models may exist.
 
 Three ideas to keep, separate from any vendor: dimension is the length of the vector; the input limit is how much text one call can embed, measured in tokens; similarity is how you compare two vectors.
 
-One rule follows from the map analogy (my reasoning, so test it yourself): compare vectors only when they come from the same model. Different models draw different maps, so a score between vectors from two different models has no meaning.
+One rule follows from the map analogy (my reasoning, so test it yourself): compare vectors only when they come from the same model. Different models draw different maps, so a score between vectors from two different models generally has no meaning, unless the two spaces were deliberately aligned.
 
 **Worked example**
 
@@ -86,8 +86,8 @@ Re-embed all stored texts with the new model, because vectors from different mod
 ## Do it: lab
 
 1. Write 5 sentences: two that mean nearly the same thing in different words, one on a related topic, and two unrelated.
-2. Get their embeddings from one provider's embedding endpoint (or a free local embedding model).
-3. Compute cosine similarity for every pair (10 pairs) and put the results in a table.
+2. Get their embeddings. Easiest path: one call to a provider's embedding endpoint. For OpenAI this is a POST to https://api.openai.com/v1/embeddings with the JSON body {"model": "text-embedding-3-small", "input": "your sentence"} and an Authorization: Bearer header; the vector is in data[0].embedding in the reply. Read your key from an environment variable and never paste it into a file you share. Other providers use different field names, so follow their quickstart. A free option is a local embedding model (for example through Ollama), which needs no key.
+3. Compute cosine similarity for every pair (10 pairs) and put the results in a table. The formula is in the lesson, and a few lines of Python or Java, or a spreadsheet, will do it.
 4. Explain in 3 sentences why the paraphrase pair scored high and the unrelated sentence scored low, and note any surprise.
 
 **Done when:** your table has all 10 scores, the explanation matches the numbers, and you named the embedding model you used.
@@ -96,7 +96,7 @@ Re-embed all stored texts with the new model, because vectors from different mod
 
 ## Interview check
 
-**Question.** How would you find the right paragraph of a policy for a user's question?
+**Question.** How would you find the right paragraph of a policy for a user's question? (Also prepare your own answers to two follow-ups: how would you measure whether retrieval works, and what changes if some policies are access-restricted?)
 
 <details><summary>A strong answer has this shape</summary>
 

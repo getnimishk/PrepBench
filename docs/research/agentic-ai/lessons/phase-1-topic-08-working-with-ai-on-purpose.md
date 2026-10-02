@@ -58,7 +58,7 @@ The Claude Academy AI Fluency course names four skills. The definitions below ar
 
 - **Delegation:** deciding what you do and what the AI does. It has three parts: problem awareness (know your goal and the work), platform awareness (know what this system can and cannot do) and task delegation (split the work).
 - **Description:** saying clearly what you want: the product (the output), the process (how to approach it) and the performance (how the AI should behave with you).
-- **Discernment:** judging what came back: the product, the process (the reasoning) and the performance.
+- **Discernment:** judging what came back: the product, the process (the steps, evidence and tool calls you can actually see) and the performance.
 - **Diligence:** owning the outcome: choosing tools responsibly, being open about where AI helped, and verifying and vouching for what you share.
 
 The course also names three modes: automation (the AI runs a defined task), augmentation (you and the AI work as partners) and agency (you set the rules and the AI works autonomously). Agents live in the third.
@@ -123,7 +123,7 @@ Next-token prediction met knowledge. Fix through Discernment: open the cited sou
 ## Do it: lab
 
 1. Choose one real task you do at work, not a toy.
-2. Place it on each of the four properties as strong, middle or weak, with one line of reason each.
+2. Place it on each of the four properties as strong, middle or weak, with one line of reason each. Rule of thumb: strong means a short, concrete, checkable task on common material; weak means it depends on recent, private or niche facts, needs long unchecked reasoning, or a mistake would be costly; middle is anything in between.
 3. Write your delegation: what the AI does, what you do, what you review.
 4. Write the description in three lines: the product, the process and the performance.
 5. Say how you will check the result (product, process, performance) and what would make you re-describe.
