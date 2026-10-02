@@ -2,13 +2,10 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-export interface TopicMasteryItem {
-  topic: string;
-  domain: string;
-  total_attempted: number;
-  correct_count: number;
-  accuracy_percentage: number;
-}
+// The dashboard overview's types (DashboardOverview, RecentExamItem,
+// TopicMasteryItem) were removed with their last reader: the client stopped
+// fetching /analytics/dashboard when Home did (see services/api.ts). The
+// declaration had also drifted -- three fields the endpoint never sends.
 
 export interface DomainMasteryItem {
   domain: string;
@@ -22,29 +19,6 @@ export interface ScoreTrendPoint {
   score: number;
   rolling_avg: number;
   exam_title: string;
-}
-
-export interface RecentExamItem {
-  id: number;
-  title: string;
-  score_percentage: number;
-  is_passed: string;
-  date: string;
-  duration_minutes: number;
-}
-
-export interface DashboardOverview {
-  total_exams: number;
-  total_questions_attempted: number;
-  overall_accuracy_percentage: number;
-  average_time_per_question_seconds: number;
-  weak_topics: TopicMasteryItem[];
-  strong_topics: TopicMasteryItem[];
-  study_streak_days: number;
-  daily_goal: number;
-  today_practiced_count: number;
-  spaced_repetition_due_count: number;
-  recent_exams: RecentExamItem[];
 }
 
 /** A topic group inside one area, with the answers behind its figure. */

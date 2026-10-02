@@ -43,7 +43,7 @@ export interface QuestionOption {
   id?: number;
   option_text: string;
   is_correct: boolean;
-  explanation_why_incorrect?: string;
+  explanation_why_incorrect?: string | null;
   order_index?: number;
 }
 
@@ -56,15 +56,15 @@ export interface Question {
   difficulty: QuestionDifficulty;
   domain: string;
   topic: string;
-  subtopic?: string;
+  subtopic?: string | null;
   certification: string;
-  source?: string;
+  source?: string | null;
   tags: string[];
-  code_snippet?: string;
-  case_study_text?: string;
-  image_url?: string;
-  explanation?: string;
-  reference_url?: string;
+  code_snippet?: string | null;
+  case_study_text?: string | null;
+  image_url?: string | null;
+  explanation?: string | null;
+  reference_url?: string | null;
   created_at: string;
   updated_at: string;
   is_reviewed: boolean;
