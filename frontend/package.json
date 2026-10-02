@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p e2e",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "test:e2e": "playwright test"
   },
@@ -43,6 +44,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",
+    "@vitest/coverage-v8": "4.1.10",
     "@vitest/ui": "^4.1.10",
     "eslint": "^9.39.5",
     "eslint-plugin-react-hooks": "^5.2.0",
