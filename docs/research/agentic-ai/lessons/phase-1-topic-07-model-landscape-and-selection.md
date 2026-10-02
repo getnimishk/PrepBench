@@ -1,6 +1,6 @@
 # Model landscape and selection
 
-**Course:** Agentic AI, from first principles to production · Module 1 Foundations · lesson 7 of 8 · **about 3 hours** · paper draft for review.  
+**Course:** Agentic AI, from first principles to production · Module 1 Foundations · lesson 7 of 77 · **about 3 hours** · paper draft for review.  
 **Success criterion:** Given 3 scenarios, choose a model type and hosting option for each and justify it on cost, quality, privacy, latency and lifecycle (models get retired).
 
 > Sources (read 2026-09-29 and 2026-09-30; details and gaps in docs/research/agentic-ai): Anthropic 'Models overview'; OpenAI 'Models'; Google 'Gemini models'; Microsoft Learn 'Foundry Models overview'; Databricks 'Foundation Model APIs'; Hugging Face 'The Model Hub'; Ollama library. Read 2026-09-29; model names and prices change every few months.

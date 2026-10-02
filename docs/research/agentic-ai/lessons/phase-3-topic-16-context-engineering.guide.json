@@ -1,0 +1,71 @@
+{
+  "topic_title": "Context engineering",
+  "roadmap": "Agentic AI Mastery Roadmap",
+  "sources": "Anthropic Engineering, 'Effective context engineering for AI agents' (published 2025-09-29): definition, attention budget and context rot, system prompt calibration, tool design, examples, just-in-time retrieval, and long-horizon techniques; Anthropic 'Prompting best practices' (long context, state management); Claude Academy AI-native SDLC Playbook, 'The CLAUDE.md' lesson, all read 2026-10-02 through page summaries. Module 1 lesson 5 supplies the context window background. The article's explanation of context rot (relationships between tokens grow with the square of length and models see few very long examples in training) is its own account; we did not test it. The support-agent example and the four-way table are ours and fictional. Unverified: how much a given model degrades at long lengths on your task; measure it.",
+  "sections": [
+    {
+      "title": "From prompts to everything the model can see",
+      "body": "Anthropic's engineering article draws a line. Prompt engineering is writing good instructions. **Context engineering** is the broader job of choosing which tokens are in front of the model at each step: instructions, tools, examples, documents, memory and message history. For an agent that runs many steps, that set changes constantly, so it has to be managed.\n\nThe article's key claim is that context is a finite, costly resource. As the amount of context grows, the model's accuracy at recalling and using it tends to fall, which the article calls context rot, and it describes the model as having an 'attention budget' that each new token draws on. Its stated reasons: attention relates every token to every other, so the work grows quickly with length, and models are trained on fewer very long sequences. (That is the article's account; we have not tested it.) Module 1's 'desk' picture, and the 'lost in the middle' result, point the same way.\n\nThe goal, in the article's words in paraphrase: the smallest set of high-signal tokens that gives the model the best chance of the result you want.",
+      "example": "Fictional. A support agent starts each chat with the full 120-page handbook, 40 tool descriptions and the last 60 turns. By turn 20 it misses a rule on page 3. Cutting what it sees to the 5 relevant paragraphs and 6 tools fixes it.",
+      "common_mistake": "Assuming more context is safer. Irrelevant tokens compete for the model's attention and cost money.",
+      "check_question": "What is the difference between prompt engineering and context engineering?",
+      "check_answer": "Prompt engineering is writing the instructions. Context engineering is curating everything the model sees at each step, including tools, documents, history and memory, under a limited attention budget."
+    },
+    {
+      "title": "What belongs inside: instructions, tools and examples",
+      "body": "The article gives practical guidance for the parts you always include:\n\n- **System prompt at the right altitude.** Specific enough to guide behaviour, but not a brittle pile of if-then rules, and not so vague that it assumes shared understanding. Organise it in sections (background, instructions, tool guidance, output format).\n- **Tools that are few, self-contained and non-overlapping.** If a human could not say which tool to use in a given situation, neither can the model. Bloated tool sets create ambiguity and spend tokens.\n- **Canonical examples over exhaustive rules.** A few diverse, typical examples communicate expected behaviour better than a list of every edge case.\n\nMatch this with what you learned in lesson 13: the same clarity applies, but now you are also choosing which tool descriptions and examples are loaded at all.",
+      "example": "Fictional. Two tools, `search_tickets` and `find_tickets`, both do near the same thing. The agent picks inconsistently. Merging them into one with a clear description removes the ambiguity and saves tokens.",
+      "common_mistake": "Adding a rule to the system prompt for every bug found. The prompt becomes long and contradictory, and the model follows it less well.",
+      "check_question": "Why prefer a few canonical examples to a long list of edge-case rules?",
+      "check_answer": "Examples show the pattern efficiently and generalise, while long rule lists spend the attention budget, can contradict each other, and still miss new cases."
+    },
+    {
+      "title": "What you fetch on demand, and how long tasks stay in bounds",
+      "body": "**Just-in-time retrieval.** Instead of loading all the data up front, the article describes agents that keep light references (file paths, ticket ids, links) and load the detail with a tool when needed, the way a person uses a file system instead of memorising it. This keeps the working context small, at the price of extra steps and a need for good tools.\n\n**Long tasks** can outgrow the window. The article names three techniques:\n\n1. **Compaction:** summarise the history and start a fresh window with the summary, keeping decisions and unresolved issues and dropping bulky tool output.\n2. **Structured note-taking:** the agent writes progress to a file outside the window (a `NOTES.md`) and reads it back later.\n3. **Sub-agents:** a focused agent works in its own clean context and returns only a short summary to the main agent.\n\nThe same idea appears in the SDLC course: a short, version-controlled `CLAUDE.md` of conventions, commands and 'things it gets wrong' is a small, durable piece of context that teams review by pull request.",
+      "example": "Fictional. A research agent writes 'decided: use vendor B; open: legal review pending' to `notes.md` every 10 steps. After a compaction it reads the file and carries on without re-reading 50 pages.",
+      "common_mistake": "Compacting by summarising everything equally. Keep the decisions and open questions; discard bulky raw tool output.",
+      "check_question": "Name the three long-horizon techniques and one risk of each.",
+      "check_answer": "Compaction (risk: a summary drops a detail you need), note-taking (risk: stale or wrong notes get trusted), sub-agents (risk: the summary returned loses nuance and adds cost)."
+    },
+    {
+      "title": "The four-way decision: in, out, summarised, fetched",
+      "body": "For every piece of information an agent might use, decide one of four things and write the reason:\n\n| Decision | Use when | Example for a support agent (fictional) |\n|---|---|---|\n| **In** (always in context) | Needed on nearly every step and short | Role, tone rules, the refund limit, the list of 5 tools |\n| **Out** (never included) | Irrelevant, risky or stale | Other customers' data, the 120-page handbook, old unrelated chats |\n| **Summarised** | Needed for continuity but bulky | Earlier turns of this chat, results of past tool calls |\n| **Fetched on demand** | Needed sometimes and large | The specific policy section, the customer's ticket history, a product spec |\n\nThen count: add up the tokens of everything marked **In**, as you did in lesson 3, and compare it with the model's window and with your cost budget. If the always-in part is large, move things to **fetched**. This table, with a reason in every row, is the artefact the lab asks for.",
+      "example": "Fictional row: 'Customer's last 5 tickets: fetched on demand, because only 1 in 4 chats needs them and each ticket is about 600 tokens.'",
+      "common_mistake": "Putting everything in 'in' because it is simplest. It works in a demo and fails at volume.",
+      "check_question": "Where would you put a 90-page product manual that a support agent needs about one question in ten?",
+      "check_answer": "Fetched on demand: keep an index or search tool in context, retrieve the relevant section when needed, and keep the rest out."
+    },
+    {
+      "title": "Do it: lab",
+      "body": "1. Choose or invent a support agent for something you know: an IT help desk, an HR query bot, an order assistant.\n2. List every piece of information it might use (at least 12 items: instructions, tools, policies, history, customer data, documents).\n3. Assign each item to in, out, summarised or fetched, with a one-line reason.\n4. Estimate tokens for the 'in' items (use a token counter) and for one typical fetched item. Compare the always-in total with your model's window and with a cost budget per chat.\n5. Write the plan for a 100-turn conversation: when you compact, what you keep, what you drop.\n6. Name two things that could go wrong with your design and how you would detect each.\n\n**Done when:** your table has every item assigned with a reason, the always-in token count is computed against the window, and the 100-turn plan says what is kept and what is dropped.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": null,
+      "check_answer": null
+    },
+    {
+      "title": "Interview check",
+      "body": "Answer aloud first, then compare. Do not memorise the words; understand the shape.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": "Our agent works in demos but gets worse in long sessions. How do you fix it?",
+      "check_answer": "1. Suspect context growth: measure what is in the window at the failing step, and test accuracy at short and long lengths on the same task.\n2. Trim the always-in set: shorter system prompt, fewer and clearer tools, canonical examples.\n3. Move bulky, occasional data to on-demand retrieval, and summarise or clear old tool results.\n4. For long runs, use compaction, a notes file or sub-agents, and keep decisions and open questions when summarising.\n5. Add a long-session test to the evaluation set so a regression shows before release."
+    },
+    {
+      "title": "Evidence to keep",
+      "body": "Keep the table with reasons, the token counts and the 100-turn plan. You will implement part of it in Module 6 and use the numbers in the cost model in Module 9.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": null,
+      "check_answer": null
+    },
+    {
+      "title": "Sources and what is unverified",
+      "body": "Anthropic Engineering, 'Effective context engineering for AI agents' (published 2025-09-29): definition, attention budget and context rot, system prompt calibration, tool design, examples, just-in-time retrieval, and long-horizon techniques; Anthropic 'Prompting best practices' (long context, state management); Claude Academy AI-native SDLC Playbook, 'The CLAUDE.md' lesson, all read 2026-10-02 through page summaries. Module 1 lesson 5 supplies the context window background. The article's explanation of context rot (relationships between tokens grow with the square of length and models see few very long examples in training) is its own account; we did not test it. The support-agent example and the four-way table are ours and fictional. Unverified: how much a given model degrades at long lengths on your task; measure it.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": null,
+      "check_answer": null
+    }
+  ]
+}

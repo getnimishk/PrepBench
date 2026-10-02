@@ -1,0 +1,63 @@
+{
+  "topic_title": "Reasoning models and when to use them",
+  "roadmap": "Agentic AI Mastery Roadmap",
+  "sources": "Anthropic documentation 'Thinking' (how thinking works, billing, summarised display, per-model configuration) and 'Effort' (levels, defaults, behaviour with tools), 'Prompting best practices' (overthinking guidance), and 'API errors' (thinking cannot be disabled on several current models), read 2026-10-02 through page summaries and one saved page. Vendor-specific: everything here describes Anthropic's thinking and effort controls as documented on that date, and model defaults differ by model and change with releases; other vendors use other names for similar ideas. The cost arithmetic uses invented prices, labelled as such. We ran the arithmetic in code. Unverified: the effect of effort on your task. The vendor's own advice is to run your own effort sweep, which the lab does.",
+  "sections": [
+    {
+      "title": "What a reasoning model does differently",
+      "body": "A model that answers in one pass has to get everything right on the first try. Anthropic's thinking documentation describes the alternative: with thinking active, the model works through the problem in its own words before answering, restating the task, trying approaches and checking intermediate results. That work arrives in `thinking` blocks ahead of the answer. It helps most where the answer depends on intermediate work: maths, tricky debugging, analysis, long multi-step tasks.\n\nThree facts that matter for cost and design:\n\n1. **Thinking tokens are billed as output tokens**, even when the thinking text is not returned to you, and they count toward `max_tokens`.\n2. **What you see is a summary**, never the raw chain of thought, and on many models the default is to return it empty. Do not build features that depend on reading it.\n3. **Adaptive thinking:** on current Anthropic models the model decides whether and how much to think. On several of them it cannot be turned off, and the older fixed `budget_tokens` setting is rejected from Claude 4.7 onward. The control you use instead is `effort`.",
+      "example": "Fictional. A 40-token question 'Is this refund request within policy?' with a 2-page policy attached. A model that thinks for 2,000 tokens before a 60-token answer bills about 2,060 output tokens for a 60-token reply.",
+      "common_mistake": "Budgeting only for the visible answer. A short reply can hide most of the output bill.",
+      "check_question": "Why can a short reply still be expensive from a reasoning model?",
+      "check_answer": "Thinking tokens are billed as output tokens even when not shown, and they count toward `max_tokens`. The visible reply is only part of what you pay for."
+    },
+    {
+      "title": "Effort: the dial you control",
+      "body": "The `effort` parameter (`output_config.effort`) sets how thoroughly the model works. Levels are `low`, `medium`, `high`, `xhigh` and `max`, and not every model has every level. The documentation says most models default to `high` and Claude Opus 5.5 defaults to `medium`, so check the page for yours.\n\n- `low`: simpler tasks, best speed and lowest cost, with some loss of capability. Suggested for sub-tasks inside a larger agent.\n- `medium`: a balance for agentic tasks.\n- `high`: complex reasoning and difficult coding.\n- `xhigh` and `max`: long-running agentic work and the hardest problems, at much higher token use.\n\nEffort is described as a behavioural signal, not a strict token budget. It affects all output tokens: text, tool calls and thinking. Lower effort means fewer and terser tool calls, which matters for agents. The vendor's own advice, repeated across model sections, is to run an effort sweep on your own tests and to set a large `max_tokens` at high effort. Changing effort between requests also invalidates cached prefixes, so choose per workload, not per message, unless your model supports per-message changes.\n\nIf a model thinks too much, the prompting guide suggests asking it to choose an approach and commit to it, or lowering effort.",
+      "example": "Fictional. A support-routing step uses `low` effort and answers in under a second. A monthly contract-risk analysis uses `high` and takes minutes, because the cost of a missed clause is larger than the cost of tokens.",
+      "common_mistake": "Using the highest effort everywhere because 'smarter is safer'. It raises cost and latency, and the guide notes it can lead to overthinking on simple or structured tasks.",
+      "check_question": "Which controls would you change first if a classification step is too slow and too costly?",
+      "check_answer": "Lower `effort`, shorten the prompt, and consider a smaller model. Then re-run your test set to confirm quality holds."
+    },
+    {
+      "title": "A decision rule and a cost estimate you can defend",
+      "body": "Use a reasoning setting when **a wrong answer is expensive and the task has intermediate steps whose quality drives the result**: multi-step calculations, debugging, analysing conflicting documents, planning across many tools. Avoid it for **lookups, simple classification, formatting and extraction** from clean text, where a plain call is faster, cheaper and just as good.\n\nThe way to be sure is a test: run the same cases at two effort levels and compare pass rate, cost and latency. Estimating cost needs three numbers: input tokens, expected thinking plus answer tokens (output), and the price per million tokens of each. The arithmetic, with invented prices of 3 dollars per million input and 15 per million output:\n\n```python\ndef cost(inp, out, p_in=3.0, p_out=15.0):\n    return inp * p_in / 1e6 + out * p_out / 1e6\n\nplain = cost(2_000, 150)                # 2,000 in, 150 out\nreasoned = cost(2_000, 150 + 3_000)     # same, plus 3,000 thinking tokens\nprint(round(plain, 5), round(reasoned, 5), round(reasoned / plain, 1))\n# 0.00825 0.05325 6.5      (computed with those invented prices)\n```\nAt 10,000 requests a month that is 82.50 dollars against 532.50 dollars, a difference of 450 dollars, computed from invented prices. Whether it is worth it is a business question: if the plain version is wrong on 8 percent of cases and each error costs 20 dollars to fix, the plain version's error cost is 16,000 dollars a month and the extra 450 may be cheap. If both versions pass the same cases, it is wasted money.\n\nLatency is similar: estimate it as output tokens divided by the model's output speed (look up a measured figure for your model), plus any thinking time, then check by timing real calls.",
+      "example": "Fictional decision for three tasks. (1) Extract invoice totals from clean PDFs: no reasoning, a plain call at low effort. (2) Check a contract against a 30-point policy: reasoning justified, test at `medium` and `high`. (3) Route a ticket into three queues: no reasoning, small model.",
+      "common_mistake": "Deciding by feel. A reasoning setting is justified by a measured gain on your cases that outweighs the extra cost and delay.",
+      "check_question": "A plain call costs 0.008 dollars and a reasoned call costs 0.053. When is the reasoned call the better buy?",
+      "check_answer": "When the extra quality removes enough error cost. If errors on the plain call cost more per request than the 0.045 difference, reasoning pays. If both pass the same test cases, it does not."
+    },
+    {
+      "title": "Do it: lab",
+      "body": "1. Choose three tasks from your own work or the Module 3 examples: one lookup or classification, one multi-step analysis, one in between.\n2. For each, decide: reasoning model or not, at what effort level, and write the reason in two sentences.\n3. Estimate input tokens, output tokens (including likely thinking) and cost per call from the vendor's current price page, with the date. Compute monthly cost at a stated volume.\n4. Estimate latency from output speed and add a way to measure it.\n5. Design the test that would prove each choice: 10 cases, two effort settings, the pass criterion, and what result would change your mind.\n6. If you have a key, run the test for one of the tasks at two effort levels and record pass rate, tokens used (from `usage`) and time.\n\n**Done when:** you have three decisions with cost and latency estimates (prices dated) and a written test for each, and for at least one a measured comparison or a clear plan to measure.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": null,
+      "check_answer": null
+    },
+    {
+      "title": "Interview check",
+      "body": "Answer aloud first, then compare. Do not memorise the words; understand the shape.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": "When would you pay for a reasoning model, and how would you convince finance it was worth it?",
+      "check_answer": "1. Use it where a wrong answer is costly and the task has multi-step reasoning, for example policy checks, analysis across documents or planning with tools. Not for lookups, simple classification or formatting.\n2. Measure instead of assert: run the same test cases with and without it, compare pass rate, tokens (cost) and latency.\n3. Show cost per successful task and the cost of errors avoided, not just price per call.\n4. Control spend: set effort per task, cap `max_tokens`, and review the mix monthly.\n5. Keep a plan to revisit, since models and prices change."
+    },
+    {
+      "title": "Evidence to keep",
+      "body": "Keep the three decisions, the estimates with their price dates, and the test designs. They feed the cost model in Module 9.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": null,
+      "check_answer": null
+    },
+    {
+      "title": "Sources and what is unverified",
+      "body": "Anthropic documentation 'Thinking' (how thinking works, billing, summarised display, per-model configuration) and 'Effort' (levels, defaults, behaviour with tools), 'Prompting best practices' (overthinking guidance), and 'API errors' (thinking cannot be disabled on several current models), read 2026-10-02 through page summaries and one saved page. Vendor-specific: everything here describes Anthropic's thinking and effort controls as documented on that date, and model defaults differ by model and change with releases; other vendors use other names for similar ideas. The cost arithmetic uses invented prices, labelled as such. We ran the arithmetic in code. Unverified: the effect of effort on your task. The vendor's own advice is to run your own effort sweep, which the lab does.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": null,
+      "check_answer": null
+    }
+  ]
+}

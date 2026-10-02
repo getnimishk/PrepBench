@@ -1,0 +1,79 @@
+{
+  "topic_title": "Evaluation basics: test sets and pass rates",
+  "roadmap": "Agentic AI Mastery Roadmap",
+  "sources": "Anthropic documentation 'Define success criteria and build evaluations' (SMART criteria, task-specific tests, grading methods, using a different model as judge); Evan Miller, 'Adding Error Bars to Evals' (arXiv 2411.00640, abstract read; the full paper was not read); the Wikipedia page 'Binomial proportion confidence interval' (Wilson score formula and the Wald interval's weakness); Claude Academy AI-native SDLC Playbook, 'Continuous evals in CI' lesson (20 to 50 real tasks, every incident becomes a regression test), all read 2026-10-02 through page summaries. All numbers on this page were computed by us in Python 3.14.7 with the code shown (standard library only) and the outputs are exactly what it printed. The example pass counts (14, 17 and 19 out of 20) are invented. The sample-size estimate (about 120 per version) uses the standard normal approximation for two proportions at 5 percent significance and 80 percent power; it is approximate. Unverified: the vendor's advice to use a different model as judge is its recommendation, and we did not test it.",
+  "sections": [
+    {
+      "title": "One run proves nothing",
+      "body": "Ask a model the same question twice and the answers can differ. So 'I tried it and it worked' tells you little. An **evaluation** (eval) is a repeatable test: a fixed set of cases, a rule for scoring each, and a number you can compare across versions of a prompt, model or agent. Without one, you cannot tell an improvement from luck or notice a regression.\n\nAnthropic's guidance asks for the same two things as lesson 13: success criteria and a way to test them. It says good criteria are **specific, measurable, achievable and relevant**, and gives a contrast: 'the model should classify sentiments well' is poor; reaching a stated score on a held-out test set is testable. Typical criteria categories include task accuracy, consistency, tone, privacy handling, how well context is used, latency and price. Most applications need several.",
+      "example": "Fictional criteria for a ticket triage prompt: at least 90 percent of labels correct on the test set; 100 percent of replies in the required format; median response under 2 seconds; cost under 0.01 dollars per ticket.",
+      "common_mistake": "Using 'looks good to me' on three examples as the test.",
+      "check_question": "Turn 'the summaries should be good' into two measurable criteria.",
+      "check_answer": "For example: every summary names the decision and any deadline found in the source (checked against a labelled list), and every summary is under 80 words (checked by code)."
+    },
+    {
+      "title": "Building a test set",
+      "body": "A test set is a list of cases, each with an input and what counts as passing. Guidance from the same page, and from the SDLC course:\n\n- **Mirror real use**, including edge cases: irrelevant or missing input, very long input, hostile or off-topic input, and ambiguous cases where humans would disagree.\n- **Start small and grow:** the SDLC lesson suggests 20 to 50 real tasks with expected outcomes, and says every production incident should become a permanent regression test. Your failures from lessons 6 and 17 are the best first cases.\n- **Volume over polish.** The page prefers more cases with automated scoring over fewer, hand-graded ones.\n- **Keep it separate** from the examples you put in the prompt, or you are testing on what you taught it.\n\nA useful 20-case set: 12 typical, 5 edge, 3 adversarial or off-topic, each with an expected label or a checklist of required content.",
+      "example": "Fictional triage set: 12 normal tickets across the three labels, 3 with two possible labels, 2 empty or one-word tickets, 2 pasted-log tickets of 3,000 words, 1 ticket that says 'ignore your instructions'.",
+      "common_mistake": "A test set made only of easy, typical cases. It passes at 100 percent and tells you nothing about production.",
+      "check_question": "Why keep test cases separate from the examples in the prompt?",
+      "check_answer": "If the prompt already contains the test cases, a pass shows the model can copy, not that it generalises."
+    },
+    {
+      "title": "Scoring: code first, then a model judge, then people",
+      "body": "Anthropic's page lists scoring methods from cheapest to richest:\n\n- **Exact match or code check:** compare a label, check a field, test a format. Fast, cheap, unambiguous. Use it wherever you can.\n- **Similarity** (for example embedding similarity) for consistency, and **reference metrics** such as ROUGE for summaries, where a reference answer exists.\n- **Model as judge:** another model scores qualities such as tone or completeness, for example on a 1 to 5 scale or a yes or no question. The page recommends using a different model to judge than the one that produced the answer, to avoid bias. It is slower and costs more, and the judge needs its own prompt and its own checking.\n- **Human review:** the slowest and most trusted. Use it to calibrate an automated judge: score 20 cases yourself and compare.\n\nThe page's rule of thumb: use high-volume automated scoring as the main signal and a model judge as a second layer for qualities code cannot check.",
+      "example": "Fictional. Triage label: exact match. Reply tone: a judge prompt returns a number from 1 to 5, and you check it against your own scores on 20 cases.",
+      "common_mistake": "Trusting a model judge without ever comparing it to a human. It can be consistently wrong.",
+      "check_question": "Which scoring method do you use for 'the label is one of three values', and for 'the reply is empathetic'?",
+      "check_answer": "Exact match for the label. A calibrated model judge, with human spot checks, for empathy."
+    },
+    {
+      "title": "Is the difference real? Pass rates with error bars",
+      "body": "Suppose version 1 of your prompt passes 14 of 20 cases (70 percent) and version 2 passes 17 (85 percent). Is version 2 better? With only 20 cases, a 15-point gap can easily be luck.\n\nReport a **confidence interval** with each pass rate. For a small number of cases, the Wilson score interval behaves better than the simple normal ('Wald') interval, which the Wikipedia article says becomes unreliable for small samples or near 0 or 1. Computed with the code below:\n\n```python\nfrom math import comb, sqrt\n\ndef wilson(k, n, z=1.96):                     # 95 percent interval for k passes in n cases\n    p = k / n\n    d = 1 + z * z / n\n    centre = (p + z * z / (2 * n)) / d\n    half = z * sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d\n    return centre - half, centre + half\n\ndef mcnemar_exact(b, c):                      # paired: b cases got worse, c cases got better\n    n, k = b + c, min(b, c)\n    return min(1.0, 2 * sum(comb(n, i) for i in range(k + 1)) / 2 ** n)\n```\nResults (computed, from the invented counts):\n\n| Version | Passes | Rate | 95% Wilson interval |\n|---|---|---|---|\n| 1 | 14 of 20 | 70% | 48% to 85% |\n| 2 | 17 of 20 | 85% | 64% to 95% |\n| 2 (alternative) | 19 of 20 | 95% | 76% to 99% |\n\nThe intervals for version 1 and 2 overlap a lot. Treating the two versions as independent groups, Fisher's exact test gives p = 0.45 for 14 against 17, and p = 0.09 for 14 against 19: neither is the conventional 0.05 or below.\n\n**Because both versions ran on the same 20 cases, a paired test is stronger.** Count only the cases where they differ. Say version 2 fixed 4 cases and broke 1 (that is how 14 becomes 17): the exact McNemar test gives p = 0.375. If version 2 had fixed 6 and broken none, p = 0.031. The lesson: what matters is how many individual cases flipped and in which direction, not just the totals.\n\n**How many cases?** To tell 70 percent from 85 percent reliably (5 percent significance, 80 percent power) needs roughly 120 cases per version on the simple normal approximation. With 20 cases you can only detect very large differences. Evan Miller's paper (abstract read) makes the same case for reporting error bars and planning sample size. Be honest in your write-up: 'version 2 looks better but 20 cases cannot confirm it; I will grow the set to 60 before shipping.'",
+      "example": "Fictional write-up line: 'V2 passed 17/20 (64 to 95 percent) against V1's 14/20 (48 to 85 percent). Paired, V2 fixed 4 cases and broke 1 (exact p = 0.38). Not enough to claim an improvement; the broken case is a regression to inspect.'",
+      "common_mistake": "Declaring victory on a bigger number from a small set. Also forgetting to look at the cases that got worse.",
+      "check_question": "Version A passes 18 of 20 and B passes 16 of 20 on the same cases. What would you check before choosing A?",
+      "check_answer": "How many cases actually differ and in which direction (a paired comparison), the intervals around 90 and 80 percent (they overlap heavily at 20 cases), and whether the failures cluster in an important category. Probably grow the set before deciding."
+    },
+    {
+      "title": "Run it like a build",
+      "body": "Make the evaluation a habit, not an event:\n\n1. **Version everything:** the prompt, the model name and settings, the test set. Store each run's results with those versions.\n2. **One command** runs the set and prints pass rate, failures, cost and time.\n3. **Gate changes:** the SDLC course's idea is to block a change that drops the pass rate below a threshold, as CI blocks a failing test.\n4. **Feed it:** every real failure becomes a new case, so the set grows with experience.\n5. **Re-run when anything changes**, including the model version, since vendors update models.\n\nModule 9 extends this from single answers to whole agent runs, scoring the steps and tool choices as well as the final result.",
+      "example": "Fictional. A weekly job re-runs 40 cases against the production prompt and posts the pass rate. A drop from 92 to 85 percent after a model update opens a ticket.",
+      "common_mistake": "Running the eval once, before launch, and never again.",
+      "check_question": "Name three things to version so an eval result can be reproduced.",
+      "check_answer": "The prompt, the model and its settings, and the test set (plus the scoring code)."
+    },
+    {
+      "title": "Do it: lab",
+      "body": "1. Pick one prompt from lesson 13 or 14. Write its success criteria as measurable checks.\n2. Build a 20-case test set: about 12 typical, 5 edge, 3 adversarial or off-topic, each with an expected result or a checklist. Include your failures from lessons 6 and 17.\n3. Write the scoring code. Use exact match or code checks wherever possible, and if you add a model judge, check it against your own scores on at least 10 cases.\n4. Make a second version of the prompt (one change). Run both on all 20 cases, ideally three times each, and record pass rate, failures, cost and time.\n5. Compute the Wilson interval for each pass rate and, from the cases that changed, the paired McNemar p-value, using the code in the lesson.\n6. Write a short conclusion: which version is better, whether the difference is large enough to trust, and what you would do next (more cases, a change, or ship).\n\n**Done when:** you have a versioned 20-case set, a scoring script, results for two prompt versions with intervals, a paired comparison, and a conclusion that states whether the difference is trustworthy.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": null,
+      "check_answer": null
+    },
+    {
+      "title": "Interview check",
+      "body": "Answer aloud first, then compare. Do not memorise the words; understand the shape.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": "How do you know a prompt change is an improvement, and how big a test do you need?",
+      "check_answer": "1. Define measurable success criteria and a test set that mirrors real use, with edge and adversarial cases, kept separate from the prompt's examples.\n2. Score automatically where possible, use a calibrated model judge for subjective qualities, and spot-check with people.\n3. Compare versions on the same cases, run each more than once, and report pass rates with confidence intervals and a paired comparison of the cases that changed.\n4. Size the test to the effect: telling 70 from 85 percent takes on the order of 100 or more cases per version, so a 20-case set only detects large differences. Say so, and grow the set before betting on a small gain.\n5. Keep running it: version the prompt, model and set, gate releases on it, and turn every incident into a regression case."
+    },
+    {
+      "title": "Evidence to keep",
+      "body": "Keep the test set, scoring script, both versions with results, the interval and paired-test numbers, and your conclusion. This is the base for the agent evaluation set in Module 9.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": null,
+      "check_answer": null
+    },
+    {
+      "title": "Sources and what is unverified",
+      "body": "Anthropic documentation 'Define success criteria and build evaluations' (SMART criteria, task-specific tests, grading methods, using a different model as judge); Evan Miller, 'Adding Error Bars to Evals' (arXiv 2411.00640, abstract read; the full paper was not read); the Wikipedia page 'Binomial proportion confidence interval' (Wilson score formula and the Wald interval's weakness); Claude Academy AI-native SDLC Playbook, 'Continuous evals in CI' lesson (20 to 50 real tasks, every incident becomes a regression test), all read 2026-10-02 through page summaries. All numbers on this page were computed by us in Python 3.14.7 with the code shown (standard library only) and the outputs are exactly what it printed. The example pass counts (14, 17 and 19 out of 20) are invented. The sample-size estimate (about 120 per version) uses the standard normal approximation for two proportions at 5 percent significance and 80 percent power; it is approximate. Unverified: the vendor's advice to use a different model as judge is its recommendation, and we did not test it.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": null,
+      "check_answer": null
+    }
+  ]
+}

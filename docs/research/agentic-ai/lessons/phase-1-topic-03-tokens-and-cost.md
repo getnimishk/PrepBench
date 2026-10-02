@@ -1,6 +1,6 @@
 # Tokens and cost
 
-**Course:** Agentic AI, from first principles to production · Module 1 Foundations · lesson 3 of 8 · **about 3 hours** · paper draft for review.  
+**Course:** Agentic AI, from first principles to production · Module 1 Foundations · lesson 3 of 77 · **about 3 hours** · paper draft for review.  
 **Success criterion:** Estimate the cost of one run of a 2-page document task: input token count, output estimate, tool or context overhead, caching assumption, unit prices with their date, total cost, and an uncertainty range.
 
 > Sources (read 2026-09-29 and 2026-09-30; details and gaps in docs/research/agentic-ai): Sources (all read 2026-09-29; see docs/research/agentic-ai/phase-1-foundations-notes.md for detail): Hugging Face LLM Course ch.2 Tokenizers; Anthropic docs 'Token counting', 'Models overview', 'Pricing' and 'Prompt caching'. Prices, token counts and cache rules are Anthropic's, on that date; other providers differ. The support-desk company and volumes are fictional.

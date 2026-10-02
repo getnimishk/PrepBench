@@ -1,6 +1,6 @@
 # Knowledge and its limits
 
-**Course:** Agentic AI, from first principles to production · Module 1 Foundations · lesson 6 of 8 · **about 2 hours** · paper draft for review.  
+**Course:** Agentic AI, from first principles to production · Module 1 Foundations · lesson 6 of 77 · **about 2 hours** · paper draft for review.  
 **Success criterion:** For 4 questions, say whether the model can be trusted alone, needs current or private information supplied, or needs checking, and name the failure mode (staleness, uneven coverage, inherited bias, unknown source). Test one recent-event question and one niche-domain question on a model and record what it did.
 
 > Sources (read 2026-09-29 and 2026-09-30; details and gaps in docs/research/agentic-ai): Anthropic docs 'Models overview' (knowledge cutoff rows, read 2026-09-29); OpenAI 'Models' page (cutoff range, read 2026-09-29, via a page summary); Claude Academy 'AI Capabilities and Limitations' lesson 6 (capability and limitation zones, the four failure modes, mitigations) and lesson 12 (fabricated citations as two properties meeting), read 2026-09-30 through page summaries. The mapping from each failure mode to a fix, and every example, are ours. Unverified: cutoff dates change with every model and were read from vendor pages, one of them through a summary.

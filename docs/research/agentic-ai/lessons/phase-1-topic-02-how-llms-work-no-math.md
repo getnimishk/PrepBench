@@ -1,6 +1,6 @@
 # How LLMs work (no math)
 
-**Course:** Agentic AI, from first principles to production · Module 1 Foundations · lesson 2 of 8 · **about 3 hours** · paper draft for review.  
+**Course:** Agentic AI, from first principles to production · Module 1 Foundations · lesson 2 of 77 · **about 3 hours** · paper draft for review.  
 **Success criterion:** Record a 3-minute explanation covering next-token prediction, attention, why transformers replaced older designs, how training differs from prompting, and one concrete hallucination example. Score at least 4 of 5 on this rubric: each of those five elements present and correct, and describe one behaviour that human-feedback fine-tuning can introduce, such as agreeing too readily.
 
 > Sources (read 2026-09-29 and 2026-09-30; details and gaps in docs/research/agentic-ai): Vaswani et al., 'Attention Is All You Need' (arXiv 1706.03762); Hugging Face LLM Course ch.1 'How do Transformers work?'; Kalai et al., 'Why Language Models Hallucinate' (arXiv 2509.04664). Added on 2026-09-30: Ouyang et al., 'Training language models to follow instructions with human feedback' (arXiv 2203.02155); Sharma et al., 'Towards Understanding Sycophancy in Language Models' (arXiv 2310.13548); Claude Academy 'AI Capabilities and Limitations', lesson 3 (the fingerprints). Only the sycophancy finding is checked against a paper; the other three fingerprints are the course's description.

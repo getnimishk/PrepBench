@@ -1,0 +1,71 @@
+{
+  "topic_title": "The agent loop",
+  "roadmap": "Agentic AI Mastery Roadmap",
+  "sources": "Anthropic documentation 'How tool use works' (the loop keyed on stop_reason, the exit stop reasons, the iteration limit of server-side loops and pause_turn), 'Handle tool calls' and 'Messages API' (stop reasons, usage), read 2026-10-02 through page summaries and full page text. The reference code on this page was written by us and run on Python 3.14.7 with Pydantic 2.13.4 and pytest 9.1.1 against a scripted stand-in for the model (11 tests passed). It uses the same message shapes as Anthropic's documented Messages API, but it has not been run against the real API, because that needs a key and spends money. The runaway guards (a turn limit, a token budget, a repeated-call detector) are our design; Anthropic's pages describe the loop and do not prescribe these limits. Unverified: sensible values for the limits depend on your task; the numbers in the code are examples.",
+  "sections": [
+    {
+      "title": "The loop in plain words",
+      "body": "An agent is a loop. Anthropic's documentation gives its canonical shape for client-executed tools, keyed on the `stop_reason` of each reply:\n\n1. Send a request with your tools and the user's message.\n2. If the reply's stop reason is `tool_use`, it contains one or more tool requests. Run each one and collect the results.\n3. Send a new request with the original messages, the model's reply, and a user message holding the results.\n4. Repeat while the stop reason is `tool_use`.\n\nAny other stop reason ends the loop: `end_turn` (the model has finished), `max_tokens` (it was cut off), `stop_sequence` or `refusal`. Your code must handle each of them, because a cut-off or refused reply is not a finished answer.\n\n```mermaid\nflowchart TD\n  accTitle: The agent loop\n  accDescr: Send the conversation and tools to the model. If it asks for a tool, run the tool, add the result, check the limits, and send again. Otherwise return the final answer. If a limit is reached, stop and escalate.\n  S[Send messages and tools to the model] --> D{Stop reason is tool_use}\n  D -->|Yes| X[Run each requested tool] --> L{Limits reached}\n  L -->|No| S\n  L -->|Yes| E[Stop and escalate to a person]\n  D -->|No| F[Return the final answer]\n```\nIn pseudocode: `while turns < MAX: reply = model(messages); if reply is not asking for tools: return it; results = run tools; messages += reply, results`.",
+      "example": "Fictional. 'What is the status of ticket 101?' takes two turns: turn 1 the model asks for `lookup_ticket(101)`; your code runs it; turn 2 the model reads the result and answers.",
+      "common_mistake": "Looping forever on `while True` and trusting the model to say it is done.",
+      "check_question": "Which stop reason keeps the loop going, and name two that end it.",
+      "check_answer": "`tool_use` keeps it going. `end_turn`, `max_tokens`, `stop_sequence` and `refusal` end it; `max_tokens` and `refusal` mean the answer may be incomplete."
+    },
+    {
+      "title": "The reference loop",
+      "body": "Here is a complete, small loop with its guards, taken from the files we ran. It works with the real Anthropic client or anything with the same `messages.create` shape. Lessons 22, 23 and 25 add the pieces it calls (`execute`, the approval gate, idempotency).\n\n```python\n\"\"\"The agent loop. It works with the real Anthropic client or any object with the same messages.create shape.\"\"\"\nimport json\n\nfrom pydantic import ValidationError\n\n\nclass AgentStopped(Exception):\n    pass\n\n\ndef final_text(resp) -> str:\n    return \"\".join(b.text for b in resp.content if b.type == \"text\")\n\n\ndef execute(block, registry, gate):\n    \"\"\"Run one tool_use block and return a tool_result block. Never raises: errors go back to the model.\"\"\"\n    def result(text, is_error=False):\n        r = {\"type\": \"tool_result\", \"tool_use_id\": block.id, \"content\": text}\n        if is_error:\n            r[\"is_error\"] = True\n        return r\n\n    tool = registry.get(block.name)\n    if tool is None:\n        return result(f\"Unknown tool {block.name!r}. Available tools: {sorted(registry)}\", True)\n    try:\n        args = tool.model.model_validate(block.input)\n    except ValidationError as e:\n        return result(\"Invalid input: \" + \"; \".join(f\"{'.'.join(map(str, x['loc']))}: {x['msg']}\" for x in e.errors()), True)\n    if tool.writes and not (gate and gate.approve(tool.name, args.model_dump())):\n        return result(\"A person did not approve this action, so it was not run. Tell the user and stop.\", True)\n    try:\n        return result(json.dumps(tool.fn(args, block.id)))\n    except Exception as e:                  # the tool failed: tell the model what happened and what to try\n        return result(f\"{type(e).__name__}: {e}\", True)\n\n\ndef run_agent(client, model, system, registry, user_text, *, gate=None, max_turns=8, max_total_tokens=20000,\n              max_same_call=3, on_event=print):\n    tools = [t.spec() for t in registry.values()]\n    messages = [{\"role\": \"user\", \"content\": user_text}]\n    spent, seen = 0, {}\n    for turn in range(1, max_turns + 1):\n        resp = client.messages.create(model=model, max_tokens=1024, system=system, tools=tools, messages=messages)\n        spent += resp.usage.input_tokens + resp.usage.output_tokens\n        messages.append({\"role\": \"assistant\", \"content\": resp.content})\n        if resp.stop_reason != \"tool_use\":\n            return final_text(resp), messages\n        if spent > max_total_tokens:\n            raise AgentStopped(f\"token budget exceeded: {spent} > {max_total_tokens}\")\n        results = []\n        for b in resp.content:\n            if b.type != \"tool_use\":\n                continue\n            sig = (b.name, json.dumps(b.input, sort_keys=True))\n            seen[sig] = seen.get(sig, 0) + 1\n            if seen[sig] >= max_same_call:\n                raise AgentStopped(f\"stuck: {b.name} called {seen[sig]} times with the same input\")\n            r = execute(b, registry, gate)\n            on_event(f\"turn {turn}: {b.name}({json.dumps(b.input)}) -> {'ERROR ' if r.get('is_error') else ''}{r['content'][:70]}\")\n            results.append(r)\n        messages.append({\"role\": \"user\", \"content\": results})\n    raise AgentStopped(f\"no final answer after {max_turns} turns\")\n```\nThings to notice: the message list grows each turn (this is the 'desk' from Module 1, so cost and context both grow); the loop returns on any stop reason that is not `tool_use`; and three guards raise `AgentStopped`.",
+      "example": "Fictional. With `max_turns=8`, a task that should take 3 turns but loops reaches the limit at turn 8 and stops, instead of spending without end.",
+      "common_mistake": "Putting a limit on turns but not on tokens. Eight turns with ever-larger messages can cost far more than eight small ones.",
+      "check_question": "Why does an agent's cost grow faster than its number of turns?",
+      "check_answer": "Each request resends the whole conversation, which grows every turn, so the input tokens of later turns are larger than those of earlier ones."
+    },
+    {
+      "title": "Three ways it runs away, and a guard for each",
+      "body": "1. **Never finishing:** the model keeps asking for tools. **Guard:** a turn limit (`max_turns`).\n2. **Stuck:** the model repeats the same call with the same input, hoping for a different result. **Guard:** count identical calls and stop at a small number (`max_same_call`).\n3. **Runaway cost:** many turns, or large tool results, push the tokens up. **Guard:** a total token budget (`max_total_tokens`), checked from each reply's `usage`.\n\nOther guards worth adding: a wall-clock deadline for the whole run, a cap on how large any tool result may be before it is trimmed, and an explicit path to a person when a guard fires.\n\nOur scripted run of a model that never stops asking for the same ticket printed:\n\n```text\nturn 1: lookup_ticket({\"ticket_id\": 101}) -> {\"id\": 101, \"title\": \"VPN drops every hour\", \"status\": \"open\", \"commen\nturn 2: lookup_ticket({\"ticket_id\": 101}) -> {\"id\": 101, \"title\": \"VPN drops every hour\", \"status\": \"open\", \"commen\nstopped: stuck: lookup_ticket called 3 times with the same input\n```\n(The output lines are cut at 70 characters by the demo.) When a guard fires, do not retry silently: log the full message history, tell the user plainly what happened, and route the task to a person.",
+      "example": "Fictional. A search tool returns an empty list; the model calls it again with the same query, again and again. The repeated-call guard stops it on the third call, and the log shows the query.",
+      "common_mistake": "Treating a guard as a failure to hide. A fired guard is information: record it and use it to improve the prompt or the tool.",
+      "check_question": "Name the three runaways and the guard for each.",
+      "check_answer": "Never finishing: turn limit. Stuck repeating a call: repeated-call counter. Runaway cost: total token budget (plus a wall-clock deadline for time)."
+    },
+    {
+      "title": "What to log",
+      "body": "An agent you cannot replay is an agent you cannot fix. For every run, log: the run id, the model and settings, the system prompt version, each turn's tool requests and results, token usage per turn, the stop reason, which guard fired if any, and the final answer. In the reference loop, the `on_event` hook prints one line per tool call; in a real system write structured records. Module 9 builds tracing on top of exactly this.",
+      "example": "Fictional. A user reports a wrong answer. With the log you see turn 2 read ticket 102 instead of 101 because the model misread the question, which tells you whether to fix the prompt or the tool.",
+      "common_mistake": "Logging only the final answer. The mistake is almost always in a middle step.",
+      "check_question": "Why log every tool request and result, not just the answer?",
+      "check_answer": "Errors happen in the middle steps; the log lets you replay a run, see which step went wrong, and add it to your test set."
+    },
+    {
+      "title": "Do it: lab",
+      "body": "1. Write the loop as pseudocode from memory, then compare with the reference loop. Note anything you missed.\n2. Save the reference files from this lesson and lessons 22 and 23 (`tools.py`, `gate.py`, `loop.py`, `fake_model.py`) into a folder and run `pytest` to see the tests pass.\n3. Add one new runaway guard of your own, for example a wall-clock deadline, and write a test that makes it fire.\n4. Explain in your own words three ways a loop can run away or get stuck and the one guard for each.\n5. If you have a key, replace the scripted model with the real client for one question, and print the stop reason and token usage per turn.\n\n**Done when:** your pseudocode matches the loop's structure, three runaways each have a guard, your own guard has a passing test, and you can show a log of a run with a fired guard.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": null,
+      "check_answer": null
+    },
+    {
+      "title": "Interview check",
+      "body": "Answer aloud first, then compare. Do not memorise the words; understand the shape.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": "What stops an AI agent from running forever or spending a fortune?",
+      "check_answer": "1. Hard limits in code, not in the prompt: a maximum number of turns, a total token or cost budget, a wall-clock deadline, and a detector for repeated identical calls.\n2. Limits on tool results (trimmed) and on what the agent may do (permissions, approvals).\n3. A defined path when a limit fires: log everything, tell the user, hand to a person.\n4. Monitoring of cost and turns per task, with alerts, and tests that make each guard fire.\n5. Business view: set the maximum cost per task and agree what happens when it is hit."
+    },
+    {
+      "title": "Evidence to keep",
+      "body": "Keep the pseudocode, the guard you added with its test, and a log of a run where a guard fired.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": null,
+      "check_answer": null
+    },
+    {
+      "title": "Sources and what is unverified",
+      "body": "Anthropic documentation 'How tool use works' (the loop keyed on stop_reason, the exit stop reasons, the iteration limit of server-side loops and pause_turn), 'Handle tool calls' and 'Messages API' (stop reasons, usage), read 2026-10-02 through page summaries and full page text. The reference code on this page was written by us and run on Python 3.14.7 with Pydantic 2.13.4 and pytest 9.1.1 against a scripted stand-in for the model (11 tests passed). It uses the same message shapes as Anthropic's documented Messages API, but it has not been run against the real API, because that needs a key and spends money. The runaway guards (a turn limit, a token budget, a repeated-call detector) are our design; Anthropic's pages describe the loop and do not prescribe these limits. Unverified: sensible values for the limits depend on your task; the numbers in the code are examples.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": null,
+      "check_answer": null
+    }
+  ]
+}

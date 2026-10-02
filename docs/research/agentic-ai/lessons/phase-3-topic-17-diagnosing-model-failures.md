@@ -1,0 +1,128 @@
+# Diagnosing model failures
+
+**Course:** Agentic AI, from first principles to production · Module 3 Prompting, Structured Output and Evaluation Basics · lesson 17 of 77 · **about 3 hours** · paper draft for review.  
+**Success criterion:** For 6 real or supplied failures, name the colliding pair (for example next-token prediction plus knowledge, or working memory plus steerability), choose a fix (verify, supply context, hand the step to code, restate the goal, add a checkpoint), and test one fix to show the failure improves.
+
+> Sources (read 2026-10-02; details and gaps in docs/research/agentic-ai): Claude Academy 'AI Capabilities and Limitations' lessons 3, 4, 6, 8, 10 and 12 (the four properties, fine-tuning behaviour, failure modes, drift, 'letter over spirit', and failures as two properties colliding), read 2026-09-30 through page summaries and recorded in docs/research/agentic-ai/courses/claude-academy-notes.md; Module 1 lessons 2, 5, 6 and 8 for the underlying ideas; Anthropic 'Prompting best practices' for the fixes. The diagnosis table, the six supplied failures and their answer key are ours and fictional; they are exercises, not recorded model behaviour. The course says its four properties stay stable as models improve; that is its claim, not something we verified. Unverified: any particular failure's cause; a diagnosis is a hypothesis you test.
+
+---
+
+## Part 1 · A failure is usually two properties meeting
+
+In Module 1 you learned four properties of a model: it predicts the next token (fluent, and a source of made-up specifics), it knows only what training gave it, it works within a limited context window, and it follows instructions by pattern. The Capabilities course's central idea is that most real failures are two of these colliding. Naming the pair tells you the fix, and stops you doing the usual thing, which is rewording the prompt over and over.
+
+The skill has four steps: **reproduce** the failure on the same input, **name the pair**, **pick the fix** that matches the pair, then **test** that the fix works on the same input and that it did not break others.
+
+**Worked example**
+
+Fictional. A model quotes a clause number that does not exist. Next-token prediction (it produces something that looks like a clause) meets knowledge (it never had this contract). Supplying the contract is the fix, not 'be more careful'.
+
+**Common mistake**
+
+Treating every failure as 'the model is dumb' or 'the prompt is bad'. The pair tells you which it really is.
+
+**Check yourself.** What four steps turn a failure into a tested fix?
+
+<details><summary>Model answer (write yours first)</summary>
+
+Reproduce it, name the colliding pair of properties, choose the fix that matches, and test the fix on the failing input and on a wider set.
+
+</details>
+
+---
+
+## Part 2 · The diagnosis table
+
+Use this table as a starting point. The pairs and the fixes follow the course's framework; the specific symptoms are ours.
+
+| Symptom | Likely pair | First fix to try |
+|---|---|---|
+| Confident fake names, dates, numbers, quotes or citations | next-token prediction + knowledge | **Verify** against a source, or **supply context** (the document) and require quotes |
+| Out-of-date answer, or nothing about a niche or private topic | knowledge | **Supply context** or let it fetch (search, retrieval) |
+| Misses a fact in a very long input, or contradicts something from early in a long chat | working memory (+ steerability) | Shorten or restructure the input, move key facts to the start or end, **add a checkpoint**, or start fresh with a summary |
+| Follows the words of an instruction but misses the point | steerability ('letter over spirit') | **Restate the goal** and the reason, not just the rule |
+| An early small mistake grows through a long chain of steps | steerability ('reasoning drift') | **Add a checkpoint** after each stage, or **hand the step to code** |
+| Arithmetic, counting or exact formatting wrong | next-token prediction | **Hand the step to code** (a calculator, a parser) |
+| Too agreeable, too wordy, over-cautious, or sure when wrong | how fine-tuning shaped it | Ask for disagreement and uncertainty explicitly; add an independent check |
+
+The five fixes in the roadmap's criterion are: **verify**, **supply context**, **hand the step to code**, **restate the goal** and **add a checkpoint**. Choose the cheapest that works and prefer fixes that do not depend on the model behaving, such as handing exact work to code.
+
+**Worked example**
+
+Fictional. A model says a 4-item list has 5 items. Counting is exact work: have the code count, and let the model write only the sentence around the number.
+
+**Common mistake**
+
+Adding 'think carefully' to the prompt as a fix for everything. It rarely addresses the real pair.
+
+**Check yourself.** A model gets a long calculation wrong in the middle of an otherwise correct explanation. Pair and fix?
+
+<details><summary>Model answer (write yours first)</summary>
+
+Next-token prediction on exact work, possibly with drift in a long chain. Hand the calculation to code and have the model explain around the result, with a checkpoint if steps depend on each other.
+
+</details>
+
+---
+
+## Part 3 · Three worked diagnoses
+
+**1. A policy bot invents a 30-day refund window.** Policy is private and the model never saw it: knowledge plus next-token prediction. Fix: supply the policy text, tell it to answer only from it and quote the line, and to say 'not stated' otherwise. Test: ask 5 questions whose answers are in the policy and 5 whose answers are not.
+
+**2. An agent finishes tasks but ignores 'keep it brief'.** At turn 40 of a long chat, the early instruction is far back: working memory plus steerability. Fix: repeat the key rule near the end of each turn or in the system prompt, summarise history, and add a checkpoint. Test: run a 40-turn script and count over-long replies.
+
+**3. A summariser obeys 'be concise' by dropping the one deadline in the text.** It followed the letter and missed the spirit: steerability. Fix: state the goal ('the reader must not miss any date or amount') and a check ('list every date you found'). Test: run on 10 documents with known dates.
+
+In each case the test changes one thing and re-runs the same inputs. That connects to lesson 18: a fix is real only if the pass rate improves and nothing else gets worse.
+
+**Worked example**
+
+Fictional answer key format for your own work: failure; pair; fix; test; result.
+
+**Common mistake**
+
+Declaring success after one passing run. Run the original failing input several times and a wider set.
+
+**Check yourself.** Why test a fix on cases that were not failing?
+
+<details><summary>Model answer (write yours first)</summary>
+
+Because a fix for one failure can break others. A wider set shows whether you improved the system or only moved the problem.
+
+</details>
+
+---
+
+## Do it: lab
+
+1. Work through these six supplied failures. For each, write the colliding pair, the fix from the five, and the test: (1) a model gives a confident but wrong figure for a company's 2025 revenue; (2) a bot answers in English although the system prompt says reply in the user's language, after a long conversation; (3) asked for the sum of 14 invoice lines, the total is off by 120; (4) a summary of a 60-page report omits a conclusion on page 31; (5) told 'never give legal advice', the bot refuses to explain what a contract is; (6) an agent's plan has a wrong first step and every later step builds on it.
+2. Compare to the diagnosis table. Where you disagree, write why.
+3. Choose one failure you can reproduce with a real model (or one of your own from lesson 6) and apply your fix.
+4. Test it: run the original input at least three times before and after, and run five other inputs to check nothing got worse. Record the results.
+5. Write a half-page 'failure note' for it: symptom, pair, fix, test, result, and what would make you revisit it.
+
+**Done when:** six failures each have a named pair, a fix and a test; one fix was tested on real runs, with a before-and-after and a check on other inputs.
+
+---
+
+## Interview check
+
+**Question.** A model summarised a long contract and missed a termination clause. Walk me through the diagnosis.
+
+<details><summary>A strong answer has this shape</summary>
+
+1. Reproduce: run it again on the same contract to see if it is consistent, and check where the clause sits (the middle of a long input is a known weak spot).
+2. Name the pair: working memory plus steerability (a long input with a loosely stated task), possibly next-token prediction smoothing over the detail.
+3. Fix: ask for a structured extraction of named clause types (termination, liability, payment) instead of a free summary, put the contract first and the question last, and make the model quote each clause. Where stakes are high, add a check pass or a person review.
+4. Test: run on a set of contracts with known clauses and compare how many are caught before and after.
+5. Record it as a regression test so it stays fixed.
+
+</details>
+
+---
+
+## Evidence to keep
+
+Keep the six diagnoses, the real before-and-after and the failure note. They are the first entries in your failure log, which becomes test cases in lesson 18.
+
+---
