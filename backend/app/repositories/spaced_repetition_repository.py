@@ -5,6 +5,7 @@
 from datetime import datetime
 from typing import List, Optional
 
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from app.models.spaced_repetition import SpacedRepetition
@@ -23,6 +24,9 @@ class SpacedRepetitionRepository:
         self.db = db
 
     def get_by_question(self, question_id: int) -> Optional[SpacedRepetition]:
+        return self._by_question(question_id)
+
+    def _by_question(self, question_id: int) -> Optional[SpacedRepetition]:
         return (
             self.db.query(SpacedRepetition)
             .filter(SpacedRepetition.question_id == question_id)
@@ -31,20 +35,36 @@ class SpacedRepetitionRepository:
 
     def create_for_question(self, question_id: int, now: datetime) -> SpacedRepetition:
         """
-        A new schedule entry, with every field set explicitly.
+        The question's schedule entry: a new one, with every field set
+        explicitly, or the one that already exists.
 
         SQLAlchemy column defaults only apply after a flush, so leaving these
         unset would mean arithmetic on None the first time an item is reviewed.
+
+        One atomic INSERT ... ON CONFLICT DO NOTHING rather than add-and-flush.
+        Callers look for an entry first and create one when there is none, and
+        two of them can both find none: two papers finished at once that share a
+        never-scheduled question, or a review check landing with a finish. A
+        plain insert then hit the unique question_id and raised mid-transaction
+        -- a finish failed half way, after the paper was already marked
+        complete, so the retry skipped it and the remaining questions were never
+        scheduled. ON CONFLICT cannot raise for that, and leaves the caller's
+        transaction alone; the caller then moves on whichever entry exists.
+        (SQLite's own upsert: the app runs on nothing else.)
         """
-        item = SpacedRepetition(
-            question_id=question_id,
-            repetition=0,
-            interval_days=1,
-            ease_factor=2.5,
-            next_review_date=now,
+        self.db.execute(
+            sqlite_insert(SpacedRepetition)
+            .values(
+                question_id=question_id,
+                repetition=0,
+                interval_days=1,
+                ease_factor=2.5,
+                next_review_date=now,
+            )
+            .on_conflict_do_nothing(index_elements=["question_id"])
         )
-        self.db.add(item)
-        self.db.flush()
+        item = self._by_question(question_id)
+        assert item is not None, "the insert or the entry it collided with must exist"
         return item
 
     def _due_query(
