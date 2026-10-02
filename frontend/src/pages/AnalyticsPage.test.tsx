@@ -153,6 +153,34 @@ describe('AnalyticsPage', () => {
     expect(await screen.findByText('AWS Solutions Architect')).toBeInTheDocument();
   });
 
+  it('keeps the new preparation\'s figures when the previous one\'s arrive after them', async () => {
+    // Preparation 1's areas are held back; the learner picks preparation 2,
+    // whose areas come straight away. Preparation 1's answer, landing last,
+    // must not put its areas under preparation 2's name.
+    const OTHER = { ...MEASURED, id: 2, name: 'AWS Solutions Architect', readiness: { ...MEASURED.readiness, mock_count: 1 } };
+    mockGetSubjects.mockResolvedValue([MEASURED, OTHER]);
+    let answerFirst!: (value: unknown) => void;
+    mockGetDomainPerformance.mockImplementation((id: number) => (id === 1
+      ? new Promise((resolve) => { answerFirst = resolve; })
+      : Promise.resolve([{ domain: 'Second preparation area', total_attempted: 20, correct_count: 15, accuracy_percentage: 75 }])));
+    mockPreparation.mockReturnValue({ selectedId: 1, selected: MEASURED });
+    const view = renderPage();
+    await waitFor(() => expect(mockGetDomainPerformance).toHaveBeenCalledWith(1));
+
+    mockPreparation.mockReturnValue({ selectedId: 2, selected: OTHER });
+    view.rerender(
+      <MemoryRouter>
+        <AnalyticsPage />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText('Second preparation area')).toBeInTheDocument();
+
+    answerFirst([{ domain: 'First preparation area', total_attempted: 40, correct_count: 10, accuracy_percentage: 25 }]);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.queryByText('First preparation area')).not.toBeInTheDocument();
+    expect(screen.getByText('Second preparation area')).toBeInTheDocument();
+  });
+
   it('opens an area from either list, for the preparation being described', async () => {
     mockGetSubjects.mockResolvedValue([MEASURED]);
     mockGetDomainPerformance.mockResolvedValue([

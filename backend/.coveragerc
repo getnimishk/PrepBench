@@ -9,8 +9,19 @@ source = app
 omit =
     app/data/*
     */__pycache__/*
+    # Command-line scripts run by hand, which nothing in the app imports: their
+    # 0% only blurred what the total says about the app itself. (Everything
+    # else in app/utils runs -- the seeders at startup, the PDF and Excel
+    # exports -- and stays counted.)
+    app/utils/build_scrum_guide_index.py
+    app/utils/verify_question_bank.py
 
 [report]
+# The floor CI enforces: any run with --cov fails below it (pytest-cov reads
+# this). Set just under the measured 86% on 2026-10-01 so it stops a slide
+# without failing on noise; raise it as coverage rises, never lower it to let
+# a change through.
+fail_under = 85
 exclude_lines =
     pragma: no cover
     if TYPE_CHECKING:

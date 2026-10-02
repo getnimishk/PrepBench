@@ -3,6 +3,7 @@
 # Commercial use requires a separate licence from the copyright holder.
 
 from typing import List, Optional
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import func
 from app.models.practice_recording import PracticeRecording
@@ -83,22 +84,33 @@ class RecordingAnalysisRepository:
         self.db = db
 
     def get_by_recording_id(self, recording_id: int) -> Optional[RecordingAnalysis]:
+        return self._by_recording_id(recording_id)
+
+    def _by_recording_id(self, recording_id: int) -> Optional[RecordingAnalysis]:
         return self.db.query(RecordingAnalysis).filter(RecordingAnalysis.recording_id == recording_id).first()
 
     def upsert(self, recording_id: int, **fields) -> RecordingAnalysis:
-        existing = self.get_by_recording_id(recording_id)
-        if existing:
-            for k, v in fields.items():
-                setattr(existing, k, v)
-            self.db.commit()
-            self.db.refresh(existing)
-            return existing
+        """The recording's one analysis row, written in a single atomic statement.
 
-        obj = RecordingAnalysis(recording_id=recording_id, **fields)
-        self.db.add(obj)
+        It was look-then-insert, and two analyses of one recording finishing
+        together (a second "Analyse" while the first is still running) both
+        found no row; the second insert hit the unique recording_id and the
+        request failed with a 500. INSERT ... ON CONFLICT DO UPDATE cannot:
+        whichever lands second updates the row the first wrote. (SQLite's own
+        upsert -- the app runs on nothing else; the model has no onupdate
+        columns for an upsert to skip.)
+        """
+        statement = sqlite_insert(RecordingAnalysis).values(recording_id=recording_id, **fields)
+        if fields:
+            statement = statement.on_conflict_do_update(index_elements=["recording_id"], set_=fields)
+        else:
+            statement = statement.on_conflict_do_nothing(index_elements=["recording_id"])
+        self.db.execute(statement)
         self.db.commit()
-        self.db.refresh(obj)
-        return obj
+        saved = self._by_recording_id(recording_id)
+        assert saved is not None
+        self.db.refresh(saved)
+        return saved
 
     def get_all_analyzed_ordered_by_date(self) -> List[RecordingAnalysis]:
         """Chronological (oldest-first) list of successfully-analyzed
