@@ -43,6 +43,7 @@ import { InterviewLibraryPage } from './pages/InterviewLibraryPage';
 import { RoadmapListPage } from './pages/RoadmapListPage';
 import { RoadmapDetailPage } from './pages/RoadmapDetailPage';
 import { ChartSandboxPage } from './pages/ChartSandboxPage';
+import { DatabricksSandboxPage } from './pages/DatabricksSandboxPage';
 import { ScenarioPage } from './pages/ScenarioPage';
 import { RoleDiagnosticPage } from './pages/RoleDiagnosticPage';
 import { RolePreparationNewPage } from './pages/RolePreparationNewPage';
@@ -233,6 +234,7 @@ const App: React.FC = () => {
             <Route path="/roadmaps" element={<AppLayout><RoadmapListPage /></AppLayout>} />
             <Route path="/lab" element={<AppLayout><LearningLabPage /></AppLayout>} />
             <Route path="/chart-sandbox" element={<AppLayout><ChartSandboxPage /></AppLayout>} />
+            <Route path="/databricks-sandbox" element={<AppLayout><DatabricksSandboxPage /></AppLayout>} />
             <Route path="/scenarios" element={<AppLayout><ScenarioSandboxPage /></AppLayout>} />
             <Route path="/scenarios/:packId/:scenarioId" element={<AppLayout><ScenarioPage /></AppLayout>} />
             <Route path="/design-reviews" element={<AppLayout><DesignReviewListPage /></AppLayout>} />

@@ -36,7 +36,7 @@ const ROUTES = (
 ) => [
   '/preparations/roles/new', `/preparations/roles/${roleId}`, `/preparations/roles/${roleId}/diagnostic`,
   '/', '/practice', '/review', '/exam-setup', '/question-bank', '/analytics',
-  '/lab', '/chart-sandbox', '/scenarios', '/scenarios/adf/1',
+  '/lab', '/chart-sandbox', '/databricks-sandbox', '/scenarios', '/scenarios/adf/1',
   '/design-reviews/1', '/system-design', '/interview-practice', '/preparations/new', `/preparations/${prepId}/edit`,
   '/learn', '/learn/guides/adf', '/learn/guides/adf/pitfalls',
   `/roadmaps/${roadmapId}/topics/${topicId}/guide`,

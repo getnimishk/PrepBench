@@ -50,8 +50,8 @@ describe('Sidebar', () => {
     for (const heading of ['Today', 'Certification', 'Interview', 'Evidence', 'Workspace', 'Learning Lab']) {
       expect(within(nav).getByText(heading)).toBeInTheDocument();
     }
-    // 14 original destinations + 2 Learning Lab entries (All Sandboxes, Agile Metrics) = 16.
-    expect(within(nav).getAllByRole('link')).toHaveLength(17);
+    // 14 original destinations + 4 Learning Lab entries (All Sandboxes, Agile Metrics, Scenarios, Lakehouse Lab) = 18.
+    expect(within(nav).getAllByRole('link')).toHaveLength(18);
     expect(within(nav).getByRole('link', { name: 'Roadmaps' })).toHaveAttribute('href', '/roadmaps');
     expect(within(nav).getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings');
     expect(within(nav).getByRole('link', { name: 'All Sandboxes' })).toHaveAttribute('href', '/lab');

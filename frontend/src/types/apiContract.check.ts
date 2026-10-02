@@ -24,6 +24,9 @@ import type { DesignReviewAnalytics, DesignReviewAttempt, DesignReviewDetail, De
 import type { DomainPlanItem, ExamAnswer, ExamDetail, ExamPreview, ExamSession, MockHistoryItem } from './exam';
 import type { InterviewQuestion } from './interviewQuestion';
 import type { InterviewSession, InterviewSessionReport } from './interviewSession';
+import type {
+  EngineStatus, JournalEntry, LabOperationResult, LabPackDetail, LabPackSummary, LabResetResult,
+} from './lakehouse';
 import type { LLMProvider, LLMTaskBinding, SystemInfo } from './llm';
 import type { Profile } from './profile';
 import type { Question, QuestionBankSummary, QuestionOption } from './question';
@@ -132,6 +135,13 @@ export function apiContract(): void {
   fits<DomainMasteryItem>(api('DomainMasteryItem'));
   fits<DomainDetail>(api('DomainDetail'));
   fits<ScoreTrendPoint>(api('ScoreTrendPoint'));
+
+  fits<EngineStatus>(api('EngineStatus'));
+  fits<LabPackSummary>(api('LabPackSummary'));
+  fits<LabPackDetail>(api('LabPackDetail'));
+  fits<LabOperationResult>(api('LabOperationResult'));
+  fits<LabResetResult>(api('LabResetResult'));
+  fits<JournalEntry>(api('JournalEntry'));
 
   fits<Profile>(api('ProfileResponse'));
   fits<LLMProvider>(api('ProviderResponse'));

@@ -3,7 +3,7 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import {
-  Activity, BarChart3, BookOpen, FileCheck2, FlaskConical, History, LayoutDashboard, Layers, Library,
+  Activity, BarChart3, BookOpen, Database, FileCheck2, FlaskConical, History, LayoutDashboard, Layers, Library,
   Map as RouteMap, Mic, Mic2, Network, PlayCircle, ScrollText, Settings, Workflow,
 } from 'lucide-react';
 
@@ -23,7 +23,7 @@ export type NavKey =
   | 'interview' | 'system-design' | 'design-reviews' | 'recordings'
   | 'insights' | 'preparations' | 'settings'
   // Learning Lab: the hub and each sandbox as it goes live.
-  | 'lab' | 'agile-sandbox' | 'scenarios';
+  | 'lab' | 'agile-sandbox' | 'scenarios' | 'databricks-sandbox';
 
 export interface NavEntry {
   key: NavKey;
@@ -81,6 +81,7 @@ export const NAV_GROUPS: { heading: string; items: NavEntry[] }[] = [
       { key: 'lab',           label: 'All Sandboxes',         path: '/lab',           icon: FlaskConical },
       { key: 'agile-sandbox', label: 'Agile Metrics',         path: '/chart-sandbox', icon: Activity },
       { key: 'scenarios',     label: 'Scenarios',             path: '/scenarios',     icon: Workflow },
+      { key: 'databricks-sandbox', label: 'Lakehouse Lab',    path: '/databricks-sandbox', icon: Database },
     ],
   },
 ];
@@ -94,7 +95,7 @@ const NAV_BY_KEY = Object.fromEntries(
 // review runner is review, whichever button opened it.
 //
 // The Learning Lab rules come before the generic catch-alls. Each sandbox
-// path (/chart-sandbox, /scenarios, and future /databricks-sandbox, /financial-sandbox)
+// path (/chart-sandbox, /scenarios, /databricks-sandbox, and future /financial-sandbox)
 // maps to its own sandbox key so the sidebar highlights the correct item.
 // The hub (/lab) highlights the 'lab' entry — the parent of the group.
 const SECTION_RULES: [RegExp, NavKey][] = [
@@ -106,6 +107,7 @@ const SECTION_RULES: [RegExp, NavKey][] = [
   [/^\/lab(\/|$)/, 'lab'],
   [/^\/chart-sandbox(\/|$)/, 'agile-sandbox'],
   [/^\/scenarios(\/|$)/, 'scenarios'],
+  [/^\/databricks-sandbox(\/|$)/, 'databricks-sandbox'],
   [/^\/practice\/spaced(\/|$)/, 'review'],
   [/^\/practice(\/|$)/, 'practice'],
   [/^\/review(\/|$)/, 'review'],

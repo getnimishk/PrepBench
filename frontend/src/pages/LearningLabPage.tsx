@@ -21,7 +21,7 @@
 import React from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Box, Button, Card, CardContent, Chip, Stack, Typography, alpha, useTheme } from '@mui/material';
-import { Activity, Workflow } from 'lucide-react';
+import { Activity, Database, Workflow } from 'lucide-react';
 import { PageHead, Eyebrow } from '../components/ui/primitives';
 
 interface SandboxCard {
@@ -73,23 +73,16 @@ const SANDBOXES: SandboxCard[] = [
   },
   {
     id: 'databricks',
-    label: 'Databricks Architecture',
-    domain: 'Data lakehouse design',
+    label: 'Lakehouse Lab',
+    domain: 'Data platform migration',
     description:
-      'Cluster sizing, job scheduling, storage tier selection and query concurrency — ' +
-      'the architecture decisions that determine cost, performance and reliability in a ' +
-      'data lakehouse. See the trade-offs move when you change one dial.',
-    metricFamilies: ['Compute cost', 'Query performance', 'Storage efficiency', 'Job reliability', 'Cluster utilisation'],
+      'Move data from ADF to ADLS to Delta Lake and watch an upstream choice become real rows in a real ' +
+      'table. Then plan a 3,000-job migration and see where estimates by job count break.',
+    metricFamilies: ['Delta Lake · real engine', 'ADF', 'ADLS', 'Migration waves', 'Reconciliation'],
+    familiesLabel: 'Covers',
     path: '/databricks-sandbox',
-    live: false,
-    icon: (
-      <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-        <polygon points="12,2 22,8.5 22,15.5 12,22 2,15.5 2,8.5 12,2" />
-        <polyline points="12,2 12,22" />
-        <polyline points="2,8.5 22,8.5" />
-        <polyline points="2,15.5 22,15.5" />
-      </svg>
-    ),
+    live: true,
+    icon: <Database size={22} aria-hidden />,
     iconBgKey: 'warning',
   },
   {
