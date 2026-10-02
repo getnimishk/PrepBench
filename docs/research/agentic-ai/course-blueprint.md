@@ -149,3 +149,19 @@ wave 1 is Module 1 only.
 - Nothing is **loaded into PrepBench**; that waits for the v8 import.
 - Nothing is **committed**. Wave 1 should go in as a documentation pull request from a clean worktree of `origin/main`.
 - Lessons were **not yet reviewed by an outside model** or by the user.
+
+## 9. Outside review of wave 1 (ChatGPT, 2026-10-02) and what was done
+
+The reviewer had no web access and flagged vendor facts as unverified. Findings were checked against the sources before any change.
+
+**Applied** (about 30 edits across lessons 1, 2, 4, 5, 6, 7, 8, in both the Markdown and the guide JSON):
+- Absolute statements softened: the LLM core is next-token prediction (applications add more); "most widely used", not "almost every", LLM is a transformer; sycophancy is linked to, not proven caused by, human feedback; a model generally cannot reliably give provenance; self-hosting does not by itself give privacy; the price ladder is a common pattern, not a law.
+- Vendor-specific behaviour labelled as such (Anthropic's context overflow behaviour, claude.ai window handling, server-side compaction, the Foundry model count).
+- The embeddings lab now gives one concrete path (request shape, where the vector is, key handling, a free local option). The position test is repeated three times. "Invented" is replaced by "unsupported" with a source-first rule. Lesson 8 has a strong/middle/weak rule of thumb and "process" now means observable steps, not hidden reasoning.
+- Interview checks for lessons 4, 5, 6 and 7 gained delivery-side follow-ups: measurement, access control, cost and latency limits, authoritative source, service levels, lock-in, data residency and migration. The ML-families grouping is labelled as Google's practical map.
+
+**Not applied, with reasons**
+- Blockers F-01 and F-02 (model names and prices unverifiable): these were read from the vendors' own pages on 2026-09-29 and are dated in the lesson; the reviewer simply did not know the models. The lesson already says names and prices will have moved. A separate dated snapshot appendix is a reasonable later change.
+- F-34 (vendor advice prominent), F-36 to F-40 (framework attribution): the lessons already attribute these to the course ("the course says", "the course calls").
+- T-05 (drop the BLEU figures) and F-23 and F-24 (arithmetic, confirmed correct): kept.
+- C-01, C-02, C-05 to C-09 and the remaining interview-fit suggestions: small or later-wave items, not needed now.

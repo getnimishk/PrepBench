@@ -9,7 +9,7 @@
 
 ## Part 1 · Why this matters
 
-Every model answers from what its training gave it. That is a fixed store, and it has an edge: a date after which the model has seen nothing. Many 'the AI got it wrong' stories are really 'the AI never had it': a policy written last month, a customer's record, a niche field. This lesson gives you names for the ways knowledge fails and a fix for each, and it explains why retrieval (RAG) exists, which you build in Module 5.
+A model's own knowledge comes from what its training gave it (an application can add more at question time, as you will see). That is a fixed store, and it has an edge: a date after which the model has seen nothing. Many 'the AI got it wrong' stories are really 'the AI never had it': a policy written last month, a customer's record, a niche field. This lesson gives you names for the ways knowledge fails and a fix for each, and it explains why retrieval (RAG) exists, which you build in Module 5.
 
 **Check yourself.** What is the difference between a model not knowing something and getting something wrong?
 
@@ -53,8 +53,8 @@ The names below come from the Claude Academy Capabilities course; the explanatio
 
 - **Staleness:** old information presented as current.
 - **Uneven coverage:** strong on common topics, thin on specialised, local or rare ones.
-- **Inherited bias:** assumptions about what is normal, absorbed from the text it saw.
-- **Source amnesia:** it cannot tell you where a fact came from.
+- **Inherited bias:** assumptions about what is normal, picked up from the text it saw and from later tuning.
+- **Source amnesia:** it generally cannot reliably tell you where a fact came from.
 
 **Worked example**
 
@@ -118,8 +118,8 @@ Exchange rate: fetch it with a tool or a live source. Internal tool: supply its 
 
 ## Do it: lab
 
-1. Pick a field you know well. Write 5 questions: 2 mainstream, 2 niche or local, and 1 about something recent that should fall after the model's cutoff (look up the model's cutoff on its vendor page and note it).
-2. Ask a model all five and score each answer: right, partly right, wrong, or invented.
+1. Pick a field you know well. Write 5 questions, each with a correct answer and a source you can point to: 2 mainstream, 2 niche or local, and 1 about something recent that should fall after the model's cutoff (look up the model's cutoff on its vendor page and note it).
+2. Ask a model all five and score each answer: right, partly right, wrong, or unsupported (not backed by a source you checked; do not call an answer invented just because you do not know it).
 3. For each problem, name the failure mode: staleness, uneven coverage, inherited bias or unknown source.
 4. Supply a short, correct paragraph for the worst answer and ask again. Note whether and how the answer changed.
 5. If your tool has web search, ask the recent question with search on and off and note the difference.
@@ -131,7 +131,7 @@ Exchange rate: fetch it with a tool or a live source. Internal tool: supply its 
 
 ## Interview check
 
-**Question.** A stakeholder wants the assistant to answer questions about our latest HR policy. What could go wrong, and how would you design it?
+**Question.** A stakeholder wants the assistant to answer questions about our latest HR policy. What could go wrong, and how would you design it? (Include how you would make sure the policy it quotes is the current, authoritative version.)
 
 <details><summary>A strong answer has this shape</summary>
 

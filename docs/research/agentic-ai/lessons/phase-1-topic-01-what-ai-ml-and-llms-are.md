@@ -13,7 +13,7 @@ Before agents, RAG, tool calling or model selection you need one basic answer: w
 
 A lot of confusion comes from treating these as the same thing: AI, machine learning, generative AI, an LLM, ChatGPT, search and a database. They are related but not interchangeable.
 
-The skill this chapter builds is separation. Given an application, you should be able to say which part is the model, which is the data, which is the application logic, which are the tools, and which information came from an outside system. That separation is what agent design is built on.
+The skill this chapter builds is separation. Given an application, you should be able to say which part is the model, which is the data, which is the application logic, which are the tools, and which information came from an outside system. That separation is one of the foundations of agent design.
 
 **Check yourself.** Name the five parts you should be able to separate when you look at an AI application.
 
@@ -75,7 +75,7 @@ AI is the broad field of building systems that perform tasks associated with int
 
 ## Part 3 · The four families of ML
 
-Google's course names four families, and knowing them helps you place any tool you meet.
+Google's course names four families, and knowing them helps you place any tool you meet. (This is Google's introductory grouping. It mixes how a model learns with what it produces, so treat the four as a practical map, not four exclusive technical categories.)
 
 Supervised learning trains on examples that already have the right answer attached. It covers regression (predict a number, such as rainfall or a house price) and classification (choose a category, such as spam or not spam).
 Unsupervised learning finds patterns in data with no answers attached. Clustering, grouping similar items, is the main example.

@@ -5,7 +5,7 @@
   "sections": [
     {
       "title": "Why this matters",
-      "body": "Every model answers from what its training gave it. That is a fixed store, and it has an edge: a date after which the model has seen nothing. Many 'the AI got it wrong' stories are really 'the AI never had it': a policy written last month, a customer's record, a niche field. This lesson gives you names for the ways knowledge fails and a fix for each, and it explains why retrieval (RAG) exists, which you build in Module 5.",
+      "body": "A model's own knowledge comes from what its training gave it (an application can add more at question time, as you will see). That is a fixed store, and it has an edge: a date after which the model has seen nothing. Many 'the AI got it wrong' stories are really 'the AI never had it': a policy written last month, a customer's record, a niche field. This lesson gives you names for the ways knowledge fails and a fix for each, and it explains why retrieval (RAG) exists, which you build in Module 5.",
       "example": null,
       "common_mistake": null,
       "check_question": "What is the difference between a model not knowing something and getting something wrong?",
@@ -21,7 +21,7 @@
     },
     {
       "title": "Four ways knowledge fails",
-      "body": "The names below come from the Claude Academy Capabilities course; the explanations and examples are ours.\n\n- **Staleness:** old information presented as current.\n- **Uneven coverage:** strong on common topics, thin on specialised, local or rare ones.\n- **Inherited bias:** assumptions about what is normal, absorbed from the text it saw.\n- **Source amnesia:** it cannot tell you where a fact came from.",
+      "body": "The names below come from the Claude Academy Capabilities course; the explanations and examples are ours.\n\n- **Staleness:** old information presented as current.\n- **Uneven coverage:** strong on common topics, thin on specialised, local or rare ones.\n- **Inherited bias:** assumptions about what is normal, picked up from the text it saw and from later tuning.\n- **Source amnesia:** it generally cannot reliably tell you where a fact came from.",
       "example": "Staleness: quoting last year's tax rate as current. Uneven coverage: a detailed answer about a mainstream framework and a vague one about an obscure internal tool. Inherited bias: assuming the 'typical' customer lives in one country. Source amnesia: asked 'where did you get that?', it produces a plausible citation that may not exist.",
       "common_mistake": "Asking a model for its source and trusting the citation. Unless the answer was built from documents you supplied, a citation is generated text like any other and has to be opened and checked.",
       "check_question": "Give one example of each failure mode from a job you know.",
@@ -37,7 +37,7 @@
     },
     {
       "title": "Do it: lab",
-      "body": "1. Pick a field you know well. Write 5 questions: 2 mainstream, 2 niche or local, and 1 about something recent that should fall after the model's cutoff (look up the model's cutoff on its vendor page and note it).\n2. Ask a model all five and score each answer: right, partly right, wrong, or invented.\n3. For each problem, name the failure mode: staleness, uneven coverage, inherited bias or unknown source.\n4. Supply a short, correct paragraph for the worst answer and ask again. Note whether and how the answer changed.\n5. If your tool has web search, ask the recent question with search on and off and note the difference.\n6. Write 5 sentences: which questions you would never ask a model alone from now on, and what you would do instead.\n\n**Done when:** you have a table of 5 questions with score, failure mode and fix, plus your 5-sentence conclusion.",
+      "body": "1. Pick a field you know well. Write 5 questions, each with a correct answer and a source you can point to: 2 mainstream, 2 niche or local, and 1 about something recent that should fall after the model's cutoff (look up the model's cutoff on its vendor page and note it).\n2. Ask a model all five and score each answer: right, partly right, wrong, or unsupported (not backed by a source you checked; do not call an answer invented just because you do not know it).\n3. For each problem, name the failure mode: staleness, uneven coverage, inherited bias or unknown source.\n4. Supply a short, correct paragraph for the worst answer and ask again. Note whether and how the answer changed.\n5. If your tool has web search, ask the recent question with search on and off and note the difference.\n6. Write 5 sentences: which questions you would never ask a model alone from now on, and what you would do instead.\n\n**Done when:** you have a table of 5 questions with score, failure mode and fix, plus your 5-sentence conclusion.",
       "example": null,
       "common_mistake": null,
       "check_question": null,
@@ -48,7 +48,7 @@
       "body": "Answer aloud first, then compare. Do not memorise the words; understand the shape.",
       "example": null,
       "common_mistake": null,
-      "check_question": "A stakeholder wants the assistant to answer questions about our latest HR policy. What could go wrong, and how would you design it?",
+      "check_question": "A stakeholder wants the assistant to answer questions about our latest HR policy. What could go wrong, and how would you design it? (Include how you would make sure the policy it quotes is the current, authoritative version.)",
       "check_answer": "1. The model has a knowledge cutoff and has never seen a private, recent policy, so it may answer from general knowledge or invent something plausible, in the same confident tone.\n2. Design: keep the policy in one authoritative place, retrieve the relevant passages at question time, tell the model to answer only from them and to quote the line, and to say so when the policy does not cover the question.\n3. Add access control so people see only what they may, and an update path so the index changes when the policy does.\n4. Evaluate on real questions before launch, and keep a person on anything high-stakes."
     },
     {
