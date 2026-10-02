@@ -103,7 +103,13 @@ export default defineConfig({
       enabled: Boolean(process.env.CI),
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/**/*.test.{ts,tsx}', 'src/test/**', 'src/**/*.d.ts', 'src/main.tsx'],
+      // Also not app code: the generated API types, and the API contract check,
+      // which typecheck compiles and nothing runs -- counted, it would read as
+      // untested code.
+      exclude: [
+        'src/**/*.test.{ts,tsx}', 'src/test/**', 'src/**/*.d.ts', 'src/main.tsx',
+        'src/types/generated/**', 'src/**/*.check.ts',
+      ],
       reporter: ['text-summary'],
       thresholds: { statements: 80, branches: 72, functions: 74, lines: 82 },
     },
