@@ -12,6 +12,7 @@ happens under them.
 """
 from typing import List, Optional
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.content import packs as pack_store
@@ -86,7 +87,28 @@ def attach(db: Session, subject_id: int, pack_id: str) -> SubjectContentPackResp
     if pack is None:
         raise ResourceNotFoundException("Content pack", pack_id)
 
-    existing = (
+    already = ConflictException(f"{subject.name!r} already has the {pack.title!r} pack attached.")
+    if _attached(db, subject_id, pack_id) is not None:
+        raise already
+
+    link = SubjectContentPack(subject_id=subject_id, pack_id=pack_id, pack_version=pack.version)
+    db.add(link)
+    try:
+        db.commit()
+    except IntegrityError:
+        # Two attaches of the same pack arrived together (a double-click), both
+        # passed the check above, and the other insert won. That is the same
+        # answer as the check's -- already attached -- not a 500.
+        db.rollback()
+        if _attached(db, subject_id, pack_id) is not None:
+            raise already
+        raise
+    db.refresh(link)
+    return _to_response(link)
+
+
+def _attached(db: Session, subject_id: int, pack_id: str) -> Optional[SubjectContentPack]:
+    return (
         db.query(SubjectContentPack)
         .filter(
             SubjectContentPack.subject_id == subject_id,
@@ -94,16 +116,6 @@ def attach(db: Session, subject_id: int, pack_id: str) -> SubjectContentPackResp
         )
         .first()
     )
-    if existing is not None:
-        raise ConflictException(
-            f"{subject.name!r} already has the {pack.title!r} pack attached."
-        )
-
-    link = SubjectContentPack(subject_id=subject_id, pack_id=pack_id, pack_version=pack.version)
-    db.add(link)
-    db.commit()
-    db.refresh(link)
-    return _to_response(link)
 
 
 def upgrade(db: Session, subject_id: int, pack_id: str, version: int) -> SubjectContentPackResponse:

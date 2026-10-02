@@ -4,6 +4,7 @@
 
 from typing import List, Optional
 
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from app.models.llm_config import LLMProviderConfig, LLMTaskBinding
@@ -58,22 +59,32 @@ class LLMConfigRepository:
     # ---- Task bindings -----------------------------------------------
 
     def get_binding(self, task: str) -> Optional[LLMTaskBinding]:
+        return self._binding(task)
+
+    def _binding(self, task: str) -> Optional[LLMTaskBinding]:
         return self.db.query(LLMTaskBinding).filter(LLMTaskBinding.task == task).first()
 
     def list_bindings(self) -> List[LLMTaskBinding]:
         return self.db.query(LLMTaskBinding).order_by(LLMTaskBinding.task.asc()).all()
 
     def upsert_binding(self, task: str, provider_config_id: Optional[int], model: Optional[str]) -> LLMTaskBinding:
-        existing = self.get_binding(task)
-        if existing:
-            existing.provider_config_id = provider_config_id
-            existing.model = model
-            self.db.commit()
-            self.db.refresh(existing)
-            return existing
+        """The task's one routing row, written in a single atomic statement.
 
-        obj = LLMTaskBinding(task=task, provider_config_id=provider_config_id, model=model)
-        self.db.add(obj)
+        It was look-then-insert: two saves of a task's routing that both found
+        no row (a double-submit on a fresh install) both inserted, and the
+        second hit the unique task with a 500. With INSERT ... ON CONFLICT DO
+        UPDATE the later save simply wins. (SQLite's own upsert -- the app runs
+        on nothing else.)
+        """
+        self.db.execute(
+            sqlite_insert(LLMTaskBinding)
+            .values(task=task, provider_config_id=provider_config_id, model=model)
+            .on_conflict_do_update(
+                index_elements=["task"], set_={"provider_config_id": provider_config_id, "model": model},
+            )
+        )
         self.db.commit()
-        self.db.refresh(obj)
-        return obj
+        saved = self._binding(task)
+        assert saved is not None
+        self.db.refresh(saved)
+        return saved

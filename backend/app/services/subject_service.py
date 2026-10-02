@@ -20,6 +20,7 @@ to answer:
 import re
 from typing import Optional, Tuple
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import (
@@ -63,29 +64,43 @@ class SubjectService:
     # ---- create ---------------------------------------------------------
 
     def create(self, req: SubjectCreate) -> Tuple[Subject, SubjectCreateResult]:
+        name_taken = ConflictException(
+            f"A preparation called {req.name!r} already exists. Names are how "
+            "preparations are told apart in the picker, so they have to be "
+            "distinct."
+        )
         if self.repo.get_by_name(req.name):
-            raise ConflictException(
-                f"A preparation called {req.name!r} already exists. Names are how "
-                "preparations are told apart in the picker, so they have to be "
-                "distinct."
-            )
+            raise name_taken
 
         certification = (req.certification or "").strip() or None
         if certification:
             self._refuse_a_claimed_certification(certification)
 
-        subject = self.repo.create(
-            name=req.name.strip(),
-            slug=self._unique_slug(req.name),
-            kind=req.kind,
-            description=(req.description or None),
-            certification=certification,
-            pass_mark=req.pass_mark,
-            exam_question_count=req.exam_question_count,
-            exam_minutes=req.exam_minutes,
-            target_exam_date=req.target_exam_date,
-            display_order=req.display_order,
-        )
+        def insert() -> Subject:
+            return self.repo.create(
+                name=req.name.strip(),
+                slug=self._unique_slug(req.name),
+                kind=req.kind,
+                description=(req.description or None),
+                certification=certification,
+                pass_mark=req.pass_mark,
+                exam_question_count=req.exam_question_count,
+                exam_minutes=req.exam_minutes,
+                target_exam_date=req.target_exam_date,
+                display_order=req.display_order,
+            )
+
+        # Two creates arriving together both pass the checks above, and the
+        # unique name or slug stops the second -- which was a 500. The same
+        # name is the same answer the check gives; a slug taken by a different
+        # name in the meantime only needs deriving again.
+        try:
+            subject = insert()
+        except IntegrityError:
+            self.db.rollback()
+            if self.repo.get_by_name(req.name):
+                raise name_taken
+            subject = insert()
 
         adopted = self._adopt_unowned_questions(subject)
 

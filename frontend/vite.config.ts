@@ -89,5 +89,29 @@ export default defineConfig({
     // this Vitest would try to execute them in jsdom and fail on the first
     // `page.goto`.
     exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**'],
+    // Coverage, and a floor under it. On in CI (GitHub sets CI), where
+    // `npm test` runs the whole suite; off locally, where `npm test -- <file>`
+    // runs a subset that could never reach the floor. `npm run test:coverage`
+    // measures locally -- run it on the whole suite, not a subset.
+    //
+    // The floor is about three points under what was measured on 2026-10-01
+    // (statements 83.1, branches 75.3, functions 77.0, lines 85.1): it stops a
+    // slide without failing on noise. Raise it as coverage rises; never lower it
+    // to let a change through. services/api.ts reads low (~32%) by design --
+    // unit tests mock it; the browser suite exercises it.
+    coverage: {
+      enabled: Boolean(process.env.CI),
+      provider: 'v8',
+      include: ['src/**/*.{ts,tsx}'],
+      // Also not app code: the generated API types, and the API contract check,
+      // which typecheck compiles and nothing runs -- counted, it would read as
+      // untested code.
+      exclude: [
+        'src/**/*.test.{ts,tsx}', 'src/test/**', 'src/**/*.d.ts', 'src/main.tsx',
+        'src/types/generated/**', 'src/**/*.check.ts',
+      ],
+      reporter: ['text-summary'],
+      thresholds: { statements: 80, branches: 72, functions: 74, lines: 82 },
+    },
   }
 });
