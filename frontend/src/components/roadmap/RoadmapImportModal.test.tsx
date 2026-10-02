@@ -75,9 +75,44 @@ describe('RoadmapImportModal', () => {
 
     await waitFor(() => expect(screen.getByText('1 topics')).toBeInTheDocument());
     expect(screen.getByText('1 phases')).toBeInTheDocument();
-    expect(screen.getByText('1 reference sheets')).toBeInTheDocument();
+    expect(screen.getByText('1 reference sheet')).toBeInTheDocument();
     expect(screen.getByText('3h estimated')).toBeInTheDocument();
     expect(screen.getByText('Event Streaming Fundamentals')).toBeInTheDocument();
+  });
+
+  describe('sheet chip', () => {
+    const res = (title: string, purpose?: 'reference' | 'plan') => ({ title, columns: ['A'], rows: [['x']], purpose });
+    const chipFor = async (resources: RoadmapImportPreview['resources']) => {
+      const user = userEvent.setup();
+      mockValidate.mockResolvedValue(makePreview({ resources }));
+      renderModal();
+      await user.upload(screen.getByTestId('roadmap-file-input'), makeFile());
+      await waitFor(() => expect(screen.getByText('1 topics')).toBeInTheDocument());
+    };
+
+    it.each([
+      ['all reference', [res('A', 'reference'), res('B', 'reference')], '2 reference sheets'],
+      ['one reference', [res('A', 'reference')], '1 reference sheet'],
+      ['no purpose (reference)', [res('A')], '1 reference sheet'],
+      ['all plan', [res('A', 'plan'), res('B', 'plan'), res('C', 'plan')], '3 plan sheets'],
+      ['one plan', [res('A', 'plan')], '1 plan sheet'],
+      ['mixed', [res('A', 'reference'), res('B', 'reference'), res('C', 'plan')], '2 reference sheets · 1 plan sheet'],
+      ['mixed, singular', [res('A', 'reference'), res('B', 'plan'), res('C', 'plan')], '1 reference sheet · 2 plan sheets'],
+    ])('%s', async (_name, resources, label) => {
+      await chipFor(resources);
+      expect(screen.getByText(label)).toBeInTheDocument();
+    });
+
+    it('shows no sheet chip without extra sheets', async () => {
+      await chipFor([]);
+      expect(screen.queryByText(/sheets?$/)).not.toBeInTheDocument();
+    });
+
+    it('says extra sheets are kept and reference sheets reach the Study Library', () => {
+      renderModal();
+      expect(screen.getByText(/extra sheets are kept alongside the roadmap, and reference sheets also appear in the Study Library/))
+        .toBeInTheDocument();
+    });
   });
 
   it('surfaces parser warnings instead of swallowing them', async () => {

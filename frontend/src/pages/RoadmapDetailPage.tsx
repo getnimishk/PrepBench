@@ -27,7 +27,7 @@ import { MONO_STACK } from '../theme/tokens';
 type TabKind = 'syllabus' | 'tracker' | 'resource' | 'journey' | 'gantt' | 'resources';
 
 interface TabSpec {
-  /** Stable across reloads: 'sheet:<index>', 'view:journey', 'view:schedule', ... */
+  /** Stable across reloads: 'sheet:<index>', 'resource:<id>' (not in the layout), 'view:journey', 'view:schedule', ... */
   key: string;
   label: string;
   kind: TabKind;
@@ -41,7 +41,8 @@ interface TabSpec {
  * than one: a tab per sheet in workbook order, then the app's own views (Phase
  * overview only when no tracker sheet already shows the journey, then Schedule).
  * Several syllabus (or tracker) sheets have already been merged into one set of
- * topics, so they share the first one's tab.
+ * topics, so they share the first one's tab. Resources missing from the layout
+ * follow the layout's tabs, in (order_index, id) order.
  */
 function buildTabs(roadmap: RoadmapDetail): TabSpec[] {
   const { sheets, resources } = roadmap;
@@ -74,6 +75,13 @@ function buildTabs(roadmap: RoadmapDetail): TabSpec[] {
     byKind.set(sheet.kind, tab);
     tabs.push(tab);
   });
+  // A resource the stored layout doesn't mention (an older roadmap, or a layout
+  // that fell behind) still gets a tab, after the layout's own, so its link opens.
+  const listed = new Set(sheets.flatMap((s) => (s.kind === 'resource' && s.resource_id != null ? [s.resource_id] : [])));
+  resources
+    .filter((r) => !listed.has(r.id))
+    .sort((a, b) => a.order_index - b.order_index || a.id - b.id)
+    .forEach((resource) => tabs.push({ key: `resource:${resource.id}`, label: resource.title, kind: 'resource', resource }));
   if (!byKind.has('tracker')) tabs.push({ key: 'view:journey', label: 'Phase overview', kind: 'journey' });
   tabs.push({ key: 'view:schedule', label: 'Schedule', kind: 'gantt' });
   return tabs;
