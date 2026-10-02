@@ -3,6 +3,8 @@
 # Commercial use requires a separate licence from the copyright holder.
 
 import uuid
+
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -134,6 +136,35 @@ def test_submit_attempt_mocked_gemini_malformed_json_falls_back_gracefully(monke
     assert body["grading_status"] == "error"
     assert body["overall_score"] is None
     assert "malformed JSON" in body["grading_error"]
+
+
+@pytest.mark.parametrize("failure", [
+    "Timed out after 60s waiting for the model",
+    "Could not connect to the provider: connection refused",
+    "HTTP 503: model is loading",
+])
+def test_submit_attempt_when_the_provider_fails_keeps_the_answer_ungraded_with_the_reason(monkeypatch, failure):
+    """A provider that times out, refuses, or errors -- the usual case for a
+    local model still loading -- must reach the learner as "not graded, and
+    why", with the answer kept: never a score, never a lost attempt."""
+    set_env_provider(monkeypatch)
+    patch_gateway_transport(monkeypatch, None, error=failure)
+
+    prompt_id = _create_prompt()
+    res = client.post("/api/v1/system-design/attempts", json={
+        "prompt_id": prompt_id,
+        "answer_text": "An answer the provider never saw.",
+    })
+    assert res.status_code == 201
+    body = res.json()
+    assert body["grading_status"] == "error"
+    assert body["overall_score"] is None
+    assert failure in body["grading_error"]
+
+    kept = client.get(f"/api/v1/system-design/attempts/{body['id']}")
+    assert kept.status_code == 200
+    assert kept.json()["answer_text"] == "An answer the provider never saw."
+    assert kept.json()["overall_score"] is None
 
 
 def test_target_role_conditions_prompt_text():
