@@ -1,6 +1,6 @@
 # Working with AI on purpose: four properties and the 4Ds
 
-**Course:** Agentic AI, from first principles to production · Module 1 Foundations · lesson 8 of 8 · **about 2 hours** · paper draft for review.  
+**Course:** Agentic AI, from first principles to production · Module 1 Foundations · lesson 8 of 77 · **about 2 hours** · paper draft for review.  
 **Success criterion:** Take one real task of your own and produce a one-page plan: where it sits on each of the four properties, what you will delegate, how you will describe it, how you will check the result, and what you will disclose.
 
 > Sources (read 2026-09-29 and 2026-09-30; details and gaps in docs/research/agentic-ai): Claude Academy 'AI Fluency: Framework and Foundations' lessons 1 to 3, 6, 8 and 10 to 12 (the 4Ds and three modes) and 'AI Capabilities and Limitations' lessons 1, 2, 10, 12 and 13 (four properties, steerability, property pairs), read 2026-09-30 through page summaries; lessons 5, 7 and 11 of the second course did not load. Only AI Fluency lesson 1 was read from a transcript, which the user supplied. These are one vendor's courses. The table of fixes and the mapping from property pairs to the 4Ds are our own synthesis.

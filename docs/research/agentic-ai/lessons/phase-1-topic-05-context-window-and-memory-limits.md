@@ -1,6 +1,6 @@
 # Context window and memory limits
 
-**Course:** Agentic AI, from first principles to production · Module 1 Foundations · lesson 5 of 8 · **about 2 hours** · paper draft for review.  
+**Course:** Agentic AI, from first principles to production · Module 1 Foundations · lesson 5 of 77 · **about 2 hours** · paper draft for review.  
 **Success criterion:** Given a 200-page support corpus, design two approaches (full-context and retrieval) and compare token cost, retrieval quality, latency and failure modes; state when each is preferable, and test on your own document whether a fact placed in the middle is used as reliably as one at the start or end.
 
 > Sources (read 2026-09-29 and 2026-09-30; details and gaps in docs/research/agentic-ai): Anthropic docs 'Context windows', 'Pricing' and 'Models overview'. Sizes and prices are Anthropic's on 2026-09-29; the corpus example is fictional. Added on 2026-09-30: Liu et al., 'Lost in the Middle: How Language Models Use Long Contexts' (arXiv 2307.03172; abstract read: better at the edges, significantly worse in the middle, no percentage given); Claude Academy 'AI Capabilities and Limitations', lessons 8 and 9 (abrupt failure, no learning between sessions). The course's 'over 30 percent' figure is not used because the paper's abstract does not support it.

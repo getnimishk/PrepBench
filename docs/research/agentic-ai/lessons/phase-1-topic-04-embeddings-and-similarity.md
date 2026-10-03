@@ -1,6 +1,6 @@
 # Embeddings and similarity
 
-**Course:** Agentic AI, from first principles to production · Module 1 Foundations · lesson 4 of 8 · **about 3 hours** · paper draft for review.  
+**Course:** Agentic AI, from first principles to production · Module 1 Foundations · lesson 4 of 77 · **about 3 hours** · paper draft for review.  
 **Success criterion:** Run an embedding call on 5 sentences, compute cosine similarity between them, and explain why two differently worded sentences scored high and one unrelated sentence scored low.
 
 > Sources (read 2026-09-29 and 2026-09-30; details and gaps in docs/research/agentic-ai): OpenAI docs 'Vector embeddings' (developers.openai.com/api/docs/guides/embeddings). The map analogy and the toy numbers are mine.

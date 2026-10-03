@@ -165,3 +165,11 @@ The reviewer had no web access and flagged vendor facts as unverified. Findings 
 - F-34 (vendor advice prominent), F-36 to F-40 (framework attribution): the lessons already attribute these to the course ("the course says", "the course calls").
 - T-05 (drop the BLEU figures) and F-23 and F-24 (arithmetic, confirmed correct): kept.
 - C-01, C-02, C-05 to C-09 and the remaining interview-fit suggestions: small or later-wave items, not needed now.
+
+## 10. Wave 2 status (2026-10-02)
+
+Seventeen lessons written for Modules 2 to 4 (topics 9 to 25, 58 hours), in files and as in-app guide JSON, with the reference code they quote in `reference-code/` and the source notes in `phase-2-4-notes.md`. Code was run, statistics computed, diagrams parsed. Not yet done: in-app load, rendering check, outside review, owner review. Module 1 lesson headers now say "of 77" to match.
+
+## 11. Waves 3 and 4 status (2026-10-03)
+
+Thirty-four lessons written for Modules 5 to 11 (topics 26 to 59, 155 hours): RAG and data (27 h), real agents (29 h), MCP and A2A (18 h), multi-agent (17 h), evaluation and production (24 h), security and governance (20 h), Azure and Databricks (20 h). Files and in-app guide JSON, with reference code in `reference-code/` and sources, run and not-run lists in `phase-5-11-notes.md`. Code was run and tested (RAG 8, DataOps agent 58, MCP 4, A2A 7, multi-agent 12 tests); all 14 new diagrams parse. Lessons 56 to 59 are guidance (no cloud accounts were available). Not done: outside review, owner review, in-app load and render check. Wave 5 (Modules 12 to 14) is not started.

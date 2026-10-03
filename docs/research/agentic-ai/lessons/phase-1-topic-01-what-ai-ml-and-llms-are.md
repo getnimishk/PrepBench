@@ -1,6 +1,6 @@
 # What AI, ML and LLMs actually are
 
-**Course:** Agentic AI, from first principles to production · Module 1 Foundations · lesson 1 of 8 · **about 2 hours** · paper draft for review.  
+**Course:** Agentic AI, from first principles to production · Module 1 Foundations · lesson 1 of 77 · **about 2 hours** · paper draft for review.  
 **Success criterion:** Test A, explain: explain AI, ML, generative AI and an LLM to a non-technical person in 2 minutes or less. Test B, decompose: given a real AI product, identify the model, the application logic, the data and context, the external tools and systems, and what the model generated versus what another part retrieved or executed.
 
 > Sources (read 2026-09-29 and 2026-09-30; details and gaps in docs/research/agentic-ai): Google, Machine Learning intro 'What is ML?' (definition of ML, the four families, the rainfall example); Anthropic docs 'Context windows' (working memory is separate from training data); Kalai et al., 'Why Language Models Hallucinate' (arXiv 2509.04664). Points marked 'background' are general knowledge, not from those sources. Second source: Claude Academy 'AI Capabilities and Limitations', lesson 2 (generative models create content, while spam filters and recommenders classify or rank) and lesson 6 (knowledge cutoff).
