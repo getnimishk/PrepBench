@@ -30,9 +30,17 @@ def test_an_unanswerable_question_abstains():
 
 
 def test_tool_has_a_schema_and_rejects_bad_arguments():
-    assert lc.search_documents.args["query"]["type"] == "string"
-    assert lc.search_documents.invoke({"query": QUESTIONS[0][0]})
+    tool_ = lc.make_search_tool()
+    assert tool_.args["query"]["type"] == "string"
+    assert tool_.invoke({"query": QUESTIONS[0][0]})
     with pytest.raises(Exception):
-        lc.search_documents.invoke({"query": "x", "max_results": 99})
+        tool_.invoke({"query": "x", "max_results": 99})
     with pytest.raises(Exception):
-        lc.search_documents.invoke({"max_results": 2})          # query missing
+        tool_.invoke({"max_results": 2})          # query missing
+
+
+def test_the_tool_carries_the_callers_groups_and_the_model_cannot_choose_them():
+    q = "How big is the annual bonus pool for the finance team?"
+    assert not any(c.startswith("finance-bonus") for c in lc.make_search_tool().invoke({"query": q}))
+    assert any(c.startswith("finance-bonus") for c in lc.make_search_tool(("finance",)).invoke({"query": q}))
+    assert "groups" not in lc.make_search_tool(("finance",)).args          # not part of the schema the model sees

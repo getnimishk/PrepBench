@@ -94,7 +94,7 @@ Not all evidence is equal, and a product owner should know which is which.
 | Logs and system data (tickets, timestamps) | Objective, large, already exists | Shows what happened, not why |
 | Observation (watching someone do the task) | Shows real behaviour and workarounds | Small samples; people act differently when watched |
 | Interviews about past events | Explains why; surfaces unknown steps | Memory is imperfect; a few people may not represent everyone |
-| Opinions about a proposed solution | Cheap to gather | The weakest: people are poor at predicting what they will use |
+| Opinions about a proposed solution | Cheap to gather | The weakest: people are poor at predicting what they will use (our practice and a common product heuristic; we cite no source for it) |
 | A cheap prototype in real use | Tests the real behaviour | Costs effort; may bias the sample if only enthusiasts volunteer |
 
 Combine at least two kinds: use logs to find where the pain is and interviews to learn why. Be explicit about **sample size**: six interviews can reveal a problem, not prove its size. State both, and size the problem from the logs.

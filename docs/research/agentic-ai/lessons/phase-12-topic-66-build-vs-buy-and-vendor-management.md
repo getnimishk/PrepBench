@@ -100,7 +100,7 @@ Choosing is the start; you then **manage** the choice. A short vendor-management
 - **Cost control:** rate limits, usage reports, budget alerts, and a notification at 50, 80 and 100 percent of budget.
 - **Review cadence:** a quarterly look at usage, incidents, cost against plan, and the vendor's roadmap against yours.
 
-The criterion also requires an **exit plan** covering two events: **the vendor fails** (outage, price change, acquisition, shut-down) and **a model is retired**. Our `check_recommendation()` refuses a recommendation without both. A good exit plan states, for each event:
+The criterion also requires an **exit plan** covering two events: **the vendor fails** (outage, price change, acquisition, shut-down) and **a model is retired**. Our `check_recommendation()` refuses a recommendation without both. It is a lint: it checks that the required fields exist and that both phrases appear, not that the plan is adequate. A reviewer must judge the detection method, replacement path, owner, timing and data. A good exit plan states, for each event:
 
 | Item | Vendor fails | Model retired |
 |---|---|---|
@@ -139,7 +139,7 @@ The vendor failing and a model being retired. It becomes real when you name the 
 
 ## Part 4 · The one-page 4D review
 
-The criterion ends with a one-page review using the **4D** structure from Anthropic's AI Fluency framework: **Delegation, Description, Discernment, Diligence**. We use it as a review of how **you** used AI while producing the scorecard, which is a fair test of the habits this course teaches:
+The criterion ends with a one-page review using the **4D** structure from Anthropic's AI Fluency framework: **Delegation, Description, Discernment, Diligence**. Anthropic's framework describes Diligence broadly, as interacting with AI responsibly; recording and disclosing what you did is **our operationalisation** of it, not Anthropic's wording. We use the four Ds as a review of how **you** used AI while producing the scorecard, which is a fair test of the habits this course teaches:
 
 | D | The question | An example answer for this lesson (fictional) |
 |---|---|---|

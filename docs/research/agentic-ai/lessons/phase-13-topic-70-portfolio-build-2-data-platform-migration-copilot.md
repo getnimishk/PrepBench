@@ -3,7 +3,7 @@
 **Course:** Agentic AI, from first principles to production · Module 13 Portfolio · lesson 70 of 77 · **about 24 hours** · paper draft for review.  
 **Success criterion:** On 5 sample queries the copilot produces converted code, runs comparison tests and reports pass or fail with defect categories, and a human approval gate blocks any unapproved change. Finish with a one-page 4D review: what you delegated, how you described it, how you checked the result, and what you recorded and disclosed.
 
-> Sources (read 2026-10-03; details and gaps in docs/research/agentic-ai): Roadmap portfolio-project criteria (the course's own tab); lessons 21 to 25 (agent loops, tools, retries), 46 (evaluation), 52 and 53 (approval gate and audit), 65 and 66 (business case and build versus buy); Anthropic AI Fluency framework (4D). Differences between Oracle-style SQL and SQLite described below (NULL in concatenation, integer division) are common database knowledge, not verified here: we ran no Oracle database. Management practice is less settled than engineering. Where a source supports a statement we cite it; where a lesson gives our own practice we say 'our practice' and do not borrow authority for it. The reference code for this module was written by us and run on Python 3.14.7: the product, migration, drills and deploy folders have 8, 6, 8 and 6 passing tests, and the RAG evidence report generator runs on the lesson 27 to 31 build. Nothing here ran against a real embedding model, a real LLM, a real legacy database or a cloud account. The 'converter' in the reference code is a small rule-based stand-in for a model, and the target engine is SQLite. This is a harness for the discipline of converting and proving, not a Spark or Hive converter. Unverified: behaviour on any real legacy dialect, any real volume, or any cloud platform.
+> Sources (read 2026-10-03; details and gaps in docs/research/agentic-ai): Roadmap portfolio-project criteria (the course's own tab); lessons 21 to 25 (agent loops, tools, retries), 46 (evaluation), 52 and 53 (approval gate and audit), 65 and 66 (business case and build versus buy); Anthropic AI Fluency framework (4D). Differences between Oracle-style SQL and SQLite described below (NULL in concatenation, integer division) are common database knowledge, not verified here: we ran no Oracle database. Management practice is less settled than engineering. Where a source supports a statement we cite it; where a lesson gives our own practice we say 'our practice' and do not borrow authority for it. The reference code for this module was written by us and run on Python 3.14.7: the product, migration, drills and deploy folders have 8, 7, 9 and 6 passing tests, and the RAG evidence report generator runs on the lesson 27 to 31 build. Nothing here ran against a real embedding model, a real LLM, a real legacy database or a cloud account. The 'converter' in the reference code is a small rule-based stand-in for a model, and the target engine is SQLite. This is a harness for the discipline of converting and proving, not a Spark or Hive converter. Unverified: behaviour on any real legacy dialect, any real volume, or any cloud platform.
 
 ---
 
@@ -49,7 +49,7 @@ Each query was chosen for a known semantic difference between the legacy and tar
 |---|---|---|
 | Q1 | `NVL(region,'UNKNOWN')` | Function name only (becomes `COALESCE`) |
 | Q2 | `DECODE(status,'S','Shipped',...)` | Function name and a different structure (becomes `CASE`) |
-| Q3 | `first||' '||middle||' '||last` | In Oracle-style semantics a NULL operand in concatenation behaves like empty text; in SQLite it makes the whole result NULL |
+| Q3 | `first||' '||middle||' '||last` | Expected legacy behaviour, not verified against Oracle here: a NULL operand in concatenation behaves like empty text; in SQLite it makes the whole result NULL |
 | Q4 | `total/items` | Integer division on the target gives a truncated value; the legacy meaning was a decimal |
 | Q5 | `order_date + 7` and `ROWNUM <= 3` | Date arithmetic and row limiting are written differently |
 | Q6 | `UPDATE ... NVL(...)` | A **write**: the harness only ever runs it on a throwaway copy |
@@ -103,6 +103,8 @@ Four differed only in function names; two differed in meaning (NULL in concatena
 1. A query with a defect is **never** applied, whatever anyone says.
 2. A clean query that used a risky rewrite (concatenation, division, date arithmetic, row limits) or any write needs a **named person's** approval.
 3. Every decision, including a block and its reason, is written to an audit log.
+
+**Strict mode.** The roadmap criterion says a human gate blocks any unapproved change. By default our gate applies a clean query with no risky rewrite (Q1 and Q2 below) without a named approver. To meet the criterion literally, call `gate(rows, approvals, log, strict=True)`: nothing is then applied without a named approver, and defects are still never applied. Decide which you want and say so in your README.
 
 ```text
 gate on v2, no approvals given      -> applied: Q1, Q2   (the others are blocked: needs a named approver)
@@ -169,7 +171,7 @@ The converter is untrusted and replaceable; the harness that proves equivalence 
 
 1. Choose 5 to 8 queries with differing semantic traps. Write a one-line meaning for each and a reviewed reference query on your target engine.
 2. Build the harness: run, compare, classify defects, summarise by category.
-3. Write two converters (rules and model-assisted if you can) and compare them in the harness; record the defect categories for each.
+3. Write two rule-based converter versions (naive, then improved from the harness findings) and compare them in the harness (a model-assisted converter is an optional extra that the reference code does not include); record the defect categories for each.
 4. Add test data for NULLs, edge values and empty tables and review the cases a model proposed.
 5. Add the approval gate with a named approver and an audit log; test that a defect is never applied and that a risky clean query is blocked without an approver.
 6. Write the README stating the stand-in scope and the caveat about golden results, and the one-page 4D review.

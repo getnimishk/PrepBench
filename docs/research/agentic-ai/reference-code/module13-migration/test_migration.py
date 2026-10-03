@@ -47,3 +47,11 @@ def test_gate_blocks_defects_and_unapproved_risky_changes_and_never_applies_with
 def test_a_write_runs_only_on_a_throwaway_copy():
     harness.run(converter.convert_v2(data.LEGACY["Q6"]), "Q6")
     assert data.fresh_db().execute("select count(*) from orders where status is null").fetchone()[0] == 1       # a new copy is untouched
+
+
+def test_strict_gate_applies_nothing_without_a_named_approver():
+    v2 = harness.evaluate(converter.convert_v2)
+    assert harness.gate(v2, {}, [], strict=True) == []
+    assert harness.gate(v2, {q: "sam" for q in ("Q1", "Q2")}, [], strict=True) == ["Q1", "Q2"]
+    v1 = harness.evaluate(converter.convert_v1)
+    assert harness.gate(v1, {q: "sam" for q in data.LEGACY}, [], strict=True) == ["Q1", "Q2", "Q5", "Q6"]   # defects still blocked
