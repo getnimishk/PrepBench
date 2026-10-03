@@ -186,6 +186,44 @@ def test_the_open_question_9_decisions_are_in_the_pack():
     assert factory["waves"][2]["waves"] == [7, 8, 9]
 
 
+def test_the_factory_content_agrees_with_the_pack_it_ships_in():
+    """Station F reads this content in the browser, so a slip here is a wrong screen, not an error.
+    Checked here against the pack's own dataset and wave plan."""
+    pack = pack_service.get_pack(PACK)
+    factory = pack.factory
+    assert factory["stub"] is False
+    domains = factory["domains"]
+
+    # One domain per slot of the wave plan, and the slots' waves are 1..12 once each.
+    assert len(domains) == len(factory["waves"])
+    assert sorted(w for slot in factory["waves"] for w in slot["waves"]) == list(range(1, 13))
+    assert sorted(w for d in domains for w in d["waves"]) == list(range(1, 13))
+
+    # The yield wave's Validate step compares two real lab tables.
+    compared = [d["validate_compare"] for d in domains if "validate_compare" in d]
+    assert len(compared) == 1
+    for table in (compared[0]["left"], compared[0]["right"]):
+        assert table in pack.tables()
+
+    # Every job's signals are described, and every tier is reachable by the rules.
+    described = set(factory["signals"])
+    assert all(set(job["signals"]) <= described for job in factory["tiering_sample"])
+    rules = factory["tier_rules"]
+    assert {r["tier"] for r in rules} == {1, 2, 3}
+    assert rules[-1]["any_of"] == []  # "everything else" comes last, so every job gets a tier
+    assert all(set(r["any_of"]) <= described for r in rules)
+
+    # Effort and job counts are defined for every tier, and every constant is labelled as a teaching constant.
+    assert set(factory["teaching_constants"]["effort_per_job_by_tier"]["value"]) == {"1", "2", "3"}
+    assert all(set(d["jobs_by_tier"]) == {"1", "2", "3"} for d in domains)
+    for name, constant in factory["teaching_constants"].items():
+        assert constant["label"], name
+
+    # The event schedule is fixed content: scheduled months, a freeze window that runs forwards.
+    assert factory["events"]["hidden_inventory"]["month"] >= 1
+    assert factory["events"]["change_freeze"]["to_month"] > factory["events"]["change_freeze"]["from_month"]
+
+
 def _copy_pack(tmp_path, mutate):
     src = pack_service.PACKS_DIR / PACK
     dst = tmp_path / "packs" / PACK

@@ -11,7 +11,7 @@ import type { SpacedDeck, SpacedGrade, SpacedGradeResult } from '../types/spaced
 import type { Role, RoleCreate, RoleDiagnostic, RoleDiagnosticItem, RoleRequirementIn, RoleSummary } from '../types/role';
 import type { WireLearningAttempt } from '../types/learning';
 import type {
-  EngineStatus, JournalEntry, LabOperation, LabOperationResult, LabPackDetail, LabPackSummary, LabResetResult,
+  EngineStatus, JournalEntry, JournalEntryIn, LabOperation, LabOperationResult, LabPackDetail, LabPackSummary, LabResetResult,
 } from '../types/lakehouse';
 import { ScoreTrendPoint, DomainMasteryItem, DomainDetail } from '../types/analytics';
 import { AppSettings } from '../types/settings';
@@ -1311,6 +1311,12 @@ export const resetLakehousePack = async (packId: string) => {
 
 export const getLakehouseJournal = async (packId?: string) => {
   const res = await api.get<JournalEntry[]>(`${LAKEHOUSE}/journal`, packId ? { params: { pack_id: packId } } : undefined);
+  return res.data;
+};
+
+/** A simulation station's journal entry. The server refuses one claiming to be a real-engine run. */
+export const addLakehouseJournalEntry = async (entry: JournalEntryIn) => {
+  const res = await api.post<JournalEntry>(`${LAKEHOUSE}/journal`, entry);
   return res.data;
 };
 

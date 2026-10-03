@@ -6,7 +6,14 @@ import type { WireLearningAttempt } from '../../types/learning';
 import type { LabOperation, LabOperationResult } from '../../types/lakehouse';
 import { apiErrorMessage } from '../apiError';
 import { getLearningAttempts, patchLearningAttempt, runLakehouseOperation, startLearningAttempt } from '../api';
-import { CHALLENGE_PREFIX, type StationCChallenge } from './stationC';
+/** Every lab challenge id starts here; Station C's are `lakehouse.c.…`, Station F's `lakehouse.f.…`. */
+export const LAB_PREFIX = 'lakehouse.';
+
+/** What an attempt needs to know about a challenge. Station C's and Station F's both have it. */
+export interface LabChallengeRef {
+  id: string;
+  conceptId: string;
+}
 
 // A Station C challenge's progress, kept as a learning attempt on the Lakehouse
 // Lab's own subject (skills plan D11: the seeded `databricks` skill).
@@ -27,19 +34,22 @@ export interface ChallengeKey {
   subjectId?: number;
   packId: string;
   packVersion: number;
-  challenge: StationCChallenge;
+  challenge: LabChallengeRef;
 }
 
 /** Stable and short enough for the server's 64 characters. */
 export function labAttemptUid(key: ChallengeKey): string {
-  const slug = key.challenge.id.slice(CHALLENGE_PREFIX.length);
+  // Station C's ids keep their original short form, so attempts made before Station F existed still match.
+  const slug = key.challenge.id.startsWith('lakehouse.c.')
+    ? key.challenge.id.slice('lakehouse.c.'.length)
+    : key.challenge.id.slice(LAB_PREFIX.length).replace('.', '-');
   return `lk:${key.subjectId ?? 0}:${key.packId}@${key.packVersion}:${slug}`.slice(0, 64);
 }
 
 export const labFingerprint = (packId: string, packVersion: number) => `pack=${packId}@${packVersion}`;
 
 /** Is this attempt one of the lab's? Told apart by id, never by guessing. */
-export const isLabAttempt = (a: Pick<WireLearningAttempt, 'challenge_id'>) => a.challenge_id.startsWith(CHALLENGE_PREFIX);
+export const isLabAttempt = (a: Pick<WireLearningAttempt, 'challenge_id'>) => a.challenge_id.startsWith(LAB_PREFIX);
 
 /** Open the challenge's attempt, or reach the one already open. Idempotent on the id. */
 export function openLabAttempt(key: ChallengeKey): Promise<WireLearningAttempt> {
@@ -71,6 +81,17 @@ export function completeLabAttempt(
     correct: attempt.prediction === readAs,
     observed: { result: readAs, ok: result.ok, version: result.version ?? null, rows: result.rows ?? null },
   });
+}
+
+/**
+ * Close an attempt whose outcome the browser worked out itself (Station F's tiering,
+ * which the model scores). Labelled in `observed` as a simulation, so it is never
+ * mistaken for an engine result.
+ */
+export function completeLabSimulation(
+  attemptUid: string, correct: boolean, observed: Record<string, unknown>,
+): Promise<WireLearningAttempt> {
+  return patchLearningAttempt(attemptUid, { completed: true, correct, observed: { ...observed, source: 'simulation' } });
 }
 
 /** The learner's own acceptance criteria. Their words; never graded. */

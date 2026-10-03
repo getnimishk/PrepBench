@@ -17,6 +17,7 @@ vi.mock('../services/api', () => ({
   deleteLakehouseJournalEntry: vi.fn(),
   getLakehouseJournalMarkdown: vi.fn(),
   getSubjects: vi.fn(),
+  addLakehouseJournalEntry: vi.fn(),
   getLearningAttempts: vi.fn(),
   startLearningAttempt: vi.fn(),
   patchLearningAttempt: vi.fn(),
@@ -25,6 +26,7 @@ vi.mock('../services/api', () => ({
   getLakehouseNotebook: vi.fn(),
 }));
 
+import packFactory from '../../../backend/app/data/lab_packs/semiconductor-v1/factory.json';
 import * as api from '../services/api';
 import { DatabricksSandboxPage } from './DatabricksSandboxPage';
 
@@ -55,10 +57,12 @@ beforeEach(() => {
 });
 
 describe('DatabricksSandboxPage', () => {
-  it('opens on Station C with the h1, the engine status and the journal count', async () => {
+  it('opens on Station F, the programme, with the h1, the engine status and the journal count', async () => {
+    vi.mocked(api.getLakehousePack).mockResolvedValue({ ...pack, factory: packFactory as Record<string, unknown> });
     renderPage();
     expect(await screen.findByRole('heading', { level: 1, name: 'Lakehouse Lab' })).toBeInTheDocument();
-    expect(await screen.findByRole('heading', { level: 2, name: /Station C/ })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 2, name: /Station F/ })).toBeInTheDocument();
+    expect(await screen.findByRole('table', { name: 'Jobs to tier' })).toBeInTheDocument();
     expect(screen.getByText('Real engine · deltalake 1.6.6')).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole('button', { name: 'Journal (1)' })).toBeInTheDocument());
   });
@@ -71,21 +75,35 @@ describe('DatabricksSandboxPage', () => {
   });
 
   it('puts the lab’s attempts on the databricks preparation', async () => {
-    renderPage();
+    renderPage('/databricks-sandbox?station=c');
     await screen.findByRole('heading', { level: 2, name: /Station C/ });
     await waitFor(() => expect(api.getLearningAttempts).toHaveBeenCalledWith({ subject_id: 2 }));
   });
 
   it('shows the stations that are not built yet as such, and does not pretend', async () => {
-    renderPage('/databricks-sandbox?station=f');
-    expect(await screen.findByText('This station isn’t built yet. It arrives in a later phase of the Lab. Station C, Delta Lake, is ready.')).toBeInTheDocument();
+    renderPage('/databricks-sandbox?station=a');
+    expect(await screen.findByText('This station isn’t built yet. It arrives in a later phase of the Lab. Stations F and C are ready.')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /Station C · Delta Lake/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'F · Migration Factory (not built yet)' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('button', { name: 'A · ADF + Lakeflow (not built yet)' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('button', { name: 'F · Migration Factory' })).not.toHaveAttribute('aria-current');
   });
 
-  it('falls back to Station C for an unknown station', async () => {
+  it('falls back to Station F for an unknown station', async () => {
     renderPage('/databricks-sandbox?station=zzz');
+    expect(await screen.findByRole('heading', { level: 2, name: /Station F/ })).toBeInTheDocument();
+  });
+
+  it('opens Station C on the comparison when sent from Station F’s yield wave, and says so', async () => {
+    renderPage('/databricks-sandbox?station=c&challenge=reconciliation&from=f&wave=10');
     expect(await screen.findByRole('heading', { level: 2, name: /Station C/ })).toBeInTheDocument();
+    expect(screen.getByText(/Opened from Station F · wave 10 Validate/)).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Challenge' })).toHaveTextContent('Does the migrated table match the legacy one?');
+  });
+
+  it('does not claim to come from Station F when it did not', async () => {
+    renderPage('/databricks-sandbox?station=c&challenge=reconciliation');
+    await screen.findByRole('heading', { level: 2, name: /Station C/ });
+    expect(screen.queryByText(/Opened from Station F/)).not.toBeInTheDocument();
   });
 
   it('opens the journal, deletes an entry, and exports it', async () => {
@@ -112,6 +130,6 @@ describe('DatabricksSandboxPage', () => {
     renderPage();
     expect(await screen.findByText('The Lakehouse Lab did not load.')).toBeInTheDocument();
     await userEvent.setup().click(screen.getByRole('button', { name: 'Retry' }));
-    expect(await screen.findByRole('heading', { level: 2, name: /Station C/ })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 2, name: /Station F/ })).toBeInTheDocument();
   });
 });

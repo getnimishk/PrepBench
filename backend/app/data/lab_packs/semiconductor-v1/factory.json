@@ -1,10 +1,30 @@
 {
-  "stub": true,
-  "note": "Station F (the Migration Factory) is built in Lakehouse Lab Phase 2. The decisions below are recorded now because they settle the source scenario's contradictions (PRD open question 9, decided 2026-09-28).",
+  "stub": false,
+  "note": "Station F (the Migration Factory). Every figure here is a fictional teaching constant for the semiconductor scenario, never an estimate or a price. The cost ratio, the wave numbering and the budget range are PRD open question 9, decided 2026-09-28.",
   "teaching_constants": {
     "job_cluster_vs_all_purpose_cost_ratio": {
       "value": 0.5,
       "label": "Illustrative; check the current rate card. Never quoted as a real price ratio."
+    },
+    "infrastructure_share_of_job_cluster_cost": {
+      "value": 0.6,
+      "label": "Teaching constant: the storage, network and other infrastructure under the compute, as a share of the job-cluster compute bill. Not a measured figure."
+    },
+    "effort_per_job_by_tier": {
+      "value": {"1": 1, "2": 3, "3": 8},
+      "label": "Teaching constant: engineering effort units for converting and validating one job of each tier."
+    },
+    "steady_velocity_effort_per_month": {
+      "value": 540,
+      "label": "Teaching constant: effort units the migration team completes in a month once it is up to speed."
+    },
+    "pilot_velocity_factor": {
+      "value": 0.45,
+      "label": "Teaching constant: the pilot waves run at 40 to 50 percent of steady speed while the team learns the platform. 45 percent is used."
+    },
+    "default_plan_buffer_percent": {
+      "value": 20,
+      "label": "Teaching constant: the contingency a plan adds to its own estimate."
     }
   },
   "budget": {"low_usd_millions": 10.5, "high_usd_millions": 13, "label": "Fictional range, about $10.5M to $13M."},
@@ -20,5 +40,72 @@
     {"phase": 2, "waves": [3, 4, 5, 6, 7, 8, 9]},
     {"phase": 3, "waves": [10, 11]},
     {"phase": 4, "waves": [12]}
-  ]
+  ],
+  "signals": {
+    "hiveql": "HiveQL",
+    "sparksql": "SparkSQL",
+    "no_udfs": "no UDFs",
+    "oozie_coordinator": "Oozie coordinator",
+    "python_udf": "custom Python UDF",
+    "custom_java_udf": "custom Java UDF",
+    "rdd_api": "RDD API",
+    "cross_realm_auth": "cross-realm Kerberos auth",
+    "feeds_yield_report": "feeds the yield report",
+    "spark_submit_from_cron": "spark-submit from cron, not in the inventory"
+  },
+  "tier_rules": [
+    {"tier": 3, "any_of": ["rdd_api", "custom_java_udf", "cross_realm_auth", "feeds_yield_report"]},
+    {"tier": 2, "any_of": ["python_udf", "oozie_coordinator", "spark_submit_from_cron"]},
+    {"tier": 1, "any_of": []}
+  ],
+  "tiering_sample": [
+    {"id": "yld_daily_agg", "signals": ["hiveql", "no_udfs", "feeds_yield_report"]},
+    {"id": "inv_snapshot", "signals": ["sparksql", "oozie_coordinator"]},
+    {"id": "eq_anomaly_rdd", "signals": ["rdd_api", "custom_java_udf", "cross_realm_auth"]},
+    {"id": "bi_sales_feed", "signals": ["hiveql", "no_udfs"]},
+    {"id": "fin_close_rollup", "signals": ["sparksql", "python_udf"]},
+    {"id": "cron_mes_pull", "signals": ["spark_submit_from_cron"]},
+    {"id": "bi_region_dim", "signals": ["hiveql", "no_udfs"]},
+    {"id": "sc_po_enrich", "signals": ["sparksql", "oozie_coordinator", "python_udf"]},
+    {"id": "fin_gl_recon", "signals": ["sparksql", "custom_java_udf"]},
+    {"id": "scrap_weekly", "signals": ["hiveql", "feeds_yield_report"]},
+    {"id": "tool_status_feed", "signals": ["hiveql", "no_udfs"]},
+    {"id": "telemetry_sessionize", "signals": ["rdd_api", "oozie_coordinator"]}
+  ],
+  "domains": [
+    {
+      "id": "bi", "name": "BI feeds", "waves": [1, 2], "earliest_safe_slot": 0,
+      "jobs_by_tier": {"1": 300, "2": 90, "3": 10}
+    },
+    {
+      "id": "supply", "name": "Supply chain", "waves": [3, 4, 5, 6], "earliest_safe_slot": 0,
+      "jobs_by_tier": {"1": 350, "2": 250, "3": 100}
+    },
+    {
+      "id": "finance", "name": "Finance", "waves": [7, 8, 9], "earliest_safe_slot": 1,
+      "jobs_by_tier": {"1": 200, "2": 250, "3": 150}
+    },
+    {
+      "id": "yield", "name": "Yield and defect analytics", "waves": [10, 11], "earliest_safe_slot": 2,
+      "jobs_by_tier": {"1": 100, "2": 200, "3": 200},
+      "consumers": ["Yield dashboard", "Weekly scrap report", "Audit extract"],
+      "validate_compare": {"left": "legacy.defects", "right": "silver.defects"}
+    },
+    {
+      "id": "telemetry", "name": "Equipment telemetry", "waves": [12], "earliest_safe_slot": 3,
+      "jobs_by_tier": {"1": 100, "2": 150, "3": 150}
+    }
+  ],
+  "events": {
+    "hidden_inventory": {
+      "month": 4, "extra_job_percent": 15, "tier": 2,
+      "text": "15% more jobs found: cron and shell wrappers that were in no inventory"
+    },
+    "change_freeze": {
+      "from_month": 11, "to_month": 12,
+      "text": "Change freeze for the fab audit: no cutover in months 11 to 12"
+    },
+    "early_critical_rework_percent": 25
+  },
+  "per_wave_loop": ["Convert", "Validate", "Parallel run", "Cutover", "Hypercare"]
 }
