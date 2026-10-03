@@ -3,6 +3,7 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import type { JournalEntry, LabOperationResult } from '../../types/lakehouse';
+import { fmt, monthOf, type FactoryRun } from './factoryModel';
 
 // How the lab words what it was told: only what the engine or the journal reported.
 
@@ -29,3 +30,10 @@ export function entrySummary(e: JournalEntry): string {
   return parts.join(' · ');
 }
 
+/** The text a screen reader gets in place of the picture. The wave table below it has the rest. */
+export function timelineSummary(run: FactoryRun): string {
+  const row = (label: string, p: FactoryRun['count']) =>
+    `${label}: promised month ${monthOf(p.plannedEnd)}, ended month ${monthOf(p.actualEnd)}, ${
+      p.lateness > 1 ? `${fmt(p.lateness)} months late` : 'on plan'}`;
+  return `Programme timeline in months. ${row('Plan by job count', run.count)}. ${row('Plan weighted by complexity', run.weighted)}.`;
+}

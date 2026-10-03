@@ -8,7 +8,6 @@ import type { WireLearningAttempt } from '../../types/learning';
 import type { EngineStatus, LabPackDetail } from '../../types/lakehouse';
 import { getLakehouseNotebook, resetLakehousePack } from '../../services/api';
 import { apiErrorMessage } from '../../services/apiError';
-import { AC_CHECK_LABELS, acChecks } from '../../services/lakehouse/acChecks';
 import {
   commitLabPrediction, completeLabAttempt, fetchLabAttempts, labAttemptUid, openLabAttempt, runOperation,
   saveLabExplanation, type RunOutcome,
@@ -18,7 +17,8 @@ import {
   type TableStates,
 } from '../../services/lakehouse/stationC';
 import { ErrorState, LoadingState } from '../common/States';
-import { Actions, CheckRow, Detail, Good, Note, Pill, Row } from '../ui/primitives';
+import { Actions, Detail, Good, Note, Pill, Row } from '../ui/primitives';
+import { AcExplain, type SaveState } from './AcExplain';
 import { EnginePanel } from './EnginePanel';
 import { OperationForm } from './OperationForm';
 import { StationShell } from './StationShell';
@@ -57,8 +57,14 @@ export const StationC: React.FC<{
   engine: EngineStatus;
   subjectId?: number;
   onJournalChange: () => void;
-}> = ({ pack, engine, subjectId, onJournalChange }) => {
-  const [challenge, setChallenge] = useState<StationCChallenge>(STATION_C_CHALLENGES[0]);
+  /** Opens on this challenge (Station F's yield wave sends the learner to the comparison). */
+  initialChallengeId?: string;
+  /** Set when the learner arrived from Station F's Validate step for this wave. */
+  fromFactoryWave?: number | null;
+}> = ({ pack, engine, subjectId, onJournalChange, initialChallengeId, fromFactoryWave }) => {
+  const [challenge, setChallenge] = useState<StationCChallenge>(
+    STATION_C_CHALLENGES.find((c) => c.id === initialChallengeId) ?? STATION_C_CHALLENGES[0],
+  );
   const [attempts, setAttempts] = useState<Record<string, WireLearningAttempt> | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
@@ -78,7 +84,7 @@ export const StationC: React.FC<{
 
   const [criteria, setCriteria] = useState('');
   const [checked, setChecked] = useState<string | null>(null);
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
+  const [saveState, setSaveState] = useState<SaveState>('idle');
   const [notebookError, setNotebookError] = useState<string | null>(null);
   const [resetNote, setResetNote] = useState<string | null>(null);
 
@@ -236,7 +242,6 @@ export const StationC: React.FC<{
   const shownReading = lastRun?.challengeId === challenge.id ? lastRun.reading : undefined;
   const result = outcome?.kind === 'result' ? outcome.result : null;
   const step = !committed ? 0 : !result && !completed ? 1 : !criteria.trim() && saveState !== 'saved' ? 2 : 3;
-  const checks = checked != null ? acChecks(checked) : [];
   const engineReady = engine.available;
   const chosen = attempt?.prediction ?? picked;
   const compare = template.op === 'compare_tables' ? { left: template.left, right: template.right } : undefined;
@@ -252,6 +257,11 @@ export const StationC: React.FC<{
       <Detail sx={{ mt: '4px' }}>
         Batches come straight from the pack’s generated data. The ADF and ADLS stations that would feed them arrive later.
       </Detail>
+      {fromFactoryWave != null && challenge.id === initialChallengeId && (
+        <Detail sx={{ mt: '4px' }}>
+          Opened from Station F · wave {fromFactoryWave} Validate. Predict first, then compare the legacy and migrated tables on the real engine.
+        </Detail>
+      )}
       <TextField
         select label="Challenge" value={challenge.id} sx={{ mt: '14px', maxWidth: 520 }}
         onChange={(e) => { const next = STATION_C_CHALLENGES.find((c) => c.id === e.target.value); if (next) choose(next); }}
@@ -336,38 +346,16 @@ export const StationC: React.FC<{
         )}
         explain={(
           <>
-            <Detail sx={{ mt: '8px' }}>Write the acceptance criteria for this decision.</Detail>
-            <TextField
-              label="Acceptance criteria" multiline minRows={4} fullWidth sx={{ mt: '8px' }}
-              value={criteria} disabled={!committed}
-              onChange={(e) => { setCriteria(e.target.value); setSaveState('idle'); }}
+            <AcExplain
+              enabled={committed}
               placeholder="Given a batch with an unexpected column, when it is appended, then …"
-              slotProps={{ htmlInput: { maxLength: 4000 } }}
-              helperText={committed ? undefined : 'Commit a prediction first.'}
+              criteria={criteria}
+              onCriteria={(text) => { setCriteria(text); setSaveState('idle'); }}
+              checked={checked}
+              onCheck={setChecked}
+              saveState={saveState}
+              onSave={saveCriteria}
             />
-            <Actions sx={{ mt: '10px' }}>
-              <Button variant="outlined" disabled={!committed || !criteria.trim()} onClick={() => setChecked(criteria)}>Check structure</Button>
-              <Button variant="outlined" disabled={!committed || !criteria.trim() || saveState === 'saving'} onClick={saveCriteria}>
-                {saveState === 'saving' ? 'Saving…' : 'Save'}
-              </Button>
-              {saveState === 'saved' && <Box role="status"><Detail>Saved</Detail></Box>}
-              {saveState === 'failed' && <Box role="alert"><Detail sx={{ color: 'error.main' }}>Not saved. Try again.</Detail></Box>}
-            </Actions>
-            {checked != null && (
-              <Box sx={{ mt: '12px' }}>
-                <Detail>Structure checks, not a quality grade</Detail>
-                {checks.map((c) => (
-                  <CheckRow
-                    key={c.check}
-                    mark={<span aria-hidden>{c.passed ? '✓' : '○'}</span>}
-                    aside={<Pill tone={c.passed ? 'success' : 'neutral'}>{c.passed ? 'Present' : 'Missing'}</Pill>}
-                  >
-                    {AC_CHECK_LABELS[c.check]}
-                    {!c.passed && <Detail>{c.hint}</Detail>}
-                  </CheckRow>
-                ))}
-              </Box>
-            )}
             <Row
               sx={{ mt: '10px' }}
               title="Databricks notebook"

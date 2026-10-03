@@ -146,6 +146,17 @@ export interface JournalEntry {
   created_at: string;
 }
 
+/** What a simulation station sends to be journaled. It is always a simulation. */
+export interface JournalEntryIn {
+  pack_id: string;
+  station: LabStation;
+  source?: 'simulation';
+  op: string;
+  table_name?: string | null;
+  result?: Record<string, unknown>;
+  attempt_uid?: string | null;
+}
+
 /** Structure checks on the acceptance criteria a learner writes (design §4.8). */
 export interface AcCheck {
   check: 'gwt' | 'threshold' | 'failure' | 'owner';

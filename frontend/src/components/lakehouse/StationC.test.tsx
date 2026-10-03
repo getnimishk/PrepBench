@@ -93,7 +93,9 @@ describe('StationC without the engine', () => {
     const user = userEvent.setup();
     renderStation(engineOff);
     await commitFirst(user, /refused/);
-    await user.type(screen.getByLabelText('Acceptance criteria'), 'Given a new column, when loaded, then reject it. The owner signs off within 1 day.');
+    // Pasted, not typed: a long string typed key by key through this page is slow enough to time out under load.
+    await user.click(screen.getByLabelText('Acceptance criteria'));
+    await user.paste('Given a new column, when loaded, then reject it. The owner signs off within 1 day.');
     await user.click(screen.getByRole('button', { name: 'Check structure' }));
     expect(screen.getByText('Structure checks, not a quality grade')).toBeInTheDocument();
     expect(screen.getAllByText('Present').length).toBeGreaterThanOrEqual(3);

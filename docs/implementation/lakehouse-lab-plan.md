@@ -39,8 +39,8 @@ This plan is written to be picked up **cold, in a new session**. Each phase is s
 |---|---|---|---|---|
 | 0 | Engine spike + scenario inconsistencies | — | **Gate passed.** Engine spike ✅ 2026-09-24; open question 9 ✅ resolved by the author 2026-09-28 (§3) | design §10; PR description |
 | 1A | Backend foundation + Station C engine API | PR #32 merged, Phase 0 gate | **Merged** (PR #42); the CI lab job is in (PR #57) | `GATE-LL-1A-REPORT.md` |
-| 1B | Page shell + Station C UI + journal | 1A gate | Gate passed, PR open. Open: the author runs the notebook on Free Edition | `GATE-LL-1B-REPORT.md` |
-| 2 | Station F: Migration Factory | 1B gate | Not started | `GATE-LL-2-REPORT.md` |
+| 1B | Page shell + Station C UI + journal | 1A gate | **Merged** (PR #60). Open: the author runs the notebook on Free Edition | `GATE-LL-1B-REPORT.md` |
+| 2 | Station F: Migration Factory | 1B gate | Gate passed, PR open | `GATE-LL-2-REPORT.md` |
 | 3 | Stations A and B + downstream flow | 2 gate | Not started | `GATE-LL-3-REPORT.md` |
 | 4 | Interview-ready (P1-1 to P1-6) | 3 gate | Not started | `GATE-LL-4-REPORT.md` |
 | Later | P2 items | — | Not planned | — |

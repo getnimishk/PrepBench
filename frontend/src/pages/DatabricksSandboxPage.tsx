@@ -17,29 +17,34 @@ import { ErrorState, LoadingState } from '../components/common/States';
 import { Actions, Detail, Eyebrow, PageHead, Panel, Pill } from '../components/ui/primitives';
 import { JournalDrawer } from '../components/lakehouse/JournalDrawer';
 import { StationC } from '../components/lakehouse/StationC';
+import { StationF } from '../components/lakehouse/StationF';
 
 /**
  * The Lakehouse Lab (PRD P0-12, plan Phase 1B). One fictional migration, two levels.
  *
- * Station C (Delta Lake, on the real engine) is built. F, A and B are simulations
- * that arrive in later phases; they're shown in the rail so the shape of the Lab is
+ * Station F (the Migration Factory, a simulation) and Station C (Delta Lake, on the real
+ * engine) are built. A and B are simulations that arrive in a later phase; they're shown in the rail so the shape of the Lab is
  * visible, and say they aren't built yet. Nothing pretends otherwise.
  */
 
 type Station = 'f' | 'a' | 'b' | 'c';
 
 const RAIL: { id: Station; level: 'Programme' | 'Pipeline'; name: string; built: boolean }[] = [
-  { id: 'f', level: 'Programme', name: 'Migration Factory', built: false },
+  { id: 'f', level: 'Programme', name: 'Migration Factory', built: true },
   { id: 'a', level: 'Pipeline', name: 'ADF + Lakeflow', built: false },
   { id: 'b', level: 'Pipeline', name: 'ADLS', built: false },
   { id: 'c', level: 'Pipeline', name: 'Delta Lake', built: true },
 ];
 
-const asStation = (s: string | null): Station => (RAIL.some((r) => r.id === s) ? (s as Station) : 'c');
+// The programme comes first: it shows why the pipeline details matter.
+const asStation = (s: string | null): Station => (RAIL.some((r) => r.id === s) ? (s as Station) : 'f');
 
 export const DatabricksSandboxPage: React.FC = () => {
   const [params, setParams] = useSearchParams();
   const station = asStation(params.get('station'));
+  // Station F's yield wave sends the learner to Station C's comparison, and says where from.
+  const presetChallenge = station === 'c' ? params.get('challenge') : null;
+  const fromWave = params.get('from') === 'f' ? Number(params.get('wave')) || null : null;
 
   const [engine, setEngine] = useState<EngineStatus | null>(null);
   const [pack, setPack] = useState<LabPackDetail | null>(null);
@@ -108,6 +113,7 @@ export const DatabricksSandboxPage: React.FC = () => {
   };
 
   const go = (s: Station) => setParams({ station: s });
+  const compareInStationC = (wave: number) => setParams({ station: 'c', challenge: 'reconciliation', from: 'f', wave: String(wave) });
   const levels: ('Programme' | 'Pipeline')[] = ['Programme', 'Pipeline'];
 
   return (
@@ -159,16 +165,25 @@ export const DatabricksSandboxPage: React.FC = () => {
             ))}
           </TextField>
 
-          {station === 'c' && (
-            <StationC pack={pack} engine={engine} subjectId={subjectId} onJournalChange={refreshJournal} />
+          {station === 'f' && (
+            <StationF pack={pack} subjectId={subjectId} onJournalChange={refreshJournal} onCompare={compareInStationC} />
           )}
-          {station !== 'c' && (
+          {station === 'c' && (
+            <StationC
+              key={presetChallenge ?? 'default'}
+              pack={pack} engine={engine} subjectId={subjectId} onJournalChange={refreshJournal}
+              initialChallengeId={presetChallenge ? `lakehouse.c.${presetChallenge}` : undefined}
+              fromFactoryWave={fromWave}
+            />
+          )}
+          {station !== 'c' && station !== 'f' && (
             <Panel component="section" aria-labelledby="station-later" sx={{ mt: '22px' }}>
               <Eyebrow component="h2" id="station-later">Station {station.toUpperCase()} · {RAIL.find((s) => s.id === station)?.name}</Eyebrow>
               <Detail sx={{ mt: '8px' }}>
-                This station isn’t built yet. It arrives in a later phase of the Lab. Station C, Delta Lake, is ready.
+                This station isn’t built yet. It arrives in a later phase of the Lab. Stations F and C are ready.
               </Detail>
               <Actions sx={{ mt: '12px' }}>
+                <Button variant="outlined" onClick={() => go('f')}>Open Station F</Button>
                 <Button variant="outlined" onClick={() => go('c')}>Open Station C</Button>
               </Actions>
             </Panel>
