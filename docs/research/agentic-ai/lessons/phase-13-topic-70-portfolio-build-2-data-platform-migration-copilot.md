@@ -1,0 +1,200 @@
+# Portfolio Build 2: Data Platform Migration Copilot
+
+**Course:** Agentic AI, from first principles to production · Module 13 Portfolio · lesson 70 of 77 · **about 24 hours** · paper draft for review.  
+**Success criterion:** On 5 sample queries the copilot produces converted code, runs comparison tests and reports pass or fail with defect categories, and a human approval gate blocks any unapproved change. Finish with a one-page 4D review: what you delegated, how you described it, how you checked the result, and what you recorded and disclosed.
+
+> Sources (read 2026-10-03; details and gaps in docs/research/agentic-ai): Roadmap portfolio-project criteria (the course's own tab); lessons 21 to 25 (agent loops, tools, retries), 46 (evaluation), 52 and 53 (approval gate and audit), 65 and 66 (business case and build versus buy); Anthropic AI Fluency framework (4D). Differences between Oracle-style SQL and SQLite described below (NULL in concatenation, integer division) are common database knowledge, not verified here: we ran no Oracle database. Management practice is less settled than engineering. Where a source supports a statement we cite it; where a lesson gives our own practice we say 'our practice' and do not borrow authority for it. The reference code for this module was written by us and run on Python 3.14.7: the product, migration, drills and deploy folders have 8, 6, 8 and 6 passing tests, and the RAG evidence report generator runs on the lesson 27 to 31 build. Nothing here ran against a real embedding model, a real LLM, a real legacy database or a cloud account. The 'converter' in the reference code is a small rule-based stand-in for a model, and the target engine is SQLite. This is a harness for the discipline of converting and proving, not a Spark or Hive converter. Unverified: behaviour on any real legacy dialect, any real volume, or any cloud platform.
+
+---
+
+## Part 1 · What the copilot is, and the honest scope
+
+A **migration copilot** helps move legacy SQL (Oracle, Hive, older Spark SQL) onto a new platform. The loop, from the roadmap objective: **analyse** a query, **propose** a conversion, **generate test data**, **run** the tests, **compare** results, **classify** defects, then **ask a human to approve**. The valuable part is not the conversion; models and rule tools can both do that part passably. It is the **proof and the gate**: how do you know the converted query means the same thing, and who decides it goes live.
+
+Because we have no legacy database and no cloud account, our build is a deliberately small **stand-in**:
+
+| Piece | In this course | In a real project |
+|---|---|---|
+| Legacy dialect | Six Oracle-style queries in a Python dict | Your real queries from a catalogue |
+| Target platform | SQLite | Databricks SQL, Synapse or your target |
+| Converter | Rule-based (v1 naive, v2 after the harness findings) | A model call with the dialect rules in context |
+| Golden result | Output of a human-reviewed reference query on the target engine | Reviewed by an engineer who knows the business meaning, or captured from the legacy system |
+| Approval | A named approver in a dict, logged | Your ticketing and change process |
+
+**What the stand-in proves:** the harness catches the kinds of defects migrations really have, and the gate blocks unapproved change. **What it does not prove:** that a model converts well, or that this works at scale. Say that in the README. Note one more caveat about the golden results: they are what a human **decided** the legacy query means on the target engine, not the output of the real legacy system. If the reference is wrong, the harness will approve a wrong conversion.
+
+**Worked example**
+
+Fictional message to a stakeholder: 'The harness found two defects the naive converter missed. It does not tell us the converter is good; it tells us what to check, and the gate makes sure a person decides.'
+
+**Common mistake**
+
+Presenting the demo as a working migration tool. It is a harness around a converter; the converter is the replaceable part.
+
+**Check yourself.** What is the valuable part of a migration copilot, and what is the golden result?
+
+<details><summary>Model answer (write yours first)</summary>
+
+The proof and the approval gate, not the conversion. The golden result is what a human-reviewed reference query means on the target engine, which is only as good as the review.
+
+</details>
+
+---
+
+## Part 2 · The six queries, and what the harness found
+
+Each query was chosen for a known semantic difference between the legacy and target engines:
+
+| Query | Legacy construct | The trap |
+|---|---|---|
+| Q1 | `NVL(region,'UNKNOWN')` | Function name only (becomes `COALESCE`) |
+| Q2 | `DECODE(status,'S','Shipped',...)` | Function name and a different structure (becomes `CASE`) |
+| Q3 | `first||' '||middle||' '||last` | In Oracle-style semantics a NULL operand in concatenation behaves like empty text; in SQLite it makes the whole result NULL |
+| Q4 | `total/items` | Integer division on the target gives a truncated value; the legacy meaning was a decimal |
+| Q5 | `order_date + 7` and `ROWNUM <= 3` | Date arithmetic and row limiting are written differently |
+| Q6 | `UPDATE ... NVL(...)` | A **write**: the harness only ever runs it on a throwaway copy |
+
+Run the harness on the naive converter (v1), then on v2 which adds the two fixes the harness's findings pointed to:
+
+```text
+== converter v1 (naive)
+Q1 PASS   Q2 PASS   Q3 FAIL null_semantics   Q4 FAIL numeric   Q5 PASS   Q6 PASS
+4 of 6 pass
+
+== converter v2 (after the harness findings)
+all six PASS   (6 of 6)
+```
+
+**Defect categories** let you act on the result: `error` (does not run), `wrong_rows` (count differs), `ordering` (same rows, different order), `null_semantics`, `numeric` (rounding or integer division), `wrong_values`. A count of defects **by category** over many queries is the most useful output of a real migration run, because it tells you which rule to teach the converter next.
+
+Note the lesson in v1: the naive converter passes the four queries where only the function name differed, and fails the two where the **meaning** differed. A test that only checked 'does it run' would have passed all six. Comparing **results on test data** is what finds semantic defects.
+
+**Worked example**
+
+```python
+def classify(actual, expected):
+    if isinstance(actual, Exception): return 'error'
+    if len(actual) != len(expected): return 'wrong_rows'
+    if actual == expected: return None
+    if sorted(map(repr, actual)) == sorted(map(repr, expected)): return 'ordering'
+    ...   # then null_semantics, numeric, wrong_values
+```
+
+**Common mistake**
+
+Treating 'it runs without error' as a pass. Migrations fail by returning different, plausible answers.
+
+**Check yourself.** Why did v1 pass four queries and fail two, and what kind of test finds the failures?
+
+<details><summary>Model answer (write yours first)</summary>
+
+Four differed only in function names; two differed in meaning (NULL in concatenation, integer division). Comparing results on test data finds the semantic defects; a does-it-run test does not.
+
+</details>
+
+---
+
+## Part 3 · Test data and the approval gate
+
+**Test data** decides what the harness can see. Our tiny tables include the cases that expose the traps: a NULL middle name (Q3), numbers that do not divide evenly (Q4), NULL regions and statuses (Q1, Q2, Q6). For a real migration, generate test data **per construct**: NULLs in every column the query touches, edge dates, empty and single-row tables, duplicates, the extreme values of numbers. Ask the model to propose the cases, then **review them yourself**, because a model tends to propose the cases it can already handle.
+
+**The approval gate** is the part the criterion insists on: *a human approval gate blocks any unapproved change.* Ours has three rules, in `gate()`:
+
+1. A query with a defect is **never** applied, whatever anyone says.
+2. A clean query that used a risky rewrite (concatenation, division, date arithmetic, row limits) or any write needs a **named person's** approval.
+3. Every decision, including a block and its reason, is written to an audit log.
+
+```text
+gate on v2, no approvals given      -> applied: Q1, Q2   (the others are blocked: needs a named approver)
+gate on v2, sam.reviewer approves Q3 to Q6 -> applied: Q1 to Q6, each logged 'applied (approved by sam.reviewer)'
+```
+
+Two cautions. First, **a harness on the same engine is not the real system:** the real run must compare against production-like data on the real target. Second, the gate protects only if people review honestly; if the approver clicks through 200 changes, you have approval fatigue (lesson 53). Show the approver the query, the diff, the test results and the defect category, and limit how many they decide in a sitting.
+
+**Worked example**
+
+Fictional audit entry: `{"time": "2026-10-03T08:39:02", "query": "Q4", "decision": "applied (approved by sam.reviewer)"}`.
+
+**Common mistake**
+
+Letting the copilot write to the target directly. The harness runs writes only on a throwaway copy, and 'apply' is a separate, gated step.
+
+**Check yourself.** What are the three rules of the gate, and what does the approver need to see?
+
+<details><summary>Model answer (write yours first)</summary>
+
+Defects are never applied; risky rewrites and writes need a named approver; every decision is logged. The approver sees the query, the diff, the test results and the defect category.
+
+</details>
+
+---
+
+## Part 4 · Documenting it, the 24-hour plan and the 4D review
+
+This is the largest build, at 24 hours. A plan:
+
+| Hours | Task |
+|---|---|
+| 3 | Choose 5 to 8 real or realistic legacy queries; write a one-line meaning for each; reference queries reviewed by you |
+| 4 | Harness: run, compare, classify; start with `harness.py` |
+| 6 | A converter: rules first, then a model call with the dialect notes; compare both in the harness |
+| 3 | Test-data generation per construct, reviewed |
+| 3 | Approval gate and audit log |
+| 2 | An evaluation: defect categories before and after each change, as in the table above |
+| 3 | Report and README: scope, stand-in honesty, the defects found, what you would do at real scale |
+
+The criterion asks for **5 sample queries** with converted code, comparison tests and pass or fail with defect categories, and a human approval gate. Our six exceed it. The one-page **4D review** follows the lesson 66 structure; a strong one here discusses how you checked the model's conversions and what you recorded, because *this build is about not trusting generated code.*
+
+In an interview, the sentence that lands is: **'I treat the converter as untrusted and the harness as the product.'**
+
+**Worked example**
+
+Fictional README sentence: 'The converter is a rule-based stand-in. In a real project it would be a model; the harness and the gate would stay the same.'
+
+**Common mistake**
+
+Spending 20 of the 24 hours on the converter and 4 on the harness. Invert that ratio.
+
+**Check yourself.** What is the one-sentence summary of this build for an interview?
+
+<details><summary>Model answer (write yours first)</summary>
+
+The converter is untrusted and replaceable; the harness that proves equivalence and the approval gate are the product.
+
+</details>
+
+---
+
+## Do it: lab
+
+1. Choose 5 to 8 queries with differing semantic traps. Write a one-line meaning for each and a reviewed reference query on your target engine.
+2. Build the harness: run, compare, classify defects, summarise by category.
+3. Write two converters (rules and model-assisted if you can) and compare them in the harness; record the defect categories for each.
+4. Add test data for NULLs, edge values and empty tables and review the cases a model proposed.
+5. Add the approval gate with a named approver and an audit log; test that a defect is never applied and that a risky clean query is blocked without an approver.
+6. Write the README stating the stand-in scope and the caveat about golden results, and the one-page 4D review.
+
+**Done when:** you have a harness that reports pass or fail with defect categories on at least 5 queries, a comparison of two converters, reviewed test data, an approval gate with an audit log that blocks unapproved changes, an honest README, and a one-page 4D review.
+
+---
+
+## Interview check
+
+**Question.** Walk me through a data platform migration copilot you built.
+
+<details><summary>A strong answer has this shape</summary>
+
+1. Loop: analyse, propose a conversion, generate test data, run, compare to a reviewed golden result, classify defects, then a human approval gate.
+2. The converter is untrusted and replaceable; the harness and the gate are the product. A naive converter passed 4 of 6 and failed on semantics (NULL in concatenation, integer division); after fixes it passed 6 of 6.
+3. Gate: defects are never applied, risky rewrites and writes need a named approver, every decision is logged.
+4. Honesty: it was a stand-in on SQLite with a rule-based converter, and golden results are only as good as the reviewer.
+
+</details>
+
+---
+
+## Evidence to keep
+
+Keep the repository, the before and after defect table, the audit log sample and the 4D page.
+
+---

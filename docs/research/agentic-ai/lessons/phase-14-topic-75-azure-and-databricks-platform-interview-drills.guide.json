@@ -1,0 +1,55 @@
+{
+  "topic_title": "Azure & Databricks platform interview drills",
+  "roadmap": "Agentic AI Mastery Roadmap",
+  "sources": "The platform lessons of this course: 51 (identity), 56 to 59 (Azure and Databricks agent platforms) and the retrieval lessons 27 and 32, with the primary sources they cite (Microsoft Learn Foundry Agent Service overview read 2026-09-25 and 2026-10-03; Databricks documentation for Agent Bricks read 2026-09-30). Management practice is less settled than engineering. Where a source supports a statement we cite it; where a lesson gives our own practice we say 'our practice' and do not borrow authority for it. The drill helpers (the question bank, the self-scoring functions and the story and case-study checks) were written by us and run on Python 3.14.7; their 8 tests passed. They check that evidence is present and count what you recorded; they do not judge the quality of an answer. Platform features change quickly. The questions point to lessons, and the lessons carry the dates of what we read. We ran no Azure or Databricks account, so every answer you give from this course is 'what I read and designed', not 'what I operated'. Unverified: any current feature, name or limit; check the vendor documentation before relying on an answer.",
+  "sections": [
+    {
+      "title": "How platform drills differ, and the rule about uncertainty",
+      "body": "A platform question asks you to name a **specific service**, describe what it does, and give **one tradeoff**. The criterion adds a rule that matters: *any uncertainty is flagged rather than bluffed.* In a platform interview the interviewer usually knows the product better than you. Bluffing is detected in seconds and costs the whole interview; flagging is respected.\n\nThe 15 questions:\n\n| ID | Question | Lesson that covers it |\n|---|---|---|\n| P01 | Which Azure service hosts a managed agent, and what is the tradeoff against hosting your own code? | 57 |\n| P02 | How does an agent authenticate to an Azure resource without a stored secret? | 51 |\n| P03 | What is the difference between delegated and application permissions? | 51 |\n| P04 | Where do traces go on Azure and what would you look at first? | 47 |\n| P05 | How does Azure AI Search help with access control in RAG? | 27 |\n| P06 | What does a budget alert on Azure do and not do? | 56 |\n| P07 | What is Unity Catalog's role for agent tools on Databricks? | 58 |\n| P08 | What permission runs a Unity Catalog function as a tool? | 58 |\n| P09 | What limit does a Databricks vector index have for per-user access? | 32 |\n| P10 | How would you evaluate an agent on Databricks? | 58 |\n| P11 | Delta Sync index: what does it need from the source table? | 32 |\n| P12 | Service principal versus on-behalf-of: when each? | 58 |\n| P13 | How do you keep an Azure or Databricks agent project from surprising you on cost? | 56 |\n| P14 | Managed agent versus custom agent: how do you choose? | 59 |\n| P15 | What would you not claim about a platform feature you only read about? | 57 |\n\n**The shape of an answer.** Service, what it does, one tradeoff, one uncertainty:\n\n> 'On Azure, a managed agent service would host the agent for me, which saves me running the runtime and gives me platform identity and tracing; the tradeoff is less control over the loop and some lock-in. I read about this in the vendor overview and have not operated it; I would confirm the current limits before committing.'\n\n**What you can honestly claim.** You did not run these platforms in this course. You *read* the primary documentation (dated in the lessons) and *designed* with their concepts. Say that. It is a perfectly good position for a candidate who is strong in Java, Spark and ANTLR and moving into agentic AI, and it contrasts well with a candidate who claims experience they cannot back up.",
+      "example": "Fictional flagged uncertainty that sounds strong: 'I am sure that the vector index needs a source table with change data feed for a Delta Sync index; I am not sure of the current limit on filters, and I would look it up rather than guess.'",
+      "common_mistake": "Answering with a product name and no tradeoff. 'Use Unity Catalog' is a label; 'Unity Catalog gives one governed place for tool permissions, at the cost of needing the data and functions registered there' is an answer.",
+      "check_question": "What does a good platform answer contain, and what happens to uncertainty?",
+      "check_answer": "The specific service, what it does and one tradeoff; any uncertainty is flagged explicitly rather than bluffed, with how you would confirm it."
+    },
+    {
+      "title": "Running the drill and keeping the facts fresh",
+      "body": "For each of the 15 questions:\n\n1. **Open the lesson in the table** and re-read the section and its dated sources.\n2. **Check that the lesson's source is still current.** Open the vendor page, compare the date you read it, and note any change. Product names and limits in this area move quickly; we flagged one unresolved naming issue in lesson 58 for exactly this reason.\n3. **Answer aloud in 90 seconds**, in the service, does, tradeoff, uncertainty shape. Record it.\n4. **Score:** did you name the service, give a tradeoff, and flag at least one thing you were unsure of? A 15-for-15 with no flagged uncertainty is suspicious; you are probably bluffing somewhere.\n\nMake a **one-page crib of facts that change**, to refresh the day before an interview: product names, the dates you verified, and a column 'confirm before saying'. Do not memorise limits; memorise where to look.\n\nNote that P15 asks 'what would you not claim about a platform feature you only read about?'. A good answer: that it works at scale, that it integrates with their stack, that a limit has not changed, and any performance or cost figure. You would claim what the documentation says, with its date.",
+      "example": "Fictional crib row: 'Agent hosting service: name changes possible; read 2026-09-25; confirm current name and region availability.'",
+      "common_mistake": "Learning the answer from this course's text without checking the vendor page, which may have changed since we read it.",
+      "check_question": "Why is a perfect score with no flagged uncertainty suspicious?",
+      "check_answer": "Platform features have details and limits no one knows perfectly; a candidate who flags nothing is probably bluffing somewhere."
+    },
+    {
+      "title": "Do it: lab",
+      "body": "1. Answer all 15 questions aloud, one at a time, in the service, does, tradeoff, uncertainty shape, recording each.\n2. For each, open the lesson's source and check its date; note any change since our reading.\n3. Score each for service named, tradeoff given and uncertainty flagged.\n4. Write the one-page crib of facts that change, with what to confirm.\n5. Do a second pass on the three weakest answers.\n\n**Done when:** you have 15 recorded answers, each naming a service and a tradeoff with a flagged uncertainty, a checked-sources note, and a one-page crib of what to confirm.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": null,
+      "check_answer": null
+    },
+    {
+      "title": "Interview check",
+      "body": "Answer aloud first, then compare. Do not memorise the words; understand the shape.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": "How would you secure and govern an agent on Azure or Databricks?",
+      "check_answer": "1. Identity first: a platform-managed identity with the least privilege, delegated permissions when acting for a user, no stored secrets.\n2. On Databricks I would use Unity Catalog as the one governed place for tool and data permissions, with the tradeoff that everything must be registered there.\n3. Tracing and evaluation on the platform, and a budget alert as a notification, not a stop.\n4. I would say what I have read and designed versus operated, and name what I would confirm."
+    },
+    {
+      "title": "Evidence to keep",
+      "body": "Keep the recordings, the scores, the checked-sources note and the crib.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": null,
+      "check_answer": null
+    },
+    {
+      "title": "Sources and what is unverified",
+      "body": "The platform lessons of this course: 51 (identity), 56 to 59 (Azure and Databricks agent platforms) and the retrieval lessons 27 and 32, with the primary sources they cite (Microsoft Learn Foundry Agent Service overview read 2026-09-25 and 2026-10-03; Databricks documentation for Agent Bricks read 2026-09-30). Management practice is less settled than engineering. Where a source supports a statement we cite it; where a lesson gives our own practice we say 'our practice' and do not borrow authority for it. The drill helpers (the question bank, the self-scoring functions and the story and case-study checks) were written by us and run on Python 3.14.7; their 8 tests passed. They check that evidence is present and count what you recorded; they do not judge the quality of an answer. Platform features change quickly. The questions point to lessons, and the lessons carry the dates of what we read. We ran no Azure or Databricks account, so every answer you give from this course is 'what I read and designed', not 'what I operated'. Unverified: any current feature, name or limit; check the vendor documentation before relying on an answer.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": null,
+      "check_answer": null
+    }
+  ]
+}
