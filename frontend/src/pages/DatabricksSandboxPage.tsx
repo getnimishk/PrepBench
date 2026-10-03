@@ -14,7 +14,7 @@ import { DEFAULT_LEVERS, leversKey, parseAdf, parseLevers, runPipeline, type Adf
 import { SKILL_SLUG } from '../services/lakehouse/attempts';
 import { loadSourceIndex } from '../services/lakehouse/sourceIndex';
 import { downstreamChallenge, DOWNSTREAM_PARAM } from '../services/lakehouse/stationC';
-import type { EngineStatus, JournalEntry, LabPackDetail } from '../types/lakehouse';
+import type { EngineStatus, JournalEntry, LabPackDetail, LabPackSummary } from '../types/lakehouse';
 import { NARROW_QUERY } from '../theme/tokens';
 import { ErrorState, LoadingState } from '../components/common/States';
 import { Actions, Detail, Eyebrow, PageHead, Panel, Pill } from '../components/ui/primitives';
@@ -27,9 +27,12 @@ import { StationF } from '../components/lakehouse/StationF';
 /**
  * The Lakehouse Lab (PRD P0-12, plan Phase 1B). One fictional migration, two levels.
  *
- * All four stations are built: F (the Migration Factory), A (ADF + Lakeflow) and B (ADLS) are
- * simulations, and C (Delta Lake) runs on the real engine. A's batch manifest feeds C; they're shown in the rail so the shape of the Lab is
- * visible, and say they aren't built yet. Nothing pretends otherwise.
+ * Four stations: F (the Migration Factory), A (ADF + Lakeflow) and B (ADLS) are simulations, and C
+ * (Delta Lake) runs on the real engine. A's batch manifest feeds C.
+ *
+ * More than one scenario pack can be installed. The page offers the stations a pack lists in its
+ * manifest and no others, so a pack that ships only data (the JD-PO-005 pack) shows Station C and
+ * nothing that would have to say "no content". Nothing here is specific to a pack.
  */
 
 type Station = 'f' | 'a' | 'b' | 'c';
@@ -54,21 +57,35 @@ function readUpstream(): AdfLevers {
   }
 }
 
-const asStation = (s: string | null): Station => (RAIL.some((r) => r.id === s) ? (s as Station) : 'f');
+/** The station to show: the one asked for if the pack has it, else the first it has (programme first). */
+const stationFor = (requested: string | null, available: Station[]): Station =>
+  (available.find((s) => s === requested) ?? available[0] ?? 'c');
+
+/** The pack asked for if it's installed; otherwise the one with the most stations (the full scenario), then the first. */
+function choosePack(packs: LabPackSummary[], requested: string | null): string | null {
+  const asked = packs.find((p) => p.id === requested);
+  if (asked) return asked.id;
+  return [...packs].sort((a, b) => b.stations.length - a.stations.length)[0]?.id ?? null;
+}
 
 export const DatabricksSandboxPage: React.FC = () => {
   const [params, setParams] = useSearchParams();
-  const station = asStation(params.get('station'));
-  // Station F's yield wave sends the learner to Station C's comparison, and says where from.
-  const presetChallenge = station === 'c' ? params.get('challenge') : null;
-  const fromStationA = station === 'c' && params.get('from') === 'a';
-  const fromWave = params.get('from') === 'f' ? Number(params.get('wave')) || null : null;
-
   const [engine, setEngine] = useState<EngineStatus | null>(null);
+  const [packList, setPackList] = useState<LabPackSummary[] | null>(null);
   const [pack, setPack] = useState<LabPackDetail | null>(null);
   const [subjectId, setSubjectId] = useState<number | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+
+  // Which pack, and which of its stations. Both come from the address, so a reload and a link keep them.
+  const packParam = params.get('pack');
+  const packId = packList ? choosePack(packList, packParam) : null;
+  const available = RAIL.map((r) => r.id).filter((id) => !pack || pack.stations.includes(id));
+  const station = stationFor(params.get('station'), available);
+  // Station F's yield wave sends the learner to Station C's comparison, and says where from.
+  const presetChallenge = station === 'c' ? params.get('challenge') : null;
+  const fromStationA = station === 'c' && params.get('from') === 'a';
+  const fromWave = params.get('from') === 'f' ? Number(params.get('wave')) || null : null;
 
   // What Station A last ran: the upstream Station C's downstream challenge writes for real. Kept for
   // the session, so a reload doesn't forget it; unreadable or absent, it is the default upstream.
@@ -90,10 +107,9 @@ export const DatabricksSandboxPage: React.FC = () => {
       try {
         const [status, packs, subjects] = await Promise.all([getLakehouseEngine(), getLakehousePacks(), getSubjects()]);
         if (packs.length === 0) throw new Error('The Lab has no scenario pack installed.');
-        const detail = await getLakehousePack(packs[0].id);
         if (cancelled) return;
         setEngine(status);
-        setPack(detail);
+        setPackList(packs);
         setSubjectId(subjects.find((s) => s.slug === SKILL_SLUG)?.id);
       } catch (err) {
         if (!cancelled) setError(apiErrorMessage(err, 'The Lakehouse Lab did not load.'));
@@ -101,6 +117,17 @@ export const DatabricksSandboxPage: React.FC = () => {
     })();
     return () => { cancelled = true; };
   }, [reload]);
+
+  // The chosen pack's content. Changing pack drops the old one first, so nothing of it is shown for the new one.
+  useEffect(() => {
+    if (!packId) return undefined;
+    let cancelled = false;
+    setPack((current) => (current?.id === packId ? current : null));
+    getLakehousePack(packId)
+      .then((detail) => { if (!cancelled) setPack(detail); })
+      .catch((err) => { if (!cancelled) setError(apiErrorMessage(err, 'The scenario did not load.')); });
+    return () => { cancelled = true; };
+  }, [packId, reload]);
 
   // Station C's downstream challenge is built from Station A's manifest, over the source index.
   const adf = useMemo(() => (pack ? parseAdf(pack.pipeline) : null), [pack]);
@@ -120,7 +147,6 @@ export const DatabricksSandboxPage: React.FC = () => {
     return downstreamChallenge(runPipeline(adf.config, sourceRows, upstream), upstream, upstreamIsDefault);
   }, [adf, sourceRows, upstream, upstreamIsDefault]);
 
-  const packId = pack?.id;
   const refreshJournal = useCallback(async () => {
     if (!packId) return;
     try {
@@ -143,7 +169,7 @@ export const DatabricksSandboxPage: React.FC = () => {
 
   const exportJournal = async () => {
     try {
-      const text = await getLakehouseJournalMarkdown(packId);
+      const text = await getLakehouseJournalMarkdown(packId ?? undefined);
       const url = URL.createObjectURL(new Blob([text], { type: 'text/markdown' }));
       const a = document.createElement('a');
       a.href = url;
@@ -157,9 +183,11 @@ export const DatabricksSandboxPage: React.FC = () => {
     }
   };
 
-  const go = (s: Station) => setParams({ station: s });
-  const loadInStationC = () => setParams({ station: 'c', challenge: DOWNSTREAM_PARAM, from: 'a' });
-  const compareInStationC = (wave: number) => setParams({ station: 'c', challenge: 'reconciliation', from: 'f', wave: String(wave) });
+  // Links keep the pack in the address, but only one that is really installed: a stale or mistyped one is dropped.
+  const withPack = (p: Record<string, string>) => (packParam && packId === packParam ? { ...p, pack: packParam } : p);
+  const go = (s: Station) => setParams(withPack({ station: s }));
+  const loadInStationC = () => setParams(withPack({ station: 'c', challenge: DOWNSTREAM_PARAM, from: 'a' }));
+  const compareInStationC = (wave: number) => setParams(withPack({ station: 'c', challenge: 'reconciliation', from: 'f', wave: String(wave) }));
   const levels: ('Programme' | 'Pipeline')[] = ['Programme', 'Pipeline'];
 
   return (
@@ -184,12 +212,21 @@ export const DatabricksSandboxPage: React.FC = () => {
             </Actions>
           </Panel>
 
+          {packList && packList.length > 1 && (
+            <TextField
+              select label="Scenario" value={pack.id} sx={{ mt: '16px', maxWidth: 520 }}
+              onChange={(e) => setParams({ pack: e.target.value })}
+            >
+              {packList.map((p) => <MenuItem key={p.id} value={p.id}>{p.title}</MenuItem>)}
+            </TextField>
+          )}
+
           {/* Station rail: the programme above the pipeline. A select on a phone. */}
           <Box component="nav" aria-label="Stations" sx={{ mt: '20px', display: 'grid', gap: '8px', [NARROW_QUERY]: { display: 'none' } }}>
-            {levels.map((level) => (
+            {levels.filter((level) => RAIL.some((r) => r.level === level && available.includes(r.id))).map((level) => (
               <Box key={level} sx={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <Eyebrow component="span" sx={{ width: 74 }}>{level}</Eyebrow>
-                {RAIL.filter((s) => s.level === level).map((s) => (
+                {RAIL.filter((s) => s.level === level && available.includes(s.id)).map((s) => (
                   <Button
                     key={s.id}
                     variant={station === s.id ? 'contained' : 'outlined'}
@@ -206,7 +243,7 @@ export const DatabricksSandboxPage: React.FC = () => {
             select label="Station" value={station} onChange={(e) => go(e.target.value as Station)}
             sx={{ mt: '20px', width: '100%', display: 'none', [NARROW_QUERY]: { display: 'flex' } }}
           >
-            {RAIL.map((s) => (
+            {RAIL.filter((s) => available.includes(s.id)).map((s) => (
               <MenuItem key={s.id} value={s.id}>{s.id.toUpperCase()} · {s.name}</MenuItem>
             ))}
           </TextField>

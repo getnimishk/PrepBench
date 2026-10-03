@@ -1,0 +1,12 @@
+{
+  "id": "jd-po-005-v1",
+  "version": 1,
+  "title": "Gulf port-logistics warehouse migration (JD-PO-005 framing)",
+  "summary": "A fictional Gulf port-logistics group moving its warehouse inspection data from an on-premises Hadoop platform to Databricks on Azure, with Arabic-script names, Hijri-format dates and AED amounts in the data.",
+  "fictional": true,
+  "seed": 20261003,
+  "stations": [
+    "c"
+  ],
+  "notebook_verified_on": null
+}

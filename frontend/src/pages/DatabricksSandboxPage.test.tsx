@@ -6,7 +6,7 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import type { JournalEntry, LabPackDetail } from '../types/lakehouse';
 
 vi.mock('../services/api', () => ({
@@ -38,7 +38,7 @@ const index = Array.from({ length: 5000 }, (_, i) => ({
 }));
 
 const pack: LabPackDetail = {
-  id: 'semiconductor-v1', version: 1, title: 'Semiconductor', summary: 'S', fictional: true, stations: ['c'],
+  id: 'semiconductor-v1', version: 1, title: 'Semiconductor', summary: 'S', fictional: true, stations: ['a', 'b', 'c', 'f'],
   notebook_verified_on: null, scenario_md: '', factory: {}, pipeline: {}, defect_manifest: [],
   tables: ['bronze.defects'], dataset: { tables: {}, defects: [] },
 };
@@ -141,6 +141,86 @@ describe('DatabricksSandboxPage', () => {
     renderPage('/databricks-sandbox?station=c&challenge=reconciliation');
     await screen.findByRole('heading', { level: 2, name: /Station C/ });
     expect(screen.queryByText(/Opened from Station F/)).not.toBeInTheDocument();
+  });
+
+  describe('with more than one scenario pack installed', () => {
+    const dataOnly = { ...pack, id: 'jd-po-005-v1', title: 'Gulf port-logistics migration', stations: ['c'] };
+    const summary = (p: LabPackDetail) => ({
+      id: p.id, version: p.version, title: p.title, summary: p.summary, fictional: true, stations: p.stations, notebook_verified_on: null,
+    });
+    const both = [summary(dataOnly), summary(pack)];            // the data-only pack sorts first, as it does on disk
+    beforeEach(() => {
+      vi.mocked(api.getLakehousePacks).mockResolvedValue(both);
+      vi.mocked(api.getLakehousePack).mockImplementation(async (id: string) => (id === dataOnly.id ? dataOnly : pack));
+    });
+
+    it('opens the full scenario by default, not whichever pack is listed first', async () => {
+      renderPage();
+      expect(await screen.findByRole('heading', { level: 2, name: /Station F/ })).toBeInTheDocument();
+      expect(api.getLakehousePack).toHaveBeenCalledWith('semiconductor-v1');
+      expect(api.getLakehousePack).not.toHaveBeenCalledWith('jd-po-005-v1');
+    });
+
+    it('offers a scenario picker, and shows only the stations a pack lists', async () => {
+      renderPage('/databricks-sandbox?pack=jd-po-005-v1');
+      expect(await screen.findByRole('heading', { level: 2, name: /Station C/ })).toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: 'Scenario' })).toHaveTextContent('Gulf port-logistics migration');
+      const nav = screen.getByRole('navigation', { name: 'Stations' });
+      expect(within(nav).getAllByRole('button').map((b) => b.textContent)).toEqual(['C · Delta Lake']);
+      expect(screen.queryByRole('heading', { name: /Station F/ })).not.toBeInTheDocument();
+    });
+
+    it('falls back to a station the pack has when the address asks for one it does not', async () => {
+      renderPage('/databricks-sandbox?pack=jd-po-005-v1&station=f');
+      expect(await screen.findByRole('heading', { level: 2, name: /Station C/ })).toBeInTheDocument();
+      expect(screen.queryByText(/no usable Factory content/)).not.toBeInTheDocument();
+    });
+
+    it('falls back to the full scenario for a pack that is not installed', async () => {
+      renderPage('/databricks-sandbox?pack=nope');
+      expect(await screen.findByRole('heading', { level: 2, name: /Station F/ })).toBeInTheDocument();
+    });
+
+    it('switches pack from the picker, loads that pack’s content, and keeps the pack when moving between stations', async () => {
+      const user = userEvent.setup();
+      renderPage('/databricks-sandbox?pack=semiconductor-v1');
+      await screen.findByRole('heading', { level: 2, name: /Station F/ });
+      await user.click(screen.getByRole('combobox', { name: 'Scenario' }));
+      await user.click(await screen.findByRole('option', { name: 'Gulf port-logistics migration' }));
+      expect(await screen.findByRole('heading', { level: 2, name: /Station C/ })).toBeInTheDocument();
+      await waitFor(() => expect(api.getLakehousePack).toHaveBeenCalledWith('jd-po-005-v1'));
+      // The journal is this pack's.
+      await waitFor(() => expect(api.getLakehouseJournal).toHaveBeenLastCalledWith('jd-po-005-v1'));
+    });
+
+    it('drops a pack that is not installed from the links, instead of carrying it along', async () => {
+      const user = userEvent.setup();
+      const Where = () => <output data-testid="search">{useLocation().search}</output>;
+      render(
+        <MemoryRouter initialEntries={['/databricks-sandbox?pack=nope']}><DatabricksSandboxPage /><Where /></MemoryRouter>,
+      );
+      await screen.findByRole('heading', { level: 2, name: /Station F/ });
+      expect(screen.getByTestId('search')).toHaveTextContent('pack=nope');   // the probe does see the address
+      await user.click(screen.getByRole('button', { name: 'B \u00b7 ADLS' }));
+      expect(await screen.findByRole('heading', { level: 2, name: /Station B/ })).toBeInTheDocument();
+      expect(screen.getByTestId('search')).toHaveTextContent('station=b');
+      expect(screen.getByTestId('search')).not.toHaveTextContent('nope');
+    });
+
+    it('keeps the chosen pack when moving between its stations', async () => {
+      const user = userEvent.setup();
+      renderPage('/databricks-sandbox?pack=semiconductor-v1');
+      await screen.findByRole('heading', { level: 2, name: /Station F/ });
+      await user.click(screen.getByRole('button', { name: 'B · ADLS' }));
+      expect(await screen.findByRole('heading', { level: 2, name: /Station B/ })).toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: 'Scenario' })).toHaveTextContent('Semiconductor');
+    });
+  });
+
+  it('shows no scenario picker when there is only one pack', async () => {
+    renderPage();
+    await screen.findByRole('heading', { level: 2, name: /Station F/ });
+    expect(screen.queryByRole('combobox', { name: 'Scenario' })).not.toBeInTheDocument();
   });
 
   it('opens the journal, deletes an entry, and exports it', async () => {

@@ -164,10 +164,10 @@ def test_lab_path_stays_inside_the_lab_folder():
 
 
 def test_the_shipped_pack_loads_and_is_fictional(client):
-    packs = client.get("/api/v1/lab/lakehouse/packs").json()
-    assert [p["id"] for p in packs] == [PACK]
-    assert packs[0]["fictional"] is True
-    assert packs[0]["notebook_verified_on"] is None
+    packs = {p["id"]: p for p in client.get("/api/v1/lab/lakehouse/packs").json()}
+    assert PACK in packs                  # other packs may ship beside it (see test_lab_packs.py)
+    assert packs[PACK]["fictional"] is True
+    assert packs[PACK]["notebook_verified_on"] is None
     detail = client.get(f"/api/v1/lab/lakehouse/packs/{PACK}").json()
     assert "Fictional" in detail["scenario_md"]
     assert set(detail["tables"]) == {f"{l}.{t}" for l in ("legacy", "bronze", "silver") for t in ("defects", "telemetry")}

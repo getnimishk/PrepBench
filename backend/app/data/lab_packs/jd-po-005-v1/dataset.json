@@ -1,0 +1,209 @@
+{
+  "tables": {
+    "defects": {
+      "key": "defect_id",
+      "rows": 3000,
+      "batches": 5,
+      "columns": [
+        {
+          "name": "defect_id",
+          "type": "int64",
+          "gen": {
+            "kind": "sequence",
+            "start": 1
+          }
+        },
+        {
+          "name": "shipment_id",
+          "type": "string",
+          "gen": {
+            "kind": "pattern",
+            "format": "SHP-{:05d}",
+            "min": 1,
+            "max": 900
+          }
+        },
+        {
+          "name": "inspector_name_ar",
+          "type": "string",
+          "gen": {
+            "kind": "choice",
+            "values": [
+              "أحمد المنصوري",
+              "فاطمة الكتبي",
+              "خالد الهاشمي",
+              "مريم الزعابي",
+              "سالم النعيمي",
+              "نورة الشامسي",
+              "يوسف الحمادي",
+              "عائشة المهيري",
+              "عبدالله القبيسي",
+              "ليلى البلوشي",
+              "راشد الظاهري",
+              "هند الكعبي"
+            ]
+          }
+        },
+        {
+          "name": "defect_type",
+          "type": "string",
+          "gen": {
+            "kind": "choice",
+            "values": [
+              "damaged_pallet",
+              "wrong_label",
+              "temperature_breach",
+              "seal_broken",
+              "count_mismatch"
+            ]
+          }
+        },
+        {
+          "name": "defect_count",
+          "type": "int64",
+          "gen": {
+            "kind": "int",
+            "min": 0,
+            "max": 40
+          }
+        },
+        {
+          "name": "repair_cost_aed",
+          "type": "decimal(12,4)",
+          "gen": {
+            "kind": "decimal",
+            "min": 5,
+            "max": 9999.99,
+            "scale": 4
+          }
+        },
+        {
+          "name": "scrap_qty",
+          "type": "int64",
+          "gen": {
+            "kind": "int",
+            "min": 1,
+            "max": 25
+          }
+        },
+        {
+          "name": "reported_hijri_date",
+          "type": "string",
+          "gen": {
+            "kind": "choice",
+            "values": [
+              "1447-09-10",
+              "1447-09-11",
+              "1447-09-12",
+              "1447-09-13",
+              "1447-09-14",
+              "1447-09-15",
+              "1447-09-16",
+              "1447-09-17",
+              "1447-09-18",
+              "1447-09-19",
+              "1447-09-20",
+              "1447-09-21",
+              "1447-09-22",
+              "1447-09-23",
+              "1447-09-24",
+              "1447-09-25",
+              "1447-09-26",
+              "1447-09-27",
+              "1447-09-28",
+              "1447-09-29",
+              "1447-09-30",
+              "1447-10-01",
+              "1447-10-02",
+              "1447-10-03",
+              "1447-10-04",
+              "1447-10-05",
+              "1447-10-06",
+              "1447-10-07",
+              "1447-10-08",
+              "1447-10-09",
+              "1447-10-10",
+              "1447-10-11",
+              "1447-10-12"
+            ]
+          }
+        },
+        {
+          "name": "inspected_at",
+          "type": "timestamp",
+          "gen": {
+            "kind": "time",
+            "start": "2026-03-01T00:00:00Z",
+            "span_days": 30
+          }
+        }
+      ]
+    }
+  },
+  "defects": [
+    {
+      "id": "aed-rounding",
+      "kind": "precision",
+      "table": "defects",
+      "column": "repair_cost_aed",
+      "legacy_scale": 2,
+      "affects": {
+        "count": 180
+      },
+      "about": "The legacy job rounded repair costs to two decimals, whole fils, for some shipments; the migrated job keeps four, so the amounts differ by fractions of a fils and a sum over many rows drifts."
+    },
+    {
+      "id": "gulf-time",
+      "kind": "timezone",
+      "table": "defects",
+      "column": "inspected_at",
+      "legacy_offset_hours": 4,
+      "affects": {
+        "fraction": 0.12
+      },
+      "about": "Rows written by one legacy job took the cluster's local time (Gulf Standard Time, UTC+4) as if it were UTC."
+    },
+    {
+      "id": "null-scrap",
+      "kind": "null_handling",
+      "table": "defects",
+      "column": "scrap_qty",
+      "legacy_value": 0,
+      "affects": {
+        "count": 24
+      },
+      "about": "Scrap not yet counted is unknown (null) in the source; the legacy job wrote 0, which changes the average but not the row count."
+    },
+    {
+      "id": "drift",
+      "kind": "schema_drift",
+      "table": "defects",
+      "batch": 3,
+      "add_column": {
+        "name": "inspector_id",
+        "type": "string"
+      },
+      "about": "From batch 3 the source adds an inspector_id column."
+    },
+    {
+      "id": "cdc",
+      "kind": "cdc",
+      "table": "defects",
+      "updates": 15,
+      "deletes": 6,
+      "inserts": 9,
+      "from_batches": [
+        1,
+        2
+      ],
+      "about": "A change batch: corrected defect counts, withdrawn inspections, and late-registered records."
+    },
+    {
+      "id": "replay",
+      "kind": "replay",
+      "table": "defects",
+      "batch": 2,
+      "about": "Batch 2 is delivered twice after a retry."
+    }
+  ]
+}
