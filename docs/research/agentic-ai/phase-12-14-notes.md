@@ -23,9 +23,9 @@ Read, written and run 2026-10-03. Companion to `phase-5-11-notes.md`. Most pages
 ## Verified by running
 
 - Product folder: 8 tests. RICE ranking and its stability test; ROI range and sensitivity simulation; build/extend/buy scorecard and weight stability; metric spec and risk register validators.
-- Migration folder: 6 tests. A naive converter passes 4 of 6 queries and fails on NULL handling in concatenation and integer division; the second converter passes 6 of 6; the approval gate blocks unapproved changes and logs each decision.
+- Migration folder: 7 tests. A naive converter passes 4 of 6 queries and fails on NULL handling in concatenation and integer division; the second converter passes 6 of 6; the approval gate blocks unapproved changes and logs each decision.
 - Deploy folder: 6 tests with the framework's test client (authentication, per-user cap, kill switch, content-free logs, health).
-- Drills folder: 8 tests. Bank sizes (20, 15, 4) and every question citing a lesson; summary, story, case-study and mock helpers.
+- Drills folder: 9 tests. Bank sizes (20 fundamentals, 14 leadership, 15 platform, 4 designs) and every question citing a lesson; summary, story, case-study and mock helpers.
 - `rag_report.py` runs on the lesson 27 to 31 build and prints the access test, stage metrics, modelled cost per query and a "what this report does not show" section.
 
 ## Not run, and not claimed

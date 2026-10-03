@@ -44,7 +44,7 @@ So the decision is made against evidence you committed to in advance, not agains
 
 ## Part 2 · A risk register with agent-specific risks and owners
 
-The NIST AI Risk Management Framework organises risk work into four functions: **Govern** (policies, accountability, culture), **Map** (understand context and what can go wrong), **Measure** (assess and track) and **Manage** (prioritise and act). It is voluntary and describes outcomes, not a checklist. We use its shape for a working document: a **risk register**, where each risk has an owner, a trigger and a mitigation that exists in code or process, and a place you can point to as evidence. Your criterion asks for six agent-specific risks; `risk_register.py` validates that the register covers at least six different categories, that each has an owner and a trigger, and that a high-scoring open risk has evidence.
+The NIST AI Risk Management Framework organises risk work into four functions: **Govern** (policies, accountability, culture), **Map** (understand context and what can go wrong), **Measure** (assess and track) and **Manage** (prioritise and act). It is voluntary and describes outcomes, not a checklist. We use its shape for a working document: a **risk register**, where each risk has an owner, a trigger and a mitigation that exists in code or process, and a place you can point to as evidence. (The validator demands evidence only for open risks scoring 15 or more; make it a habit for the rest.) Your criterion asks for six agent-specific risks; `risk_register.py` validates that the register covers at least six different categories, that each has an owner and a trigger, and that a high-scoring open risk has evidence.
 
 Ratings are likelihood times impact, each 1 to 5 (our scale, a judgement, re-rated after incidents and evaluations):
 
@@ -94,7 +94,7 @@ Things will go wrong. What distinguishes a well-run program is that the response
 | **1. Detect** | Alert, a user report, or a metric trigger from the register. Anyone can declare an incident |
 | **2. Classify** | Severity 1: an unapproved write, data exposure, or harm. Severity 2: wrong answers accepted at scale, or an outage of the service. Severity 3: degraded quality or cost overrun |
 | **3. Contain first** | Flip the kill switch (stops runs without a deploy) or disable the write tool. Containment comes before diagnosis |
-| **4. Roles** | An incident lead who decides; an operator who acts; a communicator who updates stakeholders. One person may not hold all three |
+| **4. Roles** | An incident lead who decides; an operator who acts; a communicator who updates stakeholders. One person should not hold all three where you can avoid it (our practice; the SRE guidance supports clear roles, not this exact rule) |
 | **5. Communicate** | A short message at each change: what we know, what we do not, what we did, next update time |
 | **6. Diagnose** | Use the trace and audit log (lessons 47 and 53), which hold ids and sizes, not content |
 | **7. Recover** | Fix, run the evaluation gate on the fix, widen again only with the rollout criteria |

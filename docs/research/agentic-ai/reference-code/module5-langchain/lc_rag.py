@@ -57,9 +57,12 @@ def build_chain(groups=()):
     return {"docs": retriever, "question": RunnablePassthrough()} | RunnableLambda(_answer_step)
 
 
-@tool
-def search_documents(query: str, max_results: int = 3) -> list[str]:
-    """Search the document set the caller may see and return chunk ids. Use for a question about policy or process; do not use for anything else."""
-    if not 1 <= max_results <= 5:
-        raise ValueError("max_results must be between 1 and 5")
-    return [d.metadata["chunk"] for d in AclRetriever(index=INDEX, top=max_results).invoke(query)]
+def make_search_tool(groups=()):
+    """Build the tool for ONE caller. The groups are bound here by the application, never taken from the model's arguments."""
+    @tool
+    def search_documents(query: str, max_results: int = 3) -> list[str]:
+        """Search the document set the caller may see and return chunk ids. Use for a question about policy or process; do not use for anything else."""
+        if not 1 <= max_results <= 5:
+            raise ValueError("max_results must be between 1 and 5")
+        return [d.metadata["chunk"] for d in AclRetriever(index=INDEX, groups=tuple(groups), top=max_results).invoke(query)]
+    return search_documents

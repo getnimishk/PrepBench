@@ -65,6 +65,8 @@ And what moves the answer, from setting each input to its low then high with the
 | Build cost | +$625 | -$1,458 |
 | Model cost per task | +$30 | -$42 |
 
+Our ranges are generous and the result is a fictional illustration, not a typical AI outcome. Run the adverse case yourself (see the lab): a most likely month of $46,947 says nothing about your project.
+
 Four readings:
 
 1. **The benefit assumptions dominate.** Minutes saved, the hourly cost and the volume swing the result by tens of thousands; the model price moves it by about $40. Do not argue about token prices; argue about minutes saved.
@@ -140,11 +142,12 @@ The gap between predicted and measured values shows how good your estimates are;
 ## Do it: lab
 
 1. Choose one real agent idea. Write the problem and measure a baseline from real data.
-2. Write the assumptions with a low, likely and high value for each, and for each say whether it is measured, estimated or guessed.
-3. Compute the most likely month by hand, then adapt `roi.py` to your numbers and run the range and the tornado.
-4. Write what 'saved time' means in your case: cash or capacity, and what would have to be true for it to be cash.
-5. Write the one-page case with the decision requested, the range, the sensitivity, the top risks and a decision rule.
-6. List the five questions you expect and your answers. Ask a colleague to ask the sixth.
+2. Build an adverse case: set minutes saved and success rate to their lows together and adoption to half, rerun, and write whether the case still holds and what your decision rule then says.
+3. Write the assumptions with a low, likely and high value for each, and for each say whether it is measured, estimated or guessed.
+4. Compute the most likely month by hand, then adapt `roi.py` to your numbers and run the range and the tornado.
+5. Write what 'saved time' means in your case: cash or capacity, and what would have to be true for it to be cash.
+6. Write the one-page case with the decision requested, the range, the sensitivity, the top risks and a decision rule.
+7. List the five questions you expect and your answers. Ask a colleague to ask the sixth.
 
 **Done when:** you have a one-page business case with a measured baseline, assumptions with ranges and their sources, a range of net results, a sensitivity table showing which inputs matter most, a stated cash-versus-capacity claim, and a decision rule for the pilot.
 

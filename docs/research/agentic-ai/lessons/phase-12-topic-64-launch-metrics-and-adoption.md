@@ -17,7 +17,7 @@ A model can score well on your evaluation and the product can still fail, becaus
 | **Operations** | Is it running well and affordably? | p95 latency, cost per successful task, breaker trips | Platform |
 | **Product** | Is it used, and does it help people do their job? | weekly active users, diagnoses accepted without edit, time to diagnosis | Product owner |
 
-The framework we use for the product layer is Google's **HEART**, from a 2010 paper on measuring user experience at scale: **H**appiness (satisfaction), **E**ngagement (depth of use), **A**doption (new users), **R**etention (do they come back), **T**ask success (can they do what they came to do). The paper's other contribution is a process, **goals, signals, metrics**: write the goal, name the user behaviour that signals it, then choose the number that measures that signal. That order stops you picking a number just because it is easy to count.
+The framework we **adapt** for the product layer is Google's **HEART**, from a 2010 paper on measuring user experience at scale for web applications (its authors note that not every dimension suits every product; applying it to AI products is our adaptation, not theirs): **H**appiness (satisfaction), **E**ngagement (depth of use), **A**doption (new users), **R**etention (do they come back), **T**ask success (can they do what they came to do). The paper's other contribution is a process, **goals, signals, metrics**: write the goal, name the user behaviour that signals it, then choose the number that measures that signal. That order stops you picking a number just because it is easy to count.
 
 Not every dimension needs a metric. Pick the ones that match your goal and say why you left the others out.
 

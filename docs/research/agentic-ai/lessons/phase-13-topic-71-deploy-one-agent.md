@@ -3,7 +3,7 @@
 **Course:** Agentic AI, from first principles to production · Module 13 Portfolio · lesson 71 of 77 · **about 8 hours** · paper draft for review.  
 **Success criterion:** A working URL or hosted demo with authentication, cost limits and logging enabled, and a rollback plan.
 
-> Sources (read 2026-10-03; details and gaps in docs/research/agentic-ai): Lessons 47 and 49 (logging and operations), 51 and 52 (identity and permissions), 56 (Azure cost controls: budgets alert, they do not stop spend), 59 (managed versus custom hosting) and 67 (rollout and incidents); Starlette documentation for the application structure used by the reference code. Management practice is less settled than engineering. Where a source supports a statement we cite it; where a lesson gives our own practice we say 'our practice' and do not borrow authority for it. The reference code for this module was written by us and run on Python 3.14.7: the product, migration, drills and deploy folders have 8, 6, 8 and 6 passing tests, and the RAG evidence report generator runs on the lesson 27 to 31 build. Nothing here ran against a real embedding model, a real LLM, a real legacy database or a cloud account. This lesson is guidance: we cannot deploy for you and ran no hosting platform. The reference app was tested locally with the framework's test client. Unverified: any platform-specific setting; follow your platform's current documentation for the steps and treat our checklist as the controls to look for.
+> Sources (read 2026-10-03; details and gaps in docs/research/agentic-ai): Lessons 47 and 49 (logging and operations), 51 and 52 (identity and permissions), 56 (Azure cost controls: budgets alert, they do not stop spend), 59 (managed versus custom hosting) and 67 (rollout and incidents); Starlette documentation for the application structure used by the reference code. Management practice is less settled than engineering. Where a source supports a statement we cite it; where a lesson gives our own practice we say 'our practice' and do not borrow authority for it. The reference code for this module was written by us and run on Python 3.14.7: the product, migration, drills and deploy folders have 8, 7, 9 and 6 passing tests, and the RAG evidence report generator runs on the lesson 27 to 31 build. Nothing here ran against a real embedding model, a real LLM, a real legacy database or a cloud account. This lesson is guidance: we cannot deploy for you and ran no hosting platform. The reference app was tested locally with the framework's test client. Unverified: any platform-specific setting; follow your platform's current documentation for the steps and treat our checklist as the controls to look for.
 
 ---
 
@@ -47,13 +47,13 @@ A budget alert tells you after the money is spent; a cap checked before the run 
 
 Three design decisions in `app.py` are worth copying.
 
-**Cost.** Before each run the app adds a small estimate to the user's spend so far and compares it with the daily cap; and it checks a global ceiling (ten times the per-user cap). After the run it records the **actual** cost. Estimating first and recording the actual after is the same approach as budgets for agents in lesson 49. In our test the cap is $0.05 and the stand-in costs $0.013 a run: three runs succeed, and the fourth would pass the cap with the estimate, so it returns 429. Another user is unaffected.
+**Cost.** Before each run the app adds a small estimate to the user's spend so far and compares it with the daily cap; and it checks a global ceiling (ten times the per-user cap). After the run it records the **actual** cost. Estimating first and recording the actual after is the same approach as budgets for agents in lesson 49. In our test the cap is $0.05 and the stand-in costs $0.013 a run: three runs succeed, and the fourth would exceed the cap once its estimate is added (0.039 + 0.02 = 0.059 against 0.05), so it returns 429. Another user is unaffected.
 
 **Kill switch.** An environment variable `AGENT_KILL=1` makes every request return 503 immediately. It is the fastest **rollback lever** because it needs no deploy: change one setting in your platform and restart or reload. Test it before you need it, and write down who may flip it.
 
 **Logging without content.** Each line holds time, run id, user, route, status, cost and duration. The test sends a request containing the text 'SECRET customer text' and asserts it appears nowhere in the log, and neither does the token. If your platform captures request bodies by default (some do, for diagnostics), turn that off or sanitise it; **check what your platform records**, because your own code is not the only logger.
 
-Two things the reference app does not do, and you must decide: it keeps spend in memory (a restart resets it; use a store in a real deployment) and it uses static tokens from the environment (use your platform's identity service where available, lesson 51).
+Two things the reference app does not do, and you must treat as hard constraints for the lab, not options: it keeps spend in memory (a restart resets it; use a store in a real deployment) and it uses static tokens from the environment (use your platform's identity service where available, lesson 51).
 
 **Worked example**
 
@@ -112,7 +112,7 @@ Call with no token and expect 401; call past a low cap and expect 429; send a ma
 
 ## Do it: lab
 
-1. Pick the agent you will deploy and a hosting platform you can use for free or cheaply; note the cost and the data it will hold.
+1. Before anything is deployed, meet the pre-deployment gate: synthetic or non-sensitive data only; no production credentials or customer data; a platform where you can set a hard spend limit, or one that is free with no payment method attached (check its billing behaviour first); and do not deploy the in-memory reference limiter unchanged. Pick ONE platform and stay on it for the whole lab, because learning a second platform is not the point (the course prescribes none, since platform steps change). Note the cost and the data it will hold.
 2. Adapt `app.py` so your agent replaces the stand-in; keep the controls and the tests; run the tests locally.
 3. Deploy, following your platform's current documentation, and record each setting you changed.
 4. Run the six checks on the live URL and record the results.

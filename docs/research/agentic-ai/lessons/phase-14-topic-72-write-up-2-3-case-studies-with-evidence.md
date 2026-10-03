@@ -3,7 +3,7 @@
 **Course:** Agentic AI, from first principles to production · Module 14 Interviews · lesson 72 of 77 · **about 8 hours** · paper draft for review.  
 **Success criterion:** Each case study has an architecture diagram, a tradeoff record, evaluation results, a cost calculation, one failure case, a production decision and a 2-minute spoken version.
 
-> Sources (read 2026-10-03; details and gaps in docs/research/agentic-ai): Your own builds from lessons 43 to 55 and 69 to 71, whose evidence you already hold; Anthropic AI Fluency framework (Diligence: recording and disclosing); Google SRE book on blameless postmortems (the failure-case section). Management practice is less settled than engineering. Where a source supports a statement we cite it; where a lesson gives our own practice we say 'our practice' and do not borrow authority for it. The reference code for this module was written by us and run on Python 3.14.7: the product, migration, drills and deploy folders have 8, 6, 8 and 6 passing tests, and the RAG evidence report generator runs on the lesson 27 to 31 build. Nothing here ran against a real embedding model, a real LLM, a real legacy database or a cloud account. The structure below is our practice for interview preparation, not drawn from a source. The template contains no invented project: you write your case studies from your own evidence. Unverified: that interviewers will respond to this format; it is designed to be checkable.
+> Sources (read 2026-10-03; details and gaps in docs/research/agentic-ai): Your own builds from lessons 43 to 55 and 69 to 71, whose evidence you already hold; Anthropic AI Fluency framework (Diligence: recording and disclosing); Google SRE book on blameless postmortems (the failure-case section). Management practice is less settled than engineering. Where a source supports a statement we cite it; where a lesson gives our own practice we say 'our practice' and do not borrow authority for it. The reference code for this module was written by us and run on Python 3.14.7: the product, migration, drills and deploy folders have 8, 7, 9 and 6 passing tests, and the RAG evidence report generator runs on the lesson 27 to 31 build. Nothing here ran against a real embedding model, a real LLM, a real legacy database or a cloud account. The structure below is our practice for interview preparation, not drawn from a source. The template contains no invented project: you write your case studies from your own evidence. Unverified: that interviewers will respond to this format; it is designed to be checkable.
 
 ---
 
@@ -20,7 +20,7 @@ The criterion lists seven required parts, and our `check_case_study()` checks th
 | **Evaluation results** | The numbers with sample size and intervals or trials |
 | **Cost calculation** | Per successful task, with assumptions and the date of prices |
 | **One failure case** | What went wrong, how you found it, what you changed |
-| **Production decision** | Would you ship it, to whom, with what limits, and the evidence you would want first |
+| **Production decision** (a hypothetical recommendation unless you operated the system) | Would you ship it, to whom, with what limits, and the evidence you would want first |
 | **2-minute spoken version** | About 280 words, with a clear opening, three points and a close |
 
 The checker also counts numbers (at least ten) and wants a statement of what you did **not** verify. That last item is the one that makes interviewers trust the rest.
@@ -86,7 +86,7 @@ flowchart LR
 ## Failure case
 - What happened, how I found it (trace, evaluation), the root cause, what I changed, and the test I added.
 
-## Production decision
+## Production decision (hypothetical unless you operated it)
 - Ship / ship with limits / do not ship. To whom. Evidence needed first. Rollout phases and the rollback.
 
 ## What I did not verify
@@ -105,7 +105,7 @@ The quality of a case study is mostly in three places:
 
 **Worked example**
 
-Run `check_case_study()` on your draft. It cannot judge quality, but it will find a missing section, a missing diagram, too few numbers, or no statement of what you did not verify.
+Run `check_case_study()` on your draft. It is a structural lint: passing it does not mean the case study is good, truthful or complete (an empty diagram and ten digits pass). It will find a missing section, a missing diagram, too few numbers, or no statement of what you did not verify.
 
 **Common mistake**
 

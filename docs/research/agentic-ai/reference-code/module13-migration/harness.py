@@ -56,14 +56,18 @@ def evaluate(converter):
     return rows
 
 
-def gate(rows, approvals: dict, log):
-    """approvals: {query: person}. Returns the queries that may be applied. Everything else stays blocked, with a reason in the log."""
+def gate(rows, approvals: dict, log, strict=False):
+    """approvals: {query: person}. Returns the queries that may be applied. Everything else stays blocked, with a reason in the log.
+
+    Default: a clean query with no risky rewrite is applied without a named approver; risky rewrites and writes need one.
+    strict=True: EVERY applied query needs a named approver (use this to match "a human gate blocks any unapproved change" literally).
+    A query with a defect is never applied in either mode."""
     applied = []
     for r in rows:
         q = r["query"]
         if not r["passed"]:
             decision = f"blocked: defect {r['defect']}"
-        elif r["needs_approval"] and q not in approvals:
+        elif (r["needs_approval"] or strict) and q not in approvals:
             decision = "blocked: needs a named approver"
         else:
             decision = f"applied (approved by {approvals[q]})" if q in approvals else "applied (clean, no risky rewrite)"

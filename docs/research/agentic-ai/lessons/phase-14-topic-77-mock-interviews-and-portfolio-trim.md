@@ -3,7 +3,7 @@
 **Course:** Agentic AI, from first principles to production · Module 14 Interviews · lesson 77 of 77 · **about 6 hours** · paper draft for review.  
 **Success criterion:** Two recorded mock interviews reviewed by a peer or a rubric, and a portfolio with 2-3 polished projects, each with a README, demo link and case study.
 
-> Sources (read 2026-10-03; details and gaps in docs/research/agentic-ai): The previous topics (72 to 76) and the rubric in `selfscore.py`; Anthropic AI Fluency framework (Diligence: be accountable for what you present); lessons 69 to 72 for what the portfolio contains. Management practice is less settled than engineering. Where a source supports a statement we cite it; where a lesson gives our own practice we say 'our practice' and do not borrow authority for it. The drill helpers (the question bank, the self-scoring functions and the story and case-study checks) were written by us and run on Python 3.14.7; their 8 tests passed. They check that evidence is present and count what you recorded; they do not judge the quality of an answer. The rubric is ours: five lines, each scored 0 to 2 by a peer. Unverified: that the total predicts a real outcome; it is a way to see change between your own attempts.
+> Sources (read 2026-10-03; details and gaps in docs/research/agentic-ai): The previous topics (72 to 76) and the rubric in `selfscore.py`; Anthropic AI Fluency framework (Diligence: be accountable for what you present); lessons 69 to 72 for what the portfolio contains. Management practice is less settled than engineering. Where a source supports a statement we cite it; where a lesson gives our own practice we say 'our practice' and do not borrow authority for it. The drill helpers (the question bank, the self-scoring functions and the story and case-study checks) were written by us and run on Python 3.14.7; their 9 tests passed. They check that evidence is present and count what you recorded; they do not judge the quality of an answer. The rubric is ours: five lines, each scored 0 to 2 by a peer. Unverified: that the total predicts a real outcome; it is a way to see change between your own attempts.
 
 ---
 
@@ -13,7 +13,7 @@ The criterion: **two recorded mock interviews reviewed by a peer or a rubric.** 
 
 Run them like the real thing:
 
-- **Mock 1: breadth (45 minutes).** A mix: two fundamentals questions, one platform question, one behavioural story, one short design (15 minutes). The interviewer reads from your own drill banks but picks at random, so you cannot prepare the order.
+- **Mock 1: breadth (45 minutes).** A mix: two fundamentals questions, one platform question, one behavioural story, one short design (15 minutes). The interviewer reads from your own drill banks (fundamentals, platform, leadership and design) but picks at random, so you cannot prepare the order.
 - **Mock 2: depth (60 minutes).** One case study from lesson 72 explored for 25 minutes with hard follow-ups ('why not X?', 'what is the weakest part?'), then a 30-minute design, then 5 minutes of your questions to them.
 
 Ask a peer, a former colleague or a mentor, and give them the rubric and the question banks beforehand. Record audio or video with their permission. If nobody is available, you can use an AI assistant as a mock interviewer; it is useful for follow-up questions, but it is **a weak reviewer of your delivery and honesty**, so also review the recording yourself, and tell it to ask questions without praising.

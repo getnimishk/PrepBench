@@ -8,6 +8,12 @@ def test_banks_have_the_sizes_the_lessons_ask_for_and_every_question_cites_a_les
     assert len({q[0] for q in bank.FUNDAMENTALS + bank.PLATFORM}) == 35
 
 
+def test_leadership_bank_covers_modules_12_and_13_and_every_topic_60_to_71_that_a_question_can_test():
+    assert len(bank.LEADERSHIP) == 14 and len({q[0] for q in bank.LEADERSHIP}) == 14
+    assert all(60 <= q[2] <= 72 and len(q[4]) >= 3 and 60 <= q[3] <= 180 for q in bank.LEADERSHIP)
+    assert {q[2] for q in bank.LEADERSHIP} >= {60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 71}
+
+
 def test_every_fundamentals_question_has_key_points_and_a_time_limit():
     assert all(len(q[4]) >= 3 and 60 <= q[3] <= 180 for q in bank.FUNDAMENTALS)
 
