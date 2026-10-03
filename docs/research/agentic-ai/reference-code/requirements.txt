@@ -1,0 +1,9 @@
+# Versions the lessons were run with (Python 3.14.7). Install into a virtual environment, then run each folder's tests from inside that folder.
+pydantic==2.13.4
+pytest==9.1.1
+httpx==0.28.1
+uvicorn
+mcp==2.2.0
+a2a-sdk==1.2.1
+langgraph==1.2.12
+langgraph-checkpoint-sqlite==3.1.1

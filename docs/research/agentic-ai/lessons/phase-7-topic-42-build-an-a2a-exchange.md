@@ -184,7 +184,7 @@ The request body on the wire, and the response that came back from the running s
  "id": "1", "jsonrpc": "2.0"}
 ```
 
-Note the `{"task": ...}` wrapper in the result. A summary of the specification page we read first suggested the result was a bare task, and the official SDK's protobuf types showed the wrapper, so our client reads `data['result']['task']`. When a summary and a running implementation disagree, run the implementation and cite what you saw.
+Note the `{"task": ...}` wrapper in the result. A summary of the specification page we read first suggested the result was a bare task, and the official SDK's protobuf types showed the wrapper, so our client reads `data['result']['task']`. When a summary and a running implementation disagree, record both: what the page said, and what SDK 1.2.1 did. An SDK shows how that SDK behaves, which is not the same as what the specification requires, so check the normative text before you build a client that other implementations must talk to.
 
 **Worked example**
 

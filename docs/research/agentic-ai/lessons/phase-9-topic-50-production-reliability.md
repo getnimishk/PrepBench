@@ -3,7 +3,7 @@
 **Course:** Agentic AI, from first principles to production · Module 9 Evaluation and Production · lesson 50 of 77 · **about 4 hours** · paper draft for review.  
 **Success criterion:** Simulate a provider outage and a rate-limit storm against your agent and show that it degrades safely and recovers.
 
-> Sources (read 2026-10-02 and 2026-10-03; details and gaps in docs/research/agentic-ai): Microsoft Azure Architecture Center, 'Circuit Breaker pattern' (page dated 2025-02-05, updated 2026-09-26: closed, open and half-open states; the breaker prevents calls likely to fail, retry expects eventual success, and they can be combined; unsuitable where a message-driven design already uses dead-letter queues; return default or cached responses while open; 429 and 503 may carry the expected delay) and 'AI agent orchestration patterns' (reliability: timeouts and retries, graceful degradation, validate outputs, circuit breakers, checkpoints); Anthropic documentation on API errors, rate limits and the SDK's retries (read in wave 2 for lesson 12: 429 and 5xx handling, retry-after, the SDK's default retries and timeout), and Stripe's documentation on idempotent requests (lesson 25); Anthropic Engineering multi-agent write-up (resumable checkpoints; rainbow deployments to avoid disrupting running agents); lessons 12, 25 and 33 of this course. The code on this page (the dataops folder) was written by us and run on Python 3.14.7 with pytest 9.1.1; its 36 tests passed. The 'model' is a scripted stand-in with seeded random variation, so every run is repeatable, and nothing here describes how a real model behaves. The outage simulation models behaviour with stated rules (one task a second, a provider that serves 3 calls a second, a storm and an outage on a fixed timetable); it is not a measurement of any real provider. Unverified: how a particular provider behaves during its real incidents; the best breaker threshold, queue size and escalation time for your service levels.
+> Sources (read 2026-10-02 and 2026-10-03; details and gaps in docs/research/agentic-ai): Microsoft Azure Architecture Center, 'Circuit Breaker pattern' (page dated 2025-02-05, updated 2026-09-26: closed, open and half-open states; the breaker prevents calls likely to fail, retry expects eventual success, and they can be combined; unsuitable where a message-driven design already uses dead-letter queues; return default or cached responses while open; 429 and 503 may carry the expected delay) and 'AI agent orchestration patterns' (reliability: timeouts and retries, graceful degradation, validate outputs, circuit breakers, checkpoints); Anthropic documentation on API errors, rate limits and the SDK's retries (read in wave 2 for lesson 12: 429 and 5xx handling, retry-after, the SDK's default retries and timeout), and Stripe's documentation on idempotent requests (lesson 25); Anthropic Engineering multi-agent write-up (resumable checkpoints; rainbow deployments to avoid disrupting running agents); lessons 12, 25 and 33 of this course. The code on this page (the dataops folder) was written by us and run on Python 3.14.7 with pytest 9.1.1; the folder's tests passed (58 in all, covering lessons 33 to 55). The 'model' is a scripted stand-in with seeded random variation, so every run is repeatable, and nothing here describes how a real model behaves. The outage simulation models behaviour with stated rules (one task a second, a provider that serves 3 calls a second, a storm and an outage on a fixed timetable); it is not a measurement of any real provider. Unverified: how a particular provider behaves during its real incidents; the best breaker threshold, queue size and escalation time for your service levels.
 
 ---
 
@@ -91,24 +91,26 @@ Your criterion asks you to simulate a provider outage and a rate-limit storm and
 | 200 to 299 | **Outage:** every call fails with 503 |
 | 300 to 599 | Recovery |
 
-One task arrives each second; each needs one provider call whose effect must happen exactly once. The **naive** client retries a failed call immediately up to 5 times, then drops the task, with no queue, breaker or key. The **robust** client uses a bounded backoff, a circuit breaker (5 failures to open, 20 seconds before a trial), a queue, one stable idempotency key per task, and escalates a task to a person after 300 seconds waiting. Results (`python outage.py`; seed 3, with the range over seeds 1 to 5):
+One task arrives each second; each needs one provider call whose effect must happen exactly once. The **naive** client retries a failed call immediately up to 5 times, then drops the task, with no queue, breaker or key. The **robust** client uses a per-task exponential backoff with jitter that never waits less than the provider's stated `retry-after`, a circuit breaker (5 failures to open, 20 seconds before a trial), a queue, one stable idempotency key per task, and escalates a task to a person after 300 seconds waiting. Results (`python outage.py`; seed 3, with the range over seeds 1 to 5):
 
 | | Naive | Robust |
 |---|---|---|
 | Tasks completed (of 600) | 464 (458 to 465) | **600** |
 | Tasks lost | **136** (135 to 142) | **0** |
 | Duplicate side effects | 1 (1 to 4) | **0** |
-| Calls sent to the provider | 1,194 (1,182 to 1,217) | 629 (620 to 630) |
-| Completed within 60 s | not tracked | 303 |
-| Completed late (queued) | 0 | 297 |
-| Peak queue length | none | 204 |
+| Calls sent to the provider | 1,194 (1,182 to 1,217) | 623 (619 to 631) |
+| Completed within 60 s | not tracked | 313 |
+| Completed late (queued) | 0 | 287 |
+| Peak queue length | none | 205 |
 | Escalated to a person | 0 | 0 (none waited past 300 s) |
 
 What it shows:
 
-1. **The naive client roughly doubles the load** on the struggling provider (1,194 calls against 629 for the same 600 tasks) and still loses 136 tasks, because its own retries use up the provider's 3-calls-a-second capacity.
+**What is and is not modelled.** The simulation models retries, backoff with jitter, `retry-after`, the breaker, the queue, idempotency keys, lost replies and escalation after a wait (the robust client made about 20 retries, the longest wait 60 s). It does **not** model the degradation ladder or 'writes stopped first': every simulated task is one effectful call. That ladder is a design to build and test in the lab, not something this run proves.
+
+1. **The naive client roughly doubles the load** on the struggling provider (1,194 calls against 623 for the same 600 tasks) and still loses 136 tasks, because its own retries use up the provider's 3-calls-a-second capacity.
 2. **The robust client loses none and duplicates none,** because a task waits in the queue and every retry carries the same key. Lost replies in the storm (work done, answer lost) were retried with the same key and not repeated.
-3. **Safety costs time.** 297 tasks finished late and the queue peaked at 204. That is the trade, and it is a product decision: is a late answer acceptable? The limit and the escalation time are yours to set.
+3. **Safety costs time.** 287 tasks finished late and the queue peaked at 205. That is the trade, and it is a product decision: is a late answer acceptable? The limit and the escalation time are yours to set.
 4. **It recovers.** The queue drained after the outage ended; none were left. 'Recovers' should be a measured claim: how long after the provider returned until the queue is empty, and was anything lost or repeated.
 
 The code for the robust client's core loop and the provider model:
@@ -157,14 +159,14 @@ class Provider:
 
 ```text
 naive   completed=464, lost=136, escalated=0, duplicated=1, provider_calls=1194
-robust  completed=600, on_time=303, late=297, lost=0, still_queued=0, escalated=0, duplicated=0, provider_calls=629, peak_queue=204
+robust  completed=600, on_time=313, late=287, lost=0, still_queued=0, escalated=0, duplicated=0, provider_calls=623, peak_queue=205
 ```
 
 **Common mistake**
 
 Claiming 'resilient' after testing one failure at a time. A storm followed by an outage, with lost replies, is the combination that finds duplicated writes and lost work.
 
-**Check yourself.** In the simulation the robust client has 297 late tasks. Is that a failure of the design, and who decides what is acceptable?
+**Check yourself.** In the simulation the robust client has 287 late tasks. Is that a failure of the design, and who decides what is acceptable?
 
 <details><summary>Model answer (write yours first)</summary>
 

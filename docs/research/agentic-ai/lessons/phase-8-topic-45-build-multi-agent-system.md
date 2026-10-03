@@ -22,7 +22,7 @@ A suggested build, on the DataOps agent from lesson 37 so you reuse its tools an
 ```mermaid
 sequenceDiagram
   accTitle: Separation of duties between three agents
-  accDescr: The diagnoser reads logs and the runbook and produces a proposal with evidence. The reviewer checks the evidence against the runbook and signs a digest of the exact proposal. The executor runs the action only if the proposal it holds matches the signed digest. If anyone edits the proposal after approval the executor refuses.
+  accDescr: The diagnoser reads logs and the runbook and produces a proposal with evidence. The reviewer checks the evidence against the runbook and approves a digest of the exact proposal (a hash, not a cryptographic signature). The executor runs the action only if the proposal it holds matches the signed digest. If anyone edits the proposal after approval the executor refuses.
   participant D as Diagnoser (read-only)
   participant R as Reviewer (cannot execute)
   participant E as Executor (only writer)
