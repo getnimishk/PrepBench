@@ -119,3 +119,25 @@ def test_skill_description_proxy_trigger():
     desc = parse(SKILL)[0]["description"]
     assert proxy_trigger(desc, "The payments pipeline failed with ERR-4417 overnight")
     assert not proxy_trigger(desc, "Please approve my travel expenses for the hotel")
+
+
+def test_approval_and_progress_survive_a_real_restart_with_file_backed_state(tmp_path):
+    """Two 'processes': every object is rebuilt from files only. Memory (:memory:) would fail this."""
+    db, log = str(tmp_path / "runs.db"), str(tmp_path / "audit.jsonl")
+    world = {"reruns": [], "quarantined": []}
+
+    def attempt(crash):
+        asked = []
+        gate = ApprovalGate(lambda tool, args: (asked.append(tool) or True, "sam"), log_path=log)
+        store = RunStore(db)
+        try:
+            handle_ticket({"id": "T", "pipeline": "customers", "text": "stale"}, make_series(), 800_000, ScriptedModel(
+                [[call("a", "get_run_log", pipeline="customers")], [call("b", "search_runbook", error_code="ERR-5102")],
+                 [call("c", "rerun_job", pipeline="customers")], [text("done")]]), store, gate, world,
+                on_event=lambda s: None, crash_after_write=crash)
+        except SystemExit:
+            pass
+        return asked
+
+    assert attempt(crash=True) == ["rerun_job"] and world["reruns"] == ["customers"]
+    assert attempt(crash=False) == [] and world["reruns"] == ["customers"]        # not asked again, not written again

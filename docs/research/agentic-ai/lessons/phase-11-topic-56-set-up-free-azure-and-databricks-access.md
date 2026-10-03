@@ -23,7 +23,7 @@ So you need layers:
 
 **Worked example**
 
-Fictional. A learner leaves a deployed model endpoint and a search service running over a long weekend. A budget alert at 80 percent arrives on Monday, a day after the cost accrued. The spending protection of the free offer caps the loss; on a paid subscription it would not. The next lab ends with a checklist item: 'delete the resource group'.
+Fictional. A learner leaves a deployed model endpoint and a search service running over a long weekend. A budget alert at 80 percent arrives on Monday, a day after the cost accrued. The cited free-account terms describe spending protection during the trial; verify the exact eligibility and what happens after the credit before relying on it. The next lab ends with a checklist item: 'delete the resource group'.
 
 **Common mistake**
 

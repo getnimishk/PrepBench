@@ -4,6 +4,7 @@ Same message shapes as Anthropic's Messages API (tool_use / tool_result blocks),
 saved to JSON and resumed. Nothing here calls a network; the model is scripted so every run is repeatable.
 """
 import json
+import os
 import time
 from dataclasses import dataclass
 from typing import Callable
@@ -32,6 +33,9 @@ class ApprovalGate:
 
     def __init__(self, ask: Callable[[str, dict], tuple[bool, str]], log_path: str | None = None):
         self.ask, self.log_path, self.audit = ask, log_path, []
+        if log_path and os.path.exists(log_path):          # a restarted process reloads earlier decisions, so an approval survives the crash
+            with open(log_path, encoding="utf-8") as f:
+                self.audit = [json.loads(line) for line in f if line.strip()]
 
     def approve(self, tool: str, args: dict, ticket: str = "") -> bool:
         for e in self.audit:                       # the same action was already approved (a resumed run): do not ask twice
