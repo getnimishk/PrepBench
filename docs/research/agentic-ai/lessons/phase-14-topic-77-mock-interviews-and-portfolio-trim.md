@@ -1,0 +1,160 @@
+# Mock interviews & portfolio trim
+
+**Course:** Agentic AI, from first principles to production · Module 14 Interviews · lesson 77 of 77 · **about 6 hours** · paper draft for review.  
+**Success criterion:** Two recorded mock interviews reviewed by a peer or a rubric, and a portfolio with 2-3 polished projects, each with a README, demo link and case study.
+
+> Sources (read 2026-10-03; details and gaps in docs/research/agentic-ai): The previous topics (72 to 76) and the rubric in `selfscore.py`; Anthropic AI Fluency framework (Diligence: be accountable for what you present); lessons 69 to 72 for what the portfolio contains. Management practice is less settled than engineering. Where a source supports a statement we cite it; where a lesson gives our own practice we say 'our practice' and do not borrow authority for it. The drill helpers (the question bank, the self-scoring functions and the story and case-study checks) were written by us and run on Python 3.14.7; their 8 tests passed. They check that evidence is present and count what you recorded; they do not judge the quality of an answer. The rubric is ours: five lines, each scored 0 to 2 by a peer. Unverified: that the total predicts a real outcome; it is a way to see change between your own attempts.
+
+---
+
+## Part 1 · Two recorded mocks, reviewed by someone else
+
+The criterion: **two recorded mock interviews reviewed by a peer or a rubric.** The reason for another person is that you cannot see your own habits. A second person notices the filler word you say forty times, the question you did not answer, and the moment you went vague.
+
+Run them like the real thing:
+
+- **Mock 1: breadth (45 minutes).** A mix: two fundamentals questions, one platform question, one behavioural story, one short design (15 minutes). The interviewer reads from your own drill banks but picks at random, so you cannot prepare the order.
+- **Mock 2: depth (60 minutes).** One case study from lesson 72 explored for 25 minutes with hard follow-ups ('why not X?', 'what is the weakest part?'), then a 30-minute design, then 5 minutes of your questions to them.
+
+Ask a peer, a former colleague or a mentor, and give them the rubric and the question banks beforehand. Record audio or video with their permission. If nobody is available, you can use an AI assistant as a mock interviewer; it is useful for follow-up questions, but it is **a weak reviewer of your delivery and honesty**, so also review the recording yourself, and tell it to ask questions without praising.
+
+**The rubric**, each line 0 to 2 by the reviewer (so 10 maximum):
+
+| Item | 0 | 1 | 2 |
+|---|---|---|---|
+| structure | rambles | some shape | clear opening, three points, a close |
+| evidence | claims only | some numbers | a number or demonstrated result for each claim |
+| tradeoffs | none | one-sided | alternative, cost and what would change your mind |
+| honesty | bluffs or overclaims | mostly clear | says what was read versus run and what is unknown |
+| time | far over | slightly over | inside the limit |
+
+`score_mock()` totals it and reports the weakest items. Between mock 1 and 2, work **only on the weakest item**.
+
+**Worked example**
+
+```text
+Mock 1: structure 1, evidence 1, tradeoffs 1, honesty 2, time 1  -> 6 of 10, weakest: structure, evidence, tradeoffs, time
+Mock 2: structure 2, evidence 2, tradeoffs 1, honesty 2, time 2  -> 9 of 10, weakest: tradeoffs
+(Fictional scores, to show the shape of a useful before and after.)
+```
+
+**Common mistake**
+
+Doing the mock, nodding at the feedback and not changing anything. Pick one item, drill it, and re-test.
+
+**Check yourself.** Why is a human reviewer better than self-review, and what do you work on between mocks?
+
+<details><summary>Model answer (write yours first)</summary>
+
+Others notice habits you cannot see (fillers, unanswered questions, vagueness). Between mocks work only on the weakest rubric item.
+
+</details>
+
+---
+
+## Part 2 · The portfolio trim: two or three projects, polished
+
+The second half of the criterion is **cutting**. A portfolio of eight half-finished projects says less than two finished ones. By now you have candidates from lessons 43 to 55, 69, 70 and 71. Keep the **strongest two or three** for the roles you target.
+
+**How to choose.** For each candidate, answer four questions honestly:
+
+1. **Evidence:** do I have evaluation results, a cost figure and a real failure case?
+2. **Relevance:** does it speak to the roles I am applying for (product and program, delivery, data platform)?
+3. **Defensibility:** can I answer five hard questions about every file in it?
+4. **Distinctiveness:** does it show something other candidates' projects do not (a gate, an exit plan, honest limits)?
+
+Each kept project must have three things, per the criterion:
+
+| Item | What it contains |
+|---|---|
+| **README** | One-line purpose, how to run it, the architecture diagram, the three headline results with caveats, what it does not do, licence |
+| **Demo link** | A live URL (lesson 71) or a short recorded walkthrough; never a link that may expose your keys or cost |
+| **Case study** | From lesson 72, with all seven parts |
+
+**Trim the rest.** Archive the others, or keep them private. You can mention a dropped project in one sentence if asked; you do not have to defend it.
+
+**Final checks before you share anything,** which are Diligence in practice: no secrets or keys in the history, no customer or employer data, every number traceable to a file in the repository, every AI-assisted part disclosed where it matters, and the licence stated. Ask someone to open the repository cold and tell you what they think the project does in 60 seconds; if they cannot, rewrite the README.
+
+**Worked example**
+
+Fictional trim record: 'Keep: DataOps agent (strongest evidence), migration harness (relevant to data platform roles). Drop: toy chatbot (no evidence), second RAG variant (duplicates the governed build).'
+
+**Common mistake**
+
+Keeping a project because you spent a lot of time on it. Keep what is strongest and defensible.
+
+**Check yourself.** What are the four questions for choosing which projects to keep, and what three things must each kept project have?
+
+<details><summary>Model answer (write yours first)</summary>
+
+Evidence, relevance, defensibility and distinctiveness. Each has a README, a demo link and a case study.
+
+</details>
+
+---
+
+## Part 3 · After the course: what finishing honestly looks like
+
+You can now run this loop on repeat: **drill, record, score, repair.** The mock scores are your running evidence of readiness; keep the dated log from lessons 73 to 77 and look at the trend, not any single day.
+
+Be honest with yourself about what you have and what you do not:
+
+- **Built and run:** the agents, RAG, multi-agent, MCP and A2A demos, the evaluation, the migration harness, the governance checks, the deployment controls (on your own machine or a small deployment).
+- **Read and designed, not operated:** Azure and Databricks agent platforms, a real legacy migration, production traffic, a real incident, cloud cost over time.
+
+That second list is not a weakness to hide. Say it in interviews in the form 'I have built and tested X; I have read about Y and would verify Z before relying on it.' You come with strong engineering foundations (Java, Spark, ANTLR) and now with a tested understanding of agent systems, governance, evaluation and delivery; the honest framing is a strong position.
+
+Finally, keep the material alive. Models, prices and platform features change quickly; the dates in each lesson tell you what to re-check. A quarterly hour to re-run your evaluation on a current model and refresh the facts crib keeps the portfolio true.
+
+**Worked example**
+
+Fictional closing line for an interview: 'The part I am proudest of is the gate that blocked a regression I would otherwise have shipped; the part I would verify first on your platform is the identity setup, which I have read about but not operated.'
+
+**Common mistake**
+
+Treating the course as finished. The facts decay; the skills of testing, gating and being honest do not.
+
+**Check yourself.** How should you describe the difference between what you built and what you only read about?
+
+<details><summary>Model answer (write yours first)</summary>
+
+Plainly: 'I have built and tested X; I have read about Y and would verify Z before relying on it.' Honest framing is a strength.
+
+</details>
+
+---
+
+## Do it: lab
+
+1. Arrange two mock interviews with a peer or a rubric reviewer: one for breadth, one for depth. Record both with permission.
+2. Score each with the rubric (`score_mock()`), from the reviewer and from yourself, and compare.
+3. Work only on the weakest item between the mocks, then re-test.
+4. Score each candidate project on evidence, relevance, defensibility and distinctiveness; keep two or three.
+5. For each kept project, finish the README, the demo link and the case study.
+6. Run the final checks (secrets, private data, traceable numbers, disclosures, licence) and have someone open the repository cold.
+7. Write your list of what you built and ran, and what you only read and designed.
+
+**Done when:** you have two recorded mock interviews with rubric scores that show change, two or three polished projects each with a README, demo link and case study, a clean pre-share check, and an honest built-versus-read list.
+
+---
+
+## Interview check
+
+**Question.** Why should we hire you for an agentic AI leadership role?
+
+<details><summary>A strong answer has this shape</summary>
+
+1. I bring years of engineering depth (Java, Spark, ANTLR) and a tested understanding of agent systems: I built and evaluated them, and I can show the numbers.
+2. I lead with evidence and honesty: gates that blocked real regressions, cost as ranges, exit plans, and a clear line between what I ran and what I read.
+3. I can run delivery: baselines, phased rollouts, risk registers, incident runbooks and stakeholder messages.
+4. I would verify platform specifics on day one rather than bluff, and I keep my evaluation and facts current.
+
+</details>
+
+---
+
+## Evidence to keep
+
+Keep the mock recordings (private), the scores, the trim record and the polished repositories. This is the end of the course; refresh it quarterly.
+
+---

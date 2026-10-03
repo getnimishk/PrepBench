@@ -1,0 +1,201 @@
+# Delivery leadership: stakeholders, dependencies & escalation
+
+**Course:** Agentic AI, from first principles to production · Module 12 Product and Program Leadership · lesson 68 of 77 · **about 4 hours** · paper draft for review.  
+**Success criterion:** Write 3 realistic scenarios (conflicting stakeholders, a blocked dependency, a missed estimate) with your response and the communication you would send.
+
+> Sources (read 2026-10-03; details and gaps in docs/research/agentic-ai): Anthropic AI Fluency framework (4D: Delegation, Description, Discernment, Diligence), used here for how you communicate AI work; Google SRE book chapter on postmortem culture (blameless; used for the missed-estimate scenario); Google PAIR guidebook (setting expectations with users; lesson 60); lessons 63, 65 and 67. This lesson is mainly our practice, not a literature review: delivery leadership is learned by doing, and we read no source that prescribes the responses below. Management practice is less settled than engineering. Where a source supports a statement we cite it; where a lesson gives our own practice we say 'our practice' and do not borrow authority for it. The reference code for this module (the product folder) was written by us and run on Python 3.14.7 with Pydantic 2.13.4 and pytest 9.1.1; its 8 tests passed. All figures in it are FICTIONAL assumptions for the DataOps agent. All three scenarios are fictional. They are examples of a way to respond, not the only one. Unverified: that these responses would work in any particular organisation.
+
+---
+
+## Part 1 · What is different about delivery for an AI agent
+
+Delivery leadership is the same job as for any program (keep people aligned, unblock work, report honestly) with four differences that make it harder to explain upwards.
+
+1. **Outcomes are probabilistic.** 'It works' is a rate, not a yes or no. You report pass rates and ranges, and you have to teach stakeholders to read them.
+2. **Quality is hard to see.** A demo can look perfect while the evaluation set shows weakness. Show both.
+3. **Dependencies are unusual:** a model provider, an evaluation set owned by someone, a data team who controls access, a security team who must approve a write tool.
+4. **Estimates have a long tail:** the first 80 percent of a demo is quick and the last 20 percent (evaluation, governance, edge cases) is where the time goes.
+
+Four habits, each a lesson you have already done: **show ranges, not points** (lesson 65), **show evidence, not demos** (lessons 46 and 64), **write decision criteria in advance** (lesson 67), and **tell people early** (this lesson). The three scenarios below practise those. For each, the criterion asks for **a realistic situation, your response and the communication you would send**. Read ours, then write your own about situations you have faced or can imagine.
+
+**Worked example**
+
+A useful sentence for any status report: 'Confidence is medium: the evaluation shows 88 percent on common cases and 60 percent on rare ones; we are working on the rare ones and will know by Friday.' It tells people what to expect and when you will know more.
+
+**Common mistake**
+
+Reporting activity ('we are making progress') instead of evidence and a date by which you will know more.
+
+**Check yourself.** Name two ways delivery for an agent differs from ordinary delivery.
+
+<details><summary>Model answer (write yours first)</summary>
+
+Outcomes are probabilistic so you report rates and ranges; quality is hard to see from a demo; dependencies include models, evaluation sets and access owners; and estimates have a long tail in evaluation and governance.
+
+</details>
+
+---
+
+## Part 2 · Scenario 1: conflicting stakeholders
+
+**Situation (fictional).** The head of operations wants the agent live for all teams in a month and says every week of delay costs money. The security lead says write proposals must not go live until the approval gate has been tested by an outside reviewer, which takes six weeks. You own delivery. Both outrank you in different ways.
+
+**What is really going on.** Both want the program to succeed. They are optimising different risks: speed of benefit against harm from an unapproved write. Neither is wrong. The usual failure is to relay each side's demand to the other and let it escalate.
+
+**Your response.**
+
+1. **Separate the two things being decided.** Read-only diagnosis (no write path) and write proposals are different risks. Propose launching read-only now and gating writes.
+2. **Put each concern in the other's terms.** To operations: the first release already retires the biggest risk (will engineers use it) and delivers most of the saving in the business case, because diagnosis is where the minutes go. To security: nothing with a write path goes live before your review.
+3. **Offer a checkable plan, not a compromise.** Read-only release in 4 weeks to one team; write proposals in a sandbox now; outside review starts this week; widen when the criteria in the rollout plan are met.
+4. **Get the decision made by the right person, in writing,** if they still disagree: the sponsor, with both positions summarised in four lines each.
+
+**The message you would send** (to both, then a thread to the sponsor if needed):
+
+```text
+Subject: Proposal: launch read-only in 4 weeks, writes after the security review
+
+I think we can meet both goals. Proposal:
+1. Read-only diagnosis goes to one team in 4 weeks. It has no write path, so the approval-gate concern does not apply to it. The business case shows it delivers most of the time saving.
+2. Write proposals stay in a sandbox. The external review of the approval gate starts this week; we will not enable writes in production before it passes.
+3. We widen to other teams when the pilot meets the criteria in the rollout plan (attached).
+If either of you sees a problem with this, please reply by Thursday. If we still disagree, I will ask Priya (sponsor) to decide and will send her your two positions as you wrote them.
+```
+
+Notice: it proposes, gives a date and says what happens if there is no agreement. It does not take a side.
+
+**Worked example**
+
+The key move is **splitting the decision** so that each stakeholder gets what they need on their part of it.
+
+**Common mistake**
+
+Siding with whoever is more senior, or relaying demands. Your job is to find the plan that makes both concerns satisfiable.
+
+**Check yourself.** What are the first two moves in Scenario 1?
+
+<details><summary>Model answer (write yours first)</summary>
+
+Separate the decision into read-only diagnosis and write proposals, then express each concern in the other's terms.
+
+</details>
+
+---
+
+## Part 3 · Scenario 2: a blocked dependency
+
+**Situation (fictional).** The agent needs read access to the pipeline logs. The data platform team owns that access and has put the request in a queue of three weeks. Your pilot starts in two. The team is not being obstructive; they have a backlog and a security review process.
+
+**Your response.**
+
+1. **Find out what is actually blocking.** Is it capacity, a policy question, or a missing detail? Talk to the person, not the ticket.
+2. **Make the request easy to approve.** Offer the narrowest access (read-only, the three log folders, for one service account), the data handling (sizes-and-hashes tracing, no content kept), and the audit approach. The smaller the ask, the faster the approval.
+3. **Offer help:** an engineer from your side to do the preparation work.
+4. **Look for a parallel path** that does not pretend the block away: start the pilot on sample logs the team already shares, label results as 'sample data', and swap to real logs when access arrives.
+5. **Escalate on a schedule, not in anger.** If you have not heard by a stated date, ask your manager to raise it with the platform team's manager, with a one-paragraph summary of the impact and what you have already offered.
+6. **Re-plan in the open.** Update the plan and tell sponsors the date has moved by how much and why.
+
+**The message you would send to the platform team:**
+
+```text
+Subject: Narrow read access for the DataOps pilot: can we agree scope this week?
+
+Our pilot starts on 20 October and needs read-only access to the three pipeline log folders for one service account. We do not store log content; traces keep sizes and hashes only (policy attached). We can supply an engineer to prepare the access request and the audit setup, so it costs your team less time.
+Is there a smaller scope or a different route that would let this go ahead sooner? If it cannot, we will start on sample logs and switch when access arrives.
+```
+
+**And the message upward, if it reaches escalation:** 'The pilot date is at risk by up to two weeks because of read access. We have offered a narrow scope and help with preparation. Decision needed from you: can you raise this with the platform manager by Wednesday? Otherwise we start on sample data and the first results will be less representative.'
+
+**Worked example**
+
+Escalation is not a failure. **An escalation with the facts, the impact, what you tried and a specific ask** is a good use of a manager.
+
+**Common mistake**
+
+Waiting silently until the date has passed, or escalating without having made the request easy to approve.
+
+**Check yourself.** What does an escalation message contain?
+
+<details><summary>Model answer (write yours first)</summary>
+
+The facts, the impact, what you already tried or offered, and one specific ask with a date.
+
+</details>
+
+---
+
+## Part 4 · Scenario 3: a missed estimate, and estimating as ranges
+
+**Situation (fictional).** You told the sponsor the pilot would be ready on 20 October. In week 3 the evaluation shows the rare-case pass rate at 60 percent, below the target of 80 that you agreed. Fixing it needs two more weeks. You have a status meeting tomorrow.
+
+**Your response.**
+
+1. **Tell them early, before they find out.** Bad news is cheapest on the day you know it.
+2. **Bring the evidence and the options,** not only the delay: (a) hold the date and launch with an abstain-on-rare-cases rule, accepting lower coverage; (b) move the date two weeks and fix the cases; (c) launch to fewer people on the date.
+3. **Say what you learned about the estimate.** The date was a point estimate with no range, and evaluation work is where agent estimates slip. Going forward you will give ranges.
+4. **Review blamelessly.** Why was the evaluation started late? What would catch it earlier? Change the plan, not the people.
+
+**The message you would send** before the meeting:
+
+```text
+Subject: Pilot date risk: options for tomorrow
+
+The evaluation shows 60% on rare cases against our 80% target. I should have flagged in week 1 that this part of the estimate had a wide range.
+Options:
+A. Keep 20 October; the agent abstains on rare cases (about 15% of tickets) and engineers handle those as today.
+B. Move to 3 November and fix the rare cases first.
+C. Keep 20 October with four engineers instead of eight.
+My recommendation: A, then B's work as release 1.1. Evidence attached. I would like your decision at tomorrow's meeting.
+```
+
+**Estimating as ranges.** Replace 'ready on 20 October' with 'between 20 October and 3 November; 20 October if the rare-case fix works first time, which we will know on 10 October'. A range with a named uncertainty and a date by which you resolve it is more honest and more useful. Use your past work: if your estimates have usually been 30 to 50 percent low, say so and use that to set the range. The same applies to the business case (lesson 65) and the roadmap (lesson 63): the habit of giving a range and the **date you will narrow it** runs through all of them.
+
+**Worked example**
+
+Fictional: a decision on the day, with a recommendation, is worth more than a perfect analysis a week later.
+
+**Common mistake**
+
+Hiding a slip hoping to recover the time. The sponsor's trust is worth more than two weeks.
+
+**Check yourself.** Why bring options and a recommendation along with the bad news, and how does a range improve an estimate?
+
+<details><summary>Model answer (write yours first)</summary>
+
+So the sponsor can decide immediately and you stay in control of the plan. A range with a named uncertainty and a date by which you will narrow it is honest and gives people something to plan around.
+
+</details>
+
+---
+
+## Do it: lab
+
+1. Write three scenarios of your own (conflicting stakeholders, a blocked dependency, a missed estimate), each about 150 words, either real or realistic. Do not include real names.
+2. For each, write your response as numbered steps and say what you would not do.
+3. Draft the message you would send for each one. Keep each under 150 words and include a decision or action and a date.
+4. Rewrite one old estimate of yours as a range with the date you would narrow it.
+5. Ask a colleague who has managed delivery to read one scenario and tell you where they would push back. Record what changed.
+
+**Done when:** you have three scenarios with your response and a sent-ready message for each, one estimate rewritten as a range, and a note of one challenge and what you changed.
+
+---
+
+## Interview check
+
+**Question.** Tell me about handling a conflict between stakeholders on an AI program.
+
+<details><summary>A strong answer has this shape</summary>
+
+1. I split the decision so each stakeholder gets what they need on their part: read-only diagnosis now, write proposals after the security review.
+2. I express each side's concern in the other's terms and propose a checkable plan with dates, not a compromise.
+3. If they still disagree, I escalate to the named decision-maker in writing with both positions as the parties wrote them.
+4. For missed estimates I tell sponsors early, bring options and a recommendation, run a blameless review, and give ranges with the date I will narrow them.
+
+</details>
+
+---
+
+## Evidence to keep
+
+Keep the three scenarios, the messages and the range rewrite. They are material for the behavioural stories in lesson 76, but the stories there must be your real experiences.
+
+---
