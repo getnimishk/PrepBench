@@ -1,0 +1,71 @@
+{
+  "topic_title": "Portfolio Build 1: Governed Enterprise RAG",
+  "roadmap": "Agentic AI Mastery Roadmap",
+  "sources": "This is a build, not a reading topic: it combines lessons 27 to 31 (RAG), 46 (evaluation), 47 (tracing), 49 (cost), 51 to 53 (access, approval, audit) and 65 (business case). Roadmap portfolio-project criteria (the course's own tab for this topic); Anthropic AI Fluency framework (4D). Management practice is less settled than engineering. Where a source supports a statement we cite it; where a lesson gives our own practice we say 'our practice' and do not borrow authority for it. The reference code for this module was written by us and run on Python 3.14.7: the product, migration, drills and deploy folders have 8, 6, 8 and 6 passing tests, and the RAG evidence report generator runs on the lesson 27 to 31 build. Nothing here ran against a real embedding model, a real LLM, a real legacy database or a cloud account. The report's figures describe the pipeline and harness on a toy corpus and a modelled price, not a production system. Unverified: any claim of accuracy on real documents; restricted text can still reach logs, caches or traces that the report does not inspect.",
+  "sections": [
+    {
+      "title": "What this build proves, and what it must not claim",
+      "body": "You built the pieces earlier: a retrieval pipeline (lessons 27 to 31), an evaluation harness (lesson 46), tracing (lesson 47), a cost model (lesson 49) and access control (lessons 51 to 53). This topic **assembles them into one documented app** that you can show to a hiring manager or sponsor and defend line by line. The criterion has four demonstrable claims:\n\n1. **A user without access to a document cannot retrieve it.** Proved by a test, not by a promise.\n2. **Answers cite their sources.** Proved by the evaluation, which checks the right document is cited.\n3. **A report shows evaluation results, traces and cost per query.** Generated, not hand-written.\n4. **A one-page 4D review** of how you used AI to build it.\n\nAnd it has one rule: **the report states what it does not show.** Ours says plainly that no real embedding model or LLM was used, that the numbers describe the pipeline and harness, and that restricted text could still land in logs, caches or traces that the report does not inspect. A portfolio piece that overstates is worse than none; one that is precise about its limits is a strong signal of seniority.",
+      "example": "Interviewers often ask 'what would break first at 10 times the size?'. The honest answer comes from the 'what this report does not show' section you wrote yourself.",
+      "common_mistake": "Describing a toy demo as 'enterprise grade'. Say what it is: a governed pipeline tested on a small corpus with measured results.",
+      "check_question": "What are the four demonstrable claims, and what rule applies to the report?",
+      "check_answer": "No-access users cannot retrieve restricted documents, answers cite sources, a generated report shows evaluation, traces and cost, and there is a 4D review. The report must state what it does not show."
+    },
+    {
+      "title": "The ten-hour plan",
+      "body": "The build is mostly assembly, so most of the hours go into **proof**, not code. A plan that keeps you honest:\n\n| Hours | Task | Output |\n|---|---|---|\n| 1 | Choose the corpus: 20 to 30 short documents you are allowed to use, three of them restricted to a group (for example finance). Record the source and licence of each | `corpus/` and a sources table |\n| 2 | Wire access control: groups on each document, a filter **before ranking**, callers carry groups | Retrieval that takes a caller |\n| 2 | Citations and abstention: the answer must name the document and refuse when evidence is absent | Answer function with sources |\n| 2 | Evaluation set: 25 questions (22 answerable, 3 unanswerable), each with the expected document and fact | `eval25.json` |\n| 1 | Tracing and cost: log sizes and hashes of each step, not content; model cost from tokens and a stated price | Trace log and cost function |\n| 1 | Generate the report with `rag_report.py` and read it critically | `REPORT.md` |\n| 1 | README, architecture diagram, 4D review | Docs |\n\n**Three tests you must have, in this order:**\n\n1. A caller with no groups asks the restricted question. The restricted document must not appear in the retrieved set, the answer must not use it, and the answer should abstain.\n2. A caller in the finance group asks the same question and gets the answer with the citation.\n3. A restricted phrase must not appear in the trace log.\n\nThe first two are the proof of the criterion. The third is the one people forget: **access control that filters retrieval but writes restricted text to logs has simply moved the leak.**",
+      "example": "```text\nA caller with no groups asked the restricted finance question: restricted document visible = False; answer: `Not in the documents.`\nA caller in the finance group: restricted document visible = True\n```",
+      "common_mistake": "Filtering after ranking or after generation. Filter first, so the model never sees what the caller may not.",
+      "check_question": "Which test do people forget, and why does it matter?",
+      "check_answer": "Checking that restricted text is absent from logs and traces. Filtering retrieval but logging restricted content just moves the leak."
+    },
+    {
+      "title": "The evidence report: read it like a sceptic",
+      "body": "`rag_report.py` generates the report from the code and the evaluation set, so it cannot drift from the system. Ours, run on the lesson build (toy corpus, deterministic stand-ins):\n\n```text\nEvaluation by stage (25 questions: 22 answerable, 3 unanswerable)\n- Right document cited: 19 of 22 (95% interval 67 to 95%)\n- Right fact in the answer: 15 of 22 (95% interval 47 to 84%)\n- Correct abstentions: 3 of 3\n\nCost per query (modelled)\n- Median prompt tokens: 309; median cost per query: $0.00122; per 1,000 queries: $1.22\n- Retrieval time in this toy index: 1.97 ms per query (not a benchmark)\n```\n\nHow to read this, as the skeptical reviewer you want to be before someone else is:\n\n1. **Stage by stage.** Retrieval found the right document in 19 of 22; the fact was in the answer in 15 of 22. So four answers lost the fact **after** retrieval, in the generation step, and three retrieval misses are upstream. The two stages need different fixes (lesson 31).\n2. **The intervals are wide.** With 22 questions the 95 percent interval on 15 of 22 runs from about 47 to 84 percent. Say so; do not quote 68 percent as a precise figure.\n3. **Abstentions 3 of 3 is only three cases.** It shows the mechanism works, not that it is reliable.\n4. **Cost is modelled.** It comes from token counts and a stated price, which you should date. It is labelled modelled in the report.\n5. **The latency figure is not a benchmark.** A 2 ms retrieval on a toy index says nothing about a real index.\n\nA report that carries these caveats **with** the numbers is the evidence that you understand them. Add one failure case: pick a question the system got wrong, show the trace, and explain which stage failed. That feeds the case study in lesson 72.",
+      "example": "Fictional close for the README: 'On 25 questions the pipeline cites the right document 19 of 22 times and includes the right fact 15 of 22 times; I would not claim more than \"works on the common cases\" from this sample.'",
+      "common_mistake": "Quoting a single accuracy number. Show the stages, the intervals and the sample size.",
+      "check_question": "Why report retrieval and answer correctness separately?",
+      "check_answer": "They fail for different reasons and need different fixes: a miss at retrieval versus losing the fact during generation."
+    },
+    {
+      "title": "The 4D review and what to publish",
+      "body": "Finish with the one-page **4D review** (lesson 66 introduced the structure): what you delegated to an AI, how you described the task, how you checked the result, and what you recorded and disclosed. For this build the honest answers are usually specific: which code an assistant drafted, which test you wrote yourself, which of its suggestions you rejected and why, and what you disclose in the README (for example, 'the evaluation questions were written by me; the first draft of the retrieval code was assisted').\n\nWhat goes in the repository: the README with the architecture diagram and the three tests, the corpus sources table, the evaluation set and the generated report, the trace policy, the cost assumptions with their date, and the 4D page. What does not: real secrets, real customer data, or documents you do not have the right to share. If your corpus is synthetic, say so on the first line.",
+      "example": "Fictional Delegation line: 'Asked an assistant to draft the access filter; I wrote the two-user test first and it failed on the first draft because the filter ran after ranking. That is how I know the test works.'",
+      "common_mistake": "A 4D page that praises the process. Write at least one thing you rejected or got wrong.",
+      "check_question": "What goes in the repository, and what stays out?",
+      "check_answer": "README with diagram and tests, corpus sources, evaluation set, generated report, trace policy, cost assumptions and the 4D review; no secrets, real customer data or documents you cannot share."
+    },
+    {
+      "title": "Do it: lab",
+      "body": "1. Choose a corpus of 20 to 30 documents you may use, mark three as restricted to a group and record each source.\n2. Implement or reuse the access filter before ranking and write the two-user test and the log-leak test.\n3. Write 25 evaluation questions (22 answerable, 3 not) with expected document and fact.\n4. Generate the report with `rag_report.py` and write one paragraph reading each number sceptically, including the intervals.\n5. Pick one wrong answer, trace which stage failed and write it up as a failure case.\n6. Write the README with an architecture diagram and the 4D review, including one thing you rejected.\n\n**Done when:** you have a documented app where a no-access caller cannot retrieve a restricted document, answers cite sources, a generated report with evaluation, traces and cost per query and its limits, one failure case, and a one-page 4D review.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": null,
+      "check_answer": null
+    },
+    {
+      "title": "Interview check",
+      "body": "Answer aloud first, then compare. Do not memorise the words; understand the shape.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": "Tell me about a RAG system you built and how you know it is safe and works.",
+      "check_answer": "1. I filter by access before ranking and prove it with a two-caller test, plus a check that restricted text is absent from logs.\n2. I report stage by stage: right document cited 19 of 22, right fact in the answer 15 of 22, abstentions 3 of 3, and I say the intervals are wide on 25 questions.\n3. Cost per query is modelled from tokens and a dated price, and the report says what it does not show.\n4. I can describe a failure case and which stage failed, and how I used AI to build it, including what I rejected."
+    },
+    {
+      "title": "Evidence to keep",
+      "body": "Keep the repository, the report, the failure case and the 4D page. This is case study material for lesson 72.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": null,
+      "check_answer": null
+    },
+    {
+      "title": "Sources and what is unverified",
+      "body": "This is a build, not a reading topic: it combines lessons 27 to 31 (RAG), 46 (evaluation), 47 (tracing), 49 (cost), 51 to 53 (access, approval, audit) and 65 (business case). Roadmap portfolio-project criteria (the course's own tab for this topic); Anthropic AI Fluency framework (4D). Management practice is less settled than engineering. Where a source supports a statement we cite it; where a lesson gives our own practice we say 'our practice' and do not borrow authority for it. The reference code for this module was written by us and run on Python 3.14.7: the product, migration, drills and deploy folders have 8, 6, 8 and 6 passing tests, and the RAG evidence report generator runs on the lesson 27 to 31 build. Nothing here ran against a real embedding model, a real LLM, a real legacy database or a cloud account. The report's figures describe the pipeline and harness on a toy corpus and a modelled price, not a production system. Unverified: any claim of accuracy on real documents; restricted text can still reach logs, caches or traces that the report does not inspect.",
+      "example": null,
+      "common_mistake": null,
+      "check_question": null,
+      "check_answer": null
+    }
+  ]
+}

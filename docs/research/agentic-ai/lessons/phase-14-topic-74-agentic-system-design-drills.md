@@ -1,0 +1,160 @@
+# Agentic system design drills
+
+**Course:** Agentic AI, from first principles to production · Module 14 Interviews · lesson 74 of 77 · **about 8 hours** · paper draft for review.  
+**Success criterion:** Complete 4 timed designs (30 minutes each), each covering state, tools, approvals, failure handling, evaluation, cost and governance, self-graded against a checklist.
+
+> Sources (read 2026-10-03; details and gaps in docs/research/agentic-ai): Anthropic Engineering 'Building effective agents' (start simple, workflows versus agents, tool design); 'Demystifying evals for AI agents' (2026-01-09); Google PAIR guidebook; the course lessons on state (21 and 54), tools (22 to 25), approvals (52), failure (50), evaluation (46), cost (49) and governance (53 and 55), which are where each checklist item comes from. Management practice is less settled than engineering. Where a source supports a statement we cite it; where a lesson gives our own practice we say 'our practice' and do not borrow authority for it. The drill helpers (the question bank, the self-scoring functions and the story and case-study checks) were written by us and run on Python 3.14.7; their 8 tests passed. They check that evidence is present and count what you recorded; they do not judge the quality of an answer. The 30-minute allocation and the checklist are our practice. Unverified: that interviews use this exact structure; in a real design interview the interviewer steers.
+
+---
+
+## Part 1 · The checklist, and a 30-minute plan
+
+A design interview does not test whether you can produce a perfect architecture. It tests **how you think under time pressure**: whether you ask the right question first, name tradeoffs, and cover the unglamorous parts that decide whether an agent can be trusted. Our checklist has seven items, and a design is incomplete until it has touched each: **state, tools, approvals, failure handling, evaluation, cost, governance**.
+
+Four prompts to practise, 30 minutes each:
+
+| ID | Design prompt |
+|---|---|
+| D1 | Design an agent that triages failed data pipelines and proposes fixes. |
+| D2 | Design a governed Q&A assistant over confidential policy documents. |
+| D3 | Design a SQL migration assistant that converts legacy queries and proves the result. |
+| D4 | Design a support system with a triage agent and specialists that can issue refunds. |
+
+A time plan that gets all seven in:
+
+| Minutes | Do | Say |
+|---|---|---|
+| 0 to 4 | **Clarify** | Who uses it, what is the baseline, what does failure cost, what must it never do |
+| 4 to 8 | **Simplest design** | A workflow or single agent first, with the reason (lesson 20) |
+| 8 to 14 | **State and tools** | What is remembered, where, for how long; the tools, their permission level, and what each can break |
+| 14 to 19 | **Approvals and failure** | Which actions need a person; timeouts, retries, idempotency, the degrade path |
+| 19 to 25 | **Evaluation, cost, governance** | The release gate, the cost per successful task with a range, access, audit, retention |
+| 25 to 30 | **Tradeoffs and what you would test first** | Where it is weakest and the first experiment |
+
+Draw as you go (a whiteboard, paper or a text editor). A diagram with five boxes and a marked trust boundary beats three paragraphs.
+
+**Worked example**
+
+For D1 (triage agent), the clarify step produces the fact that a wrong rerun costs real money, so approvals appear in minute 14 as a consequence of the stated stakes, not as a recited checklist item.
+
+**Common mistake**
+
+Opening with the multi-agent diagram. Start with the simplest design and say why you would add to it.
+
+**Check yourself.** What are the seven checklist items and what comes first in the time plan?
+
+<details><summary>Model answer (write yours first)</summary>
+
+State, tools, approvals, failure handling, evaluation, cost and governance. Clarifying the users, the baseline and the stakes comes first.
+
+</details>
+
+---
+
+## Part 2 · What good answers contain: worked outline for D1
+
+Here is an **outline**, not a script, for D1 ('triage failed data pipelines and propose fixes'). It draws on your own DataOps build; use your own numbers in the room.
+
+- **Clarify:** on-call engineers lose about half an hour per failure to finding the cause; a wrong rerun could reload bad data; no write may happen without approval.
+- **Simplest design:** a single agent with read-only tools over logs and runbooks, citing evidence; rule-based detection tiers first so the model is used only where rules cannot decide (lessons 20 and 43).
+- **State:** per-ticket short-term state in a checkpointed store; no long-term memory in the first release; retention limited.
+- **Tools:** read tools with schemas that forbid extra arguments; one write tool (rerun) behind the registry and policy; each tool's blast radius named.
+- **Approvals:** the rerun is proposed, a named person approves, the approval is persisted so a restart does not lose or repeat it, with an audit log.
+- **Failure handling:** timeouts, bounded retries with backoff, idempotency keys, breaker, degrade to log-only then to a person; the interrupted node re-runs on resume so side effects must be idempotent.
+- **Evaluation:** a 25-case set from real failures with must-pass cases, repeated trials, pass^k, a gate in CI that blocks a regression.
+- **Cost:** per successful task including the people who take over failures, as a range; the model price matters least.
+- **Governance:** least privilege, access control before retrieval, content-free logs, a kill switch, a risk register with owners.
+- **Tradeoffs and first test:** weakest point is rare cases; first experiment is shadow mode against real tickets.
+
+Two things interviewers like to hear that this outline contains: **a thing you would not build yet** (long-term memory, multi-agent), and **a number from your own work**.
+
+For D2 to D4 the same plan applies with different emphasis: D2 (confidential policy Q&A) leans on access control before ranking and citations; D3 (migration assistant) leans on the proof harness and the approval gate; D4 (triage plus specialists with refunds) leans on the case for more than one agent, the money-moving write, and approval fatigue.
+
+**Worked example**
+
+A good closing sentence: 'If I had two more days I would run it in shadow mode on a week of real tickets and measure how often an engineer would have accepted the diagnosis before letting anyone see it.'
+
+**Common mistake**
+
+Spending 20 minutes on the diagram and rushing evaluation, cost and governance. Those are the parts that separate senior answers.
+
+**Check yourself.** Which two things do interviewers like to hear in a design answer?
+
+<details><summary>Model answer (write yours first)</summary>
+
+A thing you would deliberately not build yet, and a number from your own work.
+
+</details>
+
+---
+
+## Part 3 · Self-grading and the review
+
+Do each design **out loud, timed, recorded**, with a visible clock. Afterwards grade yourself with the checklist:
+
+| Item | Covered? | Concrete example named? | Tradeoff named? |
+|---|---|---|---|
+| State | | | |
+| Tools | | | |
+| Approvals | | | |
+| Failure handling | | | |
+| Evaluation | | | |
+| Cost | | | |
+| Governance | | | |
+
+A row counts as **covered** only if you said something specific enough that a listener could disagree with it. 'We would have governance' is not covered. 'The write tool is gated by a named approver and every decision goes to an append-only log' is.
+
+Then write three lines: **what I covered best, what I skipped, what I would say differently.** The skipped items are your next drill's focus; most people skip cost and governance first.
+
+Space the four designs over several days. If you can, do one with another person playing the interviewer: the questions they ask, such as 'why not just a prompt?' or 'what happens when the model is wrong?', are the real test, and you cannot give them to yourself.
+
+**Worked example**
+
+Fictional review: 'D2: covered state, tools, evaluation. Skipped cost and failure handling. Said "we would log it" without saying what is not logged. Next time: say sizes-and-hashes and why.'
+
+**Common mistake**
+
+Giving yourself credit for an item you only mentioned. Covered means specific and disagreeable.
+
+**Check yourself.** When does a checklist row count as covered?
+
+<details><summary>Model answer (write yours first)</summary>
+
+When you said something specific enough that a listener could disagree with it, ideally with a concrete example and a named tradeoff.
+
+</details>
+
+---
+
+## Do it: lab
+
+1. Do the four timed designs (D1 to D4), 30 minutes each, spoken and recorded, spread over at least two days.
+2. Grade each with the seven-row checklist: covered, concrete example, tradeoff.
+3. Write for each: best covered, skipped, say differently.
+4. Redo the weakest design, focusing on the items you skipped.
+5. If possible, do one design with another person asking questions, and record the questions you could not answer.
+
+**Done when:** you have four recorded 30-minute designs, a graded checklist for each, three-line reviews, a redo of the weakest one, and a list of questions you could not answer.
+
+---
+
+## Interview check
+
+**Question.** Design an agent system that does X. Walk me through it.
+
+<details><summary>A strong answer has this shape</summary>
+
+1. I clarify users, baseline, stakes and what it must never do, then start with the simplest design and say why.
+2. I cover state, tools and their blast radius, approvals, failure handling, evaluation, cost and governance, each with a concrete example.
+3. I name something I would not build yet and a number from my own work.
+4. I finish with the weakest point and the first experiment I would run.
+
+</details>
+
+---
+
+## Evidence to keep
+
+Keep the recordings (private), the graded checklists and the reviews.
+
+---
