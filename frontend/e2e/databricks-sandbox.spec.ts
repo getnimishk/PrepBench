@@ -172,3 +172,36 @@ test('Station C still opens from the rail, and the notebook is marked Unverified
   await expect(page).toHaveURL(/station=c/);
   await expect(page.getByText('Unverified', { exact: true })).toBeVisible();
 });
+
+test('a second scenario pack is reachable, shows only the stations it has, and runs Station C without new code', async ({ page, request }) => {
+  const packs = await (await request.get('/api/v1/lab/lakehouse/packs')).json();
+  expect(packs.map((p: { id: string }) => p.id)).toEqual(expect.arrayContaining(['semiconductor-v1', 'jd-po-005-v1']));
+
+  // The full scenario is the default, and there is a picker.
+  await page.goto('/databricks-sandbox');
+  await expect(page.getByRole('heading', { level: 2, name: /Station F/ })).toBeVisible();
+  const picker = page.getByRole('combobox', { name: 'Scenario' });
+  await expect(picker).toBeVisible();
+
+  // Choosing the data-only pack leaves Station C, and nothing that would have to say "no content".
+  await picker.click();
+  await page.getByRole('option', { name: /Gulf port-logistics warehouse migration/ }).click();
+  await expect(page).toHaveURL(/pack=jd-po-005-v1/);
+  await expect(page.getByRole('heading', { level: 2, name: /Station C/ })).toBeVisible();
+  const rail = page.getByRole('navigation', { name: 'Stations' });
+  await expect(rail.getByRole('button')).toHaveCount(1);
+  await expect(rail.getByRole('button', { name: 'C \u00b7 Delta Lake' })).toBeVisible();
+  await expect(page.getByText(/no usable/)).toHaveCount(0);
+
+  // Station C works on it as on the first pack: predict, and without the engine nothing is shown as a result.
+  const status = await (await request.get('/api/v1/lab/lakehouse/engine')).json();
+  test.skip(status.available === true, 'The real Delta engine is installed here; this part covers it being absent.');
+  if (await page.getByRole('button', { name: 'Commit prediction' }).count() > 0) {
+    await page.getByRole('radio', { name: /The write is refused/ }).check();
+    await page.getByRole('button', { name: 'Commit prediction' }).click();
+  }
+  await expect(page.getByRole('button', { name: 'Prediction committed' })).toBeVisible();
+  const observe = page.locator('section[aria-labelledby="c-observe"]');
+  await expect(observe.getByText('Real engine not installed')).toBeVisible();
+  await expect(observe).not.toContainText(/Real engine run|Table at version|\d+ rows/);
+});

@@ -41,8 +41,8 @@ This plan is written to be picked up **cold, in a new session**. Each phase is s
 | 1A | Backend foundation + Station C engine API | PR #32 merged, Phase 0 gate | **Merged** (PR #42); the CI lab job is in (PR #57) | `GATE-LL-1A-REPORT.md` |
 | 1B | Page shell + Station C UI + journal | 1A gate | **Merged** (PR #60). Open: the author runs the notebook on Free Edition | `GATE-LL-1B-REPORT.md` |
 | 2 | Station F: Migration Factory | 1B gate | **Merged** (PR #62) | `GATE-LL-2-REPORT.md` |
-| 3 | Stations A and B + downstream flow | 2 gate | Gate passed, PR open | `GATE-LL-3-REPORT.md` |
-| 4 | Interview-ready (P1-1 to P1-6) | 3 gate | Not started | `GATE-LL-4-REPORT.md` |
+| 3 | Stations A and B + downstream flow | 2 gate | **Merged** (PR #66) | `GATE-LL-3-REPORT.md` |
+| 4 | Interview-ready (P1-1 to P1-6) | 3 gate | In progress, one PR per item. **P1-3 (JD-PO-005 pack): gate passed, PR open** | `GATE-LL-P1-3-REPORT.md` (P1-3); the rest TBD |
 | Later | P2 items | — | Not planned | — |
 
 PR #31 (interview importer keeps prepared answers and talking points, Phase 4's P1-1) and PR #32 (spec, design and

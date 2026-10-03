@@ -94,7 +94,7 @@ test('every screen opens with no console errors, and no link on any of them lead
     `/roadmaps/${sheets.roadmapId}`, `/roadmaps/${sheets.roadmapId}?resource=${sheets.referenceId}`,
     `/roadmaps/${sheets.roadmapId}?resource=${sheets.planId}`, `/roadmaps/${roadmap.id}/edit`, `/roadmaps/${roadmap.id}/topics/${topic.id}`,
     `/roadmaps/${roadmap.id}/topics/${topic.id}/guide`, `/roadmaps/${roadmap.id}/topics/${topic.id}/demonstrate`,
-    '/lab', '/chart-sandbox', '/databricks-sandbox', '/scenarios', '/scenarios/adf/1',
+    '/lab', '/chart-sandbox', '/databricks-sandbox', '/databricks-sandbox?pack=jd-po-005-v1', '/scenarios', '/scenarios/adf/1',
     '/preparations/roles/new', `/preparations/roles/${role.id}`, `/preparations/roles/${role.id}/diagnostic`, '/design-reviews', `/design-reviews/${review}`, '/system-design', `/system-design/${prompt}/answer`,
     '/interview-practice', '/interview-practice/setup', '/interview-practice/library', '/recordings',
     '/search', '/search?q=Navigation', '/profile', '/notifications', '/onboarding', '/settings', '/settings/ai', '/settings/appearance', '/settings/practice',

@@ -1,0 +1,72 @@
+[
+  {
+    "question_text": "A scheduled incremental copy from the on-premises warehouse fails part-way through. When should the watermark be updated, and how does that decide whether you lose rows or write them twice?",
+    "round_type": "technical",
+    "category": "Diagnostic: data ingestion"
+  },
+  {
+    "question_text": "A vendor needs write access to one folder in the lake and nothing else. How would you grant it in ADLS Gen2, and what is the trap with directory ACLs?",
+    "round_type": "technical",
+    "category": "Diagnostic: storage and access"
+  },
+  {
+    "question_text": "The source system adds a column part-way through the month. What happens to the Delta table under schema enforcement, what changes with schema evolution, and what would you decide as the product owner?",
+    "round_type": "technical",
+    "category": "Diagnostic: Delta Lake"
+  },
+  {
+    "question_text": "A batch is delivered twice after a retry. How do you make the load safe to repeat, and how would you show that it is?",
+    "round_type": "technical",
+    "category": "Diagnostic: Delta Lake"
+  },
+  {
+    "question_text": "The row counts match between the legacy table and the migrated one. Why is that not enough to sign off, and what do you compare instead?",
+    "round_type": "technical",
+    "category": "Diagnostic: reconciliation"
+  },
+  {
+    "question_text": "The legacy job rounded repair costs in dirhams to two decimals and the migrated job keeps four. Who decides which is right, and how would you write the acceptance criterion?",
+    "round_type": "technical",
+    "category": "Diagnostic: regional data"
+  },
+  {
+    "question_text": "You are asked to plan the migration of about 3,000 jobs in waves. Why does a plan built from the job count fail, and how would you tier the jobs instead?",
+    "round_type": "technical",
+    "category": "Diagnostic: migration planning"
+  },
+  {
+    "question_text": "A wave is cut over without a map of who reads its data. What breaks, and what would you require before the old platform is decommissioned?",
+    "round_type": "technical",
+    "category": "Diagnostic: migration planning"
+  },
+  {
+    "question_text": "Kerberos keytabs are being replaced by Entra ID service principals and managed identities. What do you inventory first, and who signs off the move?",
+    "round_type": "technical",
+    "category": "Diagnostic: governance and identity"
+  },
+  {
+    "question_text": "A regional feed carries names in Arabic script and dates in the Hijri calendar. What can go wrong between the source, the storage and the reports, and what would you test?",
+    "round_type": "technical",
+    "category": "Diagnostic: regional data"
+  },
+  {
+    "question_text": "Walk me through the people you would meet in your first two weeks as the product owner of a warehouse data migration, and what you would ask each of them.",
+    "round_type": "technical",
+    "category": "Prompt: stakeholders"
+  },
+  {
+    "question_text": "The operations director wants the migration finished before the peak season and the finance controller wants every figure to match to the fils. How do you handle the conflict?",
+    "round_type": "technical",
+    "category": "Prompt: stakeholders"
+  },
+  {
+    "question_text": "How would you write the acceptance criteria for a data-migration backlog item so that engineering and the business owner can both sign it off?",
+    "round_type": "technical",
+    "category": "Prompt: delivery"
+  },
+  {
+    "question_text": "What would you put in a cutover checklist for a warehouse reporting domain, and what would make you call it off?",
+    "round_type": "technical",
+    "category": "Prompt: delivery"
+  }
+]
