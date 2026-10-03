@@ -6,7 +6,7 @@
 Lakehouse Lab scenario packs (design §4.1).
 
 A pack is a folder under `app/data/lab_packs/<id>/`: `manifest.json`,
-`scenario.md`, `dataset.json` and optionally `factory.json`. Packs are read-only
+`scenario.md`, `dataset.json` and optionally `factory.json` and `pipeline.json`. Packs are read-only
 content served through the API; nothing about them is stored in the database, so
 a new pack version is a file change reviewed like code.
 
@@ -33,11 +33,14 @@ def _load_one(folder: Path) -> LabPack:
     dataset = DatasetSpec.model_validate(json.loads((folder / "dataset.json").read_text(encoding="utf-8")))
     factory_file = folder / "factory.json"
     factory = json.loads(factory_file.read_text(encoding="utf-8")) if factory_file.exists() else {}
+    pipeline_file = folder / "pipeline.json"
+    pipeline = json.loads(pipeline_file.read_text(encoding="utf-8")) if pipeline_file.exists() else {}
     return LabPack(
         manifest=manifest,
         scenario_md=(folder / "scenario.md").read_text(encoding="utf-8"),
         dataset=dataset,
         factory=factory,
+        pipeline=pipeline,
     )
 
 

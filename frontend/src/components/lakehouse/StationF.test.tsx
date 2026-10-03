@@ -35,7 +35,7 @@ const allTwos = Object.fromEntries(config.sample.map((j) => [j.id, 2 as Tier])) 
 
 const pack = {
   id: 'semiconductor-v1', version: 1, title: 'Semiconductor', summary: '', fictional: true, stations: ['c', 'f'],
-  notebook_verified_on: null, scenario_md: '', factory: packFactory as Record<string, unknown>, defect_manifest: [],
+  notebook_verified_on: null, scenario_md: '', factory: packFactory as Record<string, unknown>, pipeline: {}, defect_manifest: [],
   tables: [], dataset: { tables: {}, defects: [] },
 } as LabPackDetail;
 const UID = 'lk:2:semiconductor-v1@1:f-tiering';

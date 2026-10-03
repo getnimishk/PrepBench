@@ -145,6 +145,29 @@ def _create_table(pack: LabPack, op: CreateTableOp, path: Path) -> _Outcome:
                     data={"loaded": what, "replaced_existing": replaced, "columns": [c.name for c in columns]})
 
 
+def _manifest_rows(data: dataset_service.TableData, op: AppendBatchOp, columns) -> tuple:
+    """The rows a batch manifest names, exactly, in its order (design §3, step 5).
+
+    A repeated id is written twice by an append: that is the upstream mistake becoming
+    real rows. A merge on the key is idempotent, so it is given each id once.
+    """
+    lookup = dataset_service.rows_by_key(data)
+    unknown = sorted({i for i in op.manifest if i not in lookup})
+    if unknown:
+        raise _misuse(f"The manifest names ids the source doesn't have: {unknown[:5]}{' ...' if len(unknown) > 5 else ''}.")
+    names = [c.name for c in columns]
+    ids = list(dict.fromkeys(op.manifest)) if op.write == "merge" else list(op.manifest)
+    rows = []
+    for i in ids:
+        arrives_in, row = lookup[i]
+        if [c.name for c in data.batch_columns[arrives_in - 1]] != names:
+            raise _misuse(
+                f"Row {i} arrives in batch {arrives_in}, whose columns differ from batch {op.batch}'s. "
+                "Name the batch whose schema the manifest's rows share.")
+        rows.append(row)
+    return rows, {"requested": len(op.manifest), "distinct": len(set(op.manifest)), "written": len(rows)}
+
+
 def _append_batch(pack: LabPack, op: AppendBatchOp, path: Path) -> _Outcome:
     if not op.table.startswith("bronze."):
         raise _misuse("Batches are appended to a bronze table, where raw data lands.")
@@ -161,7 +184,14 @@ def _append_batch(pack: LabPack, op: AppendBatchOp, path: Path) -> _Outcome:
     if not engine.exists(path):
         return _not_created(op.table)
 
-    rows, columns = data.batches[op.batch - 1], data.batch_columns[op.batch - 1]
+    columns = data.batch_columns[op.batch - 1]
+    manifest_info: Optional[Dict[str, int]] = None
+    if op.manifest is not None:
+        if op.small_files:
+            raise _misuse("A manifest is the exact list of rows to write; small files is a pattern of the pack's own batch.")
+        rows, manifest_info = _manifest_rows(data, op, columns)
+    else:
+        rows = data.batches[op.batch - 1]
     staging = _staging(pack)
     committed = 0
     try:
@@ -184,11 +214,13 @@ def _append_batch(pack: LabPack, op: AppendBatchOp, path: Path) -> _Outcome:
         # batch that fails part-way has already committed the writes before it.
         return _Outcome(ok=False, error=str(exc), version=engine.version(path),
                         data={"batch": op.batch, "write": op.write, "schema_mode": op.schema_mode,
-                              "batch_columns": [c.name for c in columns], "writes_committed": committed})
+                              "batch_columns": [c.name for c in columns], "writes_committed": committed,
+                              **({"manifest": manifest_info} if manifest_info else {})})
     return _Outcome(ok=True, version=engine.version(path), rows=_count(path), files=engine.file_count(path),
                     data={"batch": op.batch, "batch_rows": len(rows), "write": op.write, "writes": writes,
                           "schema_mode": op.schema_mode, "merge": metrics,
-                          "columns": engine.columns_of(path)})
+                          "columns": engine.columns_of(path),
+                          **({"manifest": manifest_info} if manifest_info else {})})
 
 
 def _merge_cdc(pack: LabPack, op: MergeCdcOp, path: Path) -> _Outcome:
@@ -296,15 +328,33 @@ def _compare_tables(pack: LabPack, op: CompareTablesOp, left: Path, right: Path)
     key = engine.quote(pack.dataset.tables[l_name].key)
     tables = {"l": (left, None), "r": (right, None)}
     q = lambda sql: engine.query(sql, tables)  # noqa: E731
+    # Compare through batch N: only the rows of batches 1..N by key, on both sides, so a
+    # table loaded up to batch N isn't reported as missing the batches still to arrive.
+    if op.through_batch is not None:
+        data = _dataset_table(pack, op.left)
+        if op.through_batch > len(data.batches):
+            raise _misuse(f"{op.left} has {len(data.batches)} batches.")
+        limit = dataset_service.max_key_through(data, op.through_batch)
+        LS = f"(SELECT * FROM l WHERE {key} <= {limit}) AS l"
+        RS = f"(SELECT * FROM r WHERE {key} <= {limit}) AS r"
+    else:
+        LS, RS = "l", "r"
     l_cols, r_cols = engine.columns_of(left), engine.columns_of(right)
     shared = [c for c in l_cols if c in r_cols and engine.quote(c) != key]
 
     # Counted from the data, not the log's statistics (see _count).
-    counts = {"l_rows": _count(left), "r_rows": _count(right)}
-    counts["l_dup"] = counts["l_rows"] - q(f"SELECT COUNT(DISTINCT {key}) AS n FROM l")[0]["n"]
-    counts["r_dup"] = counts["r_rows"] - q(f"SELECT COUNT(DISTINCT {key}) AS n FROM r")[0]["n"]
-    only_left = q(f"SELECT COUNT(DISTINCT l.{key}) AS n FROM l LEFT JOIN r ON l.{key} = r.{key} WHERE r.{key} IS NULL")[0]["n"]
-    only_right = q(f"SELECT COUNT(DISTINCT r.{key}) AS n FROM r LEFT JOIN l ON l.{key} = r.{key} WHERE l.{key} IS NULL")[0]["n"]
+    if op.through_batch is None:
+        counts = {"l_rows": _count(left), "r_rows": _count(right)}
+    else:
+        # Still counted by reading a real column, never from the log's statistics (see _count).
+        def scoped_rows(src: str, path: Path) -> int:
+            col = engine.quote(engine.columns_of(path)[0])
+            return int(q(f"SELECT COALESCE(SUM(CASE WHEN {col} IS NULL THEN 1 ELSE 1 END), 0) AS n FROM {src}")[0]["n"])
+        counts = {"l_rows": scoped_rows(LS, left), "r_rows": scoped_rows(RS, right)}
+    counts["l_dup"] = counts["l_rows"] - q(f"SELECT COUNT(DISTINCT {key}) AS n FROM {LS}")[0]["n"]
+    counts["r_dup"] = counts["r_rows"] - q(f"SELECT COUNT(DISTINCT {key}) AS n FROM {RS}")[0]["n"]
+    only_left = q(f"SELECT COUNT(DISTINCT l.{key}) AS n FROM {LS} LEFT JOIN {RS} ON l.{key} = r.{key} WHERE r.{key} IS NULL")[0]["n"]
+    only_right = q(f"SELECT COUNT(DISTINCT r.{key}) AS n FROM {RS} LEFT JOIN {LS} ON l.{key} = r.{key} WHERE l.{key} IS NULL")[0]["n"]
 
     aggregates: Dict[str, Any] = {}
     mismatches: Dict[str, Any] = {}
@@ -313,7 +363,7 @@ def _compare_tables(pack: LabPack, op: CompareTablesOp, left: Path, right: Path)
         kind = _column_kind(pack, l_name, col)
         agg = (f"CAST(SUM({c}) AS VARCHAR) AS sum, " if kind == "numeric" else "") + \
             f"CAST(MIN({c}) AS VARCHAR) AS min, CAST(MAX({c}) AS VARCHAR) AS max, COUNT(*) - COUNT({c}) AS nulls"
-        aggregates[col] = {"left": q(f"SELECT {agg} FROM l")[0], "right": q(f"SELECT {agg} FROM r")[0]}
+        aggregates[col] = {"left": q(f"SELECT {agg} FROM {LS}")[0], "right": q(f"SELECT {agg} FROM {RS}")[0]}
 
         if kind == "numeric":
             diff = f"ABS(CAST(l.{c} AS DOUBLE) - CAST(r.{c} AS DOUBLE))"
@@ -327,7 +377,7 @@ def _compare_tables(pack: LabPack, op: CompareTablesOp, left: Path, right: Path)
         else:
             where = f"l.{c} IS DISTINCT FROM r.{c}"
             largest = "NULL"
-        base = f"FROM l JOIN r ON l.{key} = r.{key} WHERE {where}"
+        base = f"FROM {LS} JOIN {RS} ON l.{key} = r.{key} WHERE {where}"
         summary = q(f"SELECT COUNT(DISTINCT l.{key}) AS n, CAST({largest} AS VARCHAR) AS largest {base}")[0]
         keys = [row["k"] for row in q(f"SELECT DISTINCT l.{key} AS k {base} ORDER BY k LIMIT {KEY_LIST_LIMIT}")]
         examples = q(f"SELECT l.{key} AS k, CAST(l.{c} AS VARCHAR) AS left_value, CAST(r.{c} AS VARCHAR) AS right_value "
@@ -347,6 +397,7 @@ def _compare_tables(pack: LabPack, op: CompareTablesOp, left: Path, right: Path)
         "aggregates": aggregates, "mismatches": mismatches,
         "columns_compared": shared, "tolerance": op.tolerance,
         "values_match": total_mismatched == 0 and only_left == 0 and only_right == 0,
+        "through_batch": op.through_batch,
     })
 
 
@@ -363,9 +414,11 @@ def _journal_summary(outcome: _Outcome) -> Dict[str, Any]:
     data = outcome.get("data") or {}
     for k in ("batch", "write", "schema_mode", "writes", "writes_committed", "files_before", "files_after", "restored_to",
               "files_removed", "files_that_would_be_removed", "retention_hours", "dry_run", "enforce_retention", "row_counts",
-              "row_counts_match", "duplicate_keys", "values_match", "version_requested"):
+              "row_counts_match", "duplicate_keys", "values_match", "version_requested", "through_batch"):
         if k in data:
             summary[k] = data[k]
+    if "manifest" in data:
+        summary["manifest"] = data["manifest"]
     if "mismatches" in data:
         summary["mismatched_rows_by_column"] = {c: m["count"] for c, m in data["mismatches"].items() if m["count"]}
     if "merge" in data and isinstance(data["merge"], dict):

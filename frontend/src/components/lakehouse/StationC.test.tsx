@@ -23,7 +23,7 @@ import { StationC } from './StationC';
 
 const pack: LabPackDetail = {
   id: 'semiconductor-v1', version: 1, title: 'Semiconductor', summary: '', fictional: true, stations: ['c'],
-  notebook_verified_on: null, scenario_md: '', factory: {}, defect_manifest: [],
+  notebook_verified_on: null, scenario_md: '', factory: {}, pipeline: {}, defect_manifest: [],
   tables: ['legacy.defects', 'bronze.defects', 'silver.defects'],
   dataset: { tables: { defects: { key: 'defect_id', rows: 5000, batches: 5, columns: [] } }, defects: [] },
 };

@@ -239,3 +239,90 @@ def test_a_small_files_batch_that_fails_part_way_reports_what_landed(lab, monkey
     assert res["ok"] is False
     assert res["data"]["writes_committed"] == 2
     assert res["version"] == 2   # two small writes landed before the failure
+
+
+# ---- Station A's batch manifest and the real measurement of what it did (Phase 3) -----
+
+
+def _batch_ids(batch: int) -> list:
+    data = dataset_service.generate(pack_service.get_pack(PACK)).tables["defects"]
+    return [r["defect_id"] for r in data.batches[batch - 1]]
+
+
+def _load_through_batch_2(lab, ids):
+    """The prior load (batch 1), then a manifest standing in for batch 2, then the real comparison."""
+    lab(op="create_table", table="legacy.defects")
+    lab(op="create_table", table="bronze.defects")
+    loaded = lab(op="append_batch", table="bronze.defects", batch=2, manifest=ids)
+    compared = lab(op="compare_tables", left="legacy.defects", right="bronze.defects", through_batch=2, tolerance=0.0001)
+    return loaded, compared["data"]
+
+
+def test_a_manifest_missing_ids_leaves_exactly_that_many_real_rows_missing(lab):
+    ids = _batch_ids(2)
+    kept = ids[:740]                       # the last 260 never copied
+    loaded, cmp_ = _load_through_batch_2(lab, kept)
+    assert loaded["ok"] and loaded["rows"] == 1000 + 740
+    assert loaded["data"]["manifest"] == {"requested": 740, "distinct": 740, "written": 740}
+    # The real comparison, counted through QueryBuilder: batches 1 and 2 of the source (2,000 rows)
+    # against the table, which holds 1,740 of them.
+    assert cmp_["through_batch"] == 2
+    assert cmp_["row_counts"] == {"left": 2000, "right": 1740}
+    assert cmp_["only_in_left"] == 260
+    assert cmp_["only_in_right"] == 0
+    assert cmp_["duplicate_keys"] == {"left": 0, "right": 0}
+
+
+def test_a_manifest_repeating_ids_lands_them_twice_on_an_append(lab):
+    ids = _batch_ids(2)
+    loaded, cmp_ = _load_through_batch_2(lab, ids + ids[:260])
+    assert loaded["rows"] == 1000 + 1000 + 260
+    assert loaded["data"]["manifest"] == {"requested": 1260, "distinct": 1000, "written": 1260}
+    assert cmp_["row_counts"]["right"] == 2260
+    assert cmp_["duplicate_keys"]["right"] == 260
+    assert cmp_["only_in_left"] == 0
+
+
+def test_the_same_manifest_merged_on_the_key_changes_nothing_that_matters(lab):
+    ids = _batch_ids(2)
+    lab(op="create_table", table="legacy.defects")
+    lab(op="create_table", table="bronze.defects")
+    loaded = lab(op="append_batch", table="bronze.defects", batch=2, manifest=ids + ids[:260], write="merge")
+    assert loaded["data"]["manifest"] == {"requested": 1260, "distinct": 1000, "written": 1000}
+    again = lab(op="append_batch", table="bronze.defects", batch=2, manifest=ids[:100], write="merge")
+    assert again["rows"] == loaded["rows"] == 2000
+    cmp_ = lab(op="compare_tables", left="legacy.defects", right="bronze.defects", through_batch=2)["data"]
+    assert cmp_["duplicate_keys"] == {"left": 0, "right": 0} and cmp_["only_in_left"] == 0
+
+
+def test_compare_through_batch_does_not_call_unarrived_batches_missing(lab):
+    lab(op="create_table", table="legacy.defects")
+    lab(op="create_table", table="bronze.defects")
+    through_1 = lab(op="compare_tables", left="legacy.defects", right="bronze.defects", through_batch=1)["data"]
+    assert through_1["row_counts"] == {"left": 1000, "right": 1000} and through_1["only_in_left"] == 0
+    # Unscoped, the same two tables differ by the four batches that have not arrived.
+    whole = lab(op="compare_tables", left="legacy.defects", right="bronze.defects")["data"]
+    assert whole["only_in_left"] == 4000 and whole["through_batch"] is None
+
+
+def test_a_manifest_is_refused_for_ids_the_source_does_not_have_and_for_a_mixed_schema(client, lab):
+    lab(op="create_table", table="bronze.defects")
+    unknown = client.post("/api/v1/lab/lakehouse/ops", json={
+        "pack_id": PACK, "op": "append_batch", "table": "bronze.defects", "batch": 2, "manifest": [1001, 999999]})
+    assert unknown.status_code == 400 and "999999" in unknown.text
+    # Batch 3 carries the drifted column; naming batch 2's schema for its rows is refused.
+    mixed = client.post("/api/v1/lab/lakehouse/ops", json={
+        "pack_id": PACK, "op": "append_batch", "table": "bronze.defects", "batch": 2, "manifest": [1001, 2001]})
+    assert mixed.status_code == 400 and "differ" in mixed.text
+    # The drifted rows under the drifted schema are accepted by the request, and then enforcement
+    # refuses them in the engine's own words.
+    drifted = lab(op="append_batch", table="bronze.defects", batch=3, manifest=_batch_ids(3)[:10])
+    assert drifted["ok"] is False and "Cannot cast schema" in drifted["error"]
+
+
+def test_compare_through_a_batch_the_table_does_not_have_is_refused(client, lab):
+    lab(op="create_table", table="legacy.defects")
+    lab(op="create_table", table="bronze.defects")
+    res = client.post("/api/v1/lab/lakehouse/ops", json={
+        "pack_id": PACK, "op": "compare_tables", "left": "legacy.defects", "right": "bronze.defects", "through_batch": 9})
+    assert res.status_code == 400 and "5 batches" in res.text

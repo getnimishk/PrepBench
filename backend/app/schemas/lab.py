@@ -141,6 +141,8 @@ class LabPack(BaseModel):
     scenario_md: str
     dataset: DatasetSpec
     factory: Dict[str, Any] = {}
+    # Stations A and B: the ADF lever settings and the ADLS teaching constants.
+    pipeline: Dict[str, Any] = {}
 
     def tables(self) -> List[str]:
         """Every table name an operation may use: each dataset table in each layer."""
@@ -161,6 +163,7 @@ class LabPackDetail(LabPackSummary):
     scenario_md: str
     dataset: DatasetSpec
     factory: Dict[str, Any]
+    pipeline: Dict[str, Any]
     tables: List[str]
     # Ground truth for every planted difference (design §4.2).
     defect_manifest: List[Dict[str, Any]]
@@ -170,6 +173,9 @@ class SourceIndexRow(BaseModel):
     id: int
     modified_at: str
     deleted: bool
+    # The batch (1-based) the row arrives in. Station A's simulation needs it to know
+    # which rows a load window holds; null for a row no batch carries.
+    batch: Optional[int] = None
 
 
 # ---- the engine -----------------------------------------------------------------------
@@ -210,6 +216,11 @@ class AppendBatchOp(_Op):
     schema_mode: Literal["enforce", "merge"] = "enforce"
     # Land the batch as the pack's many small writes instead of one.
     small_files: bool = False
+    # Station A's batch manifest: the ids of the source rows this load writes, in landing
+    # order, a repeated id landing twice. The server writes exactly those rows (from the
+    # pack's own data) and nothing else, so an upstream mistake becomes real rows in a
+    # real table. `batch` still names the schema the rows are written under.
+    manifest: Optional[List[int]] = Field(default=None, min_length=1, max_length=50_000)
 
 
 class MergeCdcOp(_Op):
@@ -256,6 +267,9 @@ class CompareTablesOp(_Op):
     left: str
     right: str
     tolerance: float = Field(default=0.0, ge=0)
+    # Compare only the rows of batches 1..N (by key), so a table loaded up to batch N isn't
+    # reported as missing the batches that haven't arrived yet.
+    through_batch: Optional[int] = Field(default=None, ge=1, le=50)
 
 
 LabOperation = Annotated[

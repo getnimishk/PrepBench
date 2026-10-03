@@ -3,6 +3,7 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import type { CompareData, LabOpName, LabOperation, LabOperationResult } from '../../types/lakehouse';
+import { leversKey, ranges, type AdfLevers, type BatchManifest } from './adfModel';
 
 // Station C's challenges: a prediction, the operation that settles it, and how
 // the engine's REAL result is read back as one of the prediction's options.
@@ -61,6 +62,8 @@ export interface StationCChallenge {
   /** What each reading means. Said after the result, never before. */
   reveal: Record<string, string>;
   followUps: FollowUp[];
+  /** After the designated result: a sentence comparing what a browser model said with what the engine found. */
+  crossCheck?: (result: LabOperationResult) => string | null;
 }
 
 /** The form's starting point for each operation. Every field a request needs is set. */
@@ -297,4 +300,93 @@ export function isSameOperation(a: OpTemplate, b: OpTemplate): boolean {
     Object.entries(op).filter(([, v]) => v !== undefined).sort(([x], [y]) => x.localeCompare(y)),
   );
   return canon(a) === canon(b);
+}
+
+// ---- the downstream challenge: Station A's batch, written for real ------------------------------
+
+/** 32-bit FNV-1a as hex: short and stable, to tell one upstream's attempt from another's. */
+function fnv1a(input: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+export const DOWNSTREAM_SLUG = 'downstream-batch';
+export const DOWNSTREAM_PARAM = DOWNSTREAM_SLUG;
+
+/** The upstream, in a sentence a person reads. It is about the settings, never the outcome. */
+export function describeUpstream(l: AdfLevers): string {
+  const parts = [
+    l.trigger === 'schedule' ? `a scheduled ${l.load} load` : l.trigger === 'tumbling' ? 'a tumbling-window trigger' : 'an event trigger, one run per file',
+    l.trigger === 'tumbling' ? null
+      : `the watermark updated ${l.watermark === 'before' ? 'before the copy' : l.watermark === 'success' ? 'when the copy succeeds' : 'when the copy completes'}`,
+    l.sink === 'upsert' ? 'an upsert on the key' : 'an append',
+    l.failureAtPercent === null ? 'no failure' : `a failure ${l.failureAtPercent}% of the way through, ${l.retries === 0 ? 'not retried' : `retried up to ${l.retries} time${l.retries === 1 ? '' : 's'}`}`,
+    l.lateFile ? 'one file arriving late' : null,
+    l.outOfOrder ? 'two files out of order' : null,
+  ];
+  return parts.filter(Boolean).join(', ');
+}
+
+export type DownstreamOutcome = 'clean' | 'missing' | 'duplicated' | 'both';
+
+/** Station C's fifth challenge: write what Station A produced, and let the real engine measure it. */
+export function downstreamChallenge(manifest: BatchManifest, levers: AdfLevers, isDefault: boolean): StationCChallenge {
+  const id = isDefault ? challengeId(DOWNSTREAM_SLUG) : challengeId(`${DOWNSTREAM_SLUG}-${fnv1a(leversKey(levers))}`);
+  const batch = manifest.batch;
+  return {
+    id,
+    conceptId: id,
+    title: 'Load Station A’s batch',
+    scenario:
+      `Station A ran with ${describeUpstream(levers)}. Its manifest is written to bronze.defects, which already holds batch 1, `
+      + `and the table is then compared with the legacy copy through batch ${batch}.`
+      + (isDefault ? ' (Station A hasn’t been run, so this is its default upstream.)' : ''),
+    prompt: 'What does the real comparison find?',
+    options: [
+      { id: 'clean', text: 'The table has every row, once' },
+      { id: 'missing', text: 'Rows are missing from the table' },
+      { id: 'duplicated', text: 'Some rows are in the table twice' },
+      { id: 'both', text: 'Rows are missing and some are repeated' },
+    ],
+    setup: [
+      { label: 'Create legacy.defects', op: { op: 'create_table', table: 'legacy.defects' } },
+      { label: 'Create bronze.defects from batch 1', op: { op: 'create_table', table: 'bronze.defects' } },
+      {
+        label: `Write Station A’s manifest (${manifest.landing.length.toLocaleString('en-GB')} rows, ${manifest.write === 'merge' ? 'merged on the key' : 'appended'})`,
+        op: { op: 'append_batch', table: 'bronze.defects', batch, write: manifest.write, schema_mode: 'enforce', manifest: manifest.landing },
+      },
+    ],
+    designated: { op: 'compare_tables', left: 'legacy.defects', right: 'bronze.defects', tolerance: 0.0001, through_batch: batch },
+    classify: (result) => {
+      const data = asCompare(result);
+      const missing = data.only_in_left > 0;
+      const repeated = (data.duplicate_keys?.right ?? 0) > 0;
+      if (missing && repeated) return 'both';
+      if (missing) return 'missing';
+      if (repeated) return 'duplicated';
+      return 'clean';
+    },
+    reveal: {
+      clean: 'Every row of the window is in the table once.',
+      missing: 'The rows Station A’s choices lost never reached the table. The engine counted them: nothing in the destination can bring them back.',
+      duplicated: 'A repeated copy was written twice. The same ids are in the table two times, and every count and sum over it is inflated.',
+      both: 'Some rows never arrived, and others arrived more than once.',
+    },
+    followUps: [],
+    crossCheck: (result) => {
+      if (!result.ok) return null;
+      const data = asCompare(result);
+      const foundMissing = data.only_in_left;
+      const foundRepeated = data.duplicate_keys?.right ?? 0;
+      const agrees = foundMissing === manifest.missed.length && foundRepeated === manifest.duplicateWrites;
+      return `Station A’s model expected ${manifest.missed.length.toLocaleString('en-GB')} rows missed`
+        + `${manifest.missed.length ? ` (ids ${ranges(manifest.missed)})` : ''} and ${manifest.duplicateWrites.toLocaleString('en-GB')} repeated. `
+        + `The engine found ${foundMissing.toLocaleString('en-GB')} and ${foundRepeated.toLocaleString('en-GB')}. ${agrees ? 'They agree.' : 'They differ: the model and the table disagree, which is worth looking into.'}`
+        + ' (Any value differences listed above are the legacy job’s, planted in the pack. They are not from Station A.)';
+    },
+  };
 }

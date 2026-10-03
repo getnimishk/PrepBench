@@ -1,0 +1,124 @@
+{
+  "note": "Stations A (ADF + Lakeflow Jobs) and B (ADLS) of the Lakehouse Lab. Every figure is a fictional teaching constant for the semiconductor scenario, never a measurement or a price.",
+  "adf": {
+    "table": "defects",
+    "window_batch": 2,
+    "files_per_window": 10,
+    "late_file_index": 5,
+    "out_of_order_pair": [
+      6,
+      7
+    ],
+    "default_failure_percent": 60,
+    "orchestration": {
+      "external_feed": {
+        "label": "The on-prem feed landing starts the pipeline",
+        "correct_owner": "adf",
+        "why": "Azure Data Factory owns triggers from outside Databricks: a file landing, a schedule or a tumbling window. Lakeflow Jobs can't listen to the on-prem feed."
+      },
+      "job_dependency": {
+        "label": "The silver job runs after the bronze job finishes",
+        "correct_owner": "lakeflow",
+        "why": "Lakeflow Jobs owns dependencies between jobs inside Databricks, with task-level retry and repair. Having ADF poll for it adds a second scheduler and a polling delay."
+      }
+    }
+  },
+  "adls": {
+    "constants": {
+      "object_count": {
+        "value": {
+          "hdfs_copy": {
+            "folders_per_day": 24,
+            "files_per_folder": 20
+          },
+          "redesigned": {
+            "folders_per_day": 1,
+            "files_per_folder": 24
+          }
+        },
+        "label": "Teaching constant: how many folders and files one day of landed data is spread over in each layout. Not a measurement."
+      },
+      "volume_gb": {
+        "value": 500,
+        "label": "Teaching constant: the size of the bronze zone in gigabytes."
+      },
+      "retention_days": {
+        "value": 90,
+        "label": "Teaching constant: how many days of bronze data are kept."
+      },
+      "storage_rate": {
+        "value": {
+          "hot": 1.0,
+          "cool": 0.5
+        },
+        "label": "Illustrative storage cost per gigabyte for each tier, relative to hot; check the current rate card. Never a quoted price."
+      },
+      "access_rate": {
+        "value": {
+          "hot": 1.0,
+          "cool": 2.5
+        },
+        "label": "Illustrative read cost for each tier, relative to hot; check the current rate card. Never a quoted price."
+      },
+      "read_share_by_age": {
+        "value": [
+          {
+            "up_to_days": 7,
+            "share": 0.8
+          },
+          {
+            "up_to_days": 30,
+            "share": 0.15
+          },
+          {
+            "up_to_days": 90,
+            "share": 0.05
+          }
+        ],
+        "label": "Teaching constant: the share of reads that land on data of each age. Recent data is read most."
+      },
+      "cost_weights": {
+        "value": {
+          "storage": 0.7,
+          "access": 0.3
+        },
+        "label": "Teaching constant: how much of the combined cost index comes from storage and how much from reads. Not a measurement."
+      }
+    },
+    "access_request": {
+      "principal": "vendor-x",
+      "path": [
+        "lake",
+        "bronze",
+        "vendor-x"
+      ],
+      "needs": "write"
+    },
+    "tree": {
+      "name": "lake",
+      "children": [
+        {
+          "name": "bronze",
+          "children": [
+            {
+              "name": "mes",
+              "children": []
+            },
+            {
+              "name": "vendor-x",
+              "children": []
+            }
+          ]
+        },
+        {
+          "name": "silver",
+          "children": []
+        },
+        {
+          "name": "gold",
+          "children": []
+        }
+      ]
+    }
+  }
+}

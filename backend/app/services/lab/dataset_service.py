@@ -257,14 +257,26 @@ def source_index(pack: LabPack, table: Optional[str] = None) -> List[Dict[str, A
     data = dataset.tables[name]
     time_col = next((c.name for c in data.spec.columns if c.type.startswith("timestamp")), None)
     deleted = {r[data.key] for r in data.cdc if r.get("op") == "D"}
+    batch_of = {r[data.key]: b + 1 for b, rows in enumerate(data.batches) for r in rows}
     return [
         {
             "id": r[data.key],
             "modified_at": iso(r[time_col]) if time_col and r[time_col] is not None else "",
             "deleted": r[data.key] in deleted,
+            "batch": batch_of.get(r[data.key]),
         }
         for r in data.clean
     ]
+
+
+def rows_by_key(data: "TableData") -> Dict[Any, tuple]:
+    """Each source row as it arrives, with the batch it arrives in: key -> (batch, row)."""
+    return {r[data.key]: (b + 1, r) for b, rows in enumerate(data.batches) for r in rows}
+
+
+def max_key_through(data: "TableData", batch: int) -> int:
+    """The largest key among the rows of batches 1..`batch`."""
+    return max(r[data.key] for rows in data.batches[:batch] for r in rows)
 
 
 def iso(epoch_us: int) -> str:

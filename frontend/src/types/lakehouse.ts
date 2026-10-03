@@ -54,6 +54,8 @@ export interface LabPackDetail extends LabPackSummary {
   scenario_md: string;
   dataset: { tables: Record<string, LabTableSpec>; defects: LabDefectSpec[] };
   factory: Record<string, unknown>;
+  /** Stations A and B: the ADF settings and the ADLS teaching constants. */
+  pipeline: Record<string, unknown>;
   /** Every table name an operation may use, e.g. `bronze.defects`. */
   tables: string[];
   defect_manifest: Record<string, unknown>[];
@@ -71,6 +73,8 @@ export type LabOperation =
   | (OpBase & {
     op: 'append_batch'; table: string; batch: number;
     write?: 'append' | 'merge'; schema_mode?: 'enforce' | 'merge'; small_files?: boolean;
+    /** Station A's batch manifest: the ids to write, in order. A repeated id lands twice on an append. */
+    manifest?: number[];
   })
   | (OpBase & { op: 'merge_cdc'; table: string })
   | (OpBase & { op: 'history'; table: string })
@@ -80,7 +84,7 @@ export type LabOperation =
   | (OpBase & {
     op: 'vacuum'; table: string; retention_hours: number; dry_run?: boolean; enforce_retention?: boolean;
   })
-  | (OpBase & { op: 'compare_tables'; left: string; right: string; tolerance?: number });
+  | (OpBase & { op: 'compare_tables'; left: string; right: string; tolerance?: number; through_batch?: number });
 
 export type LabOpName = LabOperation['op'];
 
@@ -95,6 +99,14 @@ export interface LabOperationResult {
   error?: string | null;
   data: Record<string, unknown>;
   journal_uid: string;
+}
+
+/** One source row, as the simulations need it: no values, just who, when, deleted, and which batch. */
+export interface SourceIndexRow {
+  id: number;
+  modified_at: string;
+  deleted: boolean;
+  batch?: number | null;
 }
 
 export interface LabResetResult {
@@ -130,6 +142,8 @@ export interface CompareData {
   columns_compared: string[];
   tolerance: number;
   values_match: boolean;
+  /** Set when only batches 1..N were compared. */
+  through_batch?: number | null;
 }
 
 // ---- journal -----------------------------------------------------------------------

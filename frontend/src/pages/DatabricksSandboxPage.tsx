@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Box, Button, MenuItem, TextField } from '@mui/material';
 import {
@@ -10,33 +10,50 @@ import {
   getLakehousePacks, getSubjects,
 } from '../services/api';
 import { apiErrorMessage } from '../services/apiError';
+import { DEFAULT_LEVERS, leversKey, parseAdf, parseLevers, runPipeline, type AdfLevers, type SourceRow } from '../services/lakehouse/adfModel';
 import { SKILL_SLUG } from '../services/lakehouse/attempts';
+import { loadSourceIndex } from '../services/lakehouse/sourceIndex';
+import { downstreamChallenge, DOWNSTREAM_PARAM } from '../services/lakehouse/stationC';
 import type { EngineStatus, JournalEntry, LabPackDetail } from '../types/lakehouse';
 import { NARROW_QUERY } from '../theme/tokens';
 import { ErrorState, LoadingState } from '../components/common/States';
 import { Actions, Detail, Eyebrow, PageHead, Panel, Pill } from '../components/ui/primitives';
 import { JournalDrawer } from '../components/lakehouse/JournalDrawer';
+import { StationA } from '../components/lakehouse/StationA';
+import { StationB } from '../components/lakehouse/StationB';
 import { StationC } from '../components/lakehouse/StationC';
 import { StationF } from '../components/lakehouse/StationF';
 
 /**
  * The Lakehouse Lab (PRD P0-12, plan Phase 1B). One fictional migration, two levels.
  *
- * Station F (the Migration Factory, a simulation) and Station C (Delta Lake, on the real
- * engine) are built. A and B are simulations that arrive in a later phase; they're shown in the rail so the shape of the Lab is
+ * All four stations are built: F (the Migration Factory), A (ADF + Lakeflow) and B (ADLS) are
+ * simulations, and C (Delta Lake) runs on the real engine. A's batch manifest feeds C; they're shown in the rail so the shape of the Lab is
  * visible, and say they aren't built yet. Nothing pretends otherwise.
  */
 
 type Station = 'f' | 'a' | 'b' | 'c';
 
-const RAIL: { id: Station; level: 'Programme' | 'Pipeline'; name: string; built: boolean }[] = [
-  { id: 'f', level: 'Programme', name: 'Migration Factory', built: true },
-  { id: 'a', level: 'Pipeline', name: 'ADF + Lakeflow', built: false },
-  { id: 'b', level: 'Pipeline', name: 'ADLS', built: false },
-  { id: 'c', level: 'Pipeline', name: 'Delta Lake', built: true },
+const RAIL: { id: Station; level: 'Programme' | 'Pipeline'; name: string }[] = [
+  { id: 'f', level: 'Programme', name: 'Migration Factory' },
+  { id: 'a', level: 'Pipeline', name: 'ADF + Lakeflow' },
+  { id: 'b', level: 'Pipeline', name: 'ADLS' },
+  { id: 'c', level: 'Pipeline', name: 'Delta Lake' },
 ];
 
 // The programme comes first: it shows why the pipeline details matter.
+const UPSTREAM_KEY = 'prepbench.lab.lakehouse.upstream';
+
+/** The upstream Station A last ran, kept for the session; anything unreadable is the default upstream. */
+function readUpstream(): AdfLevers {
+  try {
+    const raw = window.sessionStorage.getItem(UPSTREAM_KEY);
+    return raw ? parseLevers(JSON.parse(raw)) : DEFAULT_LEVERS;
+  } catch {
+    return DEFAULT_LEVERS;
+  }
+}
+
 const asStation = (s: string | null): Station => (RAIL.some((r) => r.id === s) ? (s as Station) : 'f');
 
 export const DatabricksSandboxPage: React.FC = () => {
@@ -44,6 +61,7 @@ export const DatabricksSandboxPage: React.FC = () => {
   const station = asStation(params.get('station'));
   // Station F's yield wave sends the learner to Station C's comparison, and says where from.
   const presetChallenge = station === 'c' ? params.get('challenge') : null;
+  const fromStationA = station === 'c' && params.get('from') === 'a';
   const fromWave = params.get('from') === 'f' ? Number(params.get('wave')) || null : null;
 
   const [engine, setEngine] = useState<EngineStatus | null>(null);
@@ -51,6 +69,15 @@ export const DatabricksSandboxPage: React.FC = () => {
   const [subjectId, setSubjectId] = useState<number | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+
+  // What Station A last ran: the upstream Station C's downstream challenge writes for real. Kept for
+  // the session, so a reload doesn't forget it; unreadable or absent, it is the default upstream.
+  const [upstream, setUpstreamState] = useState<AdfLevers>(readUpstream);
+  const setUpstream = useCallback((levers: AdfLevers) => {
+    setUpstreamState(levers);
+    try { window.sessionStorage.setItem(UPSTREAM_KEY, JSON.stringify(levers)); } catch { /* the page still works without it */ }
+  }, []);
+  const upstreamIsDefault = leversKey(upstream) === leversKey(DEFAULT_LEVERS);
 
   const [journal, setJournal] = useState<JournalEntry[]>([]);
   const [journalOpen, setJournalOpen] = useState(false);
@@ -74,6 +101,24 @@ export const DatabricksSandboxPage: React.FC = () => {
     })();
     return () => { cancelled = true; };
   }, [reload]);
+
+  // Station C's downstream challenge is built from Station A's manifest, over the source index.
+  const adf = useMemo(() => (pack ? parseAdf(pack.pipeline) : null), [pack]);
+  const adfTable = adf?.ok ? adf.config.table : null;
+  const [sourceRows, setSourceRows] = useState<SourceRow[] | null | 'failed'>(null);
+  useEffect(() => {
+    if (station !== 'c' || !pack || !adfTable) return undefined;
+    let cancelled = false;
+    setSourceRows(null);
+    loadSourceIndex(pack.id, pack.version, adfTable)
+      .then((rows) => { if (!cancelled) setSourceRows(rows); })
+      .catch(() => { if (!cancelled) setSourceRows('failed'); });
+    return () => { cancelled = true; };
+  }, [station, pack, adfTable]);
+  const downstream = useMemo(() => {
+    if (!adf?.ok || !Array.isArray(sourceRows)) return undefined;
+    return downstreamChallenge(runPipeline(adf.config, sourceRows, upstream), upstream, upstreamIsDefault);
+  }, [adf, sourceRows, upstream, upstreamIsDefault]);
 
   const packId = pack?.id;
   const refreshJournal = useCallback(async () => {
@@ -113,6 +158,7 @@ export const DatabricksSandboxPage: React.FC = () => {
   };
 
   const go = (s: Station) => setParams({ station: s });
+  const loadInStationC = () => setParams({ station: 'c', challenge: DOWNSTREAM_PARAM, from: 'a' });
   const compareInStationC = (wave: number) => setParams({ station: 'c', challenge: 'reconciliation', from: 'f', wave: String(wave) });
   const levels: ('Programme' | 'Pipeline')[] = ['Programme', 'Pipeline'];
 
@@ -150,7 +196,7 @@ export const DatabricksSandboxPage: React.FC = () => {
                     aria-current={station === s.id ? 'page' : undefined}
                     onClick={() => go(s.id)}
                   >
-                    {s.id.toUpperCase()} · {s.name}{s.built ? '' : ' (not built yet)'}
+                    {s.id.toUpperCase()} · {s.name}
                   </Button>
                 ))}
               </Box>
@@ -161,32 +207,38 @@ export const DatabricksSandboxPage: React.FC = () => {
             sx={{ mt: '20px', width: '100%', display: 'none', [NARROW_QUERY]: { display: 'flex' } }}
           >
             {RAIL.map((s) => (
-              <MenuItem key={s.id} value={s.id}>{s.id.toUpperCase()} · {s.name}{s.built ? '' : ' (not built yet)'}</MenuItem>
+              <MenuItem key={s.id} value={s.id}>{s.id.toUpperCase()} · {s.name}</MenuItem>
             ))}
           </TextField>
 
           {station === 'f' && (
             <StationF pack={pack} subjectId={subjectId} onJournalChange={refreshJournal} onCompare={compareInStationC} />
           )}
-          {station === 'c' && (
-            <StationC
-              key={presetChallenge ?? 'default'}
-              pack={pack} engine={engine} subjectId={subjectId} onJournalChange={refreshJournal}
-              initialChallengeId={presetChallenge ? `lakehouse.c.${presetChallenge}` : undefined}
-              fromFactoryWave={fromWave}
+          {station === 'a' && (
+            <StationA
+              pack={pack} subjectId={subjectId} upstream={upstream} onUpstream={setUpstream}
+              onJournalChange={refreshJournal} onLoadInC={loadInStationC}
             />
           )}
-          {station !== 'c' && station !== 'f' && (
-            <Panel component="section" aria-labelledby="station-later" sx={{ mt: '22px' }}>
-              <Eyebrow component="h2" id="station-later">Station {station.toUpperCase()} · {RAIL.find((s) => s.id === station)?.name}</Eyebrow>
-              <Detail sx={{ mt: '8px' }}>
-                This station isn’t built yet. It arrives in a later phase of the Lab. Stations F and C are ready.
-              </Detail>
-              <Actions sx={{ mt: '12px' }}>
-                <Button variant="outlined" onClick={() => go('f')}>Open Station F</Button>
-                <Button variant="outlined" onClick={() => go('c')}>Open Station C</Button>
-              </Actions>
-            </Panel>
+          {station === 'b' && <StationB pack={pack} subjectId={subjectId} onJournalChange={refreshJournal} />}
+          {station === 'c' && (adf?.ok && sourceRows === null ? (
+            <LoadingState label="Loading Station C…" />
+          ) : (
+            <StationC
+              key={`${presetChallenge ?? 'default'}:${downstream?.id ?? ''}`}
+              pack={pack} engine={engine} subjectId={subjectId} onJournalChange={refreshJournal}
+              initialChallengeId={
+                presetChallenge === DOWNSTREAM_PARAM ? downstream?.id
+                  : presetChallenge ? `lakehouse.c.${presetChallenge}` : undefined
+              }
+              fromFactoryWave={fromWave}
+              fromStationA={fromStationA}
+              extraChallenges={downstream ? [downstream] : []}
+              upstream={downstream ? { isDefault: upstreamIsDefault, onChange: () => go('a') } : undefined}
+            />
+          ))}
+          {station === 'c' && sourceRows === 'failed' && (
+            <Detail sx={{ mt: '8px' }}>The source index didn’t load, so the batch from Station A isn’t available as a challenge.</Detail>
           )}
         </>
       )}

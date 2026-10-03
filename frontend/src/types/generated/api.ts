@@ -2998,6 +2998,8 @@ export interface components {
             attempt_uid?: string | null;
             /** Batch */
             batch: number;
+            /** Manifest */
+            manifest?: number[] | null;
             /**
              * Op
              * @constant
@@ -3280,6 +3282,8 @@ export interface components {
             pack_id: string;
             /** Right */
             right: string;
+            /** Through Batch */
+            through_batch?: number | null;
             /**
              * Tolerance
              * @default 0
@@ -4596,6 +4600,10 @@ export interface components {
             id: string;
             /** Notebook Verified On */
             notebook_verified_on?: string | null;
+            /** Pipeline */
+            pipeline: {
+                [key: string]: unknown;
+            };
             /** Scenario Md */
             scenario_md: string;
             /** Stations */
@@ -6733,6 +6741,8 @@ export interface components {
         };
         /** SourceIndexRow */
         SourceIndexRow: {
+            /** Batch */
+            batch?: number | null;
             /** Deleted */
             deleted: boolean;
             /** Id */

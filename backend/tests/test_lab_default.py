@@ -400,3 +400,67 @@ def test_the_journal_migration_creates_the_table_like_a_fresh_install(tmp_path, 
     finally:
         legacy.dispose()
         fresh.dispose()
+
+
+# ---- Station A's manifest and the source index (Phase 3), without the engine -----------
+
+
+def test_the_source_index_says_which_batch_each_row_arrives_in():
+    rows = dataset_service.source_index(pack_service.get_pack(PACK), "defects")
+    assert len(rows) == 5000
+    by_batch = {}
+    for r in rows:
+        by_batch.setdefault(r["batch"], []).append(r["id"])
+    assert sorted(by_batch) == [1, 2, 3, 4, 5]
+    assert all(len(ids) == 1000 for ids in by_batch.values())
+    assert by_batch[2][0] == 1001 and by_batch[2][-1] == 2000     # contiguous ids per batch
+    # The simulations depend on time never running backwards across the id order.
+    stamps = [r["modified_at"] for r in rows]
+    assert stamps == sorted(stamps)
+
+
+def test_the_manifest_and_through_batch_fields_are_bounded():
+    from pydantic import ValidationError
+    from app.schemas.lab import AppendBatchOp, CompareTablesOp
+    ok = AppendBatchOp(pack_id=PACK, op="append_batch", table="bronze.defects", batch=2, manifest=[1, 2, 2])
+    assert ok.manifest == [1, 2, 2]
+    with pytest.raises(ValidationError):
+        AppendBatchOp(pack_id=PACK, op="append_batch", table="bronze.defects", batch=2, manifest=[])
+    with pytest.raises(ValidationError):
+        AppendBatchOp(pack_id=PACK, op="append_batch", table="bronze.defects", batch=2, manifest=list(range(50_001)))
+    assert CompareTablesOp(pack_id=PACK, op="compare_tables", left="a.b", right="c.b", through_batch=2).through_batch == 2
+    with pytest.raises(ValidationError):
+        CompareTablesOp(pack_id=PACK, op="compare_tables", left="a.b", right="c.b", through_batch=0)
+
+
+def test_a_manifest_materialises_exactly_the_rows_it_names_in_order():
+    from app.schemas.lab import AppendBatchOp
+    from app.services.lab import operations
+    pack = pack_service.get_pack(PACK)
+    data = dataset_service.generate(pack).tables["defects"]
+    cols = data.batch_columns[1]
+    op = AppendBatchOp(pack_id=PACK, op="append_batch", table="bronze.defects", batch=2, manifest=[1003, 1001, 1003])
+    rows, info = operations._manifest_rows(data, op, cols)
+    assert [r["defect_id"] for r in rows] == [1003, 1001, 1003]         # a repeat is written twice
+    assert info == {"requested": 3, "distinct": 2, "written": 3}
+    merge = op.model_copy(update={"write": "merge"})
+    rows, info = operations._manifest_rows(data, merge, cols)
+    assert [r["defect_id"] for r in rows] == [1003, 1001]               # a merge is given each id once
+    assert info == {"requested": 3, "distinct": 2, "written": 2}
+
+
+def test_a_manifest_naming_unknown_ids_or_a_different_schema_is_misuse():
+    from fastapi import HTTPException
+    from app.schemas.lab import AppendBatchOp
+    from app.services.lab import operations
+    pack = pack_service.get_pack(PACK)
+    data = dataset_service.generate(pack).tables["defects"]
+    cols = data.batch_columns[1]
+    unknown = AppendBatchOp(pack_id=PACK, op="append_batch", table="bronze.defects", batch=2, manifest=[1001, 424242])
+    with pytest.raises(HTTPException) as e:
+        operations._manifest_rows(data, unknown, cols)
+    assert e.value.status_code == 400 and "424242" in e.value.detail
+    mixed = AppendBatchOp(pack_id=PACK, op="append_batch", table="bronze.defects", batch=2, manifest=[1001, 2500])
+    with pytest.raises(HTTPException) as e:
+        operations._manifest_rows(data, mixed, cols)
+    assert e.value.status_code == 400 and "differ" in e.value.detail

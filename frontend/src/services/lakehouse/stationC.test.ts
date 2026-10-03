@@ -3,9 +3,11 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import { describe, expect, it } from 'vitest';
+import pipelineJson from '../../../../backend/app/data/lab_packs/semiconductor-v1/pipeline.json';
+import { DEFAULT_LEVERS, parseAdf, runPipeline, type AdfLevers, type SourceRow } from './adfModel';
 import type { CompareData, LabOperationResult } from '../../types/lakehouse';
 import {
-  applyResult, buildOperation, challengeById, isNotCreated, isSameOperation, reconciliationFacts, STATION_C_CHALLENGES,
+  applyResult, buildOperation, challengeById, describeUpstream, downstreamChallenge, isNotCreated, isSameOperation, reconciliationFacts, STATION_C_CHALLENGES,
 } from './stationC';
 
 const result = (over: Partial<LabOperationResult> = {}): LabOperationResult => ({
@@ -142,5 +144,83 @@ describe('operations', () => {
     expect(applyResult(base, result({ version: 2, rows: 9 }))['bronze.defects']).toEqual({ version: 2, rows: 9 });
     expect(applyResult(base, result({ version: 3, rows: null }))['bronze.defects']).toEqual({ version: 3, rows: 5 });
     expect(applyResult(base, result({ version: null }))).toBe(base);
+  });
+});
+
+describe('the downstream challenge: Station A’s batch, written for real', () => {
+  const adf = parseAdf(pipelineJson);
+  if (!adf.ok) throw new Error(adf.reason);
+  const index: SourceRow[] = Array.from({ length: 5000 }, (_, i) => ({
+    id: i + 1, modifiedAt: new Date(Date.UTC(2026, 2, 1) + i * 518_400).toISOString(), deleted: false, batch: Math.floor(i / 1000) + 1,
+  }));
+  const build = (over: Partial<AdfLevers> = {}) => {
+    const levers = { ...DEFAULT_LEVERS, ...over };
+    const manifest = runPipeline(adf.config, index, levers);
+    const isDefault = JSON.stringify(levers) === JSON.stringify(DEFAULT_LEVERS);
+    return { levers, manifest, challenge: downstreamChallenge(manifest, levers, isDefault) };
+  };
+  const compare = (data: Record<string, unknown>) => result({ data: { row_counts_match: true, values_match: false, only_in_left: 0, duplicate_keys: { left: 0, right: 0 }, ...data } });
+
+  it('writes exactly the manifest as a setup step, then compares through the batch it is for', () => {
+    const { manifest, challenge } = build({ watermark: 'before', failureAtPercent: 60 });
+    expect(challenge.setup.map((s) => s.op.op)).toEqual(['create_table', 'create_table', 'append_batch']);
+    const append = challenge.setup[2].op;
+    expect(append).toMatchObject({ op: 'append_batch', table: 'bronze.defects', batch: 2, write: 'append', schema_mode: 'enforce' });
+    expect((append as { manifest: number[] }).manifest).toEqual(manifest.landing);
+    expect(challenge.designated).toEqual({ op: 'compare_tables', left: 'legacy.defects', right: 'bronze.defects', tolerance: 0.0001, through_batch: 2 });
+  });
+
+  it('an upsert upstream is written as a merge on the key', () => {
+    const { challenge } = build({ sink: 'upsert', failureAtPercent: 60 });
+    expect(challenge.setup[2].op).toMatchObject({ write: 'merge' });
+  });
+
+  it('reads the real comparison: missing, repeated, both, or clean', () => {
+    const { challenge } = build();
+    expect(challenge.classify(compare({ only_in_left: 400 }), undefined)).toBe('missing');
+    expect(challenge.classify(compare({ duplicate_keys: { left: 0, right: 600 } }), undefined)).toBe('duplicated');
+    expect(challenge.classify(compare({ only_in_left: 400, duplicate_keys: { left: 0, right: 600 } }), undefined)).toBe('both');
+    expect(challenge.classify(compare({}), undefined)).toBe('clean');
+    for (const option of ['clean', 'missing', 'duplicated', 'both']) {
+      expect(challenge.options.map((o) => o.id)).toContain(option);
+      expect(challenge.reveal[option]).toBeTruthy();
+    }
+  });
+
+  it('does not give the outcome away in the scenario: it names the settings, never the result', () => {
+    const { challenge } = build({ watermark: 'before', failureAtPercent: 60 });
+    expect(challenge.scenario).toContain('the watermark updated before the copy');
+    expect(challenge.scenario).toContain('a failure 60% of the way through, not retried');
+    expect(challenge.scenario).not.toMatch(/missing|lost|duplicat|400/i);
+  });
+
+  it('says the default upstream is the default, and keeps a different upstream’s attempt apart from it', () => {
+    const def = build().challenge;
+    const other = build({ watermark: 'before', failureAtPercent: 60 }).challenge;
+    expect(def.id).toBe('lakehouse.c.downstream-batch');
+    expect(def.scenario).toContain('default upstream');
+    expect(other.id).not.toBe(def.id);
+    expect(other.id).toMatch(/^lakehouse\.c\.downstream-batch-[0-9a-f]{8}$/);
+    expect(other.scenario).not.toContain('default upstream');
+    expect(build({ watermark: 'before', failureAtPercent: 60 }).challenge.id).toBe(other.id);
+    expect(`lk:2:semiconductor-v1@1:${other.id.slice('lakehouse.c.'.length)}`.length).toBeLessThanOrEqual(64);
+  });
+
+  it('checks the engine’s count against the model’s, and says when they differ', () => {
+    const { challenge } = build({ watermark: 'before', failureAtPercent: 60 });
+    const agree = challenge.crossCheck!(compare({ only_in_left: 400, duplicate_keys: { left: 0, right: 0 } }));
+    expect(agree).toContain('expected 400 rows missed (ids 1601–2000) and 0 repeated');
+    expect(agree).toContain('The engine found 400 and 0. They agree.');
+    expect(agree).toContain('planted in the pack');
+    const differ = challenge.crossCheck!(compare({ only_in_left: 390, duplicate_keys: { left: 0, right: 0 } }));
+    expect(differ).toContain('They differ');
+    expect(challenge.crossCheck!(result({ ok: false }))).toBeNull();
+  });
+
+  it('describes an upstream in words', () => {
+    expect(describeUpstream({ ...DEFAULT_LEVERS, trigger: 'event', failureAtPercent: 65, retries: 2, lateFile: true })).toBe(
+      'an event trigger, one run per file, the watermark updated when the copy succeeds, an append, a failure 65% of the way through, retried up to 2 times, one file arriving late',
+    );
+    expect(describeUpstream({ ...DEFAULT_LEVERS, trigger: 'tumbling' })).toContain('a tumbling-window trigger, an append, no failure');
   });
 });

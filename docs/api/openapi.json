@@ -353,6 +353,22 @@
             "title": "Batch",
             "type": "integer"
           },
+          "manifest": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "maxItems": 50000,
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifest"
+          },
           "op": {
             "const": "append_batch",
             "title": "Op",
@@ -1120,6 +1136,19 @@
           "right": {
             "title": "Right",
             "type": "string"
+          },
+          "through_batch": {
+            "anyOf": [
+              {
+                "maximum": 50.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Through Batch"
           },
           "tolerance": {
             "default": 0.0,
@@ -4588,6 +4617,11 @@
             ],
             "title": "Notebook Verified On"
           },
+          "pipeline": {
+            "additionalProperties": true,
+            "title": "Pipeline",
+            "type": "object"
+          },
           "scenario_md": {
             "title": "Scenario Md",
             "type": "string"
@@ -4629,6 +4663,7 @@
           "scenario_md",
           "dataset",
           "factory",
+          "pipeline",
           "tables",
           "defect_manifest"
         ],
@@ -10758,6 +10793,17 @@
       },
       "SourceIndexRow": {
         "properties": {
+          "batch": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch"
+          },
           "deleted": {
             "title": "Deleted",
             "type": "boolean"
