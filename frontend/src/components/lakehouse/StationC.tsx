@@ -61,9 +61,16 @@ export const StationC: React.FC<{
   initialChallengeId?: string;
   /** Set when the learner arrived from Station F's Validate step for this wave. */
   fromFactoryWave?: number | null;
-}> = ({ pack, engine, subjectId, onJournalChange, initialChallengeId, fromFactoryWave }) => {
+  /** Challenges built from another station's output (Station A's batch), after the fixed ones. */
+  extraChallenges?: StationCChallenge[];
+  /** For an extra challenge that rests on Station A: whether it is using the default upstream, and a way to change it. */
+  upstream?: { isDefault: boolean; onChange: () => void };
+  /** Set when the learner arrived from Station A's "Load this batch in Station C". */
+  fromStationA?: boolean;
+}> = ({ pack, engine, subjectId, onJournalChange, initialChallengeId, fromFactoryWave, extraChallenges = [], upstream, fromStationA }) => {
+  const challenges = [...STATION_C_CHALLENGES, ...extraChallenges];
   const [challenge, setChallenge] = useState<StationCChallenge>(
-    STATION_C_CHALLENGES.find((c) => c.id === initialChallengeId) ?? STATION_C_CHALLENGES[0],
+    challenges.find((c) => c.id === initialChallengeId) ?? challenges[0],
   );
   const [attempts, setAttempts] = useState<Record<string, WireLearningAttempt> | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -255,18 +262,29 @@ export const StationC: React.FC<{
     <Box component="section" aria-labelledby="station-c-title" sx={{ mt: '22px' }}>
       <Typography variant="h5" component="h2" id="station-c-title">Station C · Delta Lake: the load that went wrong</Typography>
       <Detail sx={{ mt: '4px' }}>
-        Batches come straight from the pack’s generated data. The ADF and ADLS stations that would feed them arrive later.
+        Batches come straight from the pack’s generated data, except where a challenge uses the batch Station A produced.
       </Detail>
       {fromFactoryWave != null && challenge.id === initialChallengeId && (
         <Detail sx={{ mt: '4px' }}>
           Opened from Station F · wave {fromFactoryWave} Validate. Predict first, then compare the legacy and migrated tables on the real engine.
         </Detail>
       )}
+      {fromStationA && challenge.id === initialChallengeId && (
+        <Detail sx={{ mt: '4px' }}>
+          Opened from Station A · load this batch. Predict first, then write Station A’s manifest into a real table and let the engine count what is there.
+        </Detail>
+      )}
+      {upstream && challenge.id.startsWith('lakehouse.c.downstream-batch') && (
+        <Actions sx={{ mt: '4px' }}>
+          <Detail>{upstream.isDefault ? 'Using the default upstream: nothing goes wrong.' : 'Using the upstream you last ran in Station A.'}</Detail>
+          <Button variant="text" size="small" onClick={upstream.onChange}>Change in Station A</Button>
+        </Actions>
+      )}
       <TextField
         select label="Challenge" value={challenge.id} sx={{ mt: '14px', maxWidth: 520 }}
-        onChange={(e) => { const next = STATION_C_CHALLENGES.find((c) => c.id === e.target.value); if (next) choose(next); }}
+        onChange={(e) => { const next = challenges.find((c) => c.id === e.target.value); if (next) choose(next); }}
       >
-        {STATION_C_CHALLENGES.map((c, i) => {
+        {challenges.map((c, i) => {
           const a = attempts[labAttemptUid({ subjectId, packId: pack.id, packVersion: pack.version, challenge: c })];
           const status = a?.completed_at ? ' (done)' : a?.committed_at ? ' (predicted)' : '';
           return <MenuItem key={c.id} value={c.id}>{`${i + 1} · ${c.title}${status}`}</MenuItem>;
@@ -323,6 +341,9 @@ export const StationC: React.FC<{
             {verdict}
             {shownReading && (
               <Detail sx={{ mt: '8px' }}>{challenge.reveal[shownReading]}</Detail>
+            )}
+            {shownReading && result && challenge.crossCheck && (
+              <Detail sx={{ mt: '8px' }}>{challenge.crossCheck(result)}</Detail>
             )}
             {!result && completed && engineReady && !running && (
               <Detail sx={{ mt: '8px' }}>

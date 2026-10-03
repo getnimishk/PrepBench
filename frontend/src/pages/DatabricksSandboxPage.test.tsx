@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import type { JournalEntry, LabPackDetail } from '../types/lakehouse';
@@ -17,6 +17,7 @@ vi.mock('../services/api', () => ({
   deleteLakehouseJournalEntry: vi.fn(),
   getLakehouseJournalMarkdown: vi.fn(),
   getSubjects: vi.fn(),
+  getLakehouseSourceIndex: vi.fn(),
   addLakehouseJournalEntry: vi.fn(),
   getLearningAttempts: vi.fn(),
   startLearningAttempt: vi.fn(),
@@ -27,12 +28,18 @@ vi.mock('../services/api', () => ({
 }));
 
 import packFactory from '../../../backend/app/data/lab_packs/semiconductor-v1/factory.json';
+import pipelineJson from '../../../backend/app/data/lab_packs/semiconductor-v1/pipeline.json';
 import * as api from '../services/api';
+import { clearSourceIndexCache } from '../services/lakehouse/sourceIndex';
 import { DatabricksSandboxPage } from './DatabricksSandboxPage';
+
+const index = Array.from({ length: 5000 }, (_, i) => ({
+  id: i + 1, modified_at: new Date(Date.UTC(2026, 2, 1) + i * 518_400).toISOString(), deleted: false, batch: Math.floor(i / 1000) + 1,
+}));
 
 const pack: LabPackDetail = {
   id: 'semiconductor-v1', version: 1, title: 'Semiconductor', summary: 'S', fictional: true, stations: ['c'],
-  notebook_verified_on: null, scenario_md: '', factory: {}, defect_manifest: [],
+  notebook_verified_on: null, scenario_md: '', factory: {}, pipeline: {}, defect_manifest: [],
   tables: ['bronze.defects'], dataset: { tables: {}, defects: [] },
 };
 const entry = (over: Partial<JournalEntry> = {}): JournalEntry => ({
@@ -46,6 +53,8 @@ const renderPage = (entry = '/databricks-sandbox') => render(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  clearSourceIndexCache();
+  window.sessionStorage.clear();
   vi.mocked(api.getLakehouseEngine).mockResolvedValue({ available: true, version: '1.6.6', install_command: 'x' });
   vi.mocked(api.getLakehousePacks).mockResolvedValue([{ ...pack }]);
   vi.mocked(api.getLakehousePack).mockResolvedValue(pack);
@@ -80,12 +89,21 @@ describe('DatabricksSandboxPage', () => {
     await waitFor(() => expect(api.getLearningAttempts).toHaveBeenCalledWith({ subject_id: 2 }));
   });
 
-  it('shows the stations that are not built yet as such, and does not pretend', async () => {
-    renderPage('/databricks-sandbox?station=a');
-    expect(await screen.findByText('This station isn’t built yet. It arrives in a later phase of the Lab. Stations F and C are ready.')).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: /Station C · Delta Lake/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'A · ADF + Lakeflow (not built yet)' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('button', { name: 'F · Migration Factory' })).not.toHaveAttribute('aria-current');
+  it('has all four stations in the rail, programme above pipeline, none marked as unbuilt', async () => {
+    renderPage();
+    const nav = await screen.findByRole('navigation', { name: 'Stations' });
+    expect(within(nav).getAllByRole('button').map((b) => b.textContent)).toEqual([
+      'F · Migration Factory', 'A · ADF + Lakeflow', 'B · ADLS', 'C · Delta Lake',
+    ]);
+    expect(screen.queryByText(/not built yet/)).not.toBeInTheDocument();
+  });
+
+  it('opens Station A and Station B, each with its own heading', async () => {
+    const { unmount } = renderPage('/databricks-sandbox?station=a');
+    expect(await screen.findByRole('heading', { level: 2, name: /Station A/ })).toBeInTheDocument();
+    unmount();
+    renderPage('/databricks-sandbox?station=b');
+    expect(await screen.findByRole('heading', { level: 2, name: /Station B/ })).toBeInTheDocument();
   });
 
   it('falls back to Station F for an unknown station', async () => {
@@ -98,6 +116,25 @@ describe('DatabricksSandboxPage', () => {
     expect(await screen.findByRole('heading', { level: 2, name: /Station C/ })).toBeInTheDocument();
     expect(screen.getByText(/Opened from Station F · wave 10 Validate/)).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Challenge' })).toHaveTextContent('Does the migrated table match the legacy one?');
+  });
+
+  it('opens Station C on Station A’s batch when sent from Station A, and says so', async () => {
+    vi.mocked(api.getLakehouseSourceIndex).mockResolvedValue(index);
+    vi.mocked(api.getLakehousePack).mockResolvedValue({ ...pack, pipeline: pipelineJson as Record<string, unknown> });
+    renderPage('/databricks-sandbox?station=c&challenge=downstream-batch&from=a');
+    expect(await screen.findByRole('heading', { level: 2, name: /Station C/ })).toBeInTheDocument();
+    expect(await screen.findByText(/Opened from Station A · load this batch/)).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Challenge' })).toHaveTextContent('Load Station A’s batch');
+    expect(screen.getByText('Using the default upstream: nothing goes wrong.')).toBeInTheDocument();
+  });
+
+  it('still works, without that challenge, when the source index fails', async () => {
+    vi.mocked(api.getLakehousePack).mockResolvedValue({ ...pack, pipeline: pipelineJson as Record<string, unknown> });
+    vi.mocked(api.getLakehouseSourceIndex).mockRejectedValue({ response: { status: 500, data: { detail: 'down' } } });
+    renderPage('/databricks-sandbox?station=c');
+    expect(await screen.findByRole('heading', { level: 2, name: /Station C/ })).toBeInTheDocument();
+    expect(await screen.findByText(/the batch from Station A isn’t available as a challenge/)).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Challenge' })).toHaveTextContent('A batch arrives with a new column');
   });
 
   it('does not claim to come from Station F when it did not', async () => {

@@ -27,6 +27,9 @@ export const CompareResult: React.FC<{ data: CompareData; left: string; right: s
 
   return (
     <>
+      {data.through_batch != null && (
+        <Detail sx={{ mt: '12px' }}>Compared through batch {data.through_batch}: only the rows of batches 1 to {data.through_batch}, on both sides.</Detail>
+      )}
       <MetricRow sx={{ mt: '12px' }}>
         <Metric
           label="Rows"
@@ -37,6 +40,11 @@ export const CompareResult: React.FC<{ data: CompareData; left: string; right: s
           label="Row-level mismatches"
           value={n(differingRows)}
           detail={`In ${differingColumns} column${differingColumns === 1 ? '' : 's'} · tolerance ${data.tolerance}`}
+        />
+        <Metric
+          label="Repeated rows"
+          value={n((data.duplicate_keys?.left ?? 0) + (data.duplicate_keys?.right ?? 0))}
+          detail={`${n(data.duplicate_keys?.left ?? 0)} in ${left} · ${n(data.duplicate_keys?.right ?? 0)} in ${right}`}
         />
         <Metric
           label="Keys in one table only"

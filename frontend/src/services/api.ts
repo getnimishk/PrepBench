@@ -12,6 +12,7 @@ import type { Role, RoleCreate, RoleDiagnostic, RoleDiagnosticItem, RoleRequirem
 import type { WireLearningAttempt } from '../types/learning';
 import type {
   EngineStatus, JournalEntry, JournalEntryIn, LabOperation, LabOperationResult, LabPackDetail, LabPackSummary, LabResetResult,
+  SourceIndexRow,
 } from '../types/lakehouse';
 import { ScoreTrendPoint, DomainMasteryItem, DomainDetail } from '../types/analytics';
 import { AppSettings } from '../types/settings';
@@ -1286,6 +1287,12 @@ export const getLakehouseEngine = async () => {
 
 export const getLakehousePacks = async () => {
   const res = await api.get<LabPackSummary[]>(`${LAKEHOUSE}/packs`);
+  return res.data;
+};
+
+/** Every source row of a table: id, when it changed, whether it is deleted, which batch it arrives in. */
+export const getLakehouseSourceIndex = async (packId: string, table: string) => {
+  const res = await api.get<SourceIndexRow[]>(`${LAKEHOUSE}/packs/${encodeURIComponent(packId)}/source-index`, { params: { table } });
   return res.data;
 };
 

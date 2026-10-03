@@ -47,7 +47,7 @@ def list_packs():
 def get_pack(pack_id: str):
     pack = _pack(pack_id)
     return LabPackDetail(
-        **_summary(pack), scenario_md=pack.scenario_md, dataset=pack.dataset, factory=pack.factory,
+        **_summary(pack), scenario_md=pack.scenario_md, dataset=pack.dataset, factory=pack.factory, pipeline=pack.pipeline,
         tables=pack.tables(), defect_manifest=dataset_service.generate(pack).manifest,
     )
 
