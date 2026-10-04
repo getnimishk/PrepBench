@@ -216,7 +216,7 @@ def test_a_diagnostic_answers_only_questions_that_ship(client):
     assert post([_item("adf@1/diagnostic/no-such-question")]).status_code == 400
     assert post([_item("adf@99/diagnostic/reconciliation")]).status_code == 400
     assert post([_item("nope@1/diagnostic/reconciliation")]).status_code == 400
-    assert post([_item("adf@1/scenario/5/lens/po")]).status_code == 400    # planned, not written
+    assert post([_item("adf@1/scenario/99/lens/po")]).status_code == 400   # not in pack
     assert post([_item(REF_S1_DM)]).status_code == 400                     # a dm question, answered as po
     assert post([_item(REF_COST, covered=[5])]).status_code == 400         # cost has points 0-4
     assert post([_item(REF_RECON), _item(REF_RECON)]).status_code == 400   # the same question twice

@@ -45,9 +45,9 @@ describe('ScenarioSandboxPage', () => {
     expect(await screen.findByRole('heading', { level: 2, name: 'Azure Data Factory: Moving data' })).toBeInTheDocument();
     expect(api.getContentPack).toHaveBeenCalledWith('adf', 1);
     expect(api.getLearningAttempts).toHaveBeenCalledWith({ subject_id: 7 });
-    expect(screen.getAllByRole('link', { name: /^Open scenario / })).toHaveLength(4);
+    expect(screen.getAllByRole('link', { name: /^Open scenario / })).toHaveLength(18);
     expect(screen.getByText('Practised · 1 role')).toBeInTheDocument();
-    expect(screen.getAllByText('Not written yet')).toHaveLength(14);
+    expect(screen.queryAllByText('Not written yet')).toHaveLength(0);
   });
 
   it('says why there is nothing to practise for a certification', async () => {
@@ -82,6 +82,6 @@ describe('ScenarioSandboxPage: a pack that will not load', () => {
     renderPage();
 
     expect(await screen.findByText(/Couldn.t load ADLS Gen2 \(version 9\)/)).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: /^Open scenario / })).toHaveLength(4);
+    expect(screen.getAllByRole('link', { name: /^Open scenario / })).toHaveLength(18);
   });
 });
