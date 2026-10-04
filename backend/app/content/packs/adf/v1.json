@@ -5099,7 +5099,7 @@
               }
             ],
             "takeaway": [
-              "ADF Lookup activity silently truncates output at 5,000 rows and 4 MB without failing the pipeline.",
+              "ADF Lookup activity returns up to 5,000 rows (silently truncating any beyond 5,000), but fails if output exceeds 4 MB.",
               "Partition metadata-driven control queries by domain, system, or batch ID to prevent row truncation.",
               "Implement verification checks that compare expected control table counts with rows returned by Lookup."
             ],
@@ -5260,11 +5260,11 @@
                 "prompt": "In real-world enterprise migrations, why does an 80 TB network transfer typically take 14 to 18 days rather than 7.4 days?",
                 "options": [
                   "Azure deliberately throttles all network connections after 3 days",
-                  "TCP overhead, source database read latency, encryption, packet loss, and concurrent business traffic reduce effective bandwidth to 40-60%",
+                  "TCP overhead, source database read latency, encryption, packet loss, and concurrent business traffic mean architects assume ~50% effective throughput for planning",
                   "Integration runtimes require 12 hours of cool-down per day"
                 ],
                 "answer": 1,
-                "why": "Real-world network efficiency typically achieves 40% to 60% of rated link speed due to database read throughput, disk I/O, packet headers, SSL/TLS handshake overhead, and competing corporate network traffic."
+                "why": "Real transfer throughput will be lower than the theoretical line rate due to protocol overhead, encryption, disk I/O, and concurrent network traffic; architects commonly assume ~50% effective utilization for planning purposes."
               },
               {
                 "prompt": "In a 3-week migration timeline for 80 TB of active transactional data, how should initial snapshot and delta sync be structured?",
@@ -5319,7 +5319,7 @@
                 "title": "The physics of large-scale network data migration",
                 "text": [
                   "80 Terabytes is 640 Terabits (640,000 Gigabits). At a 1 Gbps link speed, 100% mathematical utilization requires 640,000 seconds = ~7.4 days.",
-                  "In enterprise environments, effective throughput rarely exceeds 45-55% (450-550 Mbps) due to TCP protocol overhead, TLS encryption, source database I/O bottlenecks, and shared corporate network traffic, extending real-world transfer time to 14-17 days."
+                  "For planning purposes, architects assume an illustrative ~50% effective utilization (~500 Mbps) to account for TCP protocol overhead, TLS encryption, source database I/O, and shared corporate traffic, which extends real-world transfer time to approximately 15-17 days."
                 ]
               },
               {
@@ -5401,7 +5401,7 @@
                   "question": "How do you manage executive stakeholders when an enterprise cloud migration faces delays?",
                   "points": [
                     "Present the quantitative network bandwidth math transparently to executive leadership.",
-                    "Distinguish theoretical link speeds from real-world effective throughput (40-60% efficiency).",
+                    "Distinguish theoretical link speeds from real-world effective throughput (using a 50% planning assumption).",
                     "Provide actionable contingency options: phased domain migration, lease extension, or Azure Data Box.",
                     "Resist compromising reconciliation gates to meet artificial deadlines; emphasize data integrity.",
                     "Maintain close alignment with infrastructure, compliance, and business operational leaders."
@@ -5464,7 +5464,7 @@
                 "sayIt": {
                   "question": "How do you architect an enterprise data migration pipeline in ADF for an 80 TB database?",
                   "points": [
-                    "Calculate realistic transfer velocity using 50% effective bandwidth (e.g. ~14-16 days for 80 TB on 1 Gbps).",
+                    "Calculate realistic transfer velocity using a 50% effective throughput planning assumption (~15-17 days for 80 TB on 1 Gbps).",
                     "Decouple initial historical baseline extraction from live CDC delta synchronization pipelines.",
                     "Optimize Copy activity with table partitioning, Staged Copy, and balanced DIU allocations.",
                     "Enforce an automated reconciliation pipeline comparing entity-level hashes before cutover.",
@@ -5503,7 +5503,7 @@
                   "64 KB"
                 ],
                 "answer": 1,
-                "why": "Microsoft documentation specifies that the exit value returned by Databricks to ADF activity output has a maximum size of 2 MB. Exceeding this size causes the activity to fail with an output truncation error."
+                "why": "Microsoft documentation specifies that the value returned from a Databricks notebook to the Data Factory service via dbutils.notebook.exit() (captured in activity.output.runOutput) has a maximum size of 2 MB. Exceeding this size causes the activity to fail."
               },
               {
                 "prompt": "If a Databricks notebook needs to pass 500,000 processed customer IDs to downstream systems, how should it be architected?",
@@ -5555,10 +5555,10 @@
             },
             "debrief": [
               {
-                "title": "The 2 MB notebook output payload boundary",
+                "title": "The 2 MB return value limit for Databricks activities in ADF",
                 "text": [
-                  "Azure Data Factory imposes a hard 2 MB limit on the output payload returned from a Databricks Notebook activity via `dbutils.notebook.exit()`. This buffer is designed strictly for operational status messages and scalar values.",
-                  "Attempting to serialize tens of thousands of data records into a JSON string exceeds this buffer, triggering an immediate execution failure in ADF regardless of whether the Spark job succeeded in Databricks."
+                  "The Azure Data Factory Databricks Notebook Activity can receive values returned from the notebook via `dbutils.notebook.exit()` for downstream control flow, with a 2 MB size limit. This return value is captured in activity.output.runOutput and is designed strictly for operational status messages and scalar metadata, not bulk data movement.",
+                  "When the notebook attempted to return 65,000 JSON records (approximately 14 MB of serialized text) inside the exit string, the activity failed immediately with an output size limit violation. Control flow execution halted, leaving the compliance reporting uncompleted."
                 ]
               },
               {
@@ -5577,11 +5577,11 @@
               }
             ],
             "takeaway": [
-              "Databricks notebook exit values in ADF are strictly limited to 2 MB and cannot carry bulk datasets.",
+              "The value returned from a Databricks notebook to ADF via dbutils.notebook.exit() has a strict 2 MB limit.",
               "Write transformed data directly to Delta Lake or ADLS Gen2 storage; return only scalar metadata to ADF.",
               "Use dynamic expressions over `@activity('...').output.runOutput` to route control flow based on summary metrics."
             ],
-            "honesty": "If you haven't handled an ADF Databricks notebook payload failure yourself, don't pretend you have. Explain the 2 MB output payload limit, and how pipelines should return scalar metadata while writing bulk data to Delta Lake.",
+            "honesty": "If you haven't handled an ADF Databricks notebook payload failure yourself, don't pretend you have. Explain the 2 MB returned-value limit from Databricks to ADF, and how pipelines should return scalar metadata while writing bulk data to Delta Lake.",
             "lenses": {
               "po": {
                 "tasks": [

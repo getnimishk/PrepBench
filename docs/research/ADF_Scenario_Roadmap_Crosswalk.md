@@ -2,7 +2,7 @@
 
 This crosswalk provides the authoritative, bidirectional mapping between the **18 Azure Data Factory Scenarios** in PrepBench (`backend/app/content/packs/adf/v1.json`) and the **60-topic ADF Master Roadmap** (`docs/research/ADF_Master_Roadmap_Mapped.xlsx`).
 
-Every scenario is architected around a realistic enterprise engineering or delivery dilemma, mapped to primary and secondary roadmap topics, evaluated through four professional lenses (**Product Owner**, **Program/Delivery Manager**, **Data Architect/Manager**, **Engineering Manager**), and grounded in official Microsoft Learn documentation.
+Every scenario is architected around a realistic enterprise engineering or delivery dilemma, mapped to primary and secondary roadmap topics, evaluated through four professional lenses (**Product Owner**, **Product Manager**, **Delivery Manager**, **Engineering Manager**), and grounded in official Microsoft Learn documentation.
 
 ---
 
@@ -10,19 +10,19 @@ Every scenario is architected around a realistic enterprise engineering or deliv
 
 | # | Scenario ID | Level | Scenario Title | Primary Roadmap Topic | Secondary Topics | Scenario Type | Microsoft Documentation Grounding |
 |---|---|---|---|---|---|---|---|
-| 1 | `1` | Level 1: Moving data | Incremental load: yesterday's data is missing | Topic 32: Watermark-Based Incremental Loading | Topic 33, Topic 26 | Incident / Performance | [Incrementally load data from Azure SQL Database](https://learn.microsoft.com/en-us/azure/data-factory/tutorial-incremental-copy-portal) |
-| 2 | `2` | Level 1: Moving data | The parameter that broke production | Topic 7: Pipeline Parameters, Variables and Expressions | Topic 46, Topic 47 | Architecture / Governance | [Parameters, expressions and functions in ADF](https://learn.microsoft.com/en-us/azure/data-factory/control-flow-expression-language-functions) |
-| 3 | `3` | Level 1: Moving data | The pipeline that ran for 14 hours | Topic 22: Self-Hosted Integration Runtime (SHIR) | Topic 20, Topic 53 | Performance / Infrastructure | [Create and configure a SHIR](https://learn.microsoft.com/en-us/azure/data-factory/create-self-hosted-integration-runtime); [High availability and scalability of SHIR](https://learn.microsoft.com/en-us/azure/data-factory/create-self-hosted-integration-runtime?tabs=data-factory#high-availability-and-scalability) |
-| 4 | `4` | Level 1: Moving data | The credentials that expired on Sunday night | Topic 41: Managed Identity, Key Vault and Authentication | Topic 5, Topic 44 | Security / Incident | [Managed identities for Data Factory](https://learn.microsoft.com/en-us/azure/data-factory/data-factory-service-identity); [Store credentials in Azure Key Vault](https://learn.microsoft.com/en-us/azure/data-factory/store-credentials-in-key-vault) |
+| 1 | `1` | Level 1: Moving data | The missing lots | Topic 32: Watermark-Based Incremental Loading | Topic 33, Topic 26 | Incident / Performance | [Incrementally load data from Azure SQL Database](https://learn.microsoft.com/en-us/azure/data-factory/tutorial-incremental-copy-portal) |
+| 2 | `2` | Level 1: Moving data | The first pipeline | Topic 7: Pipeline Parameters, Variables and Expressions | Topic 46, Topic 47 | Architecture / Governance | [Parameters, expressions and functions in ADF](https://learn.microsoft.com/en-us/azure/data-factory/control-flow-expression-language-functions) |
+| 3 | `3` | Level 1: Moving data | The server nobody owned | Topic 22: Self-Hosted Integration Runtime (SHIR) | Topic 20, Topic 53 | Performance / Infrastructure | [Create and configure a SHIR](https://learn.microsoft.com/en-us/azure/data-factory/create-self-hosted-integration-runtime); [High availability and scalability of SHIR](https://learn.microsoft.com/en-us/azure/data-factory/create-self-hosted-integration-runtime?tabs=data-factory#high-availability-and-scalability) |
+| 4 | `4` | Level 1: Moving data | The hour that never loaded | Topic 17: Tumbling Window Triggers | Topic 16, Topic 18 | Scheduling / Recovery | [Create a tumbling window trigger](https://learn.microsoft.com/en-us/azure/data-factory/how-to-create-tumbling-window-trigger) |
 | 5 | `5` | Level 1: Moving data | Green runs that failed | Topic 12: Error Handling and Conditional Routing | Topic 44, Topic 50 | Incident / Governance | [Understanding pipeline failure and error handling in ADF](https://learn.microsoft.com/en-us/azure/data-factory/how-to-handle-activity-failures) |
 | 6 | `6` | Level 1: Moving data | The skipped rows nobody read | Topic 27: Fault Tolerance and Binary Copy | Topic 25, Topic 38 | Data Quality / Operations | [Fault tolerance of copy activity in ADF](https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-fault-tolerance) |
 | 7 | `7` | Level 2: Real-world traps | The rename that re-read everything | Topic 34: CDC Checkpoints and Rename Risk | Topic 33, Topic 35 | Architecture / Data Integrity | [Change data capture in Azure Data Factory](https://learn.microsoft.com/en-us/azure/data-factory/concepts-change-data-capture) |
 | 8 | `8` | Level 2: Real-world traps | The new column | Topic 37: Schema Drift and Data Flow Design | Topic 36, Topic 39 | Architecture / Schema Evolution | [Schema drift in mapping data flow](https://learn.microsoft.com/en-us/azure/data-factory/concepts-data-flow-schema-drift) |
 | 9 | `17` | Level 2: Real-world traps | The balances that matched | Topic 38: Reconciliation: Counts, Profiles and Row Fingerprints | Topic 39, Topic 13 | Data Quality / Financial Integrity | [Data validation patterns in ADF](https://learn.microsoft.com/en-us/azure/data-factory/how-to-data-flow-dedupe-nulls); [Assert transformation in mapping data flow](https://learn.microsoft.com/en-us/azure/data-factory/data-flow-assert) |
-| 10 | `9` | Level 2: Real-world traps | The audit question | Topic 42: CMK and Factory Encryption | Topic 41, Topic 45 | Security / Compliance | [Encrypt Azure Data Factory with customer-managed keys](https://learn.microsoft.com/en-us/azure/data-factory/enable-customer-managed-key) |
-| 11 | `10` | Level 2: Real-world traps | The bill that doubled | Topic 52: Cost Modeling, DIU Allocation and Estimation | Topic 20, Topic 17 | Cost / FinOps | [Plan and manage costs for Azure Data Factory](https://learn.microsoft.com/en-us/azure/data-factory/plan-manage-costs); [Data movement pricing examples](https://learn.microsoft.com/en-us/azure/data-factory/pricing-concepts) |
-| 12 | `11` | Level 2: Real-world traps | The password in the pipeline | Topic 45: Operational Logging and Sensitive Data | Topic 41, Topic 44 | Security / Secret Management | [Secure credentials and inputs in ADF](https://learn.microsoft.com/en-us/azure/data-factory/data-factory-security-considerations); [Activity policy settings](https://learn.microsoft.com/en-us/azure/data-factory/concepts-pipelines-activities#activity-policy-settings) |
-| 13 | `18` | Level 2: Real-world traps | Card numbers in the error log | Topic 28: Regulated Data and Encryption in Transit | Topic 45, Topic 27 | Compliance / PCI-DSS / Security | [Azure Data Factory compliance and data protection](https://learn.microsoft.com/en-us/azure/data-factory/data-factory-security-considerations); [Diagnostic logging](https://learn.microsoft.com/en-us/azure/data-factory/monitor-using-azure-monitor) |
+| 10 | `9` | Level 2: Real-world traps | The audit question | Topic 44: Monitoring, Alerts and Run History | Topic 45, Topic 41 | Compliance / Retention | [Monitor Azure Data Factory with Azure Monitor](https://learn.microsoft.com/en-us/azure/data-factory/monitor-using-azure-monitor) |
+| 11 | `10` | Level 2: Real-world traps | The bill that doubled | Topic 52: Cost Modeling, DIU Allocation and Estimation | Topic 53, Topic 20 | Cost / FinOps | [Plan and manage costs for Azure Data Factory](https://learn.microsoft.com/en-us/azure/data-factory/plan-manage-costs); [Data movement pricing examples](https://learn.microsoft.com/en-us/azure/data-factory/pricing-concepts) |
+| 12 | `11` | Level 2: Real-world traps | The password in the pipeline | Topic 41: Managed Identity, Key Vault and Authentication | Topic 5, Topic 46 | Security / Secret Management | [Managed identities for Data Factory](https://learn.microsoft.com/en-us/azure/data-factory/data-factory-service-identity); [Store credentials in Azure Key Vault](https://learn.microsoft.com/en-us/azure/data-factory/store-credentials-in-key-vault) |
+| 13 | `18` | Level 2: Real-world traps | Card numbers in the error log | Topic 45: Operational Logging and Sensitive Data | Topic 28, Topic 27 | Compliance / PCI-DSS / Security | [Azure Data Factory security considerations](https://learn.microsoft.com/en-us/azure/data-factory/data-factory-security-considerations); [Diagnostic logging](https://learn.microsoft.com/en-us/azure/data-factory/monitor-using-azure-monitor) |
 | 14 | `12` | Level 3: Architecture & delivery | The urgent fix | Topic 46: Git Integration and Collaboration | Topic 47, Topic 49 | CI/CD / Release Management | [Continuous integration and delivery in ADF](https://learn.microsoft.com/en-us/azure/data-factory/continuous-integration-delivery); [Automated publishing for CI/CD](https://learn.microsoft.com/en-us/azure/data-factory/continuous-integration-delivery-improvements) |
 | 15 | `13` | Level 3: Architecture & delivery | The 1,000 tables that vanished | Topic 35: Metadata-Driven Pipelines | Topic 13, Topic 11 | Architecture / Scalability | [Metadata-driven copy activity](https://learn.microsoft.com/en-us/azure/data-factory/copy-data-tool-metadata-driven); [Lookup activity limits and return sizes](https://learn.microsoft.com/en-us/azure/data-factory/control-flow-lookup-activity#lookup-activity-properties) |
 | 16 | `14` | Level 3: Architecture & delivery | Cutover in three weeks | Topic 58: Enterprise Migration Architecture | Topic 32, Topic 22 | Migration / Program Delivery | [Data migration from on-premises to Azure using ADF](https://learn.microsoft.com/en-us/azure/data-factory/solution-template-migration-overview); [SHIR scale-out guidelines](https://learn.microsoft.com/en-us/azure/data-factory/create-self-hosted-integration-runtime#high-availability-and-scalability) |
@@ -35,53 +35,53 @@ Every scenario is architected around a realistic enterprise engineering or deliv
 
 ### Level 1: Moving Data (Scenarios 1 – 6)
 
-#### Scenario 1 (id: `1`) — Incremental load: yesterday's data is missing
+#### Scenario 1 (id: `1`) — The missing lots
 - **Primary Roadmap Topic:** Topic 32 (Phase 7: Incremental Loading & Metadata)
 - **Secondary Topics:** Topic 33 (Change Tracking and CDC), Topic 26 (Copy Activity Performance & Tuning)
 - **Pedagogical Objective:** Teach watermark table mechanics, upper-bound timestamp capture before ingestion, timezone consistency, and idempotent re-runs.
 - **Key Technical Constraint:** If watermark logic updates the control table using the pipeline start time or current timestamp instead of the actual maximum timestamp read from the source query (`SELECT MAX(LastModified) FROM source WHERE LastModified > @Watermark`), late-arriving records or concurrent source commits become permanently skipped.
 - **Role Lens Focus:**
-  - **PO:** Customer SLA tracking, prioritization of critical dimension/fact tables over analytical staging tables.
-  - **PM:** Running the incident bridge, stakeholder outage notifications, tracking mean-time-to-resolution (MTTR).
-  - **DM:** Audit query predicates, ensure boundary conditions (`>` vs `>=`), enforce UTC standardization across databases.
-  - **EM:** Implement atomic watermark update stored procedure, automated reconciliation query, and idempotent re-run scripts.
+  - **PO:** The backlog and acceptance criteria: customer SLA tracking, data completeness verification, and prioritization of critical fact tables over analytical staging tables.
+  - **PM:** Users, impact and product measures: stakeholder outage notifications, assessing downstream reporting impact, and tracking user-facing metrics.
+  - **DM:** The incident, the process and the plan: running the incident bridge, coordinating mean-time-to-resolution (MTTR), boundary condition testing (`>` vs `>=`), and UTC standardization.
+  - **EM:** Engineering practice and the team: implementing atomic watermark update stored procedures, automated reconciliation queries, and idempotent re-run scripts.
 - **Evidence Produced:** A watermarking control table schema, boundary condition test script, and idempotent replay runbook.
 
-#### Scenario 2 (id: `2`) — The parameter that broke production
+#### Scenario 2 (id: `2`) — The first pipeline
 - **Primary Roadmap Topic:** Topic 7 (Phase 2: Core ADF Construction)
-- **Secondary Topics:** Topic 46 (Git Integration and Collaboration), Topic 47 (ARM Template Deployment)
-- **Pedagogical Objective:** Differentiate between pipeline parameters (caller-supplied, immutable during run), variables (pipeline-scoped, mutable via SetVariable), and global parameters.
-- **Key Technical Constraint:** Hardcoded environment URLs or improperly overridden pipeline parameters in CI/CD parameter files cause production pipelines to target staging storage or fail during deployment validation.
+- **Secondary Topics:** Topic 5 (Linked Services), Topic 6 (Datasets)
+- **Pedagogical Objective:** Deconstruct a seemingly simple "just copy the claims table" request into the core ADF building blocks (Linked Services, Datasets, Pipelines, Activities, Integration Runtimes, Triggers), manage cross-team dependencies, and establish parameterized reusability.
+- **Key Technical Constraint:** In ADF, data movement requires separate abstractions: Linked Services (connection/auth), Datasets (schema/file reference), Pipelines (logical grouping), and Activities (execution step). Treating pipelines as point-to-point hardcoded scripts creates configuration sprawl, while missing network line-of-sight or credentials from upstream teams blocks deployment.
 - **Role Lens Focus:**
-  - **PO:** Clear contract definitions between business data domains and pipeline configurations.
-  - **PM:** Production change gate governance: verifying parameter mapping templates before approval.
-  - **DM:** Establishing parameterization standards (e.g., environment names passed via factory global parameters).
-  - **EM:** Automated validation scripts in CI/CD pipelines to catch missing or malformed ARM template parameters.
-- **Evidence Produced:** ARM template parameterization configuration (`arm-template-parameters-definition.json`) and variable scoping guideline.
+  - **PO:** The backlog and acceptance criteria: breaking down ambiguous ingestion requests into well-defined acceptance criteria, data contracts, and delivery milestones.
+  - **PM:** Users, impact and product measures: setting realistic delivery expectations with business stakeholders and communicating dependency lead times.
+  - **DM:** The incident, the process and the plan: coordinating cross-team handovers with database administrators, network engineers, and security teams for credentials and firewalls.
+  - **EM:** Engineering practice and the team: implementing parameterized linked services and datasets, enforcing standard naming conventions, and establishing code review guidelines.
+- **Evidence Produced:** ADF building blocks architecture diagram, reusable linked service template, and cross-team dependency checklist.
 
-#### Scenario 3 (id: `3`) — The pipeline that ran for 14 hours
+#### Scenario 3 (id: `3`) — The server nobody owned
 - **Primary Roadmap Topic:** Topic 22 (Phase 4: Integration Runtimes)
 - **Secondary Topics:** Topic 20 (Integration Runtime Fundamentals), Topic 53 (Scale and Concurrency Trade-offs)
-- **Pedagogical Objective:** Understand Self-Hosted Integration Runtime (SHIR) compute limits, network bottlenecks, concurrent job limits per node, and high availability scale-out.
-- **Key Technical Constraint:** A single-node SHIR is a single point of failure and subject to local CPU/RAM starvation. Microsoft Learn specifies active-active clustering: up to 4 physical/virtual nodes can be clustered into a single logical SHIR for high availability and load distribution. (The disputed 8-node configuration is an administrative cluster grouping limit and excluded from learner quiz questions to ensure strict accuracy).
+- **Pedagogical Objective:** Understand Self-Hosted Integration Runtime (SHIR) compute management, on-premises host machine ownership, credential lifecycle, and active-active high availability (HA) clustering.
+- **Key Technical Constraint:** An on-premises SHIR hosted on an unowned or unmanaged virtual machine is an enterprise single point of failure when host credentials rotate or machines reboot. Up to 4 physical or virtual nodes can be clustered into a single logical SHIR for active-active high availability and concurrent load distribution, where nodes pull tasks concurrently from the cloud queue.
 - **Role Lens Focus:**
-  - **PO:** Quantifying financial and business risk of nightly batch SLA breaches.
-  - **PM:** Coordinating infrastructure maintenance windows with on-premises network and infrastructure teams.
-  - **DM:** Analyzing data transfer pipelines, network throttling, and partitioned copy configurations.
-  - **EM:** Deploying 4-node active-active SHIR clusters, configuring auto-scaling node pools, and setting IR health alerts in Azure Monitor.
-- **Evidence Produced:** SHIR cluster sizing and HA design architecture, ExpressRoute bandwidth calculation, and gateway queue alert rules.
+  - **PO:** The backlog and acceptance criteria: quantifying business risk of unowned infrastructure and establishing operational readiness criteria.
+  - **PM:** Users, impact and product measures: communicating downtime impacts to business stakeholders and reporting on IR service level health.
+  - **DM:** The incident, the process and the plan: establishing clear infrastructure ownership matrices (RACI), coordinating host OS maintenance windows with IT operations.
+  - **EM:** Engineering practice and the team: configuring active-active multi-node SHIR clusters, setting up gateway health alerts in Azure Monitor, and automating gateway key rotations.
+- **Evidence Produced:** Active-active SHIR HA architecture, infrastructure RACI matrix, and gateway queue health monitoring alert rules.
 
-#### Scenario 4 (id: `4`) — The credentials that expired on Sunday night
-- **Primary Roadmap Topic:** Topic 41 (Phase 9: Security, Governance & Monitoring)
-- **Secondary Topics:** Topic 5 (Linked Services), Topic 44 (Monitoring, Alerts and Run History)
-- **Pedagogical Objective:** Eliminate hardcoded credentials, connection string passwords, and static service principal secrets in favor of System-Assigned and User-Assigned Managed Identities (SAMI/UAMI) backed by Azure Key Vault.
-- **Key Technical Constraint:** Linked Services configured with static secret keys fail on expiration without warning. Modern Azure security baseline requires Managed Identities or Key Vault secret references with automated rotation alerts via Azure Event Grid.
+#### Scenario 4 (id: `4`) — The hour that never loaded
+- **Primary Roadmap Topic:** Topic 17 (Phase 3: Control Flow & Orchestration)
+- **Secondary Topics:** Topic 16 (Schedule Triggers), Topic 18 (Storage Event Triggers)
+- **Pedagogical Objective:** Master tumbling window triggers vs schedule triggers, window boundaries (`windowStartTime`, `windowEndTime`), dependency chains, and automated backfill mechanics.
+- **Key Technical Constraint:** Schedule triggers fire at recurring clock times but do not track historical slices; if a schedule trigger is deactivated for maintenance or deployment, missed hours are never executed. Tumbling window triggers represent contiguous, non-overlapping time windows and automatically detect and backfill missed windows upon reactivation without manual intervention.
 - **Role Lens Focus:**
-  - **PO:** Zero-trust security policy advocacy across data integration initiatives.
-  - **PM:** Managing key lifecycle tracking and emergency on-call escalation procedures for weekend failures.
-  - **DM:** Transition architecture from SQL authentication / access keys to Azure AD RBAC and Managed Identities.
-  - **EM:** Key Vault secret versioning configuration, Event Grid subscription for secret expiry, and RBAC role assignment automation.
-- **Evidence Produced:** Managed Identity linked service template and Key Vault automated expiry notification pattern.
+  - **PO:** The backlog and acceptance criteria: defining historical data completeness criteria and ensuring business reporting accuracy across maintenance windows.
+  - **PM:** Users, impact and product measures: tracking data freshness metrics, providing user notifications for delayed reporting slices during backfill processing.
+  - **DM:** The incident, the process and the plan: planning deployment downtime windows, coordinating trigger deactivation and reactivation runbooks.
+  - **EM:** Engineering practice and the team: parameterizing pipelines using `@trigger().outputs.windowStartTime` and `@trigger().outputs.windowEndTime`, configuring tumbling window concurrency (`maxConcurrency`), and defining self-dependency wait policies.
+- **Evidence Produced:** Tumbling window trigger definition JSON, automated backfill execution pattern, and pipeline time-slice monitoring dashboard.
 
 #### Scenario 5 (id: `5`) — Green runs that failed
 - **Primary Roadmap Topic:** Topic 12 (Phase 3: Control Flow & Orchestration)
@@ -148,52 +148,52 @@ Every scenario is architected around a realistic enterprise engineering or deliv
 - **Evidence Produced:** Multi-level reconciliation query suite, Assert transformation rules, and financial audit reconciliation log.
 
 #### Scenario 10 (id: `9`) — The audit question
-- **Primary Roadmap Topic:** Topic 42 (Phase 9: Security, Governance & Monitoring)
-- **Secondary Topics:** Topic 41 (Managed Identity, Key Vault and Authentication), Topic 45 (Operational Logging and Sensitive Data)
-- **Pedagogical Objective:** Audit encryption architectures across data at rest, data in transit, and factory metadata using Customer-Managed Keys (CMK).
-- **Key Technical Constraint:** By default, ADF encrypts factory metadata with Microsoft-Managed Keys. Regulated enterprises require CMK using Azure Key Vault RSA keys (2048/3072/4096-bit), configured with User-Assigned Managed Identity (UAMI) to prevent access loss during credential rotation.
+- **Primary Roadmap Topic:** Topic 44 (Phase 9: Security, Governance & Monitoring)
+- **Secondary Topics:** Topic 45 (Operational Logging and Sensitive Data), Topic 41 (Managed Identity, Key Vault and Authentication)
+- **Pedagogical Objective:** Master native ADF Studio 45-day monitoring retention boundaries, configure Azure Monitor Diagnostic Settings, and build Log Analytics KQL audit queries for long-term regulatory compliance.
+- **Key Technical Constraint:** ADF Studio retains pipeline, activity, and trigger run history for exactly 45 days. Regulated enterprises (e.g., SOX, HIPAA, PCI) requiring 6-month to 7-year audit trails will fail compliance examinations unless Diagnostic Settings are configured to route ADF telemetry (`PipelineRuns`, `ActivityRuns`, `TriggerRuns`) to a Log Analytics workspace or Azure Storage archive.
 - **Role Lens Focus:**
-  - **PO:** Defending enterprise compliance posture during internal cybersecurity audits and regulatory exams.
-  - **PM:** Coordinating encryption remediation roadmaps, key rotation schedules, and audit evidence packages.
-  - **DM:** Distinguishing storage service encryption, transit TLS 1.2+, and ADF factory metadata CMK boundaries.
-  - **EM:** Provisioning Key Vault Key Encryption Keys (KEK), granting UAMI wrap/unwrap permissions, and scripting CMK activation via Bicep.
-- **Evidence Produced:** CMK architecture diagram, Bicep factory encryption resource template, and compliance attestation runbook.
+  - **PO:** The backlog and acceptance criteria: translating regulatory audit requirements (SOX/HIPAA) into data platform acceptance criteria and retention policies.
+  - **PM:** Users, impact and product measures: managing auditor relationships, presenting compliance evidence, and tracking audit remediation roadmaps.
+  - **DM:** The incident, the process and the plan: coordinating cross-team audit evidence gathering across DBA, cloud platform, and compliance teams; establishing operational sign-off gates.
+  - **EM:** Engineering practice and the team: configuring Bicep/ARM diagnostic settings to Log Analytics, writing KQL queries for historical execution auditing, and setting up automated retention alerts.
+- **Evidence Produced:** Diagnostic settings deployment template, Log Analytics KQL audit query suite, and compliance audit trail runbook.
 
 #### Scenario 11 (id: `10`) — The bill that doubled
 - **Primary Roadmap Topic:** Topic 52 (Phase 10: CI/CD, IaC & Reliability)
-- **Secondary Topics:** Topic 20 (Integration Runtime Fundamentals), Topic 17 (Tumbling Window Triggers)
-- **Pedagogical Objective:** Deconstruct ADF pricing models: Data Integration Units (DIU), pipeline activity execution charges, IR runtime costs, and trigger frequency trade-offs.
-- **Key Technical Constraint:** Copy activities enforce a minimum of 4 DIUs per execution (billed in 1-minute increments). Running an empty pipeline every 5 minutes results in 288 runs/day * 4 DIUs * 12 activities = massive monthly charges for zero data moved.
+- **Secondary Topics:** Topic 53 (Scale and Concurrency Trade-offs), Topic 20 (Integration Runtime Fundamentals)
+- **Pedagogical Objective:** Master ADF pricing models, Data Integration Unit (DIU) allocations, activity minimum billing durations, and concurrency trade-offs against source connection pool limits.
+- **Key Technical Constraint:** Copy activities have a minimum billing granularity of 4 DIUs with a 1-minute minimum duration. High-frequency loops or unbounded ForEach concurrency (`batchCount: 50`) can saturate source database connection pools (e.g., 20 connections max) and dramatically spike cloud costs while causing connection timeouts.
 - **Role Lens Focus:**
-  - **PO:** Balancing business data freshness requirements against infrastructure spend and willingness to pay.
-  - **PM:** Enforcing FinOps budget alerts, cost anomaly notifications, and cost-per-pipeline monitoring.
-  - **DM:** Optimizing trigger schedules: replacing high-frequency polling with Event-Based Triggers (BlobCreated) or tumbling windows.
-  - **EM:** Tuning DIU allocation limits, configuring pipeline concurrency limits, and implementing idle compute shutdown policies.
-- **Evidence Produced:** ADF FinOps cost model spreadsheet, DIU optimization guidelines, and Azure Cost Management alert configuration.
+  - **PO:** The backlog and acceptance criteria: balancing business data freshness demands against infrastructure expenditure and establishing ROI criteria for pipeline frequency.
+  - **PM:** Users, impact and product measures: establishing FinOps budget alert thresholds, reporting unit cost economics per data pipeline to product stakeholders.
+  - **DM:** The incident, the process and the plan: triaging sudden cost spike incidents, optimizing pipeline schedules (switching high-frequency polling to event triggers or batch tumbling windows).
+  - **EM:** Engineering practice and the team: tuning Copy activity DIU allocations, configuring ForEach `batchCount` to align with source database connection limits, and configuring Azure Cost Management budget alerts.
+- **Evidence Produced:** ADF FinOps cost model, concurrency and DIU optimization guidelines, and Azure Cost Management budget alert configuration.
 
 #### Scenario 12 (id: `11`) — The password in the pipeline
-- **Primary Roadmap Topic:** Topic 45 (Phase 9: Security, Governance & Monitoring)
-- **Secondary Topics:** Topic 41 (Managed Identity, Key Vault and Authentication), Topic 44 (Monitoring, Alerts and Run History)
-- **Pedagogical Objective:** Prevent credential exposure in ADF execution logs, activity outputs, and Azure Monitor Log Analytics.
-- **Key Technical Constraint:** When credentials or tokens are passed into pipeline parameters or returned by Web/Lookup activities, they are logged in plain text in Azure Monitor and the ADF monitoring portal unless **Secure Input** and **Secure Output** are explicitly enabled.
+- **Primary Roadmap Topic:** Topic 41 (Phase 9: Security, Governance & Monitoring)
+- **Secondary Topics:** Topic 5 (Linked Services), Topic 46 (Git Integration and Collaboration)
+- **Pedagogical Objective:** Eliminate hardcoded credentials and scattered passwords across pipelines and linked services using System/User-Assigned Managed Identity and Key Vault secret references with Azure RBAC.
+- **Key Technical Constraint:** Hardcoding passwords in linked service definitions or passing credentials through pipeline parameters causes credential leakage in Git repositories and ARM templates, and breaks pipelines during password rotations. Modern security posture requires Managed Identities or Key Vault secret references with least-privilege RBAC (`Key Vault Secrets User`).
 - **Role Lens Focus:**
-  - **PO:** Enforcing zero-exposure security compliance across operational monitoring tools.
-  - **PM:** Managing security incident disclosure, credential revocation timelines, and triage bridges.
-  - **DM:** Mandating Key Vault linked secret resolution rather than pipeline parameter passing for sensitive secrets.
-  - **EM:** Enforcing Secure Input/Secure Output flags on all Web, Lookup, and Script activities and automating static code analysis checks.
-- **Evidence Produced:** Secure activity policy pattern and automated pipeline JSON secret scanning script.
+  - **PO:** The backlog and acceptance criteria: establishing zero-trust credential policies and secretless architecture as non-negotiable acceptance criteria.
+  - **PM:** Users, impact and product measures: communicating rotation timelines to downstream service consumers and managing security incident disclosure risks.
+  - **DM:** The incident, the process and the plan: coordinating emergency credential rotation incident bridges, defining operational handovers between security operations and data squads.
+  - **EM:** Engineering practice and the team: refactoring linked services to use Managed Identity and Key Vault secrets, configuring automated secret rotation with Azure Event Grid, and adding CI/CD secret scanning.
+- **Evidence Produced:** Managed Identity linked service Bicep template, Key Vault RBAC configuration runbook, and pre-commit secret detection rule.
 
 #### Scenario 13 (id: `18`) — Card numbers in the error log
-- **Primary Roadmap Topic:** Topic 28 (Phase 6: Copy Activity in Practice)
-- **Secondary Topics:** Topic 45 (Operational Logging and Sensitive Data), Topic 27 (Fault Tolerance and Binary Copy)
-- **Pedagogical Objective:** Protect sensitive PII / PCI-DSS data in transit, during fault tolerance error redirection, and in diagnostic logging sinks.
-- **Key Technical Constraint:** When Copy activity fault tolerance redirects rejected rows to error log files (`redirectIncompatibleRowSettings`), unmasked credit card numbers or PII from malformed rows are written to storage in plain text, causing a catastrophic compliance violation.
+- **Primary Roadmap Topic:** Topic 45 (Phase 9: Security, Governance & Monitoring)
+- **Secondary Topics:** Topic 28 (Regulated Data and Encryption in Transit), Topic 27 (Fault Tolerance and Binary Copy)
+- **Pedagogical Objective:** Understand how operational logging and copy activity fault-tolerance row redirection can inadvertently expose sensitive PII / PCI-DSS data (such as credit card PANs) in cleartext storage accounts.
+- **Key Technical Constraint:** Enabling `Secure Input` and `Secure Output` on ADF activities protects runtime telemetry in Azure Monitor and ADF Studio, but Copy activity fault tolerance (`redirectIncompatibleRowSettings`) dumps raw, rejected rows into blob storage in cleartext. Ingestion of card numbers without pre-ingestion masking violates PCI-DSS if stored unencrypted.
 - **Role Lens Focus:**
-  - **PO:** Interfacing with enterprise legal and privacy officers to report and remediate PCI-DSS/GDPR data spill incidents.
-  - **PM:** Leading cross-team containment sprints and post-incident remediation milestones.
-  - **DM:** Designing upstream tokenization/masking architectures and restricting access to error log storage containers via private endpoints.
-  - **EM:** Implementing automated retention purge policies on diagnostic containers, enabling Azure Storage customer-managed encryption, and scrubbing logs.
-- **Evidence Produced:** Regulated data ingestion architecture, secure error log quarantine design, and automated log purging runbook.
+  - **PO:** The backlog and acceptance criteria: collaborating with Data Protection and Legal teams on PCI-DSS / GDPR compliance requirements and customer notification obligations.
+  - **PM:** Users, impact and product measures: leading security incident containment communication and managing post-incident compliance audits.
+  - **DM:** The incident, the process and the plan: organizing immediate incident containment sprints, coordinating storage access revocation, and establishing cross-team log review processes.
+  - **EM:** Engineering practice and the team: isolating fault-tolerant error logs in dedicated storage with Private Endpoints and CMK, implementing pre-ingestion regex masking in Azure Functions / Data Flows, and configuring storage lifecycle auto-purge policies.
+- **Evidence Produced:** Secure error logging architecture diagram, pre-ingestion masking transformation script, and storage lifecycle purge policy.
 
 ---
 
@@ -267,10 +267,10 @@ Every scenario delivers specific, actionable prompts and tasks for the four Prep
 
 | Role | Core Pedagogical Focus | Key Deliverable in Each Scenario | Typical Interview Question Prepared |
 |---|---|---|---|
-| **Product Owner (PO)** | Business value, SLA contracts, customer data impact, compliance sign-offs, data product integrity | Business Impact Assessment & Prioritization Plan | "How do you prioritize pipeline remediation when an SLA breach threatens customer-facing analytics?" |
-| **Program / Delivery Manager (PM)** | Incident bridges, stakeholder communication, cross-team dependencies, release criteria, runbooks | Incident Response Plan & Cutover Runbook | "How do you coordinate a zero-downtime cutover between database teams, infrastructure, and business users?" |
-| **Data Architect / Manager (DM)** | Data models, architectural patterns, limits/quotas, reconciliation, security topologies | Architectural Specification & Decision Matrix | "How do you design a reconciliation framework that catches silent data corruption beyond row counts?" |
-| **Engineering Manager (EM)** | Implementation details, CI/CD automation, cluster scaling, monitoring, code review standards | Technical Runbook, Infrastructure Template & Test Suite | "How do you prevent configuration drift and manage emergency hotfixes in an automated ADF deployment pipeline?" |
+| **Product Owner (PO)** | The backlog and acceptance criteria: business value, SLA contracts, customer data impact, compliance sign-offs, data product integrity | Business Impact Assessment & Prioritization Plan | "How do you prioritize pipeline remediation when an SLA breach threatens customer-facing analytics?" |
+| **Product Manager (PM)** | Users, impact and product measures: user communication, product health KPIs, executive roadmaps, stakeholder trust | Stakeholder Communication Plan & Impact Assessment | "How do you communicate data outage risks and delivery delays to executive stakeholders?" |
+| **Delivery Manager (DM)** | The incident, the process and the plan: incident bridges, cross-team handovers, dependency management, runbooks, cutover execution | Incident Response Plan & Cutover Runbook | "How do you coordinate a zero-downtime cutover between database teams, infrastructure, and business users?" |
+| **Engineering Manager (EM)** | Engineering practice and the team: implementation details, CI/CD automation, cluster scaling, monitoring, code review standards | Technical Runbook, Infrastructure Template & Test Suite | "How do you prevent configuration drift and manage emergency hotfixes in an automated ADF deployment pipeline?" |
 
 ---
 
