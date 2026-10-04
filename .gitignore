@@ -71,3 +71,7 @@ coverage/
 # locally, noise in a diff.
 frontend/playwright-report/
 frontend/test-results/
+
+# Scratch and audit directories
+.audit-scratch/
+*.zip

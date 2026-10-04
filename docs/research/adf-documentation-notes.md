@@ -14,6 +14,12 @@ Fabric migration paths) was checked against 29 more Learn pages. §31 records th
 first pass** (the "5 to 7 minutes" debug figure, which Microsoft's tutorials do still state) and the finding that scenarios
 5 to 18 exist only as title-and-outcome stubs anywhere in the repository.
 
+**Roadmap alignment and full curriculum upgrade, 2026-10-04:** the 60-topic ADF Master Roadmap was mapped to the 21-chapter
+Study Guide. Explicit Roadmap alignment blocks were added to each chapter in `backend/app/content/packs/adf/v1.json`, with the
+full mapping maintained in `docs/research/ADF_Study_Guide_Roadmap_Crosswalk.md` and `docs/research/ADF_Master_Roadmap_Mapped.xlsx`.
+
+**Final Knowledge-Completeness Audit, 2026-10-04:** a comprehensive knowledge audit evaluated learner-facing content depth across all 60 topics against TPM / Engineering Leadership standards. Factual corrections were implemented (fixing Topic 53's concurrency limits to distinguish pipeline concurrency [no maximum default] from ForEach batch count [1–50]; realigning Topic 57 strictly to Chapter 20; eliminating unsupported 'zero-data-loss' and 'guarantee' claims). Targeted curriculum expansions were added to under-developed chapters (Chapters 2, 3, 5, 10, 12, 13, 14), expanding markdown content by +68% to 23,870 words. Bicep templates were compiled and validated via Azure Bicep CLI v0.47.16 with zero errors/warnings. Full post-remediation audit confirms all 60 topics score >= 4 (Strong/Expert) with 0 Red and 0 Yellow defects. See `docs/research/ADF_Study_Guide_Knowledge_Completeness_Audit.md`.
+
 Written in my own words, with the docs' examples kept where they help. Where the docs give a number (a default, a
 limit), it's quoted as the docs state it.
 
@@ -1372,6 +1378,7 @@ Purview "classic" lineage guides; the prototype's older `guides/adf.ts`, which i
 | Recovery (added 2026-09-26) | reliability-data-factory (Azure reliability docs), copy-activity-overview (resume section, re-read) | §29 |
 | Accuracy audit (added 2026-10-04) | The 34 pages listed in §30.2 | §30; corrections marked "(Corrected 2026-10-04)" in §6, §8, §15, §16, §17, §19, §20, §23, §24, §25, §27 |
 | Second accuracy pass (added 2026-10-04) | The 29 pages listed in §31.5 | §31; further corrections in §12, §13, §14, §17, §23, §24, §26, §27 and in the Unit 1 lesson |
+| Roadmap alignment (added 2026-10-04) | 60-topic ADF Master Roadmap mapped to the 21-chapter Study Guide | Explicit Roadmap alignment blocks added to each Study Guide chapter; crosswalk documented in `docs/research/ADF_Study_Guide_Roadmap_Crosswalk.md` |
 
 **Not read, on purpose:**
 - **Individual connector pages** (about 100). They're reference pages for configuring one source each; only SAP was
