@@ -79,7 +79,7 @@ def test_adf_pack_shape():
     pack = _pack("adf")
     assert pack.chapter_count == 21
     assert pack.scenario_count == 18
-    assert pack.written_scenario_count == 4
+    assert pack.written_scenario_count == 18
     assert len(pack.diagnostic_questions) == 10
 
 
