@@ -52,8 +52,9 @@ Each night, the pipeline (the list of steps ADF runs) does four things **in this
 4. **Only if the copy succeeded, move the bookmark** to the new value.
 
 Step 4's condition is the whole lesson. In ADF, every step has four exits: *on success*, *on failure*, *on completion*
-(either way), and *on skip*. Microsoft's own tutorial and template connect "move the bookmark" to the copy's **success**
-exit. That way a failed copy leaves the bookmark where it was, and the next run simply tries the same rows again.
+(either way), and *on skip*. Microsoft's own incremental-copy tutorial connects "move the bookmark" to the copy's **Success**
+output. (The "Delta copy from database" template has the same four activities, but its page doesn't say which exit the last
+one is wired to, so check it when you import the template.) That way a failed copy leaves the bookmark where it was, and the next run simply tries the same rows again.
 
 > **Analogy.** You're reading a book on a train. You move your bookmark *after* you've read the pages, not before.
 > If you move it first and then fall asleep, tomorrow you'll skip the pages you never read.

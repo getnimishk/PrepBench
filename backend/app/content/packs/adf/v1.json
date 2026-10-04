@@ -25,11 +25,15 @@
         },
         {
           "heading": "The typical journey of one row",
-          "md": "Microsoft's 2018 white paper tells it this way: data is extracted from an on-premises Oracle database and from Salesforce, landed **raw** in the data lake (cheap, and you decide later what to keep), prepared with Spark (duplicates removed, reshaped), enriched (a machine-learning step adds a churn score), loaded into the warehouse, and read by Power BI (Microsoft's reporting and dashboard tool). On failure, a step sends an email; on success, the next step starts."
+          "md": "Microsoft's 2018 white paper tells it this way: data is extracted from an on-premises Oracle database and from Salesforce, landed **raw** in the data lake (cheap, and you decide later what to keep), prepared with Spark (duplicates removed, reshaped), enriched (a machine-learning step adds a churn score), loaded into the warehouse, and read by Power BI (Microsoft's reporting and dashboard tool). On failure, a step sends an email; on success, the next step starts.\n\nThis is a 2018 illustration of the idea, so read it as a pattern, not a current architecture: product names have moved on (what the paper calls SQL Data Warehouse is now an Azure Synapse dedicated SQL pool)."
         },
         {
           "heading": "Where it is heading",
           "md": "Almost every ADF page now opens with a note that **Data Factory in Microsoft Fabric** is \"the next generation of Azure Data Factory\", recommended for new users. ADF is still everywhere in existing projects, and the concepts carry over. Chapter 20 covers the difference."
+        },
+        {
+          "heading": "How to read the labels in this guide",
+          "md": "Where it matters, a statement is labelled so you can say in an interview what kind of claim it is.\n\n- **Microsoft fact:** product behaviour taken from Microsoft's own documentation and checked in October 2026. Figures, defaults, limits and connector lists are volatile: re-check them before you rely on one.\n- **Recommended practice:** good engineering advice (sometimes Microsoft's own recommendation). It is not a rule the product enforces.\n- **Interview takeaway:** how to say it in one breath."
         }
       ]
     },
@@ -109,11 +113,11 @@
       "id": "pipelines",
       "title": "Pipelines, activities and control flow",
       "summary": "The three kinds of activity, the four ways one step leads to the next, and the defaults that surprise people.",
-      "sources": "§3, §7, §20",
+      "sources": "§3, §7, §20, §30",
       "blocks": [
         {
           "heading": "Three kinds of activity",
-          "md": "- **Data movement**: the Copy activity, from any of about 100 connectors to any other.\n- **Data transformation**: ADF data flows, Databricks notebooks, Synapse notebooks, stored procedures, Azure Functions and more.\n- **Control flow**: Execute Pipeline, For Each, If Condition, Switch, Until, Wait, Lookup, Get Metadata, Set Variable, Web, Fail."
+          "md": "- **Data movement**: the Copy activity, between the data stores on Microsoft's connector list (roughly a hundred). Each connector supports only some roles (source, sink, data flow, Lookup), so check the connector's own page rather than assume.\n- **Data transformation**: ADF data flows, Databricks notebooks, Synapse notebooks, stored procedures, Azure Functions and more.\n- **Control flow**: Execute Pipeline, For Each, If Condition, Switch, Until, Wait, Lookup, Get Metadata, Set Variable, Append Variable, Filter, Validation, Web, Webhook, Fail."
         },
         {
           "heading": "How one step leads to the next",
@@ -121,7 +125,7 @@
         },
         {
           "heading": "Defaults that surprise people",
-          "md": "- **Retry defaults to 0.** A brief network blip fails the run unless someone set retries.\n- **Timeout defaults to 12 hours** per activity.\n- A pipeline holds at most **120 activities**, counting those inside loops.\n- **Parameters** are fixed for a run and make one pipeline serve many tables (\"copy table X for date Y\"). **Variables** change during a run, but they belong to the whole pipeline: changing one inside a parallel For Each gives unpredictable results."
+          "md": "- **Retry defaults to 0.** A brief network blip fails the run unless someone set retries.\n- **Timeout defaults to 12 hours** per activity.\n- A pipeline has a default limit of **120 activities**, counting those inside loops.\n- **Parameters** are fixed for a run and make one pipeline serve many tables (\"copy table X for date Y\"). **Variables** change during a run, but they belong to the whole pipeline: changing one inside a parallel For Each gives unpredictable results."
         },
         {
           "heading": "Two activities with hard limits",
@@ -139,11 +143,15 @@
               ],
               [
                 "For Each",
-                "Runs in parallel by default (20 at a time, at most 50); can't be nested; at most 100,000 items",
+                "Runs in parallel by default (20 at a time, at most 50); can't be nested inside another For Each or an Until; at most 100,000 items",
                 "The workaround for most limits is a parent pipeline calling a child pipeline"
               ]
             ]
           }
+        },
+        {
+          "heading": "How much of this to memorise",
+          "md": "**Microsoft fact:** the numbers above come from Microsoft's activity and limits pages, checked in October 2026. Limits change, and some can be raised through Microsoft support.\n\n**Interview takeaway:** remember the consequence, not the figure. A Lookup silently drops rows past its cap, a loop can't nest, and the way round both is a parent pipeline calling a child. Then say you would check the current limits page before designing around one."
         },
         {
           "heading": "Handing work to Databricks",
@@ -154,11 +162,11 @@
     {
       "id": "integration-runtimes",
       "title": "Integration runtimes: where the work runs",
-      "summary": "Azure, self-hosted and SSIS runtimes, and why an on-premises source needs a server someone owns.",
-      "sources": "§6, §8, §16",
+      "summary": "Azure, self-hosted and SSIS runtimes, how a managed virtual network changes what the Azure runtime can reach, and why a private-network source usually needs a server someone owns.",
+      "sources": "§6, §8, §16, §30",
       "blocks": [
         {
-          "md": "An **integration runtime (IR)** is the compute that does the work: it copies data, runs data flows, and hands transformation work to other services. There are three kinds."
+          "md": "An **integration runtime (IR)** is the compute that does the work: it copies data, runs data flows, and hands transformation work to other services. Microsoft's documentation names **three types**: Azure, self-hosted and Azure-SSIS.\n\n**A managed virtual network is not a fourth type.** It is a networking option you choose when you create an Azure IR. An Azure IR created that way runs inside a network Microsoft manages for the factory and reaches data stores through private endpoints. Microsoft notes that an existing standard Azure IR can't be switched to a managed virtual network, or back, so it is a decision you make up front."
         },
         {
           "table": {
@@ -176,10 +184,10 @@
                 "Microsoft"
               ],
               [
-                "Reaches on-premises data",
-                "No",
-                "Yes, without a VPN",
-                "Through VNet setup"
+                "Reaches private or on-premises data",
+                "Standard: public endpoints only. With a managed virtual network: through private endpoints, and on-premises only over ExpressRoute or VPN plus extra set-up",
+                "Yes, if its host machine can reach the source",
+                "Through a virtual network you join it to"
               ],
               [
                 "Runs data flows",
@@ -190,25 +198,61 @@
               [
                 "Scales",
                 "Automatically",
-                "Bigger machine or more nodes (up to 4)",
+                "Bigger machine or more nodes (Microsoft's limits page lists four nodes; check the current limit)",
                 "Cluster size"
               ],
               [
                 "Used for",
                 "Cloud-to-cloud copies and data flows",
-                "Anything behind a firewall; custom drivers",
+                "Sources in a private network; custom drivers",
                 "Running existing SSIS packages"
               ]
             ]
           }
         },
         {
+          "heading": "The simple rule, and the nuance behind it",
+          "md": "**Beginner rule.** Use the self-hosted IR when the data sits in a private network (your own data centre, or a private Azure virtual network). Use the Azure IR for cloud stores that have a public endpoint.\n\n**Microsoft fact (the nuance).** Two other routes exist, and an interviewer may probe them:\n\n- A **standard Azure IR** can reach a private system that is published on a public address, if you allow the Azure IR's published IP addresses through that system's firewall. Microsoft calls this \"not a desirable solution in highly secure production environments\".\n- An **Azure IR with a managed virtual network** reaches Azure services through **managed private endpoints**. Microsoft documents it as able to reach on-premises data too, but only when the on-premises network is connected to Azure by ExpressRoute or a site-to-site VPN and extra pieces (a Private Link service and a load balancer) are set up. It can't use custom drivers.\n\n**Interview takeaway.** \"The Azure IR can't reach on-premises\" is the beginner version. The accurate version: a standard Azure IR can't reach a private network; reaching one takes either a self-hosted IR, or a managed-virtual-network Azure IR with private connectivity configured. Then say which you would pick and why: the self-hosted IR is a server you own, the managed virtual network is no servers but a network project."
+        },
+        {
+          "heading": "Choosing between them",
+          "table": {
+            "head": [
+              "Setup",
+              "What it can reach",
+              "What you own"
+            ],
+            "rows": [
+              [
+                "Standard Azure IR",
+                "Public endpoints. If a store has an IP firewall, allow the Azure IR's published addresses",
+                "Nothing to run. Traffic crosses the public network, so isolation is the weakest"
+              ],
+              [
+                "Azure IR with a managed virtual network",
+                "Azure services over managed private endpoints; on-premises only through ExpressRoute or VPN plus a Private Link service and load balancer",
+                "No machines, but a network project and an approval for every private endpoint. Runs data flows; no custom drivers"
+              ],
+              [
+                "Self-hosted IR",
+                "Whatever its host machine can reach: on-premises, a private Azure virtual network, a database on an Azure VM",
+                "The machines: patching, nodes, monitoring, proxy and firewall rules"
+              ],
+              [
+                "Azure-SSIS IR",
+                "Private data, by joining a virtual network you own",
+                "Choosing the cluster size, and starting and stopping it"
+              ]
+            ]
+          }
+        },
+        {
           "heading": "The self-hosted IR, in practice",
-          "md": "When the source sits in your own data centre (an on-premises database, a Hadoop cluster), you install the self-hosted IR on a Windows server inside your network.\n\n- It only makes **outbound** connections on **port 443**; nothing comes in from the internet.\n- It polls a queue for work, then copies data straight from the source to cloud storage over HTTPS.\n- Credentials are encrypted on the machine, or better, kept in **Azure Key Vault**.\n- Install it **near, but not on,** the source, so it doesn't compete with it. **Up to four nodes** make it highly available.\n- If either side of a copy uses a self-hosted IR, the whole copy runs on it.\n\n**Why it matters to you:** the self-hosted IR is a real server someone has to own: patching, monitoring, capacity and failover. In a migration plan it is a workstream, not a checkbox."
+          "md": "When the source sits in a private network (an on-premises database, a Hadoop cluster), you install the self-hosted IR on a Windows machine **inside that network**: a physical server on premises, or a virtual machine in a private Azure virtual network.\n\n- It makes only **outbound** connections to Azure, on **port 443**; nothing comes in from the internet.\n- It polls a queue for work, then copies data straight between the source and the cloud store over HTTPS.\n- **It does not remove the need for a network path.** The machine must reach the source on your internal network (the database's own port, through any internal firewalls) and reach Azure outbound on 443, through your proxy if you have one. Microsoft's guidance is to treat a source as on-premises behind a firewall even when ExpressRoute is in place, and to use a self-hosted IR even for a database on an Azure VM.\n- **No VPN or ExpressRoute is needed just so ADF can reach it**, because it calls out. Without ExpressRoute, that outbound traffic crosses the public internet over HTTPS; if your policy says it must stay private, that leg needs ExpressRoute or a VPN, plus Private Link.\n- Credentials are encrypted on the machine, or better, kept in **Azure Key Vault**.\n- Install it **near, but not on,** the source, so it doesn't compete with it. Several nodes make it highly available (Microsoft's limits page lists up to four; check the current limit).\n- If either side of a copy uses a self-hosted IR, the whole copy runs on it, so both sides must be reachable from that machine. Two private-network stores must use the same self-hosted IR.\n\n**Why it matters to you:** the self-hosted IR is a real server someone has to own: patching, monitoring, capacity and failover. In a migration plan it is a workstream, not a checkbox."
         },
         {
           "heading": "Where the work happens",
-          "md": "The factory's region holds its definitions; the IR's region is where data is processed. The default Azure IR picks a region automatically. To guarantee data never leaves a geography, create an Azure IR in that region and point the connections at it."
+          "md": "The factory's region holds its definitions; the IR's region is where data is processed. The default Azure IR picks a region automatically. To guarantee data never leaves a geography, create an Azure IR in that region and point the connections at it. An Azure IR with a managed virtual network always uses the factory's region; it can't auto-resolve."
         }
       ]
     },
@@ -216,7 +260,7 @@
       "id": "triggers",
       "title": "Triggers: when pipelines run",
       "summary": "Schedule, tumbling-window and event triggers, and why one leaves gaps the other fills.",
-      "sources": "§4, §9",
+      "sources": "§4, §9, §30",
       "blocks": [
         {
           "table": {
@@ -234,19 +278,24 @@
               [
                 "Tumbling window",
                 "Runs once per fixed, back-to-back time slot (01:00–02:00, 02:00–03:00…) and passes the slot's start and end to the pipeline",
-                "Frequency can't be changed once published; minimum window 5 minutes"
+                "Frequency and interval can't be changed once published; minimum window 5 minutes by default"
               ],
               [
                 "Storage event",
                 "Runs when a file arrives in, or is deleted from, Blob or ADLS storage",
                 "Too broad a filter can fire on huge numbers of files; don't fire on a data flow's own output, which can be half-written"
+              ],
+              [
+                "Custom event",
+                "Runs when an Event Grid custom topic event arrives",
+                "Like storage events: stopping and restarting an event trigger can resume its old pattern and fire unwanted runs, so delete and recreate it instead"
               ]
             ]
           }
         },
         {
           "heading": "Why the tumbling window matters",
-          "md": "A tumbling window **keeps state**. Give it a start date in the past and it creates one run per missed window and runs them **oldest first** before any current one: a **backfill**. It retries, waits for each run to finish, and can wait for the previous window to succeed first (\"don't process 03:00 until 02:00 worked\").\n\nA common question, \"why did yesterday's hourly load leave a gap?\", is often a schedule trigger that doesn't backfill where a tumbling window would have."
+          "md": "A tumbling window **keeps state**. Give it a start date in the past and it creates one run per missed window and runs them **oldest first** before any current one: a **backfill**. It retries, waits for each run to finish, and can wait for the previous window to succeed first (\"don't process 03:00 until 02:00 worked\"). A tumbling window trigger starts only one pipeline; a schedule trigger can start several.\n\nA common question, \"why did yesterday's hourly load leave a gap?\", is often a schedule trigger that doesn't backfill where a tumbling window would have."
         },
         {
           "heading": "Time zones",
@@ -258,10 +307,10 @@
       "id": "copy",
       "title": "The Copy activity",
       "summary": "What happens during a copy, the formats, the settings that matter, and when a failed copy can resume.",
-      "sources": "§11, §25",
+      "sources": "§11, §25, §30",
       "blocks": [
         {
-          "md": "The Copy activity reads from a source, converts the format if needed, maps columns, and writes to a sink (the destination). It can copy files as they are (fast, no parsing) or convert them, for example a SQL Server table into Parquet files in the lake.\n\n**Formats:** Avro, Binary, CSV (delimited text), Delta, Excel, Iceberg, JSON, ORC, Parquet, XML."
+          "md": "The Copy activity reads from a source, converts the format if needed, maps columns, and writes to a sink (the destination). It can copy files as they are (fast, no parsing) or convert them, for example a SQL Server table into Parquet files in the lake.\n\n**Formats the Copy activity reads and writes:** Avro, Binary, CSV (delimited text), Excel, Iceberg (Azure Data Lake Storage Gen2 only), JSON, ORC, Parquet and XML. Delta is a mapping data flow format; the Copy activity reaches Delta tables through the Azure Databricks Delta Lake connector."
         },
         {
           "heading": "Settings that matter",
@@ -273,7 +322,7 @@
         },
         {
           "heading": "Connectors",
-          "md": "About 100 connectors: Azure services, databases, files, generic protocols (REST, ODBC, OData) and SaaS apps. Many databases can only be a **source** (Oracle, Netezza, Teradata, SAP). **Preview** connectors aren't recommended for production, and several connectors now have a version 2.0 with an upgrade advisor, meaning old versions are being retired."
+          "md": "Microsoft's connector list runs to roughly a hundred data stores and services: Azure services, databases, files, generic protocols (REST, ODBC, OData) and SaaS apps.\n\n**Connector capabilities are specific to each connector and its version.** A connector may support Copy as a source, as a sink, both, or neither; mapping data flows; Lookup. It may run on the Azure IR, the self-hosted IR, or both. Many database connectors are source-only for Copy, but not all: in the table Microsoft publishes (checked October 2026), Oracle supports both source and sink, while Teradata and Netezza are source-only. **Don't memorise a list; look the connector up** (the Connector overview and Copy activity pages carry the table) and note the date you checked.\n\n**Preview** connectors aren't recommended for production. Several connectors now have a **version 2.0** with an upgrade guide, and older versions are being retired (Microsoft says the Oracle 1.0 connector is at its removal stage), so checking connector versions is a real backlog item.\n\n**Interview takeaway:** \"Can ADF write to X?\" is answered \"let me check that connector's supported capabilities\", not from memory. If a connector is missing, the documented options are the generic ODBC, REST, OData or HTTP connectors, or landing the files somewhere ADF can read."
         }
       ]
     },
@@ -281,19 +330,19 @@
       "id": "bad-rows",
       "title": "Bad rows, cut-off values and \"verified\" copies",
       "summary": "The copy fails on the first bad row, cuts values silently by default, and \"verified\" means counts, not values.",
-      "sources": "§12",
+      "sources": "§12, §31",
       "blocks": [
         {
           "heading": "Bad rows",
-          "md": "By default **the copy fails on the first bad row**. You can instead **skip** incompatible rows (a type mismatch such as \"abc\" into a number column, a wrong column count, a duplicate key) and log each one, with the reason, to a session log. The run then reports rows copied and **rows skipped**.\n\n**The decision:** fail the load, or load what's good and set the rest aside? If you skip, **someone must own reading the skipped-rows log**, or rows quietly go missing while every run is green."
+          "md": "By default **the copy stops and fails** when a row can't be written to the sink. You can instead switch on fault tolerance to **skip** incompatible rows. Microsoft documents three cases for tabular data: a **type mismatch** (a value such as \"abc\" into a number column), a **wrong column count**, and a **primary-key violation** when writing to SQL Server, Azure SQL Database or Cosmos DB (only the first row with a given key is kept). The run then reports rows copied and **rows skipped**.\n\n**Skipping and logging are two separate settings.** The skipped rows are only written down, with the reason, if you also switch on the **session log** (stored in Blob or ADLS Gen2). Without it you get a count and nothing to reload.\n\n**Where it doesn't apply (Microsoft fact):** a Synapse load through PolyBase (which has its own reject settings), an Amazon Redshift UNLOAD, a copy that calls a stored procedure in a SQL sink, and a copy that uses upsert to write to a SQL sink. If your load is an upsert, don't expect bad rows to be skipped for you.\n\n**For files** (binary copies of many files) the options differ: skipping a file that was deleted mid-copy is on by default, and files that are forbidden, inconsistent or have invalid names can be skipped if you choose.\n\n**The decision:** fail the load, or load what's good and set the rest aside? If you skip, **someone must own reading the skipped-rows log**, or rows quietly go missing while every run is green."
         },
         {
           "heading": "Values cut off without an error",
-          "md": "Type conversion is a setting of its own: **on by default for copy activities created in the ADF editor since late June 2020**, but **off by default for pipelines written as code** (`typeConversion` must be set to true). Whenever it's on, **`allowDataTruncation` is on by default**. A decimal into an integer, or a time with a time zone into one without, is cut down without an error unless someone turns it off."
+          "md": "Type conversion is a setting of its own (the `typeConversion` property). Microsoft says it is **on by default for copy activities created in the authoring UI since late June 2020**; activities created before that don't show the options, and pipelines written as code have it **off** unless `typeConversion` is set to true. (The date matters only for explaining why an old pipeline and a new one behave differently.)\n\nWhen it is on, `allowDataTruncation` is **on by default**: converting a decimal to an integer, or a time with a time zone to one without, cuts the value down **without an error** unless someone turns it off. Date, time and culture formats are separate settings you can set.\n\n**Interview takeaway:** \"a green copy can still have rounded or truncated values, so for money and timestamps we set truncation off and check at full precision.\""
         },
         {
           "heading": "What \"verified\" means",
-          "md": "Data consistency verification is **off by default** and slows the copy. For files it checks size, date and a checksum. For **tables it only checks the row count**: rows read equals rows copied plus rows skipped. It never compares the values.\n\n\"Consistency verified\" for a table means **the counts add up**, not that the data is right. Checking values against the source is a separate job the team has to build."
+          "md": "Data consistency verification is **off by default** and slows the copy. **For files** it checks size, last-modified date and a checksum: for Blob and ADLS Gen2 that is a block-level checksum, plus a file-level MD5 comparison when the source file carries one. **For tables it only checks the row count** after the job: rows read must equal rows copied plus rows skipped, or the copy fails. Microsoft documents it as a row-count check; nothing in it compares column values.\n\n\"Consistency verified\" for a table means **the counts add up**, not that the data is right. Checking values against the source is a separate job the team has to build.\n\n**Check what it actually said.** The activity output reports `Verified`, `NotVerified` (you didn't switch it on) or `Unsupported` (this source and sink pair can't be verified). It isn't supported for FTP, SFTP, HTTP, Snowflake, Office 365 or Azure Databricks Delta Lake, and not for a staged copy; verifying binary files needs the folder structure preserved. A green copy that says `Unsupported` or `NotVerified` proved nothing."
         },
         {
           "heading": "Column mapping",
@@ -305,7 +354,7 @@
       "id": "reconciliation",
       "title": "Proving the migration is complete",
       "summary": "Counts, column totals, distributions, row fingerprints and business rules: five levels of proof, and what ADF gives you for each.",
-      "sources": "§12, §26",
+      "sources": "§12, §26, §31",
       "blocks": [
         {
           "md": "A migration isn't finished when the copy succeeds; it's finished when you can **prove** the data arrived complete and unchanged. The Copy activity only gives you row counts, and its \"consistency verification\" for tables checks **counts only**, never values (chapter 7). Everything beyond that is something the team builds, and ADF's mapping data flows provide the parts."
@@ -322,22 +371,22 @@
               [
                 "1. Counts",
                 "Rows per table, per partition, per day",
-                "count, countAll (includes empty values), countIf"
+                "count, countAll (includes null values), countIf"
               ],
               [
                 "2. Column profile",
                 "Totals, minimum, maximum, average, spread, distinct values and empty values per column",
-                "sum, min, max, avg, stddev, variance, countDistinct, approxDistinctCount, and an \"If\" version of each for conditional totals"
+                "sum, min, max, avg, stddev, variance, countDistinct, approxDistinctCount. Most have an \"If\" version for conditional totals (sumIf, countIf, maxIf), but countDistinct and approxDistinctCount do not"
               ],
               [
                 "3. Distribution",
                 "Quartiles, deciles, the median",
-                "No median or percentile function exists. nTile (\"useful for… quartiles, deciles\") lets you derive them"
+                "Microsoft's aggregate function list has no median or percentile function (checked October 2026). nTile (\"useful for… quartiles, deciles\") lets you derive them"
               ],
               [
                 "4. Row by row",
                 "Every key exists on both sides, and each row's values are identical",
-                "Row fingerprints with md5, sha1, sha2 or crc32 (\"a fingerprint for a row\"); the Assert step's \"expect exists\" and \"expect unique\""
+                "Row fingerprints with md5, sha1, sha2 or crc32 (\"a fingerprint for a row\"; crc32 is a short checksum, so prefer sha2 or md5 where a collision would matter); the Assert step's \"expect exists\" and \"expect unique\""
               ],
               [
                 "5. Business rules",
@@ -349,7 +398,7 @@
         },
         {
           "heading": "Why totals aren't enough",
-          "md": "Levels 1 to 3 can all match while individual rows are wrong: one balance too high and another too low cancel out in a sum. Only **level 4**, comparing row by row on a key, proves each record. Hash the same columns on both sides, join on the key, and look for keys missing on either side or fingerprints that differ.\n\nIn practice teams combine them: counts and column totals on **every** load (cheap, catches most problems), row fingerprints for critical tables or a sample, and business rules on data that feeds regulatory or financial reports."
+          "md": "Levels 1 to 3 can all match while individual rows are wrong: one balance too high and another too low cancel out in a sum. Only **level 4**, comparing row by row on a key, proves each record. Hash the same columns on both sides, join on the key, and look for keys missing on either side or fingerprints that differ.\n\n**Recommended practice:** a hash only matches if both sides are hashed the same way. Cast the columns to the same types and formats first (8.2 and 8.20, or two timestamp formats, hash differently) and decide how NULLs are treated, or you will chase false mismatches.\n\nIn practice teams combine them: counts and column totals on **every** load (cheap, catches most problems), row fingerprints for critical tables or a sample, and business rules on data that feeds regulatory or financial reports."
         },
         {
           "heading": "Money needs special care",
@@ -357,7 +406,7 @@
         },
         {
           "heading": "Where the checks run",
-          "md": "- Data flows run on an **Azure IR only**, not the self-hosted IR. To reconcile against an on-premises source, compute its totals or fingerprints with a query in the source database, or copy them out first.\n- A Lookup activity (up to 5,000 rows, 4 MB) can read one row of source totals to compare against.\n- Assert failures can be written to an error file, or excluded from the output, and later steps can route them."
+          "md": "- Data flows run on an **Azure IR only**, not the self-hosted IR. To reconcile against an on-premises source, compute its totals or fingerprints with a query in the source database, or copy them out first.\n- Data flows also read only some connectors. Oracle, Teradata and Netezza aren't in Microsoft's data flow source list, so for those, land the data in a supported store with a Copy activity first (Microsoft's own advice for any other source), or compute the totals in the source database.\n- A Lookup activity (up to 5,000 rows, 4 MB) can read one row of source totals to compare against.\n- Assert failures can be written to an error file, or excluded from the output, and later steps can route them."
         },
         {
           "heading": "Why it matters to you",
@@ -369,7 +418,7 @@
       "id": "incremental",
       "title": "Loading only new data",
       "summary": "Full, windowed and watermark loads; the bookmark that must only move after a successful copy.",
-      "sources": "§13, §18.2, §21",
+      "sources": "§13, §18.2, §21, §31",
       "blocks": [
         {
           "md": "The first time, you copy everything: the **initial full load**. After that, copying everything again is wasteful: a table might have 2 billion rows when 50,000 are new. So from then on you copy only what's **new or changed**: an **incremental** (or delta) load."
@@ -402,8 +451,11 @@
           }
         },
         {
+          "md": "**Recommended practice:** these three patterns are a way to choose, taken from Microsoft's 2020 SAP white paper. They are not a product rule, and they aren't the whole list: Microsoft's current tutorials also cover Change Tracking, copying new and changed files by last-modified date, and time-partitioned file names. For the first pattern, Microsoft's template page says the Copy Data tool builds a pipeline that uses the trigger's scheduled time to read new rows, so you don't need a control table."
+        },
+        {
           "heading": "The watermark, step by step",
-          "md": "A **watermark** is a bookmark. It lives in a small **control table**, one row per source table, holding the last value loaded. Each run:\n\n1. **Reads the old watermark** from the control table.\n2. **Reads the new watermark**: the highest value in the source right now.\n3. **Copies the rows in between**: `WHERE LastModified > old AND LastModified <= new`.\n4. **Only if the copy succeeded, writes the new value** back to the control table.\n\nStep 4's condition is the whole lesson. Microsoft's tutorial and its \"Delta copy from database\" template connect it to the copy's **success** exit. Connected to **completion** instead, a failed copy still moves the bookmark, and the rows that never arrived are skipped for good, with no error.\n\nLike a bookmark in a book on a train: you move it after you've read the pages. Move it first and fall asleep, and tomorrow you skip the pages you never read."
+          "md": "A **watermark** is a bookmark. It lives in a small **control table**, one row per source table, holding the last value loaded. Each run:\n\n1. **Reads the old watermark** from the control table.\n2. **Reads the new watermark**: the highest value in the source right now.\n3. **Copies the rows in between**: `WHERE LastModified > old AND LastModified <= new`.\n4. **Only if the copy succeeded, writes the new value** back to the control table.\n\nStep 4's condition is the whole lesson. Microsoft's tutorial connects it to the copy's **Success** output. (The \"Delta copy from database\" template has the same four activities; its page doesn't spell out the exit, so check it when you import the template.) Connected to **completion** instead, a failed copy still moves the bookmark, and the rows that never arrived are skipped for good, with no error.\n\nLike a bookmark in a book on a train: you move it after you've read the pages. Move it first and fall asleep, and tomorrow you skip the pages you never read."
         },
         {
           "heading": "Duplicates: the other failure",
@@ -418,8 +470,8 @@
     {
       "id": "cdc",
       "title": "Change data capture",
-      "summary": "Four ways to get only the changes, including deletes, and the rename that resets everything.",
-      "sources": "§15",
+      "summary": "Four ways to get only the changes, including deletes, and the checkpoint that can be lost when something it is keyed to changes.",
+      "sources": "§15, §30",
       "blocks": [
         {
           "md": "ADF offers four ways to pick up only what changed:",
@@ -454,8 +506,8 @@
           }
         },
         {
-          "heading": "The rename trap",
-          "md": "ADF remembers where the last run stopped with a **checkpoint**, keyed by default to the **pipeline and activity names**. **Renaming either resets it**: the next run starts again from the beginning, or from now. Setting your own checkpoint key makes renaming safe.\n\nA realistic incident: someone tidies up pipeline names, and the next load re-reads the whole history."
+          "heading": "The checkpoint, and the rename trap",
+          "md": "ADF remembers where the last run stopped with a **checkpoint**. What it is tied to is a place where Microsoft's own pages differ, so don't teach it as one simple rule:\n\n- **Microsoft fact, long-standing behaviour:** by default the checkpoint is coupled to the pipeline and activity names, so renaming either resets it. The next run starts again from the beginning, or from now (the change data capture concepts page).\n- **Microsoft fact, newer behaviour:** the Data Flow activity page says a newly created data flow activity uses a **GUID** as its checkpoint key instead of pipeline name plus activity name, so renaming doesn't lose its place, and that **existing activities keep the old pattern** for backward compatibility. The same page also describes the default key as a hash of the data flow and pipeline names. The pages don't agree with each other, so treat the exact default as unsettled.\n- **On both pages, you can set your own checkpoint key.**\n\n**Recommended practice:** for any change data capture load that matters, set an explicit checkpoint key, write it down, and rehearse a rename in a non-production factory before trusting it. Don't rely on a default you haven't tested. Also documented: refreshing the browser during a debug run resets the checkpoint, and a rerun from monitoring resumes from the previous checkpoint.\n\n**Interview takeaway:** \"the checkpoint can be lost when something it is keyed to changes, so we set the key ourselves and rehearse a rename.\" Avoid \"renaming always resets it\" and avoid \"renaming never matters\".\n\nA realistic incident: someone tidies up pipeline names, and the next load re-reads the whole history."
         }
       ]
     },
@@ -463,15 +515,15 @@
       "id": "transform",
       "title": "Transforming data: data flows, schema drift and Delta",
       "summary": "Visual transformations on managed Spark, what to do when the source changes shape, and writing Delta tables.",
-      "sources": "§17, §20",
+      "sources": "§17, §20, §30, §31",
       "blocks": [
         {
           "heading": "Mapping data flows",
-          "md": "Transformations drawn visually (source, steps, sink) and run on Spark that ADF manages for you. They run on an **Azure IR only**, not the self-hosted IR. **Debug clusters take 5–7 minutes to start**, and debug time is billed."
+          "md": "Transformations drawn visually (source, steps, sink) and run on Spark that ADF manages for you. They run on an **Azure IR** (including one with a managed virtual network), not the self-hosted IR. A cold debug cluster takes several minutes to start (Microsoft's tutorials say 5 to 7 minutes; its performance guide says a job cluster generally takes 3 to 5), and debug time is billed for every hour the session runs, **including its idle time to live** (60 minutes by default on the auto-resolve IR)."
         },
         {
           "heading": "When the source changes shape",
-          "md": "**Schema drift** means columns are added, removed or changed between runs. You can **allow schema drift**, so new columns flow through (as text unless their types are inferred), or not, so the load fails.\n\n**The decision:** absorb new columns silently (resilient, but surprises further down) or fail and alert (safe, but the load stops)? It's the same trade-off as Delta Lake's schema enforcement versus evolution."
+          "md": "**Schema drift** means columns are added, removed or changed between runs. Tick **Allow schema drift** on the source (and sink) and every incoming column flows through. New, \"drifted\" columns arrive as **text** unless you also tick **Infer drifted column types**. Without it, columns that aren't in the source's defined projection aren't picked up. To make the flow **fail** when the source no longer matches, use the source's **Validate schema** option.\n\nThe price of allowing drift, in Microsoft's words: you lose early binding. The flow becomes late-binding, and drifted columns don't show in schema views downstream.\n\n**The decision:** absorb new columns silently (resilient, but surprises further down) or validate the schema and fail (safe, but the load stops)? It's the same trade-off as Delta Lake's schema enforcement versus evolution."
         },
         {
           "heading": "Writing Delta tables",
@@ -479,7 +531,7 @@
         },
         {
           "heading": "Landing files in the lake",
-          "md": "- **Partition folders by key**, such as `year=2026/month=9`: very efficient for Spark and for reprocessing one slice.\n- Naming output files after column values forces a **single partition**: a bottleneck, fine only for small data.\n- By default output file names are Spark job IDs, not meaningful names."
+          "md": "- **Partition folders by key**, such as `year=2026/month=9`: very efficient for Spark and for reprocessing one slice, at a small cost in write speed.\n- Naming output files after column values forces a **single partition**: a bottleneck, fine only for small data.\n- By default output file names are Spark job IDs, not meaningful names."
         }
       ]
     },
@@ -566,13 +618,13 @@
               ],
               [
                 "Rows skipped by fault tolerance",
-                "Fix them and load them again from the skipped-rows log (chapter 7)",
+                "Fix them and load them again from the skipped-rows log (chapter 7), which exists only if the session log was switched on",
                 "ADF skips them; it never retries them. Reloading is somebody's task"
               ],
               [
                 "Change data capture",
                 "Picks up from its checkpoint (chapter 10)",
-                "Unless a rename has reset the checkpoint"
+                "Unless something the checkpoint is keyed to has changed, such as a rename (set your own checkpoint key)"
               ]
             ]
           }
@@ -631,15 +683,55 @@
     {
       "id": "security",
       "title": "Security and networking",
-      "summary": "Where credentials live, what the firewall needs, and how to keep data off the public internet.",
-      "sources": "§16, §23",
+      "summary": "Where credentials live, what the firewall needs, which network terms mean what, how to keep data off the public internet, and the trusted-service change coming in 2027.",
+      "sources": "§16, §23, §30",
       "blocks": [
         {
-          "md": "- **Credentials** are stored encrypted by ADF, or, recommended, in **Azure Key Vault**. For on-premises sources they can be encrypted and kept **only on the self-hosted IR machine**.\n- ADF doesn't store the data it moves. It does keep **pipeline definitions, run metadata and cached data**, encrypted at rest with a Microsoft-managed key or your own (chapter 15). An older security page says ADF keeps no cache or logs at all; the newer \"Secure your Azure Data Factory deployment\" page is the one to follow.\n- Data moves over HTTPS/TLS. **ExpressRoute** or a **VPN** adds a private route.\n- The self-hosted IR needs **outbound port 443** only; 1433 only for Azure SQL or Synapse (and even that can be avoided with a staged copy).\n- Use a **managed identity** to reach Azure storage instead of keys.\n- **Key Vault per environment**, with the **same secret names** in each: only the vault name changes between Dev and Prod, and the team needn't see Prod secrets."
+          "md": "- **Credentials** are stored encrypted by ADF, or, recommended, in **Azure Key Vault**. For on-premises sources they can be encrypted and kept **only on the self-hosted IR machine**.\n- ADF doesn't store the data it moves. It does keep **pipeline definitions, run metadata and cached data**, encrypted at rest with a Microsoft-managed key or your own (chapter 15). An older security page says ADF keeps no cache or logs at all; the newer \"Secure your Azure Data Factory deployment\" page is the one to follow.\n- Data moves over HTTPS/TLS. **ExpressRoute** or a **VPN** adds a private route.\n- The self-hosted IR needs **outbound port 443** toward Azure; 1433 only if it loads Azure SQL or Synapse directly (a staged copy avoids that). It also needs a network path to the source itself, on your side.\n- Use a **managed identity** to reach Azure storage instead of keys.\n- **Key Vault per environment**, with the **same secret names** in each: only the vault name changes between Dev and Prod, and the team needn't see Prod secrets."
         },
         {
           "heading": "How many factories?",
-          "md": "Decide by **security boundary**, for example one for HR and one for Finance. It costs no more, because billing is by use, not per factory. Access can't be granted per pipeline, so if different teams need different access, use separate factories."
+          "md": "Decide by **security boundary**, for example one for HR and one for Finance. It costs no more, because billing is by use, not per factory. Microsoft doesn't recommend granting Azure access per pipeline or dataset (anyone who can reach one can generally reach all), so if different teams need different access, use separate factories."
+        },
+        {
+          "heading": "Four network terms that get mixed up",
+          "md": "They sound alike and are not interchangeable. Say which one you mean.",
+          "table": {
+            "head": [
+              "Term",
+              "What it is",
+              "Where it applies"
+            ],
+            "rows": [
+              [
+                "Azure IR",
+                "The managed compute that moves data and runs data flows",
+                "Reaches public endpoints by default"
+              ],
+              [
+                "Managed virtual network",
+                "A network Microsoft creates and manages for the factory; an Azure IR can be created inside it. You can't edit its network rules, peer it with your own network, or use custom DNS in it",
+                "Controls how that Azure IR reaches data stores"
+              ],
+              [
+                "Managed private endpoint",
+                "A private endpoint that Data Factory creates inside that managed network, pointing at one specific resource. It stays Pending until that resource's owner approves it",
+                "Used by an Azure IR in a managed virtual network"
+              ],
+              [
+                "Private endpoint for the factory (Private Link)",
+                "A private endpoint in your own virtual network that connects to the factory service: for authoring and monitoring in the portal, and for a self-hosted IR's control traffic. The data itself moves directly between the IR and the stores",
+                "Between your network and the factory service. Its public-access switch applies to the self-hosted IR, not the Azure IR"
+              ]
+            ]
+          }
+        },
+        {
+          "md": "**Microsoft fact:** Microsoft says a managed virtual network together with managed private endpoints protects against data exfiltration. It also documents that, in Data Factory, all ports are open for outbound communication to public endpoints from a managed virtual network.\n\n**Interview takeaway:** don't promise \"no data can leave\". Say precisely what is private (the paths to stores that have an approved managed private endpoint) and don't claim more than that."
+        },
+        {
+          "heading": "Trusted service: Legacy and Modern",
+          "md": "**Microsoft fact.** Storage accounts and Key Vaults can sit behind a firewall that still lets \"trusted Azure services\" in. Data Factory has a **Trusted service** setting (under Factory settings) with two modes:\n\n- **Legacy**: Data Factory reaches firewall-protected Storage or Key Vault using its managed identity plus the trusted-services firewall exception.\n- **Modern**: a newer model that Microsoft recommends **for all new deployments**.\n\nMicrosoft says Legacy **retires on 1 August 2027**. After that, trusted-service configurations work only in Modern mode, and scenarios that still depend on the legacy exception might lose access to Storage or Key Vault. Microsoft lists these as affected: a self-hosted IR using a managed identity with the firewall exception; Azure-SSIS IR reaching Storage; a REST linked service or Web activity using a managed identity to reach Storage or Key Vault; Azure Function activities with the exception. Modern mode may need firewall or network changes for them.\n\n**What to switch to (also Microsoft's list):** allow-list the stable outbound IP address of your self-hosted or Azure-SSIS IR; use a managed virtual network with managed private endpoints; or use a customer-owned virtual network with service or private endpoints. Microsoft advises migrating non-production factories first and validating connections before touching production.\n\n**What Microsoft doesn't say:** its Modern page doesn't explain how Modern works internally. An older data access strategies page still describes trusted services without the two modes, and says a self-hosted IR isn't on the trusted-services list, while the Modern page lists it as an affected scenario. Where they disagree, follow the Modern page and test.\n\n**Recommended practice:** list every linked service that reaches firewall-protected Storage or Key Vault through the exception, check the Trusted service setting on each factory, and put the migration on the plan well before 2027.\n\n**Interview takeaway:** \"Trusted service is how ADF got through a storage firewall on its own identity. Legacy mode retires in August 2027, so for new work we choose Modern, and for an existing estate we first find what depends on the exception.\""
         }
       ]
     },
@@ -647,7 +739,7 @@
       "id": "sensitive-data",
       "title": "Sensitive data in regulated industries",
       "summary": "Customer and card data at a bank: what ADF keeps, the controls it offers, and five places sensitive values leak.",
-      "sources": "§6, §23, §27",
+      "sources": "§6, §23, §27, §30, §31",
       "blocks": [
         {
           "md": "At a bank or card issuer, much of the data being migrated is **personally identifiable information (PII)**: names, account and card numbers, addresses. The documentation's starting point: ADF \"doesn't store the source or sink data it moves\", only pipeline definitions, run metadata and cached data. The risk is in where data passes through and what gets logged."
@@ -662,7 +754,7 @@
             "rows": [
               [
                 "Data in transit",
-                "TLS to cloud stores; ExpressRoute or VPN; Private Link to the factory; a managed virtual network with private endpoints for the Azure IR"
+                "TLS to cloud stores; ExpressRoute or VPN; Private Link to the factory; managed private endpoints for an Azure IR in a managed virtual network"
               ],
               [
                 "Data must stay in a country or region",
@@ -674,7 +766,7 @@
               ],
               [
                 "The factory's own encryption",
-                "A customer-managed key in Key Vault (bring your own key)"
+                "A customer-managed key in Key Vault (bring your own key), set at factory creation or, later, on an empty factory"
               ],
               [
                 "Sensitive values in monitoring",
@@ -682,7 +774,7 @@
               ],
               [
                 "Knowing where PII is",
-                "Connect ADF to Microsoft Purview to discover and classify sensitive data and trace its lineage"
+                "In Microsoft Purview, scan your data stores to discover and classify sensitive data. Connect ADF so pipeline runs push lineage for Copy, Data Flow and Execute SSIS activities, for a subset of data stores; a data flow shows its sources and sinks, not its transformations"
               ],
               [
                 "Masking",
@@ -697,7 +789,10 @@
         },
         {
           "heading": "Five places sensitive values leak",
-          "md": "1. **The skipped-rows log.** With fault tolerance on, skipped rows are written to the session log **with their actual values**; the documentation's own example shows the row's data. Card numbers can end up in a CSV in a storage account, which then needs the same protection and retention rules as the source.\n2. **The masking template sends data out.** The PII detection and masking template works by calling an external Azure AI service from the data flow. For regulated data, that is a security and compliance decision, not a default.\n3. **Activity outputs in run history.** Unless secureOutput is set, a Lookup that reads customer rows, or a notebook that returns values, shows them in monitoring.\n4. **Debug previews.** Data flow debug shows real rows in Data Preview to whoever runs it; with production data, decide who may debug against which environment.\n5. **The key decision made too late.** A customer-managed key can only be set on an **empty** factory, and once on it **can't be removed**; losing the key locks the factory. Decide before anything is built."
+          "md": "1. **The skipped-rows log.** With fault tolerance on and the session log enabled, skipped rows are written to the session log **with their actual values**; the documentation's own example shows the row's data. Card numbers can end up in a CSV in a storage account, which then needs the same protection and retention rules as the source.\n2. **The masking template sends data out.** The PII detection and masking template works by calling an external Azure AI service from the data flow. For regulated data, that is a security and compliance decision, not a default.\n3. **Activity outputs in run history.** Unless secureOutput is set, a Lookup that reads customer rows, or a notebook that returns values, shows them in monitoring.\n4. **Debug previews.** Data flow debug shows real rows in Data Preview to whoever runs it; with production data, decide who may debug against which environment.\n5. **The key decision made too late.** Microsoft documents two ways to turn on a customer-managed key: **during factory creation** in the Azure portal (with a user-assigned managed identity), or **after creation** in the Data Factory UI, where the factory must be **empty** (and that route doesn't work for a factory with a managed virtual network). Either way, once it is on, the extra encryption step **can't be removed** (you can change the key or its version), and if the key or the factory's own key is missing, access to the factory is denied. The Key Vault must be in the same Microsoft Entra tenant and region, with soft delete and purge protection. Decide before anything is built, and enable the key at creation so you never meet the empty-factory rule."
+        },
+        {
+          "md": "**What Purview adds, and what it doesn't (Microsoft fact):** the connection lets ADF push **runtime lineage** to Purview when supported activities run, and lets ADF users search the Purview catalog. Classification comes from Purview scanning the data stores, not from ADF. Lineage covers only Copy, Data Flow and Execute SSIS, and Purview drops lineage when a source or destination is a store it doesn't support. Sources read through a query or stored procedure aren't covered (lineage is limited to table and view sources), a data flow with a flowlet has no lineage, and column-level lineage has gaps. So Purview shows what moved where for the supported cases; it isn't a complete record of every custom step in your pipelines.\n\n**Interview takeaway:** \"We'd connect ADF to Purview for lineage and scan the stores for classification, and we'd check which of our pipelines are in the supported set.\""
         },
         {
           "heading": "Compliance",
@@ -712,12 +807,12 @@
     {
       "id": "performance-cost",
       "title": "Performance and cost",
-      "summary": "The slowest of source, network and sink sets the speed; four meters set the bill.",
-      "sources": "§22, §23",
+      "summary": "The slowest of source, network and sink sets the speed; a handful of cost drivers set the bill.",
+      "sources": "§22, §23, §30, §31",
       "blocks": [
         {
           "heading": "How long a copy takes",
-          "md": "Throughput is capped by the **slowest of three**: the source, the network, and the sink. The documentation's table, after tuning:",
+          "md": "Throughput is capped by the **slowest of three**: the source, the network, and the sink. The documentation's table, after tuning (Microsoft calculates it as what is achievable with tuning, including many concurrent copies; use it to size a proof of concept, then plan from your own test numbers, not as a date to promise):",
           "table": {
             "head": [
               "Data",
@@ -755,11 +850,68 @@
         },
         {
           "heading": "Tuning, in order",
-          "md": "1. Test on a sample big enough to take at least 10 minutes.\n2. Get the most from **one** copy (DIUs; a dedicated self-hosted IR machine).\n3. Only then run many copies in parallel.\n4. Only then scale to the full data.\n\nThe monitoring view splits a copy into stages (queue, time to first byte, listing, reading, writing). **The longest stage is the bottleneck.** A long queue on a self-hosted IR means it needs more capacity. The knobs for each stage are in chapter 17."
+          "md": "1. Test on a sample big enough to take at least 10 minutes.\n2. Get the most from **one** copy: start from the default DIUs and parallel copies, and on a self-hosted IR use a dedicated machine, separate from the server that hosts the data store.\n3. Only then run many copies in parallel.\n4. Only then scale to the full data.\n\nThe monitoring view splits a copy into stages (queue, time to first byte, listing, reading, writing). **The longest stage is the bottleneck.** A long queue on a self-hosted IR means it needs more capacity. The knobs for each stage are in chapter 17."
         },
         {
           "heading": "What you pay for",
-          "md": "1. **Activity runs** (orchestration).\n2. **DIU-hours** for copies on the Azure IR.\n3. **vCore-hours** for data flows, **including debug sessions**.\n4. SSIS runtime hours.\n\nEstimate from a proof of concept: the documentation's example moved 100 GB for 1.2667 DIU-hours, so 1 TB a day for a month is about 380 DIU-hours. **Per-pipeline billing** can be switched on per factory, to charge costs back to each team."
+          "md": "Think in three steps: **what costs money**, **which design decision causes it**, and **how you control it**. Microsoft's cost page lists three main meters and then other charges, so treat any list that says \"exactly N meters\" as incomplete. Prices change; the pricing page has the current ones.",
+          "table": {
+            "head": [
+              "What costs money",
+              "What causes it",
+              "How you control it"
+            ],
+            "rows": [
+              [
+                "Orchestration: activity, trigger and debug runs",
+                "Many small activities; a loop that runs a Copy or Lookup for every item",
+                "Fewer, larger steps; batch the work instead of one activity per row or file"
+              ],
+              [
+                "Copy on the Azure IR: DIU-hours (DIUs used x duration)",
+                "The DIU setting, the data volume, and a slow stage that keeps the copy running",
+                "Leave DIUs on Auto unless a measurement says otherwise; fix the slow stage first"
+              ],
+              [
+                "Pipeline and external activities, billed by the time they run (Lookup, Get Metadata, Delete; Databricks, Web, Stored Procedure)",
+                "Long-running activities, including external ones that wait for another service",
+                "Timeouts that match the job; don't leave an activity open longer than needed"
+              ],
+              [
+                "Data flow compute: vCore-hours, including debug sessions",
+                "Cluster size, number of runs, a debug session left on (billed through its idle time to live), verbose logging",
+                "Start small and scale on evidence; turn debug off; use time to live deliberately; logging Basic or None"
+              ],
+              [
+                "Factory operations: creating, editing, retrieving and monitoring factory objects",
+                "Tooling that rewrites many objects or polls run history heavily",
+                "Don't poll monitoring in a tight loop; batch changes"
+              ],
+              [
+                "Azure-SSIS IR: node time while it runs",
+                "Leaving it running outside the hours it is needed",
+                "Stop it when idle"
+              ],
+              [
+                "Managed virtual network compute",
+                "Reserved compute held warm by time to live: while it is on, billing follows the reserved compute",
+                "Set time to live only where start-up delay matters"
+              ],
+              [
+                "Self-hosted IR: the machines are not an ADF meter",
+                "The servers or VMs you provide, plus ADF's own charges for the activity runs and movement time that use them",
+                "Right-size and spread the nodes; remember that cost sits in someone else's budget"
+              ],
+              [
+                "Other Azure bills around ADF",
+                "Log Analytics for diagnostic logs, storage for staging and session logs, data moving between regions",
+                "Choose log categories and retention on purpose; keep staging in the same region"
+              ]
+            ]
+          }
+        },
+        {
+          "md": "Estimate from a proof of concept: Microsoft's example moved 100 GB for 1.2667 DIU-hours, so 1 TB a day for a month is about 380 DIU-hours (the prices in that example are hypothetical).\n\n**Per-pipeline billing** can be switched on per factory, to charge costs back to each team. Microsoft lists exceptions: factory operations charges, SSIS nodes, and data flows on an Azure IR with time to live are filed under a fall-back line, not under individual pipelines. The setting isn't carried by CI/CD, so each environment chooses its own.\n\n**Interview takeaway:** don't recite meters. Walk the chain \"what runs, for how long, on whose compute\" and name the lever for each."
         }
       ]
     },
@@ -767,7 +919,7 @@
       "id": "fine-tuning",
       "title": "Fine-tuning copies and data flows",
       "summary": "Find the bottleneck first, then the knobs: DIUs, parallel copies, partitions, staging, cluster size, time to live and logging.",
-      "sources": "§22, §28",
+      "sources": "§22, §28, §30, §31",
       "blocks": [
         {
           "md": "Chapter 16 says what sets the speed (the slowest of source, network and target) and the bill. This chapter is the knobs. The method is always the same: **find the bottleneck, change one thing, measure again.** Most settings default to **Auto**, and the documentation says the automatic choice \"usually gives you the best throughput\", so change a default only when a measurement says to."
@@ -873,8 +1025,8 @@
               ],
               [
                 "Shuffle partitions",
-                "A custom runtime setting, 50 to 2000 (default 200, fine for about 300 GB)",
-                "Only for known out-of-memory problems on big joins or aggregates; aim for about 1.5 GB per partition"
+                "A custom runtime setting, 50 to 2000 (Microsoft's rule of thumb: default 200, fine for about 300 GB)",
+                "Only for known out-of-memory problems on big joins or aggregates; aim for about 1.5 GB per partition. More partitions don't help data that is skewed"
               ],
               [
                 "Logging level",
@@ -886,7 +1038,7 @@
         },
         {
           "heading": "Known slow spots",
-          "md": "- **Loading Azure SQL Database:** a tier too small or DTU near 100%; indexes left on during the load (drop and recreate them); a small `writeBatchSize`; a stored procedure instead of bulk insert.\n- **A managed virtual network IR** queues longer than the plain Azure IR by design: each copy has a warm-up.\n- **Excel files of 100 MB or more, XML files and single-object JSON files** are read whole into memory, so out-of-memory failures are by design. Split the files, use a bigger self-hosted IR machine, or read Excel through a data flow, which streams it."
+          "md": "- **Loading Azure SQL Database:** a tier too small or DTU near 100%; indexes left on during the load (drop and recreate them); a small `writeBatchSize`; a stored procedure instead of bulk insert. (Microsoft's advice on indexes is to remove them before the load and recreate them after; weigh that for a table people are reading.)\n- **A managed virtual network IR** queues longer than the plain Azure IR by design: each copy has a warm-up (a time to live setting on that IR keeps compute warm, and is billed as reserved compute).\n- **Excel files of 100 MB or more, XML files and single-object JSON files** are read whole into memory, so out-of-memory failures are by design. Split the files, use a bigger self-hosted IR machine, or read Excel through a data flow, which streams it. For JSON, a data flow reading \"document per line\" files uses little memory."
         },
         {
           "heading": "Why it matters to you",
@@ -898,14 +1050,17 @@
       "id": "cicd",
       "title": "From Dev to Prod",
       "summary": "The release path, stopping triggers during a deployment, and why an urgent fix needs its own route.",
-      "sources": "§18.4, §19",
+      "sources": "§18.4, §19, §30",
       "blocks": [
         {
-          "md": "1. Only the **Dev** factory is connected to Git. People work in feature branches and merge through pull requests.\n2. **Publishing** from Dev writes the whole factory out as ARM templates.\n3. A release pipeline deploys those to **Test/UAT**, then **Prod**, with one parameter file per environment and **approvals** before each stage (the person requesting a release shouldn't approve it).\n4. Test and Prod are **never edited by hand**."
+          "md": "This is the release path Microsoft documents. Each point is labelled so you can say which parts are the product and which are good practice.\n\n1. **Only the Dev factory is connected to Git** (Microsoft recommendation). People work in feature branches and merge through pull requests. Microsoft says test and production factories shouldn't have a Git repository and should be updated only through a pipeline or an ARM template.\n2. **The factory definition is turned into deployable ARM templates** (Microsoft fact). Microsoft documents two ways and says both are supported: the original **Publish button**, which writes the templates to the `adf_publish` branch, and the newer **automated publish**, where a build pipeline uses the `@microsoft/azure-data-factory-utilities` npm package to **validate** the factory and **export** the templates as a build artifact, with nobody clicking Publish.\n3. **A release pipeline deploys those templates** to Test/UAT, then Prod, with one parameter file per environment (Microsoft fact) and **approvals** before each stage (recommended practice: the person requesting a release shouldn't approve it).\n4. **Test and Prod are not edited by hand** (recommended practice). Microsoft's guidance is to change them only through the pipeline, which keeps what runs the same as what was reviewed. ADF doesn't stop you; your own governance does."
         },
         {
           "heading": "Things that catch teams out",
-          "md": "- **Stop triggers before a deployment and restart them after**, with the script Microsoft provides.\n- Integration runtimes must have the **same name and type** in every environment.\n- **Publishing is all-or-nothing**: you can't release one pipeline while others are half-finished. An urgent fix needs a **hotfix** route.\n- No spaces in resource names.\n- To merge work that mustn't run in Prod yet, use a **feature flag**: a global parameter checked by an If Condition."
+          "md": "- **Stop triggers before a deployment and restart them after** (Microsoft fact, with Microsoft's script). Microsoft says a deployment can fail if you try to update active triggers. Version 2 of the sample script, and the automated-publish export, can stop and start only the triggers that changed.\n- Integration runtimes must have the **same name and type** in every environment (Microsoft fact). A self-hosted IR can be shared through a separate factory.\n- **Publishing includes everything** (Microsoft fact). By design, Data Factory doesn't support cherry-picking commits or publishing only some resources, because entities depend on each other (triggers on pipelines, pipelines on datasets). Automated publish changes how the templates are produced, not this. For a rare urgent fix, Microsoft points to a **hotfix** route.\n- No spaces in resource names (Microsoft recommendation, because of ARM template limits).\n- To merge work that mustn't run in Prod yet, use a **feature flag**: a global parameter checked by an If Condition (Microsoft recommendation).\n- **Global parameters** can be carried in the ARM template (Microsoft fact). Microsoft recommends the newer \"include global parameters in ARM template\" setting, which is only available when the factory is in Git mode.\n- Deploy the ARM template in **Incremental** mode. Microsoft warns that Complete mode deletes resources in the resource group that aren't in the template.\n- To define the factory itself as code, Microsoft documents deploying a factory with an ARM template or **Bicep** (there is a Bicep quickstart). How far to take infrastructure as code is a team choice (recommended practice)."
+        },
+        {
+          "md": "**Interview takeaway:** when asked about CI/CD, separate three things. What ADF does: it generates ARM templates from the factory definition, can validate them, and can't publish selectively. What Microsoft recommends: Git only on Dev, trigger handling, a Key Vault per environment. What your organisation decides: who approves, whether Prod is ever edited, and how a hotfix is authorised."
         }
       ]
     },
@@ -913,18 +1068,18 @@
       "id": "migration",
       "title": "Migrating with ADF",
       "summary": "Snapshot plus deltas until cutover, partitions that rerun alone, and the control table as the plan.",
-      "sources": "§14, §21, §22",
+      "sources": "§14, §21, §22, §31",
       "blocks": [
         {
-          "md": "ADF is built for moving big data lakes (HDFS, Amazon S3) and warehouses (Oracle, Netezza, Teradata, Redshift) into Azure. A migration is a **one-time historical copy** plus **scheduled incremental loads**, keeping old and new in sync for the whole migration window until cutover."
+          "md": "Microsoft describes ADF as well suited to moving big data lakes (HDFS, Amazon S3) and warehouses (Oracle Exadata, Netezza, Teradata, Redshift) into Azure: petabytes for a lake, tens of terabytes for a warehouse. A migration is a **one-time historical copy** plus **scheduled incremental loads**, keeping old and new in sync for the whole migration window until cutover."
         },
         {
           "heading": "Online or offline",
-          "md": "Decided by **data size, network bandwidth and the migration window**. If the online transfer won't fit the window, ship the data offline (Data Box)."
+          "md": "Decided by **data size, network bandwidth and the migration window** (Microsoft's own example uses a two-week window). If the online transfer won't fit the window, ship the data offline (Data Box)."
         },
         {
           "heading": "Hadoop to ADLS Gen2",
-          "md": "- **DistCp mode** (recommended): ADF asks your own Hadoop cluster to do the copy. Fastest, but it loads the cluster that is still running production jobs.\n- **Native mode**: ADF's own runtime copies the data. Use it when DistCp can't, or when the cluster mustn't be slowed.\n- Above **10 TB**, **partition by folder**, one copy per partition, several at once; a failed partition reruns alone.\n- The documentation's worked example: **1 PB in 1,000 partitions** at 2 GBps overall took about **146 hours**."
+          "md": "- **DistCp mode** (Microsoft's recommended mode): ADF asks your own Hadoop cluster to do the copy, using the cluster's power for the best throughput. The self-hosted IR only submits and monitors the command, so its size doesn't set the speed. The cost: it loads a cluster that may still be running production jobs.\n- **Native mode**: ADF's own runtime copies the data. Use it when DistCp can't (for example, it doesn't support ExpressRoute private peering with a storage virtual network endpoint), or when the cluster mustn't be slowed.\n- In native mode, Microsoft recommends partitioning by HDFS folder above **10 TB**: one copy per partition, several at once, and a failed partition reruns alone.\n- **The documentation's worked example** uses its own hypothetical figures (VM costs left out): 1 PB in 1,000 partitions, each copy on a four-machine self-hosted IR at 500 MBps, For Each running 4 at a time for 2 GBps overall, **would take** about 146 hours. **Course note:** treat that as arithmetic you can redo with your own numbers, not a benchmark to promise."
         },
         {
           "heading": "The control table is the plan",
@@ -940,7 +1095,7 @@
       "id": "fabric",
       "title": "ADF and Fabric Data Factory",
       "summary": "What changes in Microsoft Fabric, what's missing, and the three ways to move.",
-      "sources": "§24",
+      "sources": "§24, §30, §31",
       "blocks": [
         {
           "md": "Microsoft calls **Fabric Data Factory** the next generation of ADF. The main differences:",
@@ -956,7 +1111,7 @@
               ],
               [
                 "Mapping data flow (Spark)",
-                "Dataflow Gen2 (Power Query engine): a different engine"
+                "Dataflow Gen2 (Power Query based; Microsoft also documents Spark-based mapping data flow transforms inside Gen2, in preview)"
               ],
               [
                 "Self-hosted IR",
@@ -983,11 +1138,11 @@
         },
         {
           "heading": "Not in Fabric yet",
-          "md": "Azure-SSIS and managed virtual networks are still \"to be determined\". About 90% of ADF activities are available."
+          "md": "Azure-SSIS and managed virtual networks (with their private endpoints) are still \"to be determined\" on Microsoft's comparison page (checked October 2026). Fabric's closest answer today is a **virtual network data gateway** that you deploy into your own network: a different, customer-managed model. About 90% of ADF activities are available."
         },
         {
           "heading": "Three ways to move",
-          "md": "1. **Mount** the existing ADF inside Fabric, to see it and plan (generally available since May 2025).\n2. The **built-in upgrade tool**, which labels each pipeline Ready, Needs review, Coming soon or Not compatible.\n3. **Rebuild by hand** for pipelines that don't translate.\n\nA good answer to \"would you build new pipelines in ADF today?\" weighs an existing ADF estate and its self-hosted IRs against Fabric's capacity pricing and the features it doesn't have yet."
+          "md": "1. **Mount** the existing ADF inside Fabric as an item: a live view to see what exists, assign owners and test side by side. The ADF studio stays available, and pipelines still run in your Azure resources.\n2. The **built-in upgrade experience**, which assesses each pipeline in ADF and labels it Ready, Needs review, Coming soon or Not compatible, then upgrades the supported ones.\n3. **Rebuild by hand** for pipelines that don't translate.\n\nA good answer to \"would you build new pipelines in ADF today?\" weighs an existing ADF estate and its self-hosted IRs against Fabric's capacity pricing and the features it doesn't have yet."
         }
       ]
     },
@@ -995,7 +1150,7 @@
       "id": "pitfalls",
       "title": "Pitfalls: every trap in one place",
       "summary": "The traps from the whole guide on one page: what goes wrong, how it shows, and how to prevent it.",
-      "sources": "§3–§29",
+      "sources": "§3–§31",
       "blocks": [
         {
           "md": "Each trap below is taught in full in its own chapter (the last column). Use this page to revise before an interview, or as a review checklist for a design. Almost every one fails **quietly**: the run is green and the data is wrong."
@@ -1029,9 +1184,9 @@
                 "Change data capture"
               ],
               [
-                "Renaming a pipeline or activity that uses change data capture",
-                "The checkpoint resets and the history is read again",
-                "Set your own checkpoint key",
+                "Renaming a pipeline or activity that uses change data capture, with no checkpoint key set",
+                "Depending on how the activity was created, the checkpoint can reset and the history is read again",
+                "Set your own checkpoint key and rehearse a rename",
                 "Change data capture"
               ],
               [
@@ -1057,6 +1212,12 @@
                 "Every file is listed first, so listing becomes the bottleneck",
                 "Date-partitioned folders or a prefix filter",
                 "Fine-tuning copies and data flows"
+              ],
+              [
+                "Assuming a connector can write to any store",
+                "The design needs a sink the connector doesn't support",
+                "Check the connector's capabilities and version on Microsoft's table",
+                "The Copy activity"
               ]
             ]
           }
@@ -1099,6 +1260,18 @@
                 "Fault tolerance with nobody reading the log",
                 "Bad rows are skipped, and never reloaded",
                 "An owner for the skipped-rows log, and a reload step",
+                "Bad rows, cut-off values and \"verified\" copies"
+              ],
+              [
+                "Expecting fault tolerance to protect an upsert or stored-procedure load",
+                "Microsoft says fault tolerance doesn't apply to those SQL sink modes, so bad rows aren't skipped for you",
+                "Know your sink mode, and test one bad row",
+                "Bad rows, cut-off values and \"verified\" copies"
+              ],
+              [
+                "Treating a consistency result of Unsupported or NotVerified as a pass",
+                "Nothing was verified, and the run is green",
+                "Read the dataConsistencyVerification output; build the reconciliation anyway",
                 "Bad rows, cut-off values and \"verified\" copies"
               ]
             ]
@@ -1161,6 +1334,12 @@
                 "Throughput can drop, and the source's owners notice",
                 "Change one knob at a time, and measure",
                 "Fine-tuning copies and data flows"
+              ],
+              [
+                "Assuming the self-hosted IR needs no network path to the source",
+                "The IR shows online but the copy can't connect to the database",
+                "Prove the path from the IR machine to the source (port, firewall, proxy) before go-live",
+                "Integration runtimes: where the work runs"
               ]
             ]
           }
@@ -1176,15 +1355,15 @@
             ],
             "rows": [
               [
-                "Publishing is all-or-nothing",
+                "Publishing includes everything in the factory",
                 "An urgent fix waits behind half-finished work",
                 "A hotfix route, and feature flags",
                 "From Dev to Prod"
               ],
               [
                 "Deploying with triggers running",
-                "Runs start mid-deployment",
-                "Stop triggers before, restart after",
+                "The deployment can fail when it updates an active trigger",
+                "Stop triggers before, restart after, with Microsoft's script (it can touch only the changed triggers)",
                 "From Dev to Prod"
               ],
               [
@@ -1195,8 +1374,8 @@
               ],
               [
                 "Deciding on a customer-managed key late",
-                "It can only be set on an empty factory, and can't be removed",
-                "Decide before anything is built",
+                "It can be set at creation, but later only on an empty factory, and it can't be removed",
+                "Decide before anything is built, and enable it at creation",
                 "Sensitive data in regulated industries"
               ],
               [
@@ -1216,6 +1395,12 @@
                 "Frequency and interval can't be changed once published",
                 "Decide the window size up front",
                 "Triggers: when pipelines run"
+              ],
+              [
+                "Leaving the trusted service setting on Legacy",
+                "Legacy retires on 1 August 2027; connections that rely on the firewall exception can lose access to Storage or Key Vault",
+                "List the dependent connections, move to Modern, test non-production first",
+                "Security and networking"
               ]
             ]
           }
@@ -1566,7 +1751,7 @@
                 "text": [
                   "The documentation's own example of a copy needs two linked services, two datasets and one Copy activity in a pipeline, with an integration runtime doing the work. Add the trigger and that is six things to create, not one.",
                   "Creating a linked service needs permission on the system it connects to. Until the database team acted, nobody could even see the claims tables, so the first real task was a request to another team.",
-                  "Here both ends are in Azure, so the default Azure integration runtime does the work and needs no set-up. An on-premises source would add a self-hosted runtime (scenario 3)."
+                  "Here both ends are in Azure, so the default Azure integration runtime does the work and needs no set-up. An on-premises source would usually add a self-hosted runtime (scenario 3)."
                 ]
               },
               {
@@ -1745,7 +1930,7 @@
                   "A file in Azure Blob Storage"
                 ],
                 "answer": 1,
-                "why": "A self-hosted runtime is needed when the source can't be reached from the public cloud, the typical on-premises database. Cloud stores use the Azure runtime."
+                "why": "A self-hosted runtime is the usual answer when the source sits in a private network, the typical on-premises database. (A managed-virtual-network Azure runtime can also reach private data, but only with ExpressRoute or a VPN and extra set-up.) Cloud stores use the Azure runtime."
               },
               {
                 "prompt": "What does the corporate firewall need to allow for a self-hosted runtime?",
@@ -1758,14 +1943,14 @@
                 "why": "The runtime only makes outbound connections, so outbound 443 is enough; nothing comes in from the internet. Port 1433 is needed only for Azure SQL or Synapse, and can be avoided."
               },
               {
-                "prompt": "How many machines (nodes) can one self-hosted runtime have?",
+                "prompt": "According to Microsoft's limits page, how many machines (nodes) can one self-hosted runtime have?",
                 "options": [
                   "One",
                   "Up to four",
                   "As many as you like"
                 ],
                 "answer": 1,
-                "why": "Up to four nodes, working together, so one machine is no longer a single point of failure."
+                "why": "Microsoft's limits page lists four nodes, working together, so one machine is no longer a single point of failure. Another Microsoft page mentions eight, so check the current limit before designing around it."
               },
               {
                 "prompt": "A copy reads an on-premises database through the self-hosted runtime and writes to the lake. Where does the copy run?",
@@ -1817,7 +2002,7 @@
               {
                 "title": "Why it was a single point of failure",
                 "text": [
-                  "One node. A self-hosted runtime supports up to four nodes working together, so one machine is \"no longer the single point of failure\" (the nodes need remote access between them on port 8060).",
+                  "One node. A self-hosted runtime supports several nodes working together (Microsoft's limits page lists four), so one machine is \"no longer the single point of failure\" (the nodes need remote access between them on port 8060).",
                   "No owner. You patch, update and monitor it yourself; the documentation offers auto-update and monitoring through Log Analytics, but someone has to set them up and watch them.",
                   "No working alert. The only alert went to one person's address."
                 ]
@@ -1864,7 +2049,7 @@
                 "sayIt": {
                   "question": "What non-functional requirements would you set for a pipeline that reads from an on-premises system?",
                   "points": [
-                    "Availability: at least two nodes (up to four are supported).",
+                    "Availability: at least two nodes (Microsoft's limits page lists four).",
                     "Ownership: a named team that patches, updates and monitors the runtime.",
                     "Monitoring: alerts on failed runs and on the runtime's health, to a team address.",
                     "Credentials: kept in Key Vault, with rotations planned rather than discovered.",
@@ -2161,7 +2346,7 @@
                   {
                     "title": "The release checklist",
                     "text": [
-                      "The documentation says to stop triggers before a deployment and restart them after, so a gap is a predictable effect of every release, not bad luck.",
+                      "Microsoft's CI/CD guidance says to stop triggers before a deployment and restart them after (a deployment can fail on active triggers), so a gap is a predictable effect of every release, not bad luck.",
                       "Record when the trigger was stopped and started, reload the windows in between, and check their row counts before closing the release."
                     ]
                   },
@@ -2176,7 +2361,7 @@
                 "sayIt": {
                   "question": "What do you put in a release checklist for data pipelines?",
                   "points": [
-                    "Stop triggers before deploying and restart them after, as the documentation requires.",
+                    "Stop triggers before deploying and restart them after, as Microsoft's guidance says.",
                     "Record the downtime window.",
                     "Reload and verify every period that fell inside it.",
                     "Approvals, and a way back if the release fails.",
@@ -2196,7 +2381,7 @@
                       "A tumbling window trigger, passing WindowStart and WindowEnd to the pipeline as parameters.",
                       "Self-dependency so an hour waits for the one before; a delay for late files; retries set (the default is 0); a sensible concurrency limit.",
                       "Each hour's load replaces that hour, so reruns and backfills can't duplicate it.",
-                      "Decide the window size up front: it can't be changed after publishing. Use UTC: hourly schedules don't shift for daylight saving, but daily ones do."
+                      "Decide the window size up front: it can't be changed after publishing. Give the trigger UTC start times so windows don't move with the clock (the daylight-saving rule Microsoft documents is for schedule triggers)."
                     ]
                   },
                   {
@@ -2248,7 +2433,7 @@
           "id": "7",
           "number": 7,
           "title": "The rename that re-read everything",
-          "outcome": "A tidy-up renames a pipeline and change data capture starts again from the beginning.",
+          "outcome": "A tidy-up renames a pipeline and change data capture, with no checkpoint key set, starts again from the beginning.",
           "sources": "§13, §15",
           "chapter": "cdc"
         },
@@ -2302,7 +2487,7 @@
           "id": "18",
           "number": 13,
           "title": "Card numbers in the error log",
-          "outcome": "Fault tolerance skipped bad rows at a card issuer, and wrote their card numbers into a log file.",
+          "outcome": "Fault tolerance skipped bad rows at a card issuer, and, with the session log on, wrote their card numbers into a log file.",
           "sources": "§12, §27",
           "chapter": "sensitive-data"
         },
@@ -2386,9 +2571,9 @@
       "question": "A bank is moving customer and card data to Azure. What would you require before any pipeline is built?",
       "points": [
         "Where data may be processed: an Azure integration runtime in the required region.",
-        "The encryption-key decision made first: a customer-managed key can only be set on an empty factory, and can't be removed.",
+        "The encryption-key decision made first: a customer-managed key can be set at factory creation or, later, only on an empty factory, and can't be removed once on.",
         "Credentials in Key Vault or managed identities, never in pipelines.",
-        "Sensitive values kept out of logs and monitoring: skipped-row logs contain real values; secure input and output on activities.",
+        "Sensitive values kept out of logs and monitoring: skipped-row logs contain real values when the session log is on; secure input and output on activities.",
         "An agreed masking approach, including whether it may call an external service.",
         "Compliance scope checked, for example PCI DSS, which ADF's own list doesn't mention."
       ],
@@ -2416,7 +2601,7 @@
         "A watermark can't see deletes; change data capture reads inserts, updates and deletes from the source's change log.",
         "An initial snapshot, then changes until cutover.",
         "Loads that are safe to repeat: merge on the key.",
-        "The change-capture checkpoint is tied to pipeline and activity names by default: renaming resets it unless you set your own key.",
+        "The change-capture checkpoint can be lost when what it is keyed to changes (Microsoft documents pipeline and activity names, and newer activities may use a GUID): set your own checkpoint key and rehearse a rename.",
         "A reconciliation at cutover before the old system is switched off."
       ],
       "keywords": [
@@ -2508,11 +2693,11 @@
       "topic": "Releasing pipeline changes",
       "question": "How would you release data pipeline changes from development to production safely?",
       "points": [
-        "Only the development factory in Git; changes through pull requests.",
-        "A release pipeline to test and production, with approvals and one parameter file per environment.",
-        "Production never edited by hand.",
-        "Triggers stopped before a deployment and restarted after.",
-        "Publishing is all-or-nothing, so a hotfix route and feature flags for unfinished work."
+        "Git only on the development factory (Microsoft's recommendation); changes through pull requests.",
+        "A build or release pipeline that validates the factory and produces ARM templates (the Publish button's adf_publish branch, or the automated utilities package), deployed to test and production with approvals and one parameter file per environment.",
+        "Production changed only through the pipeline, never by hand: recommended practice, not something ADF enforces.",
+        "Triggers stopped before a deployment and restarted after, because deploying over active triggers can fail.",
+        "Publishing includes the whole factory (no selective publish), so a hotfix route and feature flags for unfinished work."
       ],
       "keywords": [
         "ci/cd",
@@ -2532,7 +2717,7 @@
       "question": "How would you plan the migration of several hundred tables and a large data lake to Azure?",
       "points": [
         "A control table listing every table or partition, its load pattern and status: it is also the progress report.",
-        "Large data partitioned (above 10 TB) so a failure reruns one slice, not everything.",
+        "Large data partitioned (Microsoft's HDFS guide says above 10 TB in native mode) so a failure reruns one slice, not everything.",
         "Throughput proven with a proof of concept before dates are promised: the slowest of source, network and target sets the speed.",
         "Online or offline transfer, decided by size, bandwidth and the migration window.",
         "A snapshot plus incremental loads until cutover, and the self-hosted runtime treated as production infrastructure."
@@ -2558,7 +2743,7 @@
       "topic": "Cost of the platform",
       "question": "How would you estimate and control what a data integration platform on Azure Data Factory costs?",
       "points": [
-        "The four meters: activity runs, copy power (DIU-hours), data flow compute (vCore-hours, including debug sessions) and SSIS runtime hours.",
+        "The main cost drivers, which Microsoft lists as meters plus other charges: orchestration activity runs, copy power (DIU-hours), data flow compute (vCore-hours, including debug sessions), pipeline and external activity time, factory operations, and SSIS runtime hours.",
         "Estimates from a proof of concept, not guesses.",
         "Debug sessions watched: they are billed.",
         "Per-pipeline billing switched on to charge costs back to each team.",
@@ -2581,7 +2766,7 @@
       "question": "Would you build new data pipelines in Azure Data Factory or in Microsoft Fabric today, and why?",
       "points": [
         "Microsoft calls Fabric Data Factory the next generation of ADF.",
-        "What changes: connections instead of linked services and datasets, a different engine for dataflows, the on-premises gateway, capacity pricing.",
+        "What changes: connections instead of linked services and datasets, Dataflow Gen2 (Power Query based, with Spark-based mapping data flow transforms in preview) for dataflows, the on-premises gateway, capacity pricing.",
         "What isn't there yet: Azure-SSIS and managed virtual networks.",
         "The ways to move: mount the existing factory, the upgrade tool, or rebuild by hand.",
         "The decision weighs the existing estate and its runtimes against capacity pricing and the missing features."
