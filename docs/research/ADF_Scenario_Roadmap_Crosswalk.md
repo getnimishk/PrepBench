@@ -162,14 +162,14 @@ Every scenario is architected around a realistic enterprise engineering or deliv
 #### Scenario 11 (id: `10`) — The bill that doubled
 - **Primary Roadmap Topic:** Topic 52 (Phase 10: CI/CD, IaC & Reliability)
 - **Secondary Topics:** Topic 53 (Scale and Concurrency Trade-offs), Topic 20 (Integration Runtime Fundamentals)
-- **Pedagogical Objective:** Master ADF pricing models, Data Integration Unit (DIU) allocations, activity minimum billing durations, and concurrency trade-offs against source connection pool limits.
-- **Key Technical Constraint:** Copy activities have a minimum billing granularity of 4 DIUs with a 1-minute minimum duration. High-frequency loops or unbounded ForEach concurrency (`batchCount: 50`) can saturate source database connection pools (e.g., 20 connections max) and dramatically spike cloud costs while causing connection timeouts.
+- **Pedagogical Objective:** Master the multi-tier ADF concurrency hierarchy (pipeline concurrency, ForEach batchCount, Copy parallelism / DIUs), prevent endpoint saturation, and execute systematic 5-tier bottleneck analysis.
+- **Key Technical Constraint:** As an upper-bound planning model, potential connection pressure scales as `(Active Pipelines) × (ForEach batchCount) × (parallelCopies)` (effective connections may be lower due to dynamic ADF determination). Copy activities enforce a 4 DIU minimum per run with 1-minute billing granularity. Unconstrained loop parallelism and parallel copy streams saturate source connection pools (e.g. the scenario's stated 20-connection pool constraint) and sink storage, causing lock waits, query timeouts, and retry loops that dramatically spike compute costs while degrading throughput.
 - **Role Lens Focus:**
-  - **PO:** The backlog and acceptance criteria: balancing business data freshness demands against infrastructure expenditure and establishing ROI criteria for pipeline frequency.
-  - **PM:** Users, impact and product measures: establishing FinOps budget alert thresholds, reporting unit cost economics per data pipeline to product stakeholders.
-  - **DM:** The incident, the process and the plan: triaging sudden cost spike incidents, optimizing pipeline schedules (switching high-frequency polling to event triggers or batch tumbling windows).
-  - **EM:** Engineering practice and the team: tuning Copy activity DIU allocations, configuring ForEach `batchCount` to align with source database connection limits, and configuring Azure Cost Management budget alerts.
-- **Evidence Produced:** ADF FinOps cost model, concurrency and DIU optimization guidelines, and Azure Cost Management budget alert configuration.
+  - **PO:** The backlog and acceptance criteria: defining concurrency ceilings, connection limits, and verified speedup metrics in ingestion acceptance criteria; balancing throughput SLAs against FinOps budget boundaries.
+  - **PM:** Users, impact and product measures: explaining concurrency-induced connection starvation and retry cascades to leadership; establishing FinOps KPI frameworks (Unit Cost per Run / per GB).
+  - **DM:** The incident, the process and the plan: governing compute change management gates; requiring architectural review and synthetic load testing for DIU, pipeline concurrency, and loop batchCount changes.
+  - **EM:** Engineering practice and the team: formulating multi-tier concurrency budgets (e.g. 2 pipelines × 4 batchCount × 2 parallelCopies = 16 connections max on a 20-connection pool); executing 5-tier bottleneck analysis across queue, loop, compute, network, and endpoint layers.
+- **Evidence Produced:** Multi-tier concurrency budget model, 5-tier bottleneck analysis framework, and Azure Cost Management budget alert configuration.
 
 #### Scenario 12 (id: `11`) — The password in the pipeline
 - **Primary Roadmap Topic:** Topic 41 (Phase 9: Security, Governance & Monitoring)
