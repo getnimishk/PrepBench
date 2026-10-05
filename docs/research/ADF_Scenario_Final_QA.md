@@ -100,7 +100,7 @@ Every technical detail in the 18 scenarios has been verified against current Mic
      1. *Pipeline Concurrency:* Controls the maximum number of concurrent runs of that pipeline (configured per pipeline with no factory-wide default ceiling; additional triggered runs queue once reached), distinct from ADF service-level concurrent pipeline-run limits across the factory.
      2. *ForEach `batchCount`:* Controls parallel loop execution (1 to 50 iterations; sequential if `isSequential: true`).
      3. *Copy `parallelCopies`:* Dictates concurrent sub-tasks/threads (1 to 32) opened per copy activity.
-     4. *Data Integration Units (DIUs):* Allocate cloud CPU/memory compute capacity (minimum 4 DIUs per Azure IR run, billed at 1-minute minimum increments), completely independent of connection count.
+     4. *Data Integration Units (DIUs):* Provide scalable cloud compute capacity (CPU/memory); the available/configurable range depends on the ADF runtime and scenario (e.g. 4 to 256 for Azure IR intelligent throughput optimization, billed with a 1-minute minimum duration), completely independent of connection count.
      5. *Source & Sink Endpoint Capacities:* External limits (e.g. the scenario's stated 20-connection database pool constraint, thread pool exhaustion, transaction-log locks).
      Potential connection pressure follows an upper-bound planning model:
      $$\text{Upper-Bound Connection Pressure} = (\text{Active Pipeline Runs}) \times (\text{ForEach } \texttt{batchCount}) \times (\text{Copy } \texttt{parallelCopies})$$
