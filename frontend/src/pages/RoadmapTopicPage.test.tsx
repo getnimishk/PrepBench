@@ -109,4 +109,62 @@ describe('TopicDemonstratePage and TopicGuidePage when they cannot load', () => 
     await user.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByText('No study guide yet')).toBeInTheDocument();
   });
+
+  it('links to built-in study guide when mapped chapters are present on topic', async () => {
+    const adfTopic = topic({
+      title: 'What Azure Data Factory Is',
+      mapped_chapters: [{
+        pack_id: 'adf',
+        pack_title: 'Azure Data Factory',
+        chapter_id: 'what-it-is',
+        chapter_number: 1,
+        chapter_title: "What ADF is, and what it isn't",
+        coverage: 'Full',
+      }],
+    });
+    api.getRoadmap.mockResolvedValueOnce({
+      id: 3,
+      title: 'ADF Master Roadmap',
+      phases: [{ id: 1, name: '1. ADF Foundations', topics: [adfTopic] }],
+    });
+
+    renderAt('/roadmaps/3/topics/7');
+
+    expect(await screen.findByText("Ch 1 · What ADF is, and what it isn't")).toBeInTheDocument();
+    expect(screen.getByText('Full Coverage')).toBeInTheDocument();
+    const readBtn = screen.getByRole('link', { name: 'Read Study Guide' });
+    expect(readBtn).toHaveAttribute('href', '/learn/guides/adf/what-it-is');
+    expect(screen.getByRole('button', { name: 'Notes & AI draft' })).toBeInTheDocument();
+  });
+
+  it('renders built-in study guide panel and personal notes placeholder on TopicGuidePage when mapped chapters are present', async () => {
+    api.getTopicGuide.mockResolvedValueOnce({
+      sections: [],
+      read_count: 0,
+      drafting_available: false,
+      drafting_unavailable_reason: 'No AI provider.',
+      mapped_chapters: [{
+        pack_id: 'adf',
+        pack_title: 'Azure Data Factory',
+        chapter_id: 'what-it-is',
+        chapter_number: 1,
+        chapter_title: "What ADF is, and what it isn't",
+        chapter_summary: 'ADF is an orchestrator: it moves data and tells other services what to do.',
+        coverage: 'Full',
+        relevant_sections: 'What ADF is; The documentation example',
+        learning_evidence: 'Write a one-minute ADF explanation.',
+      }],
+    });
+
+    renderAt('/roadmaps/3/topics/7/guide');
+
+    expect(await screen.findByText('Built-in Study Guide · Azure Data Factory')).toBeInTheDocument();
+    expect(screen.getByText("Chapter 1 · What ADF is, and what it isn't")).toBeInTheDocument();
+    expect(screen.getByText('ADF is an orchestrator: it moves data and tells other services what to do.')).toBeInTheDocument();
+    expect(screen.getByText('Personal notes & AI synthesis')).toBeInTheDocument();
+    expect(screen.queryByText('No study guide yet')).not.toBeInTheDocument();
+    const readLink = screen.getByRole('link', { name: 'Read Chapter 1' });
+    expect(readLink).toHaveAttribute('href', '/learn/guides/adf/what-it-is');
+  });
 });
+

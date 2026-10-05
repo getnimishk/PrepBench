@@ -42,6 +42,22 @@ class RoadmapTopicUpdate(BaseModel):
     order_index: Optional[int] = None
 
 
+class MappedGuideChapter(BaseModel):
+    """A chapter from a built-in content pack that covers this roadmap topic."""
+
+    pack_id: str
+    pack_title: str
+    chapter_id: str
+    chapter_number: int
+    chapter_title: str
+    chapter_summary: Optional[str] = None
+    topic_number: Optional[int] = None
+    topic_title: Optional[str] = None
+    coverage: Optional[str] = "Full"
+    relevant_sections: Optional[str] = None
+    learning_evidence: Optional[str] = None
+
+
 class RoadmapTopicResponse(RoadmapTopicBase):
     id: int
     roadmap_id: int
@@ -52,6 +68,7 @@ class RoadmapTopicResponse(RoadmapTopicBase):
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     evidence_notes: Optional[str] = None
+    mapped_chapters: List[MappedGuideChapter] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -232,6 +249,8 @@ class RoadmapSummaryResponse(BaseModel):
     # reads "10 phases · 45 topics · 134h".
     phase_count: int = 0
     progress: RoadmapProgress
+    linked_pack_id: Optional[str] = None
+    linked_pack_title: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -454,6 +473,7 @@ class TopicGuideResponse(BaseModel):
     read_count: int
     drafting_available: bool
     drafting_unavailable_reason: Optional[str] = None
+    mapped_chapters: List[MappedGuideChapter] = []
 
 
 class TopicGuideDraftResult(BaseModel):
