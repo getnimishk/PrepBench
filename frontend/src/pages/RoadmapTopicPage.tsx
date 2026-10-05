@@ -163,7 +163,14 @@ export const RoadmapTopicPage: React.FC = () => {
         <Link
           component={RouterLink}
           to="/roadmaps"
-          sx={{ color: 'inherit', textDecoration: 'none', '&:hover': { textDecoration: 'underline', color: 'text.primary' } }}
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            minHeight: '24px',
+            color: 'inherit',
+            textDecoration: 'none',
+            '&:hover': { textDecoration: 'underline', color: 'text.primary' },
+          }}
         >
           Roadmaps
         </Link>
@@ -171,7 +178,14 @@ export const RoadmapTopicPage: React.FC = () => {
         <Link
           component={RouterLink}
           to={`/roadmaps/${rid}`}
-          sx={{ color: 'inherit', textDecoration: 'none', '&:hover': { textDecoration: 'underline', color: 'text.primary' } }}
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            minHeight: '24px',
+            color: 'inherit',
+            textDecoration: 'none',
+            '&:hover': { textDecoration: 'underline', color: 'text.primary' },
+          }}
         >
           {roadmap.title}
         </Link>

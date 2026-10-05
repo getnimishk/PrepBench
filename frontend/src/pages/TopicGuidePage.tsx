@@ -224,7 +224,14 @@ export const TopicGuidePage: React.FC = () => {
         <Link
           component={RouterLink}
           to="/roadmaps"
-          sx={{ color: 'inherit', textDecoration: 'none', '&:hover': { textDecoration: 'underline', color: 'text.primary' } }}
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            minHeight: '24px',
+            color: 'inherit',
+            textDecoration: 'none',
+            '&:hover': { textDecoration: 'underline', color: 'text.primary' },
+          }}
         >
           Roadmaps
         </Link>
@@ -232,7 +239,14 @@ export const TopicGuidePage: React.FC = () => {
         <Link
           component={RouterLink}
           to={`/roadmaps/${rid}`}
-          sx={{ color: 'inherit', textDecoration: 'none', '&:hover': { textDecoration: 'underline', color: 'text.primary' } }}
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            minHeight: '24px',
+            color: 'inherit',
+            textDecoration: 'none',
+            '&:hover': { textDecoration: 'underline', color: 'text.primary' },
+          }}
         >
           {roadmap.title}
         </Link>
@@ -240,7 +254,14 @@ export const TopicGuidePage: React.FC = () => {
         <Link
           component={RouterLink}
           to={`/roadmaps/${rid}/topics/${tid}`}
-          sx={{ color: 'inherit', textDecoration: 'none', '&:hover': { textDecoration: 'underline', color: 'text.primary' } }}
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            minHeight: '24px',
+            color: 'inherit',
+            textDecoration: 'none',
+            '&:hover': { textDecoration: 'underline', color: 'text.primary' },
+          }}
         >
           {topic.title}
         </Link>
