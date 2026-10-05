@@ -16,7 +16,7 @@ import { TopicDemonstratePage } from './TopicDemonstratePage';
 import { StudyLibraryPage } from './StudyLibraryPage';
 import type { RoadmapDetail, RoadmapSchedule, RoadmapSummary } from '../types/roadmap';
 import type { Subject } from '../types/subject';
-import adfRoadmap from '../../../prototypes/roadmaps-and-study-library/src/adfSampleRoadmap.json';
+import adfRoadmap from '../test/fixtures/adfSampleRoadmap.json';
 import adfPack from '../../../backend/app/content/packs/adf/v1.json';
 
 const mockApi = {

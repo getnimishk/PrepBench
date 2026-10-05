@@ -1,0 +1,2372 @@
+{
+  "id": 6,
+  "subject_id": 6,
+  "title": "ADF Master Roadmap",
+  "description": "Target: Product Owner / Program-Delivery Manager / Cloud-Engineering Manager. Focus: architecture, orchestration, data movement, networking, security, operations, cost, Databricks integration and interview readiness.",
+  "source_filename": "ADF_Master_Roadmap_Mapped.xlsx",
+  "start_date": "2026-10-01",
+  "weekly_hours_budget": 12.0,
+  "hours_per_week": 12,
+  "total_hours": 176.0,
+  "completed_hours": 0,
+  "progress_percent": 0,
+  "is_active": true,
+  "is_archived": false,
+  "topic_count": 60,
+  "phase_count": 12,
+  "completed_topic_count": 0,
+  "in_progress_topic_count": 1,
+  "progress": {
+    "total_topics": 60,
+    "not_started_count": 59,
+    "in_progress_count": 1,
+    "completed_count": 0,
+    "skipped_count": 0,
+    "completion_percentage": 0,
+    "hours_percentage": 0,
+    "total_estimated_hours": 176.0,
+    "completed_estimated_hours": 0
+  },
+  "phases": [
+    {
+      "id": 1,
+      "roadmap_id": 6,
+      "name": "1. ADF Foundations",
+      "title": "1. ADF Foundations",
+      "order_index": 1,
+      "phase_order": 1,
+      "phase_type": "core",
+      "total_hours": 8.0,
+      "completed_hours": 0.0,
+      "is_active": true,
+      "topics": [
+        {
+          "id": 1,
+          "roadmap_id": 6,
+          "phase_id": 1,
+          "order_index": 1,
+          "topic_order": 1,
+          "title": "What Azure Data Factory Is",
+          "learning_objective": "Understand ADF as a managed cloud data-integration and orchestration service; distinguish orchestration, movement and transformation.",
+          "success_criteria": "Explain what ADF does, where it fits in an Azure data platform, and why it is not the primary compute engine for heavy transformation.",
+          "evidence_criterion": "Explain what ADF does, where it fits in an Azure data platform, and why it is not the primary compute engine for heavy transformation.",
+          "estimated_hours": 2.0,
+          "hours": 2.0,
+          "status": "in_progress",
+          "progress_percentage": 15,
+          "started_at": "2026-10-04T10:00:00Z",
+          "completed_at": null,
+          "evidence_notes": "Write a one-minute ADF explanation for a Product/Program interview.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 2,
+          "roadmap_id": 6,
+          "phase_id": 1,
+          "order_index": 2,
+          "topic_order": 2,
+          "title": "ADF vs Databricks vs Synapse vs Fabric Data Factory",
+          "learning_objective": "Understand where ADF, Databricks, Synapse and Fabric Data Factory overlap and where they serve different architectural roles.",
+          "success_criteria": "Choose the right service for orchestration, transformation, lakehouse processing and integrated analytics, with explicit trade-offs.",
+          "evidence_criterion": "Choose the right service for orchestration, transformation, lakehouse processing and integrated analytics, with explicit trade-offs.",
+          "estimated_hours": 2.0,
+          "hours": 2.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Create a service-selection matrix for 4 common enterprise scenarios.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 3,
+          "roadmap_id": 6,
+          "phase_id": 1,
+          "order_index": 3,
+          "topic_order": 3,
+          "title": "ADF Resource Model",
+          "learning_objective": "Learn factory, pipeline, activity, dataset, linked service, trigger and pipeline run relationships.",
+          "success_criteria": "Draw the object model without mixing connection metadata, data metadata and execution state.",
+          "evidence_criterion": "Draw the object model without mixing connection metadata, data metadata and execution state.",
+          "estimated_hours": 2.0,
+          "hours": 2.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Produce an ADF object relationship diagram.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 4,
+          "roadmap_id": 6,
+          "phase_id": 1,
+          "order_index": 4,
+          "topic_order": 4,
+          "title": "ADF Mental Model for Managers",
+          "learning_objective": "Translate ADF concepts into ownership, risk, SLA, dependency, cost and operational language.",
+          "success_criteria": "Explain an ADF design to PO/PM/EM stakeholders without pretending to be an ADF developer.",
+          "evidence_criterion": "Explain an ADF design to PO/PM/EM stakeholders without pretending to be an ADF developer.",
+          "estimated_hours": 2.0,
+          "hours": 2.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Create a one-page manager mental model.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "roadmap_id": 6,
+      "name": "2. Core ADF Construction",
+      "title": "2. Core ADF Construction",
+      "order_index": 2,
+      "phase_order": 2,
+      "phase_type": "core",
+      "total_hours": 12.0,
+      "completed_hours": 0.0,
+      "is_active": false,
+      "topics": [
+        {
+          "id": 5,
+          "roadmap_id": 6,
+          "phase_id": 2,
+          "order_index": 1,
+          "topic_order": 1,
+          "title": "Linked Services",
+          "learning_objective": "Understand connection information, authentication, connectVia and target-system permissions.",
+          "success_criteria": "Explain how credentials and connectivity are separated from pipeline logic.",
+          "evidence_criterion": "Explain how credentials and connectivity are separated from pipeline logic.",
+          "estimated_hours": 2.0,
+          "hours": 2.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Build a linked-service decision checklist.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 6,
+          "roadmap_id": 6,
+          "phase_id": 2,
+          "order_index": 2,
+          "topic_order": 2,
+          "title": "Datasets and Parameterisation",
+          "learning_objective": "Understand datasets as reusable views of data and parameterise paths, tables and filenames.",
+          "success_criteria": "Explain pipeline \u2192 dataset parameter flow and avoid hard-coded source/sink definitions.",
+          "evidence_criterion": "Explain pipeline \u2192 dataset parameter flow and avoid hard-coded source/sink definitions.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Create a parameterised dataset pattern for table/date.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 7,
+          "roadmap_id": 6,
+          "phase_id": 2,
+          "order_index": 3,
+          "topic_order": 3,
+          "title": "Pipeline Parameters, Variables and Expressions",
+          "learning_objective": "Understand read-only parameters, mutable variables, expression evaluation and dynamic content.",
+          "success_criteria": "Correctly choose between parameter, variable and expression and explain parallel-loop variable risk.",
+          "evidence_criterion": "Correctly choose between parameter, variable and expression and explain parallel-loop variable risk.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Create a reusable pipeline parameter model.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 8,
+          "roadmap_id": 6,
+          "phase_id": 2,
+          "order_index": 4,
+          "topic_order": 4,
+          "title": "Global Parameters and Reusable Configuration",
+          "learning_objective": "Understand factory-wide configuration and environment-specific values.",
+          "success_criteria": "Explain when a value belongs at pipeline, dataset, linked-service or factory scope.",
+          "evidence_criterion": "Explain when a value belongs at pipeline, dataset, linked-service or factory scope.",
+          "estimated_hours": 2.0,
+          "hours": 2.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Design Dev/Test/Prod configuration boundaries.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 9,
+          "roadmap_id": 6,
+          "phase_id": 2,
+          "order_index": 5,
+          "topic_order": 5,
+          "title": "Activity Types and Execution Semantics",
+          "learning_objective": "Understand data movement, transformation and control-flow activities and their execution model.",
+          "success_criteria": "Classify an activity correctly and explain what executes in ADF versus a downstream compute service.",
+          "evidence_criterion": "Classify an activity correctly and explain what executes in ADF versus a downstream compute service.",
+          "estimated_hours": 2.0,
+          "hours": 2.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Map 15 common activities to their category and execution location.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "roadmap_id": 6,
+      "name": "3. Control Flow & Orchestration",
+      "title": "3. Control Flow & Orchestration",
+      "order_index": 3,
+      "phase_order": 3,
+      "phase_type": "core",
+      "total_hours": 15.0,
+      "completed_hours": 0.0,
+      "is_active": false,
+      "topics": [
+        {
+          "id": 10,
+          "roadmap_id": 6,
+          "phase_id": 3,
+          "order_index": 1,
+          "topic_order": 1,
+          "title": "Dependencies: Success, Failure, Completion and Skip",
+          "learning_objective": "Understand dependency conditions and how activity graphs determine pipeline outcomes.",
+          "success_criteria": "Design a failure notification and cleanup flow without accidentally masking failures.",
+          "evidence_criterion": "Design a failure notification and cleanup flow without accidentally masking failures.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Build a Try/Catch-style control-flow design on paper.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 11,
+          "roadmap_id": 6,
+          "phase_id": 3,
+          "order_index": 2,
+          "topic_order": 2,
+          "title": "Lookup and Get Metadata",
+          "learning_objective": "Understand metadata discovery, output limits and common control-table patterns.",
+          "success_criteria": "Know when Lookup is appropriate and when its output constraints require a different pattern.",
+          "evidence_criterion": "Know when Lookup is appropriate and when its output constraints require a different pattern.",
+          "estimated_hours": 2.0,
+          "hours": 2.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Design a control-table discovery flow.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 12,
+          "roadmap_id": 6,
+          "phase_id": 3,
+          "order_index": 3,
+          "topic_order": 3,
+          "title": "ForEach, Batch Count and Parallelism",
+          "learning_objective": "Understand iteration, parallel execution, batchCount and nesting restrictions.",
+          "success_criteria": "Explain why parallel loops can create race conditions and source/sink pressure.",
+          "evidence_criterion": "Explain why parallel loops can create race conditions and source/sink pressure.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Design a 1,000-table metadata-driven loop safely.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 13,
+          "roadmap_id": 6,
+          "phase_id": 3,
+          "order_index": 4,
+          "topic_order": 4,
+          "title": "If Condition, Switch, Until and Wait",
+          "learning_objective": "Understand branching, polling and controlled repetition.",
+          "success_criteria": "Choose the correct control construct instead of overusing nested pipelines.",
+          "evidence_criterion": "Choose the correct control construct instead of overusing nested pipelines.",
+          "estimated_hours": 2.0,
+          "hours": 2.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Map 5 workflow requirements to the correct activity.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 14,
+          "roadmap_id": 6,
+          "phase_id": 3,
+          "order_index": 5,
+          "topic_order": 5,
+          "title": "Execute Pipeline and Reusable Child Pipelines",
+          "learning_objective": "Understand parent/child composition and reusable orchestration units.",
+          "success_criteria": "Explain how child pipelines reduce duplication while keeping ownership and observability clear.",
+          "evidence_criterion": "Explain how child pipelines reduce duplication while keeping ownership and observability clear.",
+          "estimated_hours": 2.0,
+          "hours": 2.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Design a parent pipeline + reusable child pipeline architecture.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 15,
+          "roadmap_id": 6,
+          "phase_id": 3,
+          "order_index": 6,
+          "topic_order": 6,
+          "title": "Web, Function, Script and Stored Procedure Integration",
+          "learning_objective": "Understand when ADF calls external services versus executes database-side logic.",
+          "success_criteria": "Choose the right integration mechanism and identify security, timeout and retry implications.",
+          "evidence_criterion": "Choose the right integration mechanism and identify security, timeout and retry implications.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Create a decision table for Web/Function/Script/Stored Procedure.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "roadmap_id": 6,
+      "name": "4. Triggers & Time",
+      "title": "4. Triggers & Time",
+      "order_index": 4,
+      "phase_order": 4,
+      "phase_type": "core",
+      "total_hours": 9.0,
+      "completed_hours": 0.0,
+      "is_active": false,
+      "topics": [
+        {
+          "id": 16,
+          "roadmap_id": 6,
+          "phase_id": 4,
+          "order_index": 1,
+          "topic_order": 1,
+          "title": "Schedule Triggers",
+          "learning_objective": "Understand wall-clock execution, trigger-run relationships and operational implications.",
+          "success_criteria": "Explain why a schedule trigger does not inherently model data completeness for a time window.",
+          "evidence_criterion": "Explain why a schedule trigger does not inherently model data completeness for a time window.",
+          "estimated_hours": 2.0,
+          "hours": 2.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Design a daily 05:15 ingestion schedule.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 17,
+          "roadmap_id": 6,
+          "phase_id": 4,
+          "order_index": 2,
+          "topic_order": 2,
+          "title": "Tumbling Window Triggers",
+          "learning_objective": "Understand stateful windows, backfill, retry, delay, concurrency and dependencies.",
+          "success_criteria": "Choose tumbling windows when the processing unit is a time window and missed windows matter.",
+          "evidence_criterion": "Choose tumbling windows when the processing unit is a time window and missed windows matter.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Design an hourly load with backfill and late-data delay.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 18,
+          "roadmap_id": 6,
+          "phase_id": 4,
+          "order_index": 3,
+          "topic_order": 3,
+          "title": "Event and Custom Event Triggers",
+          "learning_objective": "Understand storage events and custom Event Grid events.",
+          "success_criteria": "Select event triggering when data arrival, not wall-clock time, is the true trigger condition.",
+          "evidence_criterion": "Select event triggering when data arrival, not wall-clock time, is the true trigger condition.",
+          "estimated_hours": 2.0,
+          "hours": 2.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Design a file-arrival ingestion trigger with safe filtering.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 19,
+          "roadmap_id": 6,
+          "phase_id": 4,
+          "order_index": 4,
+          "topic_order": 4,
+          "title": "Time Zones and Window Semantics",
+          "learning_objective": "Understand UTC, daylight-saving behavior and window boundaries.",
+          "success_criteria": "Explain how time-zone choices affect schedules, partitions and reconciliation.",
+          "evidence_criterion": "Explain how time-zone choices affect schedules, partitions and reconciliation.",
+          "estimated_hours": 2.0,
+          "hours": 2.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Create a UTC-based scheduling standard.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "roadmap_id": 6,
+      "name": "5. Integration Runtime & Networking",
+      "title": "5. Integration Runtime & Networking",
+      "order_index": 5,
+      "phase_order": 5,
+      "phase_type": "core",
+      "total_hours": 16.0,
+      "completed_hours": 0.0,
+      "is_active": false,
+      "topics": [
+        {
+          "id": 20,
+          "roadmap_id": 6,
+          "phase_id": 5,
+          "order_index": 1,
+          "topic_order": 1,
+          "title": "Integration Runtime Fundamentals",
+          "learning_objective": "Understand Azure IR, Self-hosted IR and Azure-SSIS IR as the three main IR families.",
+          "success_criteria": "Select the appropriate runtime based on connectivity, execution type and operational ownership.",
+          "evidence_criterion": "Select the appropriate runtime based on connectivity, execution type and operational ownership.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Create an IR decision tree.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 21,
+          "roadmap_id": 6,
+          "phase_id": 5,
+          "order_index": 2,
+          "topic_order": 2,
+          "title": "Self-hosted IR Architecture and Operations",
+          "learning_objective": "Understand SHIR installation, network reachability, scale-out/HA, patching, proxies and ownership.",
+          "success_criteria": "Explain why SHIR is production infrastructure and what the support model must contain.",
+          "evidence_criterion": "Explain why SHIR is production infrastructure and what the support model must contain.",
+          "estimated_hours": 4.0,
+          "hours": 4.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Write a SHIR production handover checklist.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 22,
+          "roadmap_id": 6,
+          "phase_id": 5,
+          "order_index": 3,
+          "topic_order": 3,
+          "title": "Managed VNet and Managed Private Endpoints",
+          "learning_objective": "Understand Managed VNet as an Azure IR configuration and how managed private endpoints provide private connectivity.",
+          "success_criteria": "Distinguish Managed VNet, managed private endpoint and a private endpoint for the Data Factory service.",
+          "evidence_criterion": "Distinguish Managed VNet, managed private endpoint and a private endpoint for the Data Factory service.",
+          "estimated_hours": 4.0,
+          "hours": 4.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Draw a private ADF network topology.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 23,
+          "roadmap_id": 6,
+          "phase_id": 5,
+          "order_index": 4,
+          "topic_order": 4,
+          "title": "On-premises Connectivity and Network Paths",
+          "learning_objective": "Understand SHIR, ExpressRoute, VPN, Private Link and firewall constraints.",
+          "success_criteria": "Explain the network path instead of saying 'SHIR removes networking'.",
+          "evidence_criterion": "Explain the network path instead of saying 'SHIR removes networking'.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Compare three on-premises connectivity topologies.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 24,
+          "roadmap_id": 6,
+          "phase_id": 5,
+          "order_index": 5,
+          "topic_order": 5,
+          "title": "Private Endpoint vs Managed Private Endpoint",
+          "learning_objective": "Understand the separate purposes of private access to the factory service versus target data stores.",
+          "success_criteria": "Avoid conflating authoring/control traffic with data-plane connectivity.",
+          "evidence_criterion": "Avoid conflating authoring/control traffic with data-plane connectivity.",
+          "estimated_hours": 2.0,
+          "hours": 2.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Create a four-term networking glossary.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "roadmap_id": 6,
+      "name": "6. Copy & Data Movement",
+      "title": "6. Copy & Data Movement",
+      "order_index": 6,
+      "phase_order": 6,
+      "phase_type": "core",
+      "total_hours": 17.0,
+      "completed_hours": 0.0,
+      "is_active": false,
+      "topics": [
+        {
+          "id": 25,
+          "roadmap_id": 6,
+          "phase_id": 6,
+          "order_index": 1,
+          "topic_order": 1,
+          "title": "Copy Activity Fundamentals",
+          "learning_objective": "Understand source \u2192 read/serialize \u2192 map/convert \u2192 write/sink flow.",
+          "success_criteria": "Explain where Copy runs and what it does itself versus what downstream engines do.",
+          "evidence_criterion": "Explain where Copy runs and what it does itself versus what downstream engines do.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Design one cloud-to-cloud and one hybrid copy pipeline.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 26,
+          "roadmap_id": 6,
+          "phase_id": 6,
+          "order_index": 2,
+          "topic_order": 2,
+          "title": "Connectors, Formats and Capability Matrix",
+          "learning_objective": "Understand that connector capability is connector/version-specific and should be verified against current Microsoft documentation.",
+          "success_criteria": "Avoid memorising stale source-only/sink-only lists; verify capability when designing.",
+          "evidence_criterion": "Avoid memorising stale source-only/sink-only lists; verify capability when designing.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Build a connector capability checklist for SQL, Oracle, S3, ADLS and REST.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 27,
+          "roadmap_id": 6,
+          "phase_id": 6,
+          "order_index": 3,
+          "topic_order": 3,
+          "title": "Schema Mapping and Type Conversion",
+          "learning_objective": "Understand column mapping, type conversion, truncation and explicit mapping.",
+          "success_criteria": "Identify precision-loss and schema-mismatch risks before production.",
+          "evidence_criterion": "Identify precision-loss and schema-mismatch risks before production.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Create a type-conversion risk checklist.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 28,
+          "roadmap_id": 6,
+          "phase_id": 6,
+          "order_index": 4,
+          "topic_order": 4,
+          "title": "Fault Tolerance and Skipped Rows",
+          "learning_objective": "Understand incompatible-row behavior, skipped rows and session logs.",
+          "success_criteria": "Decide when to fail a load versus quarantine bad records and who owns the resulting data-quality workflow.",
+          "evidence_criterion": "Decide when to fail a load versus quarantine bad records and who owns the resulting data-quality workflow.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Design a bad-row quarantine operating model.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 29,
+          "roadmap_id": 6,
+          "phase_id": 6,
+          "order_index": 5,
+          "topic_order": 5,
+          "title": "Data Consistency Verification",
+          "learning_objective": "Understand what ADF can verify automatically and what it cannot prove.",
+          "success_criteria": "Explain why 'verified' does not equal business-level correctness.",
+          "evidence_criterion": "Explain why 'verified' does not equal business-level correctness.",
+          "estimated_hours": 2.0,
+          "hours": 2.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Define a migration acceptance criterion beyond Copy success.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 30,
+          "roadmap_id": 6,
+          "phase_id": 6,
+          "order_index": 6,
+          "topic_order": 6,
+          "title": "Staged Copy, Resume and Large File Handling",
+          "learning_objective": "Understand staged copy, file hierarchy requirements and supported resume scenarios.",
+          "success_criteria": "Design recovery around what ADF actually resumes instead of assuming all copies checkpoint.",
+          "evidence_criterion": "Design recovery around what ADF actually resumes instead of assuming all copies checkpoint.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Create a copy-recovery decision tree.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "roadmap_id": 6,
+      "name": "7. Incremental Loading & Metadata",
+      "title": "7. Incremental Loading & Metadata",
+      "order_index": 7,
+      "phase_order": 7,
+      "phase_type": "core",
+      "total_hours": 15.0,
+      "completed_hours": 0.0,
+      "is_active": false,
+      "topics": [
+        {
+          "id": 31,
+          "roadmap_id": 6,
+          "phase_id": 7,
+          "order_index": 1,
+          "topic_order": 1,
+          "title": "Full Load vs Incremental Load",
+          "learning_objective": "Understand initial snapshot, delta loads and when full reload remains appropriate.",
+          "success_criteria": "Choose a loading strategy based on source capabilities, volume and recovery needs.",
+          "evidence_criterion": "Choose a loading strategy based on source capabilities, volume and recovery needs.",
+          "estimated_hours": 2.0,
+          "hours": 2.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Create a load-strategy decision table.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 32,
+          "roadmap_id": 6,
+          "phase_id": 7,
+          "order_index": 2,
+          "topic_order": 2,
+          "title": "Watermark Patterns",
+          "learning_objective": "Understand monotonic IDs, last-modified timestamps, high-water marks and delete limitations.",
+          "success_criteria": "Design a watermark safely and explain failure cases such as late updates and clock problems.",
+          "evidence_criterion": "Design a watermark safely and explain failure cases such as late updates and clock problems.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Build a watermark control-table design.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 33,
+          "roadmap_id": 6,
+          "phase_id": 7,
+          "order_index": 3,
+          "topic_order": 3,
+          "title": "Change Tracking and CDC",
+          "learning_objective": "Understand Change Tracking vs CDC and their source-system prerequisites.",
+          "success_criteria": "Explain when a watermark is insufficient because updates/deletes must be observed.",
+          "evidence_criterion": "Explain when a watermark is insufficient because updates/deletes must be observed.",
+          "estimated_hours": 4.0,
+          "hours": 4.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Compare watermark, Change Tracking and CDC for three databases.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 34,
+          "roadmap_id": 6,
+          "phase_id": 7,
+          "order_index": 4,
+          "topic_order": 4,
+          "title": "CDC Checkpoints and Rename Risk",
+          "learning_objective": "Understand checkpoint identity, current Microsoft documentation differences and explicit-key practices.",
+          "success_criteria": "Explain the current uncertainty accurately instead of giving a universal rename rule.",
+          "evidence_criterion": "Explain the current uncertainty accurately instead of giving a universal rename rule.",
+          "estimated_hours": 2.0,
+          "hours": 2.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Write a CDC rename/change-management runbook.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 35,
+          "roadmap_id": 6,
+          "phase_id": 7,
+          "order_index": 5,
+          "topic_order": 5,
+          "title": "Metadata-Driven Pipelines",
+          "learning_objective": "Understand control tables, reusable pipelines, parameterised datasets and dynamic execution.",
+          "success_criteria": "Design one pipeline serving many tables without turning the metadata layer into an ungoverned framework.",
+          "evidence_criterion": "Design one pipeline serving many tables without turning the metadata layer into an ungoverned framework.",
+          "estimated_hours": 4.0,
+          "hours": 4.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Design a metadata-driven ingestion framework.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "roadmap_id": 6,
+      "name": "8. Data Flows & Reconciliation",
+      "title": "8. Data Flows & Reconciliation",
+      "order_index": 8,
+      "phase_order": 8,
+      "phase_type": "core",
+      "total_hours": 16.0,
+      "completed_hours": 0.0,
+      "is_active": false,
+      "topics": [
+        {
+          "id": 36,
+          "roadmap_id": 6,
+          "phase_id": 8,
+          "order_index": 1,
+          "topic_order": 1,
+          "title": "Mapping Data Flows",
+          "learning_objective": "Understand visual transformations running on ADF-managed Spark.",
+          "success_criteria": "Know when Mapping Data Flow is appropriate versus Databricks or SQL.",
+          "evidence_criterion": "Know when Mapping Data Flow is appropriate versus Databricks or SQL.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Create a transformation-selection matrix.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 37,
+          "roadmap_id": 6,
+          "phase_id": 8,
+          "order_index": 2,
+          "topic_order": 2,
+          "title": "Schema Drift and Data Flow Design",
+          "learning_objective": "Understand schema drift and how it affects resilient ingestion.",
+          "success_criteria": "Make schema evolution a deliberate design decision rather than an accidental behavior.",
+          "evidence_criterion": "Make schema evolution a deliberate design decision rather than an accidental behavior.",
+          "estimated_hours": 2.0,
+          "hours": 2.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Define schema-evolution rules for a lake ingestion domain.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 38,
+          "roadmap_id": 6,
+          "phase_id": 8,
+          "order_index": 3,
+          "topic_order": 3,
+          "title": "Reconciliation: Counts, Profiles and Row Fingerprints",
+          "learning_objective": "Understand multi-level validation: counts, aggregates, distributions, row hashes and business rules.",
+          "success_criteria": "Design reconciliation that can detect offsetting errors, not just matched totals.",
+          "evidence_criterion": "Design reconciliation that can detect offsetting errors, not just matched totals.",
+          "estimated_hours": 4.0,
+          "hours": 4.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Create a five-level migration reconciliation plan.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 39,
+          "roadmap_id": 6,
+          "phase_id": 8,
+          "order_index": 4,
+          "topic_order": 4,
+          "title": "Assert, Error Rows and Business Rules",
+          "learning_objective": "Understand data-quality assertions and error handling in Data Flows.",
+          "success_criteria": "Turn business rules into explicit acceptance criteria and failure paths.",
+          "evidence_criterion": "Turn business rules into explicit acceptance criteria and failure paths.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Implement a logical data-quality gate design.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 40,
+          "roadmap_id": 6,
+          "phase_id": 8,
+          "order_index": 5,
+          "topic_order": 5,
+          "title": "Data Flow Performance Fundamentals",
+          "learning_objective": "Understand cluster startup, TTL, partitioning, skew and shuffle-related tuning.",
+          "success_criteria": "Diagnose the actual bottleneck before changing cluster size or partition settings.",
+          "evidence_criterion": "Diagnose the actual bottleneck before changing cluster size or partition settings.",
+          "estimated_hours": 4.0,
+          "hours": 4.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Create a Data Flow performance troubleshooting checklist.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "roadmap_id": 6,
+      "name": "9. Security, Governance & Monitoring",
+      "title": "9. Security, Governance & Monitoring",
+      "order_index": 9,
+      "phase_order": 9,
+      "phase_type": "core",
+      "total_hours": 13.0,
+      "completed_hours": 0.0,
+      "is_active": false,
+      "topics": [
+        {
+          "id": 41,
+          "roadmap_id": 6,
+          "phase_id": 9,
+          "order_index": 1,
+          "topic_order": 1,
+          "title": "Managed Identity, Key Vault and Authentication",
+          "learning_objective": "Understand identity choices, secrets management and connector-specific authentication.",
+          "success_criteria": "Design credential handling without hard-coding secrets and explain authentication trade-offs.",
+          "evidence_criterion": "Design credential handling without hard-coding secrets and explain authentication trade-offs.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Create an enterprise credential-management pattern.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 42,
+          "roadmap_id": 6,
+          "phase_id": 9,
+          "order_index": 2,
+          "topic_order": 2,
+          "title": "CMK and Factory Encryption",
+          "learning_objective": "Understand CMK setup paths, prerequisites, immutability and key-management consequences.",
+          "success_criteria": "Explain when encryption choices must be made early in the factory lifecycle.",
+          "evidence_criterion": "Explain when encryption choices must be made early in the factory lifecycle.",
+          "estimated_hours": 2.0,
+          "hours": 2.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Create a CMK decision checklist.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 43,
+          "roadmap_id": 6,
+          "phase_id": 9,
+          "order_index": 3,
+          "topic_order": 3,
+          "title": "Trusted Service: Legacy vs Modern",
+          "learning_objective": "Understand Legacy/Modern trusted-service modes and the enterprise migration implication.",
+          "success_criteria": "Explain the current recommended direction and avoid assuming firewall bypass is timeless.",
+          "evidence_criterion": "Explain the current recommended direction and avoid assuming firewall bypass is timeless.",
+          "estimated_hours": 2.0,
+          "hours": 2.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Create a legacy-to-modern migration watch item.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 44,
+          "roadmap_id": 6,
+          "phase_id": 9,
+          "order_index": 4,
+          "topic_order": 4,
+          "title": "Monitoring, Alerts and Run History",
+          "learning_objective": "Understand pipeline runs, activity runs, diagnostics, alerts and retention.",
+          "success_criteria": "Define what operations should monitor beyond a green pipeline status.",
+          "evidence_criterion": "Define what operations should monitor beyond a green pipeline status.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Create a production monitoring checklist and alert matrix.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 45,
+          "roadmap_id": 6,
+          "phase_id": 9,
+          "order_index": 5,
+          "topic_order": 5,
+          "title": "Operational Logging and Sensitive Data",
+          "learning_objective": "Understand secureInput/secureOutput, monitoring exposure and the risks of session logs/data preview.",
+          "success_criteria": "Design logging that supports operations without unnecessarily exposing sensitive data.",
+          "evidence_criterion": "Design logging that supports operations without unnecessarily exposing sensitive data.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Design a regulated-data monitoring policy.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "roadmap_id": 6,
+      "name": "10. CI/CD, IaC & Reliability",
+      "title": "10. CI/CD, IaC & Reliability",
+      "order_index": 10,
+      "phase_order": 10,
+      "phase_type": "core",
+      "total_hours": 14.0,
+      "completed_hours": 0.0,
+      "is_active": false,
+      "topics": [
+        {
+          "id": 46,
+          "roadmap_id": 6,
+          "phase_id": 10,
+          "order_index": 1,
+          "topic_order": 1,
+          "title": "Git Integration and Collaboration",
+          "learning_objective": "Understand source control, collaboration, pull requests and environment separation.",
+          "success_criteria": "Explain why Git is the source of truth without claiming it is a universal ADF product requirement.",
+          "evidence_criterion": "Explain why Git is the source of truth without claiming it is a universal ADF product requirement.",
+          "estimated_hours": 2.0,
+          "hours": 2.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Create an ADF branch/PR strategy.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 47,
+          "roadmap_id": 6,
+          "phase_id": 10,
+          "order_index": 2,
+          "topic_order": 2,
+          "title": "ARM Templates and Automated Publishing",
+          "learning_objective": "Understand `adf_publish`, automated validation/export and deployment artifacts.",
+          "success_criteria": "Explain both supported template-generation approaches and their operational trade-offs.",
+          "evidence_criterion": "Explain both supported template-generation approaches and their operational trade-offs.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Design a Dev\u2192Test\u2192Prod deployment flow.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 48,
+          "roadmap_id": 6,
+          "phase_id": 10,
+          "order_index": 3,
+          "topic_order": 3,
+          "title": "Bicep and Infrastructure as Code",
+          "learning_objective": "Understand where Bicep complements ADF resource deployment and environment provisioning.",
+          "success_criteria": "Explain what belongs in infrastructure-as-code versus factory content deployment.",
+          "evidence_criterion": "Explain what belongs in infrastructure-as-code versus factory content deployment.",
+          "estimated_hours": 2.0,
+          "hours": 2.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Draft an ADF environment provisioning outline in Bicep.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 49,
+          "roadmap_id": 6,
+          "phase_id": 10,
+          "order_index": 4,
+          "topic_order": 4,
+          "title": "Deployment Parameters, Global Parameters and Trigger Handling",
+          "learning_objective": "Understand parameterisation across environments and the operational implications of active triggers.",
+          "success_criteria": "Build a release checklist that separates product changes from environment configuration.",
+          "evidence_criterion": "Build a release checklist that separates product changes from environment configuration.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Create a deployment readiness checklist.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 50,
+          "roadmap_id": 6,
+          "phase_id": 10,
+          "order_index": 5,
+          "topic_order": 5,
+          "title": "Reliability, Idempotency and Recovery",
+          "learning_objective": "Understand transient failures, retries, duplicate risk, reruns and regional/zone recovery concepts.",
+          "success_criteria": "Design reruns that are safe and explain reliability as a shared responsibility.",
+          "evidence_criterion": "Design reruns that are safe and explain reliability as a shared responsibility.",
+          "estimated_hours": 4.0,
+          "hours": 4.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Write an incident-recovery runbook for a failed nightly load.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "roadmap_id": 6,
+      "name": "11. Performance, Cost & Architecture",
+      "title": "11. Performance, Cost & Architecture",
+      "order_index": 11,
+      "phase_order": 11,
+      "phase_type": "core",
+      "total_hours": 13.0,
+      "completed_hours": 0.0,
+      "is_active": false,
+      "topics": [
+        {
+          "id": 51,
+          "roadmap_id": 6,
+          "phase_id": 11,
+          "order_index": 1,
+          "topic_order": 1,
+          "title": "Copy Performance: DIUs, Parallel Copies and Bottlenecks",
+          "learning_objective": "Understand DIUs, parallel copies, queueing, source latency and sink throttling.",
+          "success_criteria": "Diagnose the slowest stage before scaling compute and articulate the cost/speed trade-off.",
+          "evidence_criterion": "Diagnose the slowest stage before scaling compute and articulate the cost/speed trade-off.",
+          "estimated_hours": 4.0,
+          "hours": 4.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Create a Copy performance diagnosis decision tree.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 52,
+          "roadmap_id": 6,
+          "phase_id": 11,
+          "order_index": 2,
+          "topic_order": 2,
+          "title": "ADF Cost Model and FinOps",
+          "learning_objective": "Understand orchestration runs, DIU-hours, vCore-hours, SSIS and other operation costs.",
+          "success_criteria": "Estimate cost from workload behavior and identify levers that reduce spend without breaking SLA.",
+          "evidence_criterion": "Estimate cost from workload behavior and identify levers that reduce spend without breaking SLA.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Build a simple ADF cost-driver model.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 53,
+          "roadmap_id": 6,
+          "phase_id": 11,
+          "order_index": 3,
+          "topic_order": 3,
+          "title": "Scale and Concurrency Trade-offs",
+          "learning_objective": "Understand pipeline concurrency, ForEach concurrency, source pressure and destination limits.",
+          "success_criteria": "Balance throughput, recovery, fairness and source-system safety.",
+          "evidence_criterion": "Balance throughput, recovery, fairness and source-system safety.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Design a concurrency budget for a multi-source platform.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 54,
+          "roadmap_id": 6,
+          "phase_id": 11,
+          "order_index": 4,
+          "topic_order": 4,
+          "title": "Architecture Trade-offs: ADF vs Databricks vs Synapse",
+          "learning_objective": "Reason about orchestration vs transformation vs SQL analytics and platform ownership.",
+          "success_criteria": "Defend architecture choices with performance, cost, operational and team-skill trade-offs.",
+          "evidence_criterion": "Defend architecture choices with performance, cost, operational and team-skill trade-offs.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Present an architecture choice for a lakehouse ingestion platform.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "roadmap_id": 6,
+      "name": "12. Platform Integration & Interview Readiness",
+      "title": "12. Platform Integration & Interview Readiness",
+      "order_index": 12,
+      "phase_order": 12,
+      "phase_type": "core",
+      "total_hours": 28.0,
+      "completed_hours": 0.0,
+      "is_active": false,
+      "topics": [
+        {
+          "id": 55,
+          "roadmap_id": 6,
+          "phase_id": 12,
+          "order_index": 1,
+          "topic_order": 1,
+          "title": "ADF + Azure Databricks",
+          "learning_objective": "Understand notebook activity, parameter passing, outputs, orchestration boundaries and failure handling.",
+          "success_criteria": "Explain where ADF stops and Databricks starts in a production data platform.",
+          "evidence_criterion": "Explain where ADF stops and Databricks starts in a production data platform.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Design an ADF\u2192Databricks\u2192validation workflow.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 56,
+          "roadmap_id": 6,
+          "phase_id": 12,
+          "order_index": 2,
+          "topic_order": 2,
+          "title": "ADF + Azure Synapse",
+          "learning_objective": "Understand common orchestration patterns, notebook/SQL integration and sink choices.",
+          "success_criteria": "Explain when Synapse-native capabilities change the ADF architecture.",
+          "evidence_criterion": "Explain when Synapse-native capabilities change the ADF architecture.",
+          "estimated_hours": 2.0,
+          "hours": 2.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Design an ADF + Synapse batch architecture.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 57,
+          "roadmap_id": 6,
+          "phase_id": 12,
+          "order_index": 3,
+          "topic_order": 3,
+          "title": "ADF vs Fabric Data Factory in 2026",
+          "learning_objective": "Understand Microsoft's current Fabric positioning, migration considerations and capability differences.",
+          "success_criteria": "Answer 'Would you build new pipelines in ADF or Fabric?' with current, nuanced reasoning.",
+          "evidence_criterion": "Answer 'Would you build new pipelines in ADF or Fabric?' with current, nuanced reasoning.",
+          "estimated_hours": 3.0,
+          "hours": 3.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Prepare a 3-minute ADF vs Fabric executive answer.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 58,
+          "roadmap_id": 6,
+          "phase_id": 12,
+          "order_index": 4,
+          "topic_order": 4,
+          "title": "Enterprise Migration Architecture",
+          "learning_objective": "Combine connectivity, control tables, incremental loads, reconciliation, security, CI/CD, monitoring and cutover.",
+          "success_criteria": "Design a migration plan that an EM/Program Manager can challenge on risk, ownership, throughput and recovery.",
+          "evidence_criterion": "Design a migration plan that an EM/Program Manager can challenge on risk, ownership, throughput and recovery.",
+          "estimated_hours": 6.0,
+          "hours": 6.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Complete an end-to-end 100\u2013500 table Azure migration architecture case.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 59,
+          "roadmap_id": 6,
+          "phase_id": 12,
+          "order_index": 5,
+          "topic_order": 5,
+          "title": "ADF Interview Scenario Drills",
+          "learning_objective": "Practice failure, cost, security, migration, reliability and architecture scenarios using the course's scenarios.",
+          "success_criteria": "Answer with facts, trade-offs, assumptions, operational consequences and measurable acceptance criteria.",
+          "evidence_criterion": "Answer with facts, trade-offs, assumptions, operational consequences and measurable acceptance criteria.",
+          "estimated_hours": 6.0,
+          "hours": 6.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Record or write answers to 10 ADF interview scenarios.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        },
+        {
+          "id": 60,
+          "roadmap_id": 6,
+          "phase_id": 12,
+          "order_index": 6,
+          "topic_order": 6,
+          "title": "ADF Architecture Review Capstone",
+          "learning_objective": "Conduct a structured review of an ADF design from user requirement through production operations.",
+          "success_criteria": "Defend architecture, security, networking, recovery, cost and delivery decisions under interview pressure.",
+          "evidence_criterion": "Defend architecture, security, networking, recovery, cost and delivery decisions under interview pressure.",
+          "estimated_hours": 8.0,
+          "hours": 8.0,
+          "status": "not_started",
+          "progress_percentage": 0,
+          "started_at": null,
+          "completed_at": null,
+          "evidence_notes": "Produce an architecture-review document plus 2-minute executive summary.",
+          "demonstration_count": 0,
+          "latest_demonstration_at": null
+        }
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "id": 61,
+      "roadmap_id": 6,
+      "title": "Architecture & Decision Model",
+      "order_index": 1,
+      "purpose": "reference",
+      "columns": [
+        "Decision Area",
+        "Use ADF When...",
+        "Consider Instead / Alongside",
+        "Key Trade-off",
+        "Interview Framing"
+      ],
+      "rows": [
+        [
+          "Orchestration",
+          "You need scheduling, dependency management, retries, triggers and cross-service orchestration.",
+          "Databricks Workflows, Fabric pipelines, Logic Apps depending on scope.",
+          "Central orchestration vs tool-local orchestration.",
+          "Explain why orchestration belongs in ADF and why the transformation engine stays elsewhere."
+        ],
+        [
+          "Data movement",
+          "You need managed movement between heterogeneous supported sources/sinks.",
+          "Databricks, native database tooling, third-party replication for specialised cases.",
+          "Connector capability, throughput, operational simplicity.",
+          "Talk about source/sink compatibility, IR and recovery\u2014not just 'Copy activity'."
+        ],
+        [
+          "Heavy Spark transformation",
+          "You need Spark-native large-scale transformation, notebooks or complex engineering.",
+          "Azure Databricks / Synapse Spark.",
+          "Cost, cluster lifecycle, code flexibility, skill set.",
+          "State why ADF should orchestrate rather than become the Spark engine."
+        ],
+        [
+          "SQL transformation",
+          "The transformation is naturally relational and close to the database/warehouse.",
+          "Azure SQL / Synapse SQL / Databricks SQL.",
+          "Pushdown, data gravity and workload isolation.",
+          "Explain where the data should be processed for cost and performance."
+        ],
+        [
+          "Visual transformation",
+          "The team wants low-code transformation with ADF-managed Spark.",
+          "Databricks for code-heavy or advanced Spark work.",
+          "Developer productivity vs control and Spark engineering depth.",
+          "Use Data Flow when visual transformation is an explicit requirement and operational fit is good."
+        ],
+        [
+          "Private/on-prem ingestion",
+          "Sources are behind a private network and need controlled connectivity.",
+          "SHIR, Managed VNet Azure IR with appropriate network connectivity.",
+          "Network path, ownership and security.",
+          "Describe the actual network path; never reduce it to 'SHIR = no VPN'."
+        ],
+        [
+          "Event ingestion",
+          "Data arrival should trigger processing.",
+          "Storage Event / Custom Event / Event Grid.",
+          "Event filtering, duplicate events, downstream idempotency.",
+          "Explain whether the event represents arrival, completeness or merely notification."
+        ],
+        [
+          "Time-window processing",
+          "Each time window is a business processing unit and missed windows must be recoverable.",
+          "Schedule trigger for simple wall-clock jobs.",
+          "State, backfill, concurrency and late-arriving data.",
+          "Tumbling windows are about stateful time windows, not simply 'better scheduling'."
+        ],
+        [
+          "Incremental loads",
+          "Source exposes reliable change timestamps, monotonic keys, Change Tracking or CDC.",
+          "Replication tooling / streaming when low latency is required.",
+          "Correctness around updates/deletes vs simplicity.",
+          "Start with data semantics: what changes must be observed?"
+        ],
+        [
+          "Metadata-driven platform",
+          "Many sources share a common ingestion pattern.",
+          "Hand-built pipelines for highly bespoke flows.",
+          "Framework complexity vs duplication.",
+          "Use metadata-driven design to standardise, not to create an opaque framework nobody owns."
+        ],
+        [
+          "Security",
+          "Enterprise identity, Key Vault, RBAC, networking and controlled logging matter.",
+          "Platform-wide governance tools alongside ADF.",
+          "Security controls must span ADF, data stores and network.",
+          "State the control, the data it protects and where enforcement occurs."
+        ],
+        [
+          "CI/CD",
+          "Multiple environments require repeatable promotion and auditability.",
+          "IaC + release tooling around ADF.",
+          "Template generation, parameters and trigger handling.",
+          "Separate Microsoft product behavior from your team's deployment policy."
+        ],
+        [
+          "Fabric decision",
+          "The organisation is adopting Fabric as the strategic analytics/data integration platform.",
+          "Azure ADF for existing Azure PaaS estate and specific capability/network requirements.",
+          "Migration effort, feature parity, capacity model and platform strategy.",
+          "Do not say ADF is obsolete; discuss estate, requirements and direction."
+        ]
+      ],
+      "row_count": 13,
+      "column_count": 5
+    },
+    {
+      "id": 62,
+      "roadmap_id": 6,
+      "title": "Portfolio & Scenarios",
+      "order_index": 2,
+      "purpose": "plan",
+      "columns": [
+        "Artifact / Scenario",
+        "What It Demonstrates",
+        "Target Role Fit",
+        "Est. Hours",
+        "Output",
+        "Priority"
+      ],
+      "rows": [
+        [
+          "1. Hybrid Ingestion Architecture",
+          "ADF + SHIR + ADLS + SQL; network path, ownership, monitoring and recovery.",
+          "PO / Program / Cloud EM",
+          "8",
+          "Architecture diagram + operating checklist",
+          "1 - Build First"
+        ],
+        [
+          "2. Metadata-Driven Multi-Table Loader",
+          "Control table, parameterised datasets, ForEach, concurrency and idempotency.",
+          "TPM / EM / Program",
+          "8",
+          "Control-table design + pipeline pattern",
+          "2 - Build Second"
+        ],
+        [
+          "3. Incremental/CDC Pipeline",
+          "Watermark vs CDC, checkpoint handling, merge/upsert and reconciliation.",
+          "Data Platform PM / EM",
+          "8",
+          "Incremental-load design + cutover plan",
+          "3 - Build Third"
+        ],
+        [
+          "4. Data Migration Reconciliation Pack",
+          "Counts, profiles, row fingerprints, assertions and sign-off criteria.",
+          "Program / Delivery / EM",
+          "6",
+          "Reconciliation strategy + acceptance checklist",
+          "4 - Build Fourth"
+        ],
+        [
+          "5. ADF Security & Network Review",
+          "Managed identity, Key Vault, Managed VNet, managed private endpoints, trusted service.",
+          "Cloud EM / Architecture",
+          "6",
+          "Security review + threat/control matrix",
+          "5 - Build Fifth"
+        ],
+        [
+          "6. CI/CD Release Design",
+          "Git, ARM template generation, environment parameters, Bicep, trigger handling.",
+          "Program / Delivery / EM",
+          "6",
+          "Release architecture + deployment checklist",
+          "6 - Build Sixth"
+        ],
+        [
+          "7. Performance & Cost Case",
+          "Copy tuning, DIUs, concurrency, Data Flow performance, cost drivers.",
+          "PO / EM / Program",
+          "6",
+          "Performance diagnosis + FinOps note",
+          "7 - Build Seventh"
+        ],
+        [
+          "8. ADF vs Databricks vs Fabric Decision",
+          "Architecture selection with explicit assumptions and trade-offs.",
+          "Product / Architecture / EM",
+          "5",
+          "Executive decision memo",
+          "8 - Build Eighth"
+        ],
+        [
+          "9. Enterprise Migration Case",
+          "100\u2013500 tables, hybrid sources, cutover, DR, reconciliation, operations.",
+          "Program / Product / EM",
+          "10",
+          "End-to-end case study",
+          "9 - Capstone"
+        ],
+        [
+          "10. Interview Scenario Pack",
+          "Ten 2\u20133 minute answers covering incidents, cost, security, migration and architecture.",
+          "All target roles",
+          "6",
+          "Written/recorded answer pack",
+          "10 - Interview"
+        ]
+      ],
+      "row_count": 10,
+      "column_count": 6
+    },
+    {
+      "id": 63,
+      "roadmap_id": 6,
+      "title": "Suggested Resources",
+      "order_index": 3,
+      "purpose": "reference",
+      "columns": [
+        "Resource",
+        "Where It Helps",
+        "How to Use",
+        "Freshness Risk",
+        "URL"
+      ],
+      "rows": [
+        [
+          "ADF overview",
+          "Service model, concepts and role in Azure data integration",
+          "Read first for vocabulary and architecture framing.",
+          "Low",
+          "https://learn.microsoft.com/en-us/azure/data-factory/"
+        ],
+        [
+          "Pipelines & activities",
+          "Activity categories, dependencies, defaults and limits",
+          "Use as the core control-flow reference.",
+          "Medium",
+          "https://learn.microsoft.com/en-us/azure/data-factory/concepts-pipelines-activities"
+        ],
+        [
+          "Parameters & variables",
+          "Parameterization, variables and dynamic reuse",
+          "Use when designing reusable pipelines.",
+          "Medium",
+          "https://learn.microsoft.com/en-us/azure/data-factory/concepts-parameters-variables"
+        ],
+        [
+          "Integration Runtime",
+          "Azure IR, SHIR, Azure-SSIS and connectivity",
+          "Use before choosing network topology.",
+          "High",
+          "https://learn.microsoft.com/en-us/azure/data-factory/choose-the-right-integration-runtime-configuration"
+        ],
+        [
+          "Managed VNet / private endpoint",
+          "Private connectivity and managed network concepts",
+          "Use for enterprise networking decisions.",
+          "High",
+          "https://learn.microsoft.com/en-us/azure/data-factory/managed-virtual-network-private-endpoint"
+        ],
+        [
+          "Copy Activity",
+          "Movement, mapping, formats, fault tolerance and resume",
+          "Use as the primary Copy reference.",
+          "High",
+          "https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-overview"
+        ],
+        [
+          "Data consistency",
+          "What Copy verification does and does not prove",
+          "Use for migration acceptance design.",
+          "Medium",
+          "https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-data-consistency"
+        ],
+        [
+          "Incremental copy",
+          "Watermark and delta-load patterns",
+          "Use for incremental-load design.",
+          "Medium",
+          "https://learn.microsoft.com/en-us/azure/data-factory/tutorial-incremental-copy-overview"
+        ],
+        [
+          "CDC",
+          "Change capture and checkpoint semantics",
+          "Re-check current behavior because Microsoft pages may differ.",
+          "High",
+          "https://learn.microsoft.com/en-us/azure/data-factory/concepts-change-data-capture"
+        ],
+        [
+          "Mapping Data Flow",
+          "Visual Spark-based transformation",
+          "Use for Data Flow fundamentals and design.",
+          "Medium",
+          "https://learn.microsoft.com/en-us/azure/data-factory/concepts-data-flow-overview"
+        ],
+        [
+          "Data Flow performance",
+          "Cluster, partitioning and performance tuning",
+          "Use when explaining bottleneck diagnosis.",
+          "High",
+          "https://learn.microsoft.com/en-us/azure/data-factory/concepts-data-flow-performance"
+        ],
+        [
+          "Key Vault / credentials",
+          "Managed identity and secret handling",
+          "Use as the enterprise security baseline.",
+          "High",
+          "https://learn.microsoft.com/en-us/azure/data-factory/credentials"
+        ],
+        [
+          "Customer-managed key",
+          "CMK prerequisites and lifecycle",
+          "Use only after checking current limitations.",
+          "High",
+          "https://learn.microsoft.com/en-us/azure/data-factory/enable-customer-managed-key"
+        ],
+        [
+          "Trusted Service",
+          "Legacy vs Modern trust model",
+          "Re-check retirement timeline before deployment.",
+          "High",
+          "https://learn.microsoft.com/en-us/azure/data-factory/modern-trusted-service"
+        ],
+        [
+          "Monitoring",
+          "Runs, alerts, diagnostics and operations",
+          "Use for production operating model.",
+          "Medium",
+          "https://learn.microsoft.com/en-us/azure/data-factory/monitor-data-factory"
+        ],
+        [
+          "CI/CD improvements",
+          "ARM template generation, automated publishing and release patterns",
+          "Use for modern Dev\u2192Test\u2192Prod design.",
+          "High",
+          "https://learn.microsoft.com/en-us/azure/data-factory/continuous-integration-delivery-improvements"
+        ],
+        [
+          "Bicep quickstart",
+          "IaC for Data Factory resources",
+          "Use as infrastructure-provisioning reference.",
+          "Medium",
+          "https://learn.microsoft.com/en-us/azure/data-factory/quickstart-create-data-factory-bicep"
+        ],
+        [
+          "Reliability",
+          "Retry, idempotency, zone/region considerations",
+          "Use for incident/recovery architecture.",
+          "High",
+          "https://learn.microsoft.com/en-us/azure/reliability/reliability-data-factory"
+        ],
+        [
+          "Databricks Notebook activity",
+          "ADF\u2192Databricks orchestration",
+          "Use for Azure Databricks integration design.",
+          "Medium",
+          "https://learn.microsoft.com/en-us/azure/data-factory/transform-data-databricks-notebook"
+        ],
+        [
+          "ADF vs Fabric Data Factory",
+          "Current platform direction and comparison",
+          "Use before any ADF-vs-Fabric interview discussion.",
+          "High",
+          "https://learn.microsoft.com/en-us/fabric/data-factory/compare-fabric-data-factory-and-azure-data-factory"
+        ]
+      ],
+      "row_count": 20,
+      "column_count": 5
+    },
+    {
+      "id": 64,
+      "roadmap_id": 6,
+      "title": "Mental Model",
+      "order_index": 4,
+      "purpose": "reference",
+      "columns": [
+        "Concept",
+        "Mental Model",
+        "Interview Question to Ask Yourself"
+      ],
+      "rows": [
+        [
+          "ADF",
+          "Conductor + data movement service; transformation often happens elsewhere.",
+          "What is ADF orchestrating, and what service is doing the heavy work?"
+        ],
+        [
+          "Pipeline",
+          "Reusable workflow definition.",
+          "What is the business job this pipeline owns?"
+        ],
+        [
+          "Activity",
+          "One executable/control step.",
+          "What exactly executes here and where?"
+        ],
+        [
+          "Linked service",
+          "How ADF connects/authenticates.",
+          "Who owns the credential and network path?"
+        ],
+        [
+          "Dataset",
+          "What data shape/location the activity works with.",
+          "Can this be parameterised or should it be dynamic?"
+        ],
+        [
+          "Integration Runtime",
+          "Where the movement/data-flow execution happens and what network it can reach.",
+          "Why this IR, and who operates it?"
+        ],
+        [
+          "Trigger",
+          "The condition that starts the pipeline.",
+          "Is time, data arrival, or another event the real trigger?"
+        ],
+        [
+          "Schedule vs Tumbling Window",
+          "Clock-based schedule vs stateful time-window processing.",
+          "Do I need backfill and window state?"
+        ],
+        [
+          "Parameter",
+          "Read-only input for a run.",
+          "Should this vary by invocation/environment?"
+        ],
+        [
+          "Variable",
+          "Mutable scratch state within pipeline execution.",
+          "Could parallelism make this unsafe?"
+        ],
+        [
+          "Watermark",
+          "High-water mark for new/changed records.",
+          "Can the source expose all changes I need, including deletes?"
+        ],
+        [
+          "CDC",
+          "Change-log driven incremental processing.",
+          "What source capability guarantees completeness?"
+        ],
+        [
+          "Metadata-driven",
+          "One reusable pipeline driven by control metadata.",
+          "Am I standardising a pattern or creating a framework nobody owns?"
+        ],
+        [
+          "Idempotency",
+          "Repeat execution has the same business effect as one execution.",
+          "Can I safely rerun this after failure?"
+        ],
+        [
+          "Reconciliation",
+          "Evidence that data is complete and correct beyond run status.",
+          "What proves the business data is right?"
+        ],
+        [
+          "Managed VNet",
+          "Managed network isolation around Azure IR.",
+          "What is private, what remains public, and what approvals are required?"
+        ],
+        [
+          "Key Vault / Managed Identity",
+          "Keep secrets out of code and use workload identity where supported.",
+          "Where is the credential, and what happens on rotation?"
+        ],
+        [
+          "CI/CD",
+          "Repeatable, auditable promotion of factory definitions and infrastructure.",
+          "Which parts are Microsoft behavior and which are our deployment policy?"
+        ],
+        [
+          "Monitoring",
+          "Operational evidence, not just green/red.",
+          "What would tell me the data is wrong even when the run is green?"
+        ],
+        [
+          "Cost",
+          "Every architecture choice has a cost driver.",
+          "Which meter rises when I scale this design?"
+        ],
+        [
+          "ADF vs Databricks",
+          "Orchestration/integration vs code-heavy Spark processing.",
+          "Why not do all of this in Databricks?"
+        ],
+        [
+          "ADF vs Fabric Data Factory",
+          "Azure PaaS estate vs Fabric-centric platform strategy.",
+          "What does the target estate need today, not just what is newest?"
+        ],
+        [
+          "Manager lens",
+          "User impact, SLA, risk, ownership, recovery, cost and change governance.",
+          "What would I ask the engineering team before approving this design?"
+        ]
+      ],
+      "row_count": 23,
+      "column_count": 3
+    },
+    {
+      "id": 65,
+      "roadmap_id": 6,
+      "title": "Study Guide Crosswalk",
+      "order_index": 5,
+      "purpose": "reference",
+      "columns": [
+        "Roadmap #",
+        "Roadmap Topic",
+        "Primary Study Guide Mapping",
+        "Coverage",
+        "What the Study Guide Currently Provides"
+      ],
+      "rows": [
+        [
+          "1",
+          "What Azure Data Factory Is",
+          "Ch 1 \u2014 What ADF is, and what it isn't",
+          "Full",
+          "Core definition, orchestration vs transformation, manager mental model."
+        ],
+        [
+          "2",
+          "ADF vs Databricks vs Synapse vs Fabric Data Factory",
+          "Ch 1; Ch 20 \u2014 ADF and Fabric Data Factory",
+          "Partial",
+          "ADF/Databricks/Synapse positioning is present; no single consolidated 4-service decision exercise."
+        ],
+        [
+          "3",
+          "ADF Resource Model",
+          "Ch 2 \u2014 The building blocks; Ch 3 \u2014 Pipelines, activities and control flow",
+          "Full",
+          "Factory resources, pipeline/activity/dataset/linked service/trigger/run relationships."
+        ],
+        [
+          "4",
+          "ADF Mental Model for Managers",
+          "Ch 1; Ch 21 \u2014 Pitfalls",
+          "Full",
+          "Manager lens, ownership/risk/SLA/cost framing."
+        ],
+        [
+          "5",
+          "Linked Services",
+          "Ch 2 \u2014 The building blocks",
+          "Full",
+          "Connection/authentication/ConnectVia concepts."
+        ],
+        [
+          "6",
+          "Datasets and Parameterisation",
+          "Ch 2; Ch 3",
+          "Full",
+          "Datasets, parameterization, reusable source/sink definitions."
+        ],
+        [
+          "7",
+          "Pipeline Parameters, Variables and Expressions",
+          "Ch 3 \u2014 Pipelines, activities and control flow",
+          "Full",
+          "Parameters, variables, expressions, dynamic execution."
+        ],
+        [
+          "8",
+          "Global Parameters and Reusable Configuration",
+          "Ch 18 \u2014 From Dev to Prod; Ch 2",
+          "Full",
+          "Environment configuration and global parameter concepts."
+        ],
+        [
+          "9",
+          "Activity Types and Execution Semantics",
+          "Ch 3",
+          "Full",
+          "Movement/transformation/control categories and execution semantics."
+        ],
+        [
+          "10",
+          "Dependencies: Success, Failure, Completion and Skip",
+          "Ch 3; Ch 12 \u2014 Monitoring, failures and reruns",
+          "Full",
+          "Dependency conditions and final pipeline-status behavior."
+        ],
+        [
+          "11",
+          "Lookup and Get Metadata",
+          "Ch 3",
+          "Full",
+          "Lookup limits/control-table patterns; Get Metadata is covered at reference level."
+        ],
+        [
+          "12",
+          "ForEach, Batch Count and Parallelism",
+          "Ch 3",
+          "Full",
+          "Parallelism, batch count, variables in loops, nesting constraints."
+        ],
+        [
+          "13",
+          "If Condition, Switch, Until and Wait",
+          "Ch 3",
+          "Full",
+          "Branching, polling, loops and waits."
+        ],
+        [
+          "14",
+          "Execute Pipeline and Reusable Child Pipelines",
+          "Ch 3",
+          "Full",
+          "Parent/child composition and reuse."
+        ],
+        [
+          "15",
+          "Web, Function, Script and Stored Procedure Integration",
+          "Ch 3",
+          "Partial",
+          "Activities are introduced, but the roadmap's explicit decision table/trade-off exercise is not a dedicated study-guide block."
+        ],
+        [
+          "16",
+          "Schedule Triggers",
+          "Ch 5 \u2014 Triggers: when pipelines run",
+          "Full",
+          "Schedule behavior and operational implications."
+        ],
+        [
+          "17",
+          "Tumbling Window Triggers",
+          "Ch 5",
+          "Full",
+          "State, backfill, delay, concurrency, dependencies."
+        ],
+        [
+          "18",
+          "Event and Custom Event Triggers",
+          "Ch 5",
+          "Full",
+          "Storage and custom event triggers, including filtering/caveats."
+        ],
+        [
+          "19",
+          "Time Zones and Window Semantics",
+          "Ch 5",
+          "Full",
+          "UTC, DST and window boundaries."
+        ],
+        [
+          "20",
+          "Integration Runtime Fundamentals",
+          "Ch 4 \u2014 Integration runtimes",
+          "Full",
+          "Three IR families and selection model."
+        ],
+        [
+          "21",
+          "Self-hosted IR Architecture and Operations",
+          "Ch 4; Scenario 3",
+          "Full",
+          "Network path, HA, ownership, patching, proxy/credential concerns."
+        ],
+        [
+          "22",
+          "Managed VNet and Managed Private Endpoints",
+          "Ch 4; Ch 14 \u2014 Security and networking",
+          "Full",
+          "Managed VNet, managed private endpoints and factory private endpoint distinction."
+        ],
+        [
+          "23",
+          "On-premises Connectivity and Network Paths",
+          "Ch 4",
+          "Full",
+          "SHIR, VPN/ExpressRoute, Private Link and firewall/network-path nuance."
+        ],
+        [
+          "24",
+          "Private Endpoint vs Managed Private Endpoint",
+          "Ch 4; Ch 14",
+          "Full",
+          "Separate factory-service private endpoint from managed private endpoints to targets."
+        ],
+        [
+          "25",
+          "Copy Activity Fundamentals",
+          "Ch 6 \u2014 The Copy activity",
+          "Full",
+          "Source/read/map/write model, IR execution."
+        ],
+        [
+          "26",
+          "Connectors, Formats and Capability Matrix",
+          "Ch 6",
+          "Full",
+          "Connector/version-specific capability model."
+        ],
+        [
+          "27",
+          "Schema Mapping and Type Conversion",
+          "Ch 7 \u2014 Bad rows, cut-off values and \"verified\" copies",
+          "Full",
+          "Mapping, type conversion and truncation risks."
+        ],
+        [
+          "28",
+          "Fault Tolerance and Skipped Rows",
+          "Ch 7; Ch 15 \u2014 Sensitive data",
+          "Full",
+          "Skipped rows, session logs, operational ownership and security implications."
+        ],
+        [
+          "29",
+          "Data Consistency Verification",
+          "Ch 7; Ch 8 \u2014 Proving the migration is complete",
+          "Full",
+          "Verification limits vs business reconciliation."
+        ],
+        [
+          "30",
+          "Staged Copy, Resume and Large File Handling",
+          "Ch 6; Ch 13 \u2014 Recovering from failures",
+          "Full",
+          "Staged copy and binary-file resume scope/recovery."
+        ],
+        [
+          "31",
+          "Full Load vs Incremental Load",
+          "Ch 9 \u2014 Loading only new data",
+          "Full",
+          "Full vs incremental decision."
+        ],
+        [
+          "32",
+          "Watermark Patterns",
+          "Ch 9",
+          "Full",
+          "Watermarks, high-water marks and delete/late-update limitations."
+        ],
+        [
+          "33",
+          "Change Tracking and CDC",
+          "Ch 9; Ch 10 \u2014 Change data capture",
+          "Full",
+          "Change Tracking, CDC and source prerequisites."
+        ],
+        [
+          "34",
+          "CDC Checkpoints and Rename Risk",
+          "Ch 10",
+          "Full",
+          "Current uncertainty and explicit checkpoint-key/change-management treatment."
+        ],
+        [
+          "35",
+          "Metadata-Driven Pipelines",
+          "Ch 2; Ch 3; Ch 9; Ch 19",
+          "Partial",
+          "Ingredients exist across chapters, but the roadmap's explicit metadata-driven framework design exercise is not consolidated."
+        ],
+        [
+          "36",
+          "Mapping Data Flows",
+          "Ch 11 \u2014 Transforming data: data flows, schema drift and Delta",
+          "Full",
+          "Mapping Data Flow purpose and alternatives."
+        ],
+        [
+          "37",
+          "Schema Drift and Data Flow Design",
+          "Ch 11",
+          "Full",
+          "Schema drift and schema-evolution decisions."
+        ],
+        [
+          "38",
+          "Reconciliation: Counts, Profiles and Row Fingerprints",
+          "Ch 8 \u2014 Proving the migration is complete",
+          "Full",
+          "Five-level reconciliation model."
+        ],
+        [
+          "39",
+          "Assert, Error Rows and Business Rules",
+          "Ch 8",
+          "Full",
+          "Assert/business rules/error paths."
+        ],
+        [
+          "40",
+          "Data Flow Performance Fundamentals",
+          "Ch 17 \u2014 Fine-tuning copies and data flows",
+          "Full",
+          "Startup, TTL, partitioning, skew/shuffle concepts and troubleshooting."
+        ],
+        [
+          "41",
+          "Managed Identity, Key Vault and Authentication",
+          "Ch 14; Ch 15",
+          "Full",
+          "Credential patterns and authentication trade-offs."
+        ],
+        [
+          "42",
+          "CMK and Factory Encryption",
+          "Ch 14; Ch 15",
+          "Full",
+          "CMK paths, prerequisites and lifecycle implications."
+        ],
+        [
+          "43",
+          "Trusted Service: Legacy vs Modern",
+          "Ch 14",
+          "Full",
+          "Modern/Legacy trusted-service treatment."
+        ],
+        [
+          "44",
+          "Monitoring, Alerts and Run History",
+          "Ch 12 \u2014 Monitoring, failures and reruns",
+          "Full",
+          "Runs, activity runs, diagnostics, alerts and retention."
+        ],
+        [
+          "45",
+          "Operational Logging and Sensitive Data",
+          "Ch 14; Ch 15",
+          "Full",
+          "Secure input/output, session logs, Data Preview and monitoring exposure."
+        ],
+        [
+          "46",
+          "Git Integration and Collaboration",
+          "Ch 18 \u2014 From Dev to Prod",
+          "Full",
+          "Git, collaboration and environment separation."
+        ],
+        [
+          "47",
+          "ARM Templates and Automated Publishing",
+          "Ch 18",
+          "Full",
+          "adf_publish and automated validation/export routes."
+        ],
+        [
+          "48",
+          "Bicep and Infrastructure as Code",
+          "Ch 18",
+          "Partial",
+          "Bicep is pointed to, but the roadmap's practical provisioning outline is not a full study-guide lesson."
+        ],
+        [
+          "49",
+          "Deployment Parameters, Global Parameters and Trigger Handling",
+          "Ch 18; Ch 12",
+          "Full",
+          "Environment configuration and trigger handling."
+        ],
+        [
+          "50",
+          "Reliability, Idempotency and Recovery",
+          "Ch 13 \u2014 Recovering from failures",
+          "Full",
+          "Retries, idempotency, reruns and region/zone recovery."
+        ],
+        [
+          "51",
+          "Copy Performance: DIUs, Parallel Copies and Bottlenecks",
+          "Ch 17",
+          "Full",
+          "Copy bottlenecks, DIUs, parallel copies and throttling."
+        ],
+        [
+          "52",
+          "ADF Cost Model and FinOps",
+          "Ch 16 \u2014 Performance and cost",
+          "Full",
+          "Cost drivers, workload estimation and controls."
+        ],
+        [
+          "53",
+          "Scale and Concurrency Trade-offs",
+          "Ch 3; Ch 17",
+          "Partial",
+          "Relevant controls exist but no single consolidated concurrency-budget architecture lesson."
+        ],
+        [
+          "54",
+          "Architecture Trade-offs: ADF vs Databricks vs Synapse",
+          "Ch 1; Ch 11; Ch 20",
+          "Partial",
+          "Decision concepts are distributed; no dedicated ADF/Databricks/Synapse decision matrix."
+        ],
+        [
+          "55",
+          "ADF + Azure Databricks",
+          "Ch 3; Ch 13",
+          "Full",
+          "Notebook activity, parameters, outputs and recovery boundaries."
+        ],
+        [
+          "56",
+          "ADF + Azure Synapse",
+          "Ch 3; Ch 11",
+          "Partial",
+          "Synapse activities are referenced, but there is no dedicated ADF+Synapse architecture study block."
+        ],
+        [
+          "57",
+          "ADF vs Fabric Data Factory in 2026",
+          "Ch 20; Ch 1",
+          "Full",
+          "Current positioning and migration/capability framing."
+        ],
+        [
+          "58",
+          "Enterprise Migration Architecture",
+          "Ch 19; Ch 8; Ch 9; Ch 14; Ch 18; Ch 12; Ch 13",
+          "Partial",
+          "All ingredients exist, but no single end-to-end migration architecture case integrates them."
+        ],
+        [
+          "59",
+          "ADF Interview Scenario Drills",
+          "Ch 21; Scenario set; 10 diagnostic questions",
+          "Full",
+          "Scenario-based practice and diagnostics exist; coverage is broad but varies by scenario depth."
+        ],
+        [
+          "60",
+          "ADF Architecture Review Capstone",
+          "Ch 21; Ch 19; Ch 14; Ch 18; Ch 16-17",
+          "Partial",
+          "Review concepts exist, but there is no explicit end-to-end capstone matching the roadmap evidence item."
+        ]
+      ],
+      "row_count": 60,
+      "column_count": 5
+    }
+  ],
+  "sheets": [
+    {
+      "name": "ADF Master Roadmap",
+      "kind": "syllabus"
+    },
+    {
+      "name": "Journey Progress Tracker",
+      "kind": "tracker"
+    },
+    {
+      "name": "Architecture & Decision Model",
+      "kind": "resource",
+      "resource_id": 61
+    },
+    {
+      "name": "Portfolio & Scenarios",
+      "kind": "resource",
+      "resource_id": 62
+    },
+    {
+      "name": "Suggested Resources",
+      "kind": "resource",
+      "resource_id": 63
+    },
+    {
+      "name": "Mental Model",
+      "kind": "resource",
+      "resource_id": 64
+    },
+    {
+      "name": "Study Guide Crosswalk",
+      "kind": "resource",
+      "resource_id": 65
+    }
+  ]
+}
