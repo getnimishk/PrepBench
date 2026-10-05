@@ -96,15 +96,16 @@ Every technical detail in the 18 scenarios has been verified against current Mic
    - *Verification:* The scenario demonstrates how renaming an activity without a Custom Checkpoint Key triggers a re-read of the entire CDC change log from inception, causing source database saturation.
 
 4. **Multi-Tier Concurrency, DIUs, and Bottleneck Analysis (Scenario 11 [ID 10] / Topics 52 & 53):**
-   - *Technical Fact:* ADF concurrency operates across distinct architectural layers that multiply connection pressure:
-     1. *Pipeline Concurrency:* Configured per pipeline (no factory-wide default ceiling); additional triggered runs enter a `Queued` state once reached.
+   - *Technical Fact:* ADF concurrency operates across distinct architectural layers that multiply potential connection pressure:
+     1. *Pipeline Concurrency:* Controls the maximum number of concurrent runs of that pipeline (configured per pipeline with no factory-wide default ceiling; additional triggered runs queue once reached), distinct from ADF service-level concurrent pipeline-run limits across the factory.
      2. *ForEach `batchCount`:* Controls parallel loop execution (1 to 50 iterations; sequential if `isSequential: true`).
-     3. *Copy `parallelCopies`:* Dictates concurrent sub-tasks/threads (1 to 32) opening parallel database connections per copy activity.
+     3. *Copy `parallelCopies`:* Dictates concurrent sub-tasks/threads (1 to 32) opened per copy activity.
      4. *Data Integration Units (DIUs):* Allocate cloud CPU/memory compute capacity (minimum 4 DIUs per Azure IR run, billed at 1-minute minimum increments), completely independent of connection count.
-     5. *Source & Sink Endpoint Capacities:* External limits (e.g. 20-connection application pool, thread pool exhaustion, transaction-log locks).
-     The resulting connection load follows the multiplicative formula:
-     $$\text{Total Peak Connections} = (\text{Active Pipeline Runs}) \times (\text{ForEach } \texttt{batchCount}) \times (\text{Copy } \texttt{parallelCopies})$$
-   - *Verification:* Scenario 11 comprehensively teaches learners how unbounded pipeline concurrency combined with high `batchCount` and `parallelCopies` saturates source pools, triggering connection timeouts, exponential retries, and bill doubling. It provides a structured 5-tier bottleneck diagnosis framework (Queue tier $\rightarrow$ Loop tier $\rightarrow$ Activity stream tier $\rightarrow$ Network/IR tier $\rightarrow$ Endpoint tier) and reverse concurrency budgeting.
+     5. *Source & Sink Endpoint Capacities:* External limits (e.g. the scenario's stated 20-connection database pool constraint, thread pool exhaustion, transaction-log locks).
+     Potential connection pressure follows an upper-bound planning model:
+     $$\text{Upper-Bound Connection Pressure} = (\text{Active Pipeline Runs}) \times (\text{ForEach } \texttt{batchCount}) \times (\text{Copy } \texttt{parallelCopies})$$
+     *Clarification:* Effective runtime connections can be lower because ADF dynamically determines copy parallelism and connector behavior varies by source/sink.
+   - *Verification:* Scenario 11 comprehensively teaches learners how uncoordinated pipeline concurrency, high `batchCount`, and `parallelCopies` saturate source pools, triggering connection timeouts, exponential retries, and bill doubling. It provides a structured 5-tier bottleneck diagnosis framework (Queue tier $\rightarrow$ Loop tier $\rightarrow$ Activity stream tier $\rightarrow$ Network/IR tier $\rightarrow$ Endpoint tier) and reverse concurrency budgeting.
 
 5. **ADF Run History 45-Day Retention & Compliance Logging (Scenario 10 [ID 9] / Topics 44 & 45):**
    - *Technical Fact:* Native ADF Studio monitoring portal retains pipeline, activity, and trigger run history for exactly **45 days**.

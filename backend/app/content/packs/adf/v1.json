@@ -4048,22 +4048,22 @@
               {
                 "prompt": "What is the operational difference between ADF pipeline concurrency and ForEach activity batchCount?",
                 "options": [
-                  "Pipeline concurrency controls simultaneous runs of a pipeline (no default max); ForEach batchCount limits concurrent iterations within a loop (default 20, max 50)",
+                  "Pipeline concurrency controls the maximum number of concurrent runs of that pipeline (no default max); ForEach batchCount limits concurrent iterations within a loop (default 20, max 50)",
                   "Pipeline concurrency has a hard limit of 5; ForEach batchCount is unlimited",
                   "They are identical settings configured in the factory properties"
                 ],
                 "answer": 0,
-                "why": "Pipeline concurrency defines how many instances of that specific pipeline can execute concurrently across the factory (no maximum by default; additional runs queue once reached). ForEach batchCount controls parallel loop iteration within a single execution (1 to 50, default 20)."
+                "why": "Pipeline concurrency controls the maximum number of concurrent runs of that pipeline (configured per pipeline with no maximum by default; additional runs queue once reached), which is distinct from ADF service-level concurrent pipeline-run limits across the factory. ForEach batchCount limits concurrent iterations within a loop (default 20, max 50)."
               },
               {
-                "prompt": "If a team sets ForEach batchCount: 50 to copy 50 tables simultaneously from an on-premises database with a 20-connection pool limit, what happens?",
+                "prompt": "In this scenario's architecture, an on-premises database has a stated capacity constraint of a 20-connection pool. If a team sets ForEach batchCount: 50 to copy 50 tables simultaneously, what happens?",
                 "options": [
                   "Throughput increases linearly by 250%",
                   "Connection starvation, query timeouts, and retry loops occur, inflating compute duration and cost while degrading throughput",
                   "ADF automatically scales the on-premises database connection pool"
                 ],
                 "answer": 1,
-                "why": "Parallelism that exceeds source capacity causes connection throttling and timeouts. Retrying activities consume billable DIUs and IR compute hours while overall data transfer throughput collapses."
+                "why": "Parallelism that exceeds the source database's stated capacity constraint (here, a 20-connection pool limit, which is the scenario's stated capacity constraint rather than an Azure product limit) causes connection throttling and timeouts. Retrying activities consume billable DIUs and IR compute hours while overall data transfer throughput collapses."
               },
               {
                 "prompt": "What is the architectural difference between Data Integration Units (DIUs) and degree of copy parallelism (parallelCopies) in a Copy activity?",
@@ -4073,7 +4073,7 @@
                   "They are identical settings and can never be configured independently"
                 ],
                 "answer": 0,
-                "why": "DIUs allocate the compute horsepower for the Copy activity (2 to 256 DIUs). Degree of copy parallelism (parallelCopies) specifies how many concurrent sub-tasks the activity runs (each opening a source/sink connection). Total connections equal active loops multiplied by parallelCopies."
+                "why": "DIUs allocate the compute horsepower for the Copy activity (2 to 256 DIUs). Degree of copy parallelism (parallelCopies) specifies concurrent sub-tasks/threads opened by that activity. For capacity planning, potential connection pressure follows an upper-bound planning model: (Active Pipelines) × (ForEach batchCount) × (parallelCopies). The effective number of threads/connections can be lower because ADF may dynamically determine effective copy parallelism and connector behavior varies by source/sink."
               },
               {
                 "prompt": "When diagnosing an ADF pipeline where raising DIUs and loop concurrency fails to improve data transfer speed, what should an architect investigate first?",
@@ -4087,7 +4087,7 @@
               }
             ],
             "caseStudy": {
-              "setting": "Global FinTech Analytics runs 400 nightly data ingestion pipelines moving transactional ledgers into an Azure Synapse Lakehouse.",
+              "setting": "Global FinTech Analytics runs 400 nightly data ingestion pipelines moving transactional ledgers into an Azure Synapse Analytics warehouse.",
               "events": [
                 {
                   "when": "Month 1, Week 1",
@@ -4117,8 +4117,8 @@
               {
                 "title": "The multi-tier concurrency hierarchy: Pipeline, ForEach, and Copy",
                 "text": [
-                  "ADF concurrency operates across three distinct levels: 1) Pipeline Concurrency defines simultaneous pipeline runs (no default limit; excess runs queue); 2) ForEach batchCount controls parallel loop iterations (1 to 50); 3) parallelCopies sets concurrent threads inside each Copy activity, while DIUs provision cloud compute horsepower (4 to 256).",
-                  "Total connection pressure on endpoints compounds multiplicatively: (Active Pipelines) × (ForEach batchCount) × (parallelCopies). Attempting 5 × 50 × 4 = 1,000 concurrent threads against a 20-connection database pool triggers immediate connection starvation, query timeouts, and retry cascades."
+                  "ADF concurrency operates across three distinct levels: 1) Pipeline concurrency controls the maximum number of concurrent runs of that pipeline (configured per pipeline with no default limit; excess runs queue), which is distinct from ADF service-level concurrent pipeline-run limits across the factory; 2) ForEach batchCount controls parallel loop iterations (1 to 50); 3) parallelCopies sets concurrent threads inside each Copy activity, while DIUs provision cloud compute horsepower (4 to 256).",
+                  "As a potential connection pressure / upper-bound planning model, peak connections scale as: (Active Pipelines) × (ForEach batchCount) × (parallelCopies). The effective number of threads/connections can be lower because ADF may dynamically determine effective copy parallelism and connector behavior varies by source/sink. However, as an upper-bound planning model, attempting 5 × 50 × 4 = 1,000 concurrent threads against a 20-connection database pool triggers immediate connection starvation, query timeouts, and retry cascades."
                 ]
               },
               {
@@ -4137,7 +4137,7 @@
               }
             ],
             "takeaway": [
-              "Total source/sink connection pressure equals (Active Pipelines) × (ForEach batchCount) × (parallelCopies).",
+              "Use (Active Pipelines) × (ForEach batchCount) × (parallelCopies) as a potential connection pressure / upper-bound planning model; effective connections can be lower as ADF dynamically determines copy parallelism.",
               "Perform bottleneck analysis before increasing DIUs: if the endpoint is throttled, adding ADF compute only inflates cost.",
               "Establish an explicit concurrency budget based on the smallest bottleneck in the end-to-end architecture."
             ],
