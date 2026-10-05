@@ -6,7 +6,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import {
   Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent,
-  DialogTitle, Stack, TextField, Typography,
+  DialogTitle, Link, Stack, TextField, Typography,
 } from '@mui/material';
 import { Plus, Sparkles } from 'lucide-react';
 import {
@@ -208,27 +208,103 @@ export const TopicGuidePage: React.FC = () => {
 
   return (
     <Box>
+      <Box
+        component="nav"
+        aria-label="Breadcrumb"
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          mb: '8px',
+          fontSize: (t) => t.typography.pxToRem(12),
+          color: 'text.secondary',
+          flexWrap: 'wrap',
+        }}
+      >
+        <Link
+          component={RouterLink}
+          to="/roadmaps"
+          sx={{ color: 'inherit', textDecoration: 'none', '&:hover': { textDecoration: 'underline', color: 'text.primary' } }}
+        >
+          Roadmaps
+        </Link>
+        <Box component="span" aria-hidden sx={{ opacity: 0.5 }}>›</Box>
+        <Link
+          component={RouterLink}
+          to={`/roadmaps/${rid}`}
+          sx={{ color: 'inherit', textDecoration: 'none', '&:hover': { textDecoration: 'underline', color: 'text.primary' } }}
+        >
+          {roadmap.title}
+        </Link>
+        <Box component="span" aria-hidden sx={{ opacity: 0.5 }}>›</Box>
+        <Link
+          component={RouterLink}
+          to={`/roadmaps/${rid}/topics/${tid}`}
+          sx={{ color: 'inherit', textDecoration: 'none', '&:hover': { textDecoration: 'underline', color: 'text.primary' } }}
+        >
+          {topic.title}
+        </Link>
+        <Box component="span" aria-hidden sx={{ opacity: 0.5 }}>›</Box>
+        <Box component="span">Study Guide</Box>
+      </Box>
+
       <PageHead
-        eyebrow={`Study guide · ${roadmap.title}`}
+        eyebrow={`Study Library · Guide · ${roadmap.title}`}
         title={topic.title}
-        sub="Reading builds the model. Practice proves you can retrieve it."
+        sub={topic.learning_objective ? `Objective: ${topic.learning_objective}` : 'Reading builds the mental model. Unprompted demonstration proves you can retrieve it.'}
         actions={(
           <>
-            <Button variant="outlined" onClick={() => navigate(`/roadmaps/${rid}/topics/${tid}`)}>← Back to topic</Button>
-            <Button variant="outlined" startIcon={<Plus size={16} />} onClick={() => openEditor(null)}>
-              Write a section
-            </Button>
+            <Button variant="outlined" onClick={() => navigate(`/roadmaps/${rid}/topics/${tid}`)}>← Topic criteria</Button>
             <Button
               variant="contained"
-              startIcon={drafting ? <CircularProgress aria-hidden size={16} color="inherit" /> : <Sparkles size={16} />}
-              disabled={drafting || !guide.drafting_available}
-              onClick={() => void draft()}
+              color="ink"
+              disabled={!topic.success_criteria}
+              onClick={() => navigate(`/roadmaps/${rid}/topics/${tid}/demonstrate`)}
             >
-              {drafting ? 'Drafting…' : sections.length ? 'Draft more with AI' : 'Draft with AI'}
+              Demonstrate
             </Button>
           </>
         )}
       />
+
+      {/* Authoring tools bar: secondary to the learning experience */}
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '8px',
+          mt: '8px',
+          mb: '12px',
+          pt: '8px',
+          borderTop: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        <Detail sx={{ color: 'text.secondary' }}>
+          Learner workspace — read in sequence, self-check your recall, then demonstrate mastery.
+        </Detail>
+        <Box sx={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<Plus size={14} />}
+            onClick={() => openEditor(null)}
+          >
+            Write a section
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={drafting ? <CircularProgress aria-hidden size={14} color="inherit" /> : <Sparkles size={14} />}
+            disabled={drafting || !guide.drafting_available}
+            onClick={() => void draft()}
+          >
+            {drafting ? 'Drafting…' : sections.length ? 'Draft more with AI' : 'Draft with AI'}
+          </Button>
+        </Box>
+      </Box>
 
       {!guide.drafting_available && (
         <Alert severity="info" sx={{ mt: 2 }}>{guide.drafting_unavailable_reason}</Alert>

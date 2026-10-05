@@ -3,8 +3,8 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
-import { Alert, Box, Button, TextField, Typography } from '@mui/material';
+import { Link as RouterLink, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Alert, Box, Button, Link, TextField, Typography } from '@mui/material';
 import { demonstrateTopic, getQuestions, getRoadmap, getTopicDemonstrations } from '../services/api';
 import { apiErrorMessage, loadFailed } from '../services/apiError';
 import { usePreparation } from '../context/PreparationContext';
@@ -77,6 +77,10 @@ export const TopicDemonstratePage: React.FC = () => {
   const rid = Number(roadmapId);
   const tid = Number(topicId);
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const fromStudyLibrary = (location.state as { from?: string } | null)?.from === '/learn'
+    || searchParams.get('from') === 'learn';
   const { preparations } = usePreparation();
 
   const [roadmap, setRoadmap] = useState<RoadmapDetail | null>(null);
@@ -151,13 +155,59 @@ export const TopicDemonstratePage: React.FC = () => {
 
   return (
     <Box>
+      <Box
+        component="nav"
+        aria-label="Breadcrumb"
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          mb: '8px',
+          fontSize: (t) => t.typography.pxToRem(12),
+          color: 'text.secondary',
+          flexWrap: 'wrap',
+        }}
+      >
+        <Link
+          component={RouterLink}
+          to="/roadmaps"
+          sx={{ color: 'inherit', textDecoration: 'none', '&:hover': { textDecoration: 'underline', color: 'text.primary' } }}
+        >
+          Roadmaps
+        </Link>
+        <Box component="span" aria-hidden sx={{ opacity: 0.5 }}>›</Box>
+        <Link
+          component={RouterLink}
+          to={`/roadmaps/${rid}`}
+          sx={{ color: 'inherit', textDecoration: 'none', '&:hover': { textDecoration: 'underline', color: 'text.primary' } }}
+        >
+          {roadmap.title}
+        </Link>
+        <Box component="span" aria-hidden sx={{ opacity: 0.5 }}>›</Box>
+        <Link
+          component={RouterLink}
+          to={`/roadmaps/${rid}/topics/${tid}`}
+          sx={{ color: 'inherit', textDecoration: 'none', '&:hover': { textDecoration: 'underline', color: 'text.primary' } }}
+        >
+          {topic.title}
+        </Link>
+        <Box component="span" aria-hidden sx={{ opacity: 0.5 }}>›</Box>
+        <Box component="span">Demonstrate</Box>
+      </Box>
+
       <PageHead
         eyebrow={`Demonstrate · ${phase.name}`}
         title={topic.title}
         sub="Completion is not time spent. It is whether you can meet the success criterion unprompted."
         actions={(
           <>
+            {fromStudyLibrary && (
+              <Button variant="outlined" component={RouterLink} to="/learn">
+                Back to Study Library
+              </Button>
+            )}
             <Button variant="outlined" onClick={() => navigate(`/roadmaps/${rid}/topics/${tid}`)}>← Back to topic</Button>
+            <Button variant="outlined" onClick={() => navigate(`/roadmaps/${rid}/topics/${tid}/guide`)}>Study guide</Button>
             <Button variant="outlined" component={RouterLink} to={`/roadmaps/${rid}`}>Syllabus</Button>
           </>
         )}
