@@ -20,7 +20,8 @@ import { RoadmapGanttView } from '../components/roadmap/RoadmapGanttView';
 import { formatPercentage } from '../components/roadmap/progressDisplay';
 import { apiErrorMessage, loadFailed } from '../services/apiError';
 import { LoadingState } from '../components/common/States';
-import { Bar, BigFigure, Detail, Eyebrow, Grid, PageHead, Panel, Section } from '../components/ui/primitives';
+import { Bar, BigFigure, Detail, Eyebrow, Grid, PageHead, Panel, Pill, Section } from '../components/ui/primitives';
+import { classifyResource } from '../utils/resourceClassification';
 import { MONO_STACK } from '../theme/tokens';
 
 /** What a tab shows. 'resources' is the single-sheet view's one tab holding every reference table. */
@@ -93,59 +94,72 @@ interface ResourceTableProps {
   onPurposeChange: (resource: RoadmapResource, purpose: RoadmapResourcePurpose) => void;
 }
 
-const ResourceTable: React.FC<ResourceTableProps> = ({ resource, busy, onPurposeChange }) => (
-  <Section>
-    <Panel component="section" aria-labelledby={`resource-${resource.id}`}>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px 16px', mb: '12px' }}>
-        <Box>
-          <Eyebrow>Sheet</Eyebrow>
-          <Typography variant="h5" component="h2" id={`resource-${resource.id}`}>
-            {resource.title}
-          </Typography>
+const ResourceTable: React.FC<ResourceTableProps> = ({ resource, busy, onPurposeChange }) => {
+  const classification = classifyResource(resource.title, resource.purpose);
+  const isReference = resource.purpose === 'reference';
+
+  return (
+    <Section>
+      <Panel component="section" aria-labelledby={`resource-${resource.id}`}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px 16px', mb: '12px' }}>
+          <Box sx={{ minWidth: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <Eyebrow>{isReference ? 'Reference Material · Available in Study Library' : 'Planning Sheet · Roadmaps Only'}</Eyebrow>
+              <Pill tone={classification.tone}>{classification.label}</Pill>
+            </Box>
+            <Typography variant="h5" component="h2" id={`resource-${resource.id}`} sx={{ mt: '4px' }}>
+              {resource.title}
+            </Typography>
+            <Detail sx={{ mt: '4px' }}>
+              {isReference
+                ? 'Reference material for learning and conceptual review. Available directly in the Study Library.'
+                : 'Planning sheet containing tracking fields, hours, or schedule information. Managed in Roadmaps.'}
+            </Detail>
+          </Box>
+          {/* On for a reference sheet, off for a plan sheet; the Study Library lists the former. */}
+          <FormControlLabel
+            sx={{ mr: 0, '& .MuiFormControlLabel-label': { fontSize: (t) => t.typography.pxToRem(13) } }}
+            control={(
+              <Switch
+                size="small"
+                checked={isReference}
+                disabled={busy}
+                onChange={(e) => onPurposeChange(resource, e.target.checked ? 'reference' : 'plan')}
+              />
+            )}
+            label="Show in Study Library"
+          />
         </Box>
-        {/* On for a reference sheet, off for a plan sheet; the Study Library lists the former. */}
-        <FormControlLabel
-          sx={{ mr: 0, '& .MuiFormControlLabel-label': { fontSize: (t) => t.typography.pxToRem(13) } }}
-          control={(
-            <Switch
-              size="small"
-              checked={resource.purpose === 'reference'}
-              disabled={busy}
-              onChange={(e) => onPurposeChange(resource, e.target.checked ? 'reference' : 'plan')}
-            />
-          )}
-          label="Show in Study Library"
-        />
-      </Box>
-      {/* Scrolls sideways on a phone, so it must be reachable from the keyboard. */}
-      <TableContainer sx={{ overflowX: 'auto' }} tabIndex={0} role="region" aria-label={`${resource.title} table`}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              {resource.columns.map((column) => <TableCell key={column}>{column}</TableCell>)}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {resource.rows.map((row, index) => (
-              <TableRow key={index}>
-                {row.map((cell, cellIndex) => (
-                  <TableCell
-                    key={cellIndex}
-                    sx={cellIndex > 0
-                      ? { fontFamily: MONO_STACK, fontSize: (t) => t.typography.pxToRem(11), color: 'text.secondary' }
-                      : { fontWeight: 700 }}
-                  >
-                    {cell}
-                  </TableCell>
-                ))}
+        {/* Scrolls sideways on a phone, so it must be reachable from the keyboard. */}
+        <TableContainer sx={{ overflowX: 'auto' }} tabIndex={0} role="region" aria-label={`${resource.title} table`}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                {resource.columns.map((column) => <TableCell key={column}>{column}</TableCell>)}
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    </Panel>
-  </Section>
-);
+            </TableHead>
+            <TableBody>
+              {resource.rows.map((row, index) => (
+                <TableRow key={index}>
+                  {row.map((cell, cellIndex) => (
+                    <TableCell
+                      key={cellIndex}
+                      sx={cellIndex > 0
+                        ? { fontFamily: MONO_STACK, fontSize: (t) => t.typography.pxToRem(11), color: 'text.secondary' }
+                        : { fontWeight: 700 }}
+                    >
+                      {cell}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Panel>
+    </Section>
+  );
+};
 
 const hours = (h: number) => (Number.isInteger(h) ? `${h}h` : `${h.toFixed(1)}h`);
 
@@ -344,7 +358,7 @@ export const RoadmapDetailPage: React.FC = () => {
       {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice(null)}>{notice}</Alert>}
 
       <PageHead
-        eyebrow="Roadmap"
+        eyebrow="Planning Workspace · Roadmap"
         title={roadmap.title}
         sub={`${roadmap.source_filename ?? 'Built here'} · every topic carries a learning objective and a success criterion, which is what marks it complete.`}
         actions={(
@@ -359,6 +373,7 @@ export const RoadmapDetailPage: React.FC = () => {
                 Study guide ({roadmap.linked_pack_title || 'Full Guide'})
               </Button>
             )}
+            <Button variant="outlined" component={RouterLink} to="/learn">Study Library →</Button>
             <Button variant="outlined" onClick={() => setTabKey(journeyKey)}>Phase overview</Button>
             <Button variant="outlined" component={RouterLink} to={`/roadmaps/${id}/edit`}>Edit plan</Button>
             {!multiSheet && roadmap.resources.length > 0 && (

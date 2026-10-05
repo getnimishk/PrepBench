@@ -4,7 +4,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Box, Button } from '@mui/material';
+import { Box, Button, Typography } from '@mui/material';
 import { getContentPack, getDomainDetail, getReferenceSheets, getRoadmap, getRoadmaps } from '../services/api';
 import { apiErrorMessage } from '../services/apiError';
 import { usePreparation } from '../context/PreparationContext';
@@ -18,21 +18,24 @@ import { ErrorState, LoadingState } from '../components/common/States';
 import {
   Actions, Bar, BigFigure, Detail, Eyebrow, Grid, Metric, MetricRow, Note, PageHead, Panel, PanelHead, Pill, Row, Section, Sub,
 } from '../components/ui/primitives';
+import { classifyResource } from '../utils/resourceClassification';
+import { chooseRoadmap } from '../services/roadmapChoice';
+
+export { chooseRoadmap };
 
 /**
- * The Study Library: what to learn next, and how to prove it has been learnt.
+ * The Study Library: the user's learning workspace.
  *
- * The prototype's Learn screen, from the learner's own evidence. Three panels:
+ * Answers: “What should I study now, and how do I learn/prove it?”
  *
- *   Recommended        the preparation's weakest area, as its readiness rules
- *                      name it -- the same area Home tells you to practise --
- *                      with that area's own figures
- *   Continue learning  the roadmap topic in progress, or the next one not
- *                      started, with the two ways on: open it, or demonstrate it
- *   Roadmap            the plan's progress and its first four phases
- *
- * It used to be two links, to Roadmaps and to the Question Bank. Both are in
- * the rail, so the page said nothing the navigation had not.
+ * Information architecture order:
+ *   1. Recommended       weakest area from readiness figures
+ *   2. Continue Learning topic in progress or next not started
+ *   3. Relevant Guide    attached guide packs and mapped chapters from active topic
+ *   4. Reference Material reference sheets from roadmaps (concepts, models, courses)
+ *   5. Practice          weak area drills, spaced review, question bank, mock exam
+ *   6. Demonstrate       prove learning against criteria unprompted
+ *   7. Roadmap Progress  overarching roadmap progress anchoring the learning
  */
 
 const STATUS_LABEL: Record<RoadmapTopicStatus, string> = {
@@ -57,10 +60,6 @@ function excerpt(text: string, max = 120): string {
 const byOrder = <T extends { order_index: number; id: number }>(a: T, b: T) =>
   a.order_index - b.order_index || a.id - b.id;
 
-import { chooseRoadmap } from '../services/roadmapChoice';
-
-export { chooseRoadmap };
-
 /** The topic in progress, else the first one not started, in plan order. */
 export function topicToContinue(detail: RoadmapDetail): { topic: RoadmapTopic; phase: RoadmapPhase } | null {
   const flat = [...detail.phases].sort(byOrder)
@@ -70,10 +69,14 @@ export function topicToContinue(detail: RoadmapDetail): { topic: RoadmapTopic; p
     ?? null;
 }
 
-// ---- Recommended ---------------------------------------------------------
+// ---- 1. Recommended ------------------------------------------------------
 
-const RecommendedPanel: React.FC<{ preparation: Subject | null; loadingPreparation: boolean }> = ({
-  preparation, loadingPreparation,
+const RecommendedPanel: React.FC<{
+  preparation: Subject | null;
+  loadingPreparation: boolean;
+  activeRoadmap?: RoadmapDetail | null;
+}> = ({
+  preparation, loadingPreparation, activeRoadmap,
 }) => {
   const area = preparation?.readiness.weakest_domain ?? null;
   const [detail, setDetail] = useState<DomainDetail | null>(null);
@@ -105,11 +108,24 @@ const RecommendedPanel: React.FC<{ preparation: Subject | null; loadingPreparati
       <Panel component="section" aria-labelledby="recommended-title">
         <PanelHead eyebrow="Recommended" title="Nothing to recommend yet" titleId="recommended-title" />
         <Sub sx={{ mb: 0 }}>{why}</Sub>
-        {preparation && preparation.has_exam_profile && preparation.question_count > 0 && (
+        {preparation && preparation.question_count > 0 && (
           <Actions sx={{ mt: '16px' }}>
-            <Button variant="contained" component={RouterLink} to={`/exam-setup?kind=mock&subject=${preparation.id}`}>
-              Take a mock
+            <Button
+              variant="contained"
+              component={RouterLink}
+              to={`/exam-setup?kind=drill&subject=${preparation.id}&limit=5`}
+            >
+              Take a quick diagnostic (5 questions)
             </Button>
+            {preparation.has_exam_profile && (
+              <Button
+                variant="outlined"
+                component={RouterLink}
+                to={`/exam-setup?kind=mock&subject=${preparation.id}`}
+              >
+                Take a full mock
+              </Button>
+            )}
           </Actions>
         )}
       </Panel>
@@ -119,6 +135,11 @@ const RecommendedPanel: React.FC<{ preparation: Subject | null; loadingPreparati
   const domainState = preparation.readiness.domains.find((d) => d.domain === area)?.state;
   const underFloor = domainState === 'needs_work';
   const floor = preparation.readiness.rules?.domain_floor_pct;
+
+  // Look for a roadmap topic matching this area
+  const matchedTopic = activeRoadmap?.phases.flatMap((ph) => ph.topics.map((t) => ({ topic: t, phase: ph })))
+    .find((x) => x.topic.title.toLowerCase().includes(area.toLowerCase()) || area.toLowerCase().includes(x.topic.title.toLowerCase()));
+
   const areaHref = `/analytics/area?subject=${preparation.id}&domain=${encodeURIComponent(area)}`;
   const drillHref = `/exam-setup?kind=drill&subject=${preparation.id}&domain=${encodeURIComponent(area)}`;
 
@@ -128,8 +149,6 @@ const RecommendedPanel: React.FC<{ preparation: Subject | null; loadingPreparati
         eyebrow="Recommended"
         title={area}
         titleId="recommended-title"
-        // "Weakest" only for an area under the floor. The lowest-scoring area of
-        // a preparation doing well is not a problem, and a warning would say it was.
         aside={<Pill tone={underFloor ? 'warning' : 'neutral'}>{underFloor ? 'Weakest area' : 'Lowest area'}</Pill>}
       />
       {error !== null ? (
@@ -155,6 +174,11 @@ const RecommendedPanel: React.FC<{ preparation: Subject | null; loadingPreparati
             <Metric value={detail.missed_questions} label="missed" />
             <Metric value={detail.unreviewed_misses} label="misses to read" />
           </MetricRow>
+          {matchedTopic && (
+            <Detail sx={{ mt: '10px' }}>
+              Mapped to roadmap: <strong>{matchedTopic.topic.title}</strong> ({matchedTopic.phase.name})
+            </Detail>
+          )}
         </>
       )}
       <Actions sx={{ mt: '16px' }}>
@@ -165,7 +189,7 @@ const RecommendedPanel: React.FC<{ preparation: Subject | null; loadingPreparati
   );
 };
 
-// ---- Continue learning ---------------------------------------------------
+// ---- 2. Continue learning ------------------------------------------------
 
 const ContinuePanel: React.FC<{ detail: RoadmapDetail | null; hasRoadmap: boolean }> = ({ detail, hasRoadmap }) => {
   const next = detail ? topicToContinue(detail) : null;
@@ -211,13 +235,386 @@ const ContinuePanel: React.FC<{ detail: RoadmapDetail | null; hasRoadmap: boolea
       )}
       <Actions sx={{ mt: '14px' }}>
         <Button variant="contained" component={RouterLink} to={topicHref}>Continue</Button>
-        <Button variant="outlined" component={RouterLink} to={`${topicHref}/demonstrate`}>Demonstrate</Button>
+        <Button variant="outlined" component={RouterLink} to={`${topicHref}/demonstrate`} state={{ from: '/learn' }}>Demonstrate</Button>
       </Actions>
     </Panel>
   );
 };
 
-// ---- Roadmap -------------------------------------------------------------
+// ---- 3. Relevant Guide ----------------------------------------------------
+
+/** One attached pack's chapters, each with a way to read it. */
+const GuidePackPanel: React.FC<{ pack: ContentPackDetail }> = ({ pack }) => (
+  <Panel component="section" aria-labelledby={`guide-${pack.pack_id}`}>
+    <PanelHead
+      eyebrow="Relevant Guide"
+      title={pack.title}
+      titleId={`guide-${pack.pack_id}`}
+      aside={<Button variant="outlined" component={RouterLink} to={`/learn/guides/${pack.pack_id}`}>All chapters</Button>}
+    >
+      <Detail>{pack.chapters.length} chapters · Shared study reference material</Detail>
+    </PanelHead>
+    {pack.chapters.map((c, i) => (
+      <Row
+        key={c.id}
+        title={`${i + 1} · ${c.title}`}
+        detail={c.summary}
+        action={(
+          <Button
+            size="small"
+            variant="outlined"
+            component={RouterLink}
+            to={`/learn/guides/${pack.pack_id}/${c.id}`}
+            aria-label={`Read chapter ${i + 1}: ${c.title}`}
+          >
+            Read
+          </Button>
+        )}
+      />
+    ))}
+  </Panel>
+);
+
+const RelevantGuideSection: React.FC<{
+  preparation: Subject | null;
+  activeTopic?: RoadmapTopic | null;
+}> = ({ preparation, activeTopic }) => {
+  const mapped = activeTopic?.mapped_chapters ?? [];
+  const links = preparation?.content_packs ?? [];
+  const [packs, setPacks] = useState<ContentPackDetail[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPacks([]);
+    setError(null);
+    if (links.length === 0) return undefined;
+    let cancelled = false;
+    Promise.all(links.map((cp) => getContentPack(cp.pack_id, cp.pack_version)))
+      .then((result) => { if (!cancelled) setPacks(result); })
+      .catch((err) => { if (!cancelled) setError(apiErrorMessage(err, '')); });
+    return () => { cancelled = true; };
+  }, [preparation?.id, links.length]);
+
+  if (mapped.length === 0 && links.length === 0) return null;
+
+  return (
+    <Section>
+      {mapped.length > 0 && (
+        <Panel component="section" aria-labelledby="relevant-guide-topic-title" sx={{ mb: packs.length > 0 ? '16px' : 0 }}>
+          <PanelHead
+            eyebrow={`Relevant Guide · ${mapped[0].pack_title}`}
+            title={activeTopic ? `Study Guide for ${activeTopic.title}` : mapped[0].chapter_title}
+            titleId="relevant-guide-topic-title"
+            aside={mapped.length === 1 && mapped[0].coverage ? (
+              <Pill tone="success">{mapped[0].coverage} Coverage</Pill>
+            ) : undefined}
+          >
+            <Detail>
+              Curated built-in study guide mapped to your active roadmap topic.
+            </Detail>
+          </PanelHead>
+          <Box sx={{ display: 'grid', gap: '12px', mt: '14px' }}>
+            {mapped.map((ch) => (
+              <Box
+                key={ch.chapter_id}
+                sx={{
+                  p: '14px 16px',
+                  borderRadius: 1,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  bgcolor: 'background.paper',
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                  <Box sx={{ flex: 1, minWidth: 260 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                      Chapter {ch.chapter_number} · {ch.chapter_title}
+                    </Typography>
+                    {ch.chapter_summary && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: '4px' }}>
+                        {ch.chapter_summary}
+                      </Typography>
+                    )}
+                  </Box>
+                  <Actions>
+                    <Button
+                      variant="contained"
+                      color="ink"
+                      component={RouterLink}
+                      to={`/learn/guides/${ch.pack_id}/${ch.chapter_id}`}
+                      aria-label={`Read chapter ${ch.chapter_number}: ${ch.chapter_title}`}
+                    >
+                      Read Chapter {ch.chapter_number}
+                    </Button>
+                  </Actions>
+                </Box>
+                {ch.relevant_sections && (
+                  <Detail sx={{ mt: '10px' }}>
+                    <strong>Relevant sections:</strong> {ch.relevant_sections}
+                  </Detail>
+                )}
+                {ch.learning_evidence && (
+                  <Detail sx={{ mt: '6px', color: 'success.dark' }}>
+                    <strong>Learning evidence:</strong> {ch.learning_evidence}
+                  </Detail>
+                )}
+              </Box>
+            ))}
+          </Box>
+        </Panel>
+      )}
+
+      {error !== null ? (
+        <Panel component="section" aria-label="Guide">
+          <ErrorState what="Could not load your guide." saved="nothing_to_save" detail={error} />
+        </Panel>
+      ) : packs.length > 0 && (
+        <Box sx={{ display: 'grid', gap: '16px' }}>
+          {packs.map((pack) => <GuidePackPanel key={pack.pack_id} pack={pack} />)}
+        </Box>
+      )}
+    </Section>
+  );
+};
+
+// ---- 4. Reference Material ------------------------------------------------
+
+/** The selected preparation's reference sheets, each linking to its Roadmaps tab. */
+const ReferenceSheetsSection: React.FC<{ preparation: Subject | null }> = ({ preparation }) => {
+  const [sheets, setSheets] = useState<ReferenceSheet[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const preparationId = preparation?.id ?? null;
+
+  useEffect(() => {
+    setSheets([]);
+    setError(null);
+    if (preparationId === null) return undefined;
+    let cancelled = false;
+    getReferenceSheets(preparationId)
+      .then((result) => { if (!cancelled) setSheets(result); })
+      .catch((err) => { if (!cancelled) setError(apiErrorMessage(err, '')); });
+    return () => { cancelled = true; };
+  }, [preparationId, attempt]);
+
+  if (error !== null) {
+    return (
+      <Section>
+        <Panel component="section" aria-label="Your reference sheets">
+          <ErrorState
+            what="Could not load your reference sheets."
+            saved="nothing_to_save"
+            detail={error}
+            onRetry={() => setAttempt((n) => n + 1)}
+          />
+        </Panel>
+      </Section>
+    );
+  }
+  if (sheets.length === 0) return null;
+
+  return (
+    <Section>
+      <Panel component="section" aria-labelledby="reference-sheets-title">
+        <PanelHead eyebrow="Reference Material" title="Your reference sheets" titleId="reference-sheets-title">
+          <Detail>{sheets.length} {sheets.length === 1 ? 'sheet' : 'sheets'} from your roadmaps — concepts, comparisons, and mental models to study from</Detail>
+        </PanelHead>
+        {sheets.map((sheet) => {
+          const kind = classifyResource(sheet.name, 'reference');
+          return (
+            <Row
+              key={sheet.resource_id}
+              title={sheet.name}
+              detail={sheet.roadmap_title}
+              middle={<Pill tone={kind.tone}>{kind.label}</Pill>}
+              action={(
+                <Button
+                  size="small"
+                  variant="outlined"
+                  component={RouterLink}
+                  to={`/roadmaps/${sheet.roadmap_id}?resource=${sheet.resource_id}`}
+                  aria-label={`Open ${sheet.name} in ${sheet.roadmap_title}`}
+                >
+                  Open
+                </Button>
+              )}
+            />
+          );
+        })}
+      </Panel>
+    </Section>
+  );
+};
+
+// ---- 5. Practice ---------------------------------------------------------
+
+const PracticeSection: React.FC<{
+  preparation: Subject | null;
+  weakestArea?: string | null;
+}> = ({ preparation, weakestArea }) => {
+  if (!preparation) return null;
+  const drillHref = weakestArea
+    ? `/exam-setup?kind=drill&subject=${preparation.id}&domain=${encodeURIComponent(weakestArea)}`
+    : `/exam-setup?kind=drill&subject=${preparation.id}`;
+
+  return (
+    <Section>
+      <Panel component="section" aria-labelledby="study-practice-title">
+        <PanelHead
+          eyebrow="Practice"
+          title="Practise what you are learning"
+          titleId="study-practice-title"
+          aside={<Button variant="outlined" component={RouterLink} to="/practice">All practice formats</Button>}
+        >
+          <Detail>Test recall and understanding against exam questions and spaced reviews.</Detail>
+        </PanelHead>
+        <Grid columns={4} sx={{ mt: '14px' }}>
+          <Box
+            component={RouterLink}
+            to={drillHref}
+            sx={{
+              display: 'block', textDecoration: 'none', color: 'text.primary', minWidth: 0,
+              bgcolor: 'surfaceContainerHigh.main', border: '1px solid', borderColor: 'divider', borderRadius: '13px', p: '18px',
+              '&:hover': { borderColor: 'primary.main' },
+            }}
+          >
+            <Eyebrow>Targeted Drill</Eyebrow>
+            <Typography variant="h6" component="h3" sx={{ mt: '4px', fontSize: (t) => t.typography.pxToRem(15) }}>
+              {weakestArea ? `Drill ${weakestArea}` : 'Weak area drill'}
+            </Typography>
+            <Detail sx={{ mt: '6px' }}>Focus on questions in your lowest-scoring area</Detail>
+          </Box>
+          <Box
+            component={RouterLink}
+            to="/practice/spaced"
+            sx={{
+              display: 'block', textDecoration: 'none', color: 'text.primary', minWidth: 0,
+              bgcolor: 'surfaceContainerHigh.main', border: '1px solid', borderColor: 'divider', borderRadius: '13px', p: '18px',
+              '&:hover': { borderColor: 'primary.main' },
+            }}
+          >
+            <Eyebrow>Memory Retrieval</Eyebrow>
+            <Typography variant="h6" component="h3" sx={{ mt: '4px', fontSize: (t) => t.typography.pxToRem(15) }}>
+              Spaced Review
+            </Typography>
+            <Detail sx={{ mt: '6px' }}>Review questions scheduled for memory retention</Detail>
+          </Box>
+          <Box
+            component={RouterLink}
+            to="/question-bank"
+            sx={{
+              display: 'block', textDecoration: 'none', color: 'text.primary', minWidth: 0,
+              bgcolor: 'surfaceContainerHigh.main', border: '1px solid', borderColor: 'divider', borderRadius: '13px', p: '18px',
+              '&:hover': { borderColor: 'primary.main' },
+            }}
+          >
+            <Eyebrow>Question Bank</Eyebrow>
+            <Typography variant="h6" component="h3" sx={{ mt: '4px', fontSize: (t) => t.typography.pxToRem(15) }}>
+              Browse by Topic
+            </Typography>
+            <Detail sx={{ mt: '6px' }}>Filter questions by curriculum topics and keywords</Detail>
+          </Box>
+          <Box
+            component={RouterLink}
+            to={`/exam-setup?kind=mock&subject=${preparation.id}`}
+            sx={{
+              display: 'block', textDecoration: 'none', color: 'text.primary', minWidth: 0,
+              bgcolor: 'surfaceContainerHigh.main', border: '1px solid', borderColor: 'divider', borderRadius: '13px', p: '18px',
+              '&:hover': { borderColor: 'primary.main' },
+            }}
+          >
+            <Eyebrow>Full Simulation</Eyebrow>
+            <Typography variant="h6" component="h3" sx={{ mt: '4px', fontSize: (t) => t.typography.pxToRem(15) }}>
+              Mock Exam
+            </Typography>
+            <Detail sx={{ mt: '6px' }}>Simulate full exam conditions and update readiness</Detail>
+          </Box>
+        </Grid>
+      </Panel>
+    </Section>
+  );
+};
+
+// ---- 6. Demonstrate ------------------------------------------------------
+
+const DemonstrateSection: React.FC<{
+  detail: RoadmapDetail | null;
+  hasRoadmap: boolean;
+}> = ({ detail, hasRoadmap }) => {
+  const next = detail ? topicToContinue(detail) : null;
+
+  return (
+    <Section>
+      <Panel component="section" aria-labelledby="study-demonstrate-title">
+        <PanelHead
+          eyebrow="Demonstrate"
+          title="Prove your learning"
+          titleId="study-demonstrate-title"
+          aside={next ? (
+            <Button
+              variant="contained"
+              color="ink"
+              component={RouterLink}
+              to={`/roadmaps/${next.topic.roadmap_id}/topics/${next.topic.id}/demonstrate`}
+              state={{ from: '/learn' }}
+            >
+              Demonstrate topic
+            </Button>
+          ) : undefined}
+        >
+          <Detail>
+            Completion is earned by demonstrating a topic unprompted against its success criterion — not by time spent or a checkbox.
+          </Detail>
+        </PanelHead>
+        {next ? (
+          <Box sx={{ mt: '14px', p: '16px', borderRadius: '9px', bgcolor: 'surfaceContainerHigh.main', border: '1px solid', borderColor: 'divider' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+              <Box>
+                <Eyebrow>Current topic to demonstrate</Eyebrow>
+                <Typography variant="h6" component="h3" sx={{ mt: '2px', fontSize: (t) => t.typography.pxToRem(16) }}>
+                  {next.topic.title}
+                </Typography>
+                <Detail sx={{ mt: '2px' }}>{next.phase.name}</Detail>
+              </Box>
+              <Actions>
+                <Button
+                  variant="outlined"
+                  component={RouterLink}
+                  to={`/roadmaps/${next.topic.roadmap_id}/topics/${next.topic.id}`}
+                >
+                  View criteria
+                </Button>
+                <Button
+                  variant="contained"
+                  color="ink"
+                  component={RouterLink}
+                  to={`/roadmaps/${next.topic.roadmap_id}/topics/${next.topic.id}/demonstrate`}
+                  state={{ from: '/learn' }}
+                >
+                  Demonstrate now
+                </Button>
+              </Actions>
+            </Box>
+            {next.topic.success_criteria && (
+              <Note sx={{ mt: '12px' }}>
+                <Box component="b" sx={{ display: 'block', mb: '2px' }}>Criterion to meet unprompted:</Box>
+                {next.topic.success_criteria}
+              </Note>
+            )}
+          </Box>
+        ) : (
+          <Sub sx={{ mb: 0 }}>
+            {hasRoadmap
+              ? 'All topics in your active roadmap have been demonstrated! Choose another topic from your roadmap to recheck or keep skills sharp.'
+              : 'Select a roadmap topic to demonstrate mastery against its success criterion.'}
+          </Sub>
+        )}
+      </Panel>
+    </Section>
+  );
+};
+
+// ---- 7. Roadmap Progress -------------------------------------------------
 
 const PhaseCard: React.FC<{ roadmapId: number; phase: RoadmapPhase }> = ({ roadmapId, phase }) => {
   const counted = phase.topics.filter((t) => t.status !== 'skipped');
@@ -259,7 +656,7 @@ const RoadmapPanel: React.FC<{
   return (
     <Panel component="section" aria-labelledby="roadmap-title">
       <PanelHead
-        eyebrow="Roadmap"
+        eyebrow="Roadmap Progress"
         title={detail.title}
         titleId="roadmap-title"
         aside={(
@@ -289,156 +686,6 @@ const RoadmapPanel: React.FC<{
         </Note>
       )}
     </Panel>
-  );
-};
-
-// ---- Guide ----------------------------------------------------------------
-
-/** One attached pack's chapters, each with a way to read it.
- *
- * No fixed technology catalogue (D2): this panel exists only for a
- * preparation that actually has a pack attached, and shows only that pack --
- * never a browsable list of every guide that could exist.
- */
-const GuidePackPanel: React.FC<{ pack: ContentPackDetail }> = ({ pack }) => (
-  <Panel component="section" aria-labelledby={`guide-${pack.pack_id}`}>
-    <PanelHead
-      eyebrow="Guide"
-      title={pack.title}
-      titleId={`guide-${pack.pack_id}`}
-      aside={<Button variant="outlined" component={RouterLink} to={`/learn/guides/${pack.pack_id}`}>All chapters</Button>}
-    >
-      <Detail>{pack.chapters.length} chapters</Detail>
-    </PanelHead>
-    {pack.chapters.map((c, i) => (
-      <Row
-        key={c.id}
-        title={`${i + 1} · ${c.title}`}
-        detail={c.summary}
-        action={(
-          <Button
-            size="small"
-            variant="outlined"
-            component={RouterLink}
-            to={`/learn/guides/${pack.pack_id}/${c.id}`}
-            aria-label={`Read chapter ${i + 1}: ${c.title}`}
-          >
-            Read
-          </Button>
-        )}
-      />
-    ))}
-  </Panel>
-);
-
-const GuideSection: React.FC<{ preparation: Subject | null }> = ({ preparation }) => {
-  const links = preparation?.content_packs ?? [];
-  const [packs, setPacks] = useState<ContentPackDetail[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setPacks([]);
-    setError(null);
-    if (links.length === 0) return undefined;
-    let cancelled = false;
-    Promise.all(links.map((cp) => getContentPack(cp.pack_id, cp.pack_version)))
-      .then((result) => { if (!cancelled) setPacks(result); })
-      .catch((err) => { if (!cancelled) setError(apiErrorMessage(err, '')); });
-    return () => { cancelled = true; };
-    // links is derived from `preparation` fresh each render; comparing its
-    // length is enough here since a preparation's own attach/detach flow
-    // (PreparationEditPage) is the only thing that changes it.
-  }, [preparation?.id, links.length]);
-
-  if (links.length === 0) return null;
-
-  return (
-    <Section>
-      {error !== null ? (
-        <Panel component="section" aria-label="Guide">
-          <ErrorState what="Could not load your guide." saved="nothing_to_save" detail={error} />
-        </Panel>
-      ) : packs.length === 0 ? (
-        <Panel component="section" aria-label="Guide"><LoadingState label="Loading your guide…" /></Panel>
-      ) : (
-        <Box sx={{ display: 'grid', gap: '16px' }}>
-          {packs.map((pack) => <GuidePackPanel key={pack.pack_id} pack={pack} />)}
-        </Box>
-      )}
-    </Section>
-  );
-};
-
-// ---- Reference sheets -----------------------------------------------------
-
-/** The selected preparation's reference sheets, each linking to its Roadmaps tab.
- *
- * Only this preparation's roadmaps (the server filters on it): nothing is
- * shared between preparations. Plan sheets are not here -- they stay in
- * Roadmaps. No panel at all when there are none, so a preparation without any
- * is not shown an empty box.
- */
-const ReferenceSheetsSection: React.FC<{ preparation: Subject | null }> = ({ preparation }) => {
-  const [sheets, setSheets] = useState<ReferenceSheet[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState(0);
-  const preparationId = preparation?.id ?? null;
-
-  useEffect(() => {
-    setSheets([]);
-    setError(null);
-    if (preparationId === null) return undefined;
-    // Only the latest request's answer counts: switching preparation while an
-    // earlier answer is still in flight must not show the old one's sheets.
-    let cancelled = false;
-    getReferenceSheets(preparationId)
-      .then((result) => { if (!cancelled) setSheets(result); })
-      .catch((err) => { if (!cancelled) setError(apiErrorMessage(err, '')); });
-    return () => { cancelled = true; };
-  }, [preparationId, attempt]);
-
-  if (error !== null) {
-    return (
-      <Section>
-        <Panel component="section" aria-label="Your reference sheets">
-          <ErrorState
-            what="Could not load your reference sheets."
-            saved="nothing_to_save"
-            detail={error}
-            onRetry={() => setAttempt((n) => n + 1)}
-          />
-        </Panel>
-      </Section>
-    );
-  }
-  if (sheets.length === 0) return null;
-
-  return (
-    <Section>
-      <Panel component="section" aria-labelledby="reference-sheets-title">
-        <PanelHead eyebrow="Reference" title="Your reference sheets" titleId="reference-sheets-title">
-          <Detail>{sheets.length} {sheets.length === 1 ? 'sheet' : 'sheets'} from your roadmaps</Detail>
-        </PanelHead>
-        {sheets.map((sheet) => (
-          <Row
-            key={sheet.resource_id}
-            title={sheet.name}
-            detail={sheet.roadmap_title}
-            action={(
-              <Button
-                size="small"
-                variant="outlined"
-                component={RouterLink}
-                to={`/roadmaps/${sheet.roadmap_id}?resource=${sheet.resource_id}`}
-                aria-label={`Open ${sheet.name} in ${sheet.roadmap_title}`}
-              >
-                Open
-              </Button>
-            )}
-          />
-        ))}
-      </Panel>
-    </Section>
   );
 };
 
@@ -475,17 +722,34 @@ export const StudyLibraryPage: React.FC = () => {
     return () => { cancelled = true; };
   }, [subjectId, loadingPreparation, attempt]);
 
+  const activeTopic = detail ? topicToContinue(detail)?.topic ?? null : null;
+
   return (
     <Box>
       <PageHead
-        eyebrow={selected?.name}
-        title="Learn"
-        sub="What to learn next, and how to prove you have learnt it."
+        eyebrow={selected ? `${selected.name} · Learning Workspace` : 'Learning Workspace'}
+        title="Study Library"
+        sub="What to study now, and how to learn and prove it."
+        actions={(
+          <>
+            <Button variant="outlined" component={RouterLink} to="/roadmaps">Roadmaps</Button>
+            {chosen && (
+              <Button variant="outlined" component={RouterLink} to={`/roadmaps/${chosen.roadmap.id}`}>
+                Active Plan ({chosen.roadmap.title})
+              </Button>
+            )}
+          </>
+        )}
       />
 
+      {/* 1. Recommended & 2. Continue Learning */}
       <Section>
         <Grid columns={2}>
-          <RecommendedPanel preparation={selected} loadingPreparation={loadingPreparation} />
+          <RecommendedPanel
+            preparation={selected}
+            loadingPreparation={loadingPreparation}
+            activeRoadmap={detail}
+          />
           {loadingRoadmap || loadingPreparation ? (
             <Panel soft component="section" aria-label="Continue learning">
               <LoadingState label="Loading your roadmap…" />
@@ -500,13 +764,26 @@ export const StudyLibraryPage: React.FC = () => {
         </Grid>
       </Section>
 
+      {/* 3. Relevant Guide (curated mapped curriculum for active topic + content packs) */}
+      <RelevantGuideSection preparation={selected} activeTopic={activeTopic} />
+
+      {/* 4. Reference Material */}
+      <ReferenceSheetsSection preparation={selected} />
+
+      {/* 5. Practice */}
+      <PracticeSection preparation={selected} weakestArea={selected?.readiness.weakest_domain} />
+
+      {/* 6. Demonstrate */}
+      <DemonstrateSection detail={detail} hasRoadmap={chosen !== null} />
+
+      {/* 7. Roadmap Progress */}
       <Section>
         {loadingRoadmap || loadingPreparation ? null : roadmapError !== null ? null : detail && chosen ? (
           <RoadmapPanel detail={detail} linked={chosen.linked} preparation={selected} />
         ) : (
           <Panel component="section" aria-labelledby="roadmap-title">
             <PanelHead
-              eyebrow="Roadmap"
+              eyebrow="Roadmap Progress"
               title="No roadmap yet"
               titleId="roadmap-title"
               aside={<Button variant="contained" color="ink" component={RouterLink} to="/roadmaps">Open Roadmaps</Button>}
@@ -518,10 +795,6 @@ export const StudyLibraryPage: React.FC = () => {
           </Panel>
         )}
       </Section>
-
-      <GuideSection preparation={selected} />
-
-      <ReferenceSheetsSection preparation={selected} />
     </Box>
   );
 };

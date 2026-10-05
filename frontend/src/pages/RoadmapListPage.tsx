@@ -240,13 +240,14 @@ export const RoadmapListPage: React.FC = () => {
       {actionError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError(null)}>{actionError}</Alert>}
 
       <PageHead
-        eyebrow="Study Planning & Syllabus"
+        eyebrow="Planning Workspace"
         title="Roadmaps"
-        sub="Track end-to-end curriculum, competencies, and topic mastery. Each roadmap manages phases, learning objectives, and verification criteria."
+        sub="Your preparation plans: curriculum, phase sequence, learning hours, and milestones. Roadmaps owns your plan; the Study Library owns today’s learning and practice."
         actions={(
           <>
             <Button variant="contained" onClick={() => setImportOpen(true)}>+ Import Roadmap</Button>
             <Button variant="outlined" onClick={() => setCreateOpen(true)}>New roadmap</Button>
+            <Button variant="outlined" component={RouterLink} to="/learn">Study Library →</Button>
             {active && (
               <Button variant="outlined" component={RouterLink} to={`/roadmaps/${active.roadmap.id}`}>
                 Active Syllabus ({active.roadmap.title}) →

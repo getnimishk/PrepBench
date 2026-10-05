@@ -147,12 +147,60 @@ export const RoadmapTopicPage: React.FC = () => {
 
   return (
     <Box>
+      <Box
+        component="nav"
+        aria-label="Breadcrumb"
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          mb: '8px',
+          fontSize: (t) => t.typography.pxToRem(12),
+          color: 'text.secondary',
+          flexWrap: 'wrap',
+        }}
+      >
+        <Link
+          component={RouterLink}
+          to="/roadmaps"
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            minHeight: '24px',
+            color: 'inherit',
+            textDecoration: 'none',
+            '&:hover': { textDecoration: 'underline', color: 'text.primary' },
+          }}
+        >
+          Roadmaps
+        </Link>
+        <Box component="span" aria-hidden sx={{ opacity: 0.5 }}>›</Box>
+        <Link
+          component={RouterLink}
+          to={`/roadmaps/${rid}`}
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            minHeight: '24px',
+            color: 'inherit',
+            textDecoration: 'none',
+            '&:hover': { textDecoration: 'underline', color: 'text.primary' },
+          }}
+        >
+          {roadmap.title}
+        </Link>
+        <Box component="span" aria-hidden sx={{ opacity: 0.5 }}>›</Box>
+        <Box component="span">{current.phase.name}</Box>
+      </Box>
+
       <PageHead
-        eyebrow={`Roadmap · ${current.phase.name}`}
+        eyebrow={`Mastery Definition · ${current.phase.name}`}
         title={topic.title}
+        sub="The topic defines what mastery means. Learning builds the model; unprompted demonstration proves you have achieved it."
         actions={(
           <>
             <Button variant="outlined" onClick={() => navigate(`/roadmaps/${rid}`)}>← Back to syllabus</Button>
+            <Button variant="outlined" component={RouterLink} to="/learn">Study Library →</Button>
             {previous && (
               <Button variant="outlined" onClick={() => navigate(`/roadmaps/${rid}/topics/${previous.id}`)}>
                 ← {previous.title.slice(0, 28)}
@@ -217,12 +265,28 @@ export const RoadmapTopicPage: React.FC = () => {
                   <Button variant="outlined" onClick={() => navigate(`/roadmaps/${rid}/topics/${topic.id}/guide`)}>
                     Notes & AI draft
                   </Button>
+                  <Button
+                    variant="outlined"
+                    color="ink"
+                    onClick={() => navigate(`/roadmaps/${rid}/topics/${topic.id}/demonstrate`)}
+                    disabled={!topic.success_criteria}
+                  >
+                    Demonstrate mastery
+                  </Button>
                 </Actions>
               </Box>
             ) : (
               <Actions sx={{ mt: '16px' }}>
                 <Button variant="outlined" onClick={() => navigate(`/roadmaps/${rid}/topics/${topic.id}/guide`)}>
                   Study guide
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="ink"
+                  onClick={() => navigate(`/roadmaps/${rid}/topics/${topic.id}/demonstrate`)}
+                  disabled={!topic.success_criteria}
+                >
+                  Demonstrate mastery
                 </Button>
               </Actions>
             )}

@@ -125,7 +125,7 @@ describe('StudyLibraryPage', () => {
     expect(await within(panel).findByText(/63% across 63 answers in this area — the clearest thing/)).toBeInTheDocument();
   });
 
-  it('says there is nothing to recommend rather than inventing an area', async () => {
+  it('Case A: No readiness data provides empty explanation, 5-question diagnostic CTA, and full mock CTA', async () => {
     mockPreparation.mockReturnValue({
       selected: { ...PSM, readiness: { ...PSM.readiness, mock_count: 0, weakest_domain: null } },
       loading: false,
@@ -134,8 +134,32 @@ describe('StudyLibraryPage', () => {
 
     const panel = await screen.findByRole('region', { name: 'Nothing to recommend yet' });
     expect(within(panel).getByText(/Sit a full mock and the area it shows weakest is named here/)).toBeInTheDocument();
-    expect(within(panel).getByRole('link', { name: 'Take a mock' })).toHaveAttribute('href', '/exam-setup?kind=mock&subject=1');
+
+    // Quick 5-question diagnostic CTA
+    const diagBtn = within(panel).getByRole('link', { name: 'Take a quick diagnostic (5 questions)' });
+    expect(diagBtn).toHaveAttribute('href', '/exam-setup?kind=drill&subject=1&limit=5');
+
+    // Full mock CTA
+    const mockBtn = within(panel).getByRole('link', { name: 'Take a full mock' });
+    expect(mockBtn).toHaveAttribute('href', '/exam-setup?kind=mock&subject=1');
+
     expect(mockGetDomainDetail).not.toHaveBeenCalled();
+  });
+
+  it('Case B: Readiness exists preserves real recommendation and does not show diagnostic CTA', async () => {
+    renderPage();
+
+    const panel = await screen.findByRole('region', { name: 'Scrum Events' });
+    expect(within(panel).getByText('Weakest area')).toBeInTheDocument();
+    expect(await within(panel).findByText(/63% across 63 answers in this area/)).toBeInTheDocument();
+
+    // Primary & secondary actions for real recommendation
+    expect(within(panel).getByRole('link', { name: 'Start learning' })).toBeInTheDocument();
+    expect(within(panel).getByRole('link', { name: 'Practise instead' })).toBeInTheDocument();
+
+    // Diagnostic CTA does NOT unnecessarily replace real recommendation
+    expect(within(panel).queryByRole('link', { name: 'Take a quick diagnostic (5 questions)' })).not.toBeInTheDocument();
+    expect(within(panel).queryByRole('link', { name: 'Take a full mock' })).not.toBeInTheDocument();
   });
 
   it('continues the topic in progress, with both ways on', async () => {
@@ -256,7 +280,7 @@ describe('StudyLibraryPage: Your reference sheets', () => {
   it('asks for nothing when no preparation is selected', async () => {
     mockPreparation.mockReturnValue({ selected: null, loading: false });
     renderPage();
-    await screen.findByText('Learn');
+    await screen.findByText('Study Library');
     expect(mockGetReferenceSheets).not.toHaveBeenCalled();
   });
 
@@ -296,6 +320,76 @@ describe('StudyLibraryPage: Your reference sheets', () => {
 
     expect(screen.getByText('Delta Notes')).toBeInTheDocument();
     expect(screen.queryByText('Mental Model')).not.toBeInTheDocument();
+  });
+
+  it('renders mapped guide chapters from the active topic under Relevant Guide', async () => {
+    const topicWithGuide = topic({
+      id: 11,
+      title: 'Sprint Planning',
+      mapped_chapters: [{
+        pack_id: 'psm',
+        pack_title: 'Professional Scrum Master',
+        chapter_id: 'sprint-planning',
+        chapter_number: 3,
+        chapter_title: 'Sprint Planning and Sprint Backlog',
+        chapter_summary: 'How the Scrum Team collaborates to plan the Sprint.',
+        coverage: 'Full',
+        relevant_sections: 'Inputs to Planning; Creating the Sprint Goal',
+        learning_evidence: 'Facilitate a Sprint Planning simulation.',
+      }],
+    });
+    mockGetRoadmap.mockResolvedValue(detail({
+      phases: [{ id: 1, roadmap_id: 4, name: 'Foundations', order_index: 0, topics: [topicWithGuide] }],
+    }));
+
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: 'Study Guide for Sprint Planning' })).toBeInTheDocument();
+    expect(screen.getByText('Chapter 3 · Sprint Planning and Sprint Backlog')).toBeInTheDocument();
+    expect(screen.getByText('How the Scrum Team collaborates to plan the Sprint.')).toBeInTheDocument();
+    expect(screen.getByText('Full Coverage')).toBeInTheDocument();
+    expect(screen.getByText('Inputs to Planning; Creating the Sprint Goal')).toBeInTheDocument();
+    expect(screen.getByText('Facilitate a Sprint Planning simulation.')).toBeInTheDocument();
+    const readLink = screen.getByRole('link', { name: 'Read chapter 3: Sprint Planning and Sprint Backlog' });
+    expect(readLink).toHaveAttribute('href', '/learn/guides/psm/sprint-planning');
+  });
+
+  it('renders practice section with drill, spaced review, question bank, and mock exam links', async () => {
+    renderPage();
+
+    expect(await screen.findByText('Practise what you are learning')).toBeInTheDocument();
+    expect(screen.getByText('Drill Scrum Events')).toBeInTheDocument();
+    expect(screen.getByText('Spaced Review')).toBeInTheDocument();
+    expect(screen.getByText('Browse by Topic')).toBeInTheDocument();
+    expect(screen.getByText('Mock Exam')).toBeInTheDocument();
+  });
+
+  it('renders demonstrate section linking to unprompted evidence capture', async () => {
+    const topicWithCriteria = topic({
+      id: 11,
+      title: 'Sprint Planning',
+      success_criteria: 'Demonstrate a 1-minute pitch on Sprint Planning unprompted.',
+    });
+    mockGetRoadmap.mockResolvedValue(detail({
+      phases: [{ id: 1, roadmap_id: 4, name: 'Foundations', order_index: 0, topics: [topicWithCriteria] }],
+    }));
+
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: 'Prove your learning' })).toBeInTheDocument();
+    expect(screen.getByText('Demonstrate a 1-minute pitch on Sprint Planning unprompted.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Demonstrate now' })).toHaveAttribute('href', '/roadmaps/4/topics/11/demonstrate');
+    expect(screen.getByRole('link', { name: 'View criteria' })).toHaveAttribute('href', '/roadmaps/4/topics/11');
+  });
+
+  it('renders overarching roadmap progress with phase cards', async () => {
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: 'PSM I syllabus' })).toBeInTheDocument();
+    expect(screen.getByText('Roadmap Progress')).toBeInTheDocument();
+    expect(screen.getByText('3 / 10 topics · 2 phases · 40h planned')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'View roadmap' })).toHaveAttribute('href', '/roadmaps/4');
+    expect(screen.getByRole('link', { name: 'All roadmaps' })).toHaveAttribute('href', '/roadmaps');
   });
 });
 
