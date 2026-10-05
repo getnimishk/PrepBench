@@ -5380,6 +5380,107 @@
         "title": "LocalModelOption",
         "type": "object"
       },
+      "MappedGuideChapter": {
+        "description": "A chapter from a built-in content pack that covers this roadmap topic.",
+        "properties": {
+          "chapter_id": {
+            "title": "Chapter Id",
+            "type": "string"
+          },
+          "chapter_number": {
+            "title": "Chapter Number",
+            "type": "integer"
+          },
+          "chapter_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chapter Summary"
+          },
+          "chapter_title": {
+            "title": "Chapter Title",
+            "type": "string"
+          },
+          "coverage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "Full",
+            "title": "Coverage"
+          },
+          "learning_evidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Learning Evidence"
+          },
+          "pack_id": {
+            "title": "Pack Id",
+            "type": "string"
+          },
+          "pack_title": {
+            "title": "Pack Title",
+            "type": "string"
+          },
+          "relevant_sections": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relevant Sections"
+          },
+          "topic_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic Number"
+          },
+          "topic_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic Title"
+          }
+        },
+        "required": [
+          "pack_id",
+          "pack_title",
+          "chapter_id",
+          "chapter_number",
+          "chapter_title"
+        ],
+        "title": "MappedGuideChapter",
+        "type": "object"
+      },
       "MergeCdcOp": {
         "additionalProperties": false,
         "properties": {
@@ -8330,6 +8431,28 @@
             "title": "Is Archived",
             "type": "boolean"
           },
+          "linked_pack_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked Pack Id"
+          },
+          "linked_pack_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked Pack Title"
+          },
           "phase_count": {
             "default": 0,
             "title": "Phase Count",
@@ -9475,6 +9598,28 @@
             "title": "Is Archived",
             "type": "boolean"
           },
+          "linked_pack_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked Pack Id"
+          },
+          "linked_pack_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked Pack Title"
+          },
           "phase_count": {
             "default": 0,
             "title": "Phase Count",
@@ -9668,6 +9813,14 @@
               }
             ],
             "title": "Learning Objective"
+          },
+          "mapped_chapters": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/MappedGuideChapter"
+            },
+            "title": "Mapped Chapters",
+            "type": "array"
           },
           "order_index": {
             "title": "Order Index",
@@ -12156,6 +12309,14 @@
               }
             ],
             "title": "Drafting Unavailable Reason"
+          },
+          "mapped_chapters": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/MappedGuideChapter"
+            },
+            "title": "Mapped Chapters",
+            "type": "array"
           },
           "read_count": {
             "title": "Read Count",

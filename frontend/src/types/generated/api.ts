@@ -4864,6 +4864,37 @@ export interface components {
             /** Weak At */
             weak_at?: string[];
         };
+        /**
+         * MappedGuideChapter
+         * @description A chapter from a built-in content pack that covers this roadmap topic.
+         */
+        MappedGuideChapter: {
+            /** Chapter Id */
+            chapter_id: string;
+            /** Chapter Number */
+            chapter_number: number;
+            /** Chapter Summary */
+            chapter_summary?: string | null;
+            /** Chapter Title */
+            chapter_title: string;
+            /**
+             * Coverage
+             * @default Full
+             */
+            coverage: string | null;
+            /** Learning Evidence */
+            learning_evidence?: string | null;
+            /** Pack Id */
+            pack_id: string;
+            /** Pack Title */
+            pack_title: string;
+            /** Relevant Sections */
+            relevant_sections?: string | null;
+            /** Topic Number */
+            topic_number?: number | null;
+            /** Topic Title */
+            topic_title?: string | null;
+        };
         /** MergeCdcOp */
         MergeCdcOp: {
             /** Attempt Uid */
@@ -5893,6 +5924,10 @@ export interface components {
             id: number;
             /** Is Archived */
             is_archived: boolean;
+            /** Linked Pack Id */
+            linked_pack_id?: string | null;
+            /** Linked Pack Title */
+            linked_pack_title?: string | null;
             /**
              * Phase Count
              * @default 0
@@ -6301,6 +6336,10 @@ export interface components {
             id: number;
             /** Is Archived */
             is_archived: boolean;
+            /** Linked Pack Id */
+            linked_pack_id?: string | null;
+            /** Linked Pack Title */
+            linked_pack_title?: string | null;
             /**
              * Phase Count
              * @default 0
@@ -6347,6 +6386,11 @@ export interface components {
             id: number;
             /** Learning Objective */
             learning_objective?: string | null;
+            /**
+             * Mapped Chapters
+             * @default []
+             */
+            mapped_chapters: components["schemas"]["MappedGuideChapter"][];
             /** Order Index */
             order_index: number;
             /** Phase Id */
@@ -7290,6 +7334,11 @@ export interface components {
             drafting_available: boolean;
             /** Drafting Unavailable Reason */
             drafting_unavailable_reason?: string | null;
+            /**
+             * Mapped Chapters
+             * @default []
+             */
+            mapped_chapters: components["schemas"]["MappedGuideChapter"][];
             /** Read Count */
             read_count: number;
             /** Sections */

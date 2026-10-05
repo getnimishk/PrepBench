@@ -19,7 +19,7 @@ import type {
 } from '../types/roadmap';
 import { LoadingState } from '../components/common/States';
 import {
-  Actions, Bar, Detail, Eyebrow, Good, Grid, Note, PageHead, Panel, Pill, Row, Section, Sub,
+  Actions, Bar, Detail, Eyebrow, Good, Grid, Note, PageHead, Panel, PanelHead, Pill, Row, Section, Sub,
 } from '../components/ui/primitives';
 import { GuideMarkdown } from '../components/guide/GuideMarkdown';
 import { MONO_STACK } from '../theme/tokens';
@@ -235,14 +235,99 @@ export const TopicGuidePage: React.FC = () => {
       )}
       {notice && <Alert severity={notice.severity} sx={{ mt: 2 }} onClose={() => setNotice(null)}>{notice.text}</Alert>}
 
+      {guide.mapped_chapters && guide.mapped_chapters.length > 0 && (
+        <Section sx={{ mb: '16px' }}>
+          <Panel component="section" aria-labelledby="builtin-guide-title">
+            <PanelHead
+              eyebrow={`Built-in Study Guide · ${guide.mapped_chapters[0].pack_title}`}
+              title={guide.mapped_chapters.length === 1
+                ? 'Curated Curriculum'
+                : `${guide.mapped_chapters.length} chapters cover this topic`}
+              titleId="builtin-guide-title"
+              aside={guide.mapped_chapters.length === 1 && guide.mapped_chapters[0].coverage ? (
+                <Pill tone="success">{guide.mapped_chapters[0].coverage} Coverage</Pill>
+              ) : undefined}
+            >
+              <Detail>
+                Authoritative reference curriculum chapters covering this roadmap topic.
+              </Detail>
+            </PanelHead>
+
+            <Stack spacing={2} sx={{ mt: '14px' }}>
+              {guide.mapped_chapters.map((ch) => (
+                <Box
+                  key={ch.chapter_id}
+                  sx={{
+                    p: '14px 16px',
+                    borderRadius: 1,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    bgcolor: 'background.paper',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                    <Box sx={{ flex: 1, minWidth: 260 }}>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                        Chapter {ch.chapter_number} · {ch.chapter_title}
+                      </Typography>
+                      {ch.chapter_summary && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: '4px' }}>
+                          {ch.chapter_summary}
+                        </Typography>
+                      )}
+                    </Box>
+                    <Actions>
+                      <Button
+                        variant="contained"
+                        color="ink"
+                        component={RouterLink}
+                        to={`/learn/guides/${ch.pack_id}/${ch.chapter_id}`}
+                      >
+                        Read Chapter {ch.chapter_number}
+                      </Button>
+                    </Actions>
+                  </Box>
+
+                  {ch.relevant_sections && (
+                    <Detail sx={{ mt: '10px' }}>
+                      <strong>Relevant sections:</strong> {ch.relevant_sections}
+                    </Detail>
+                  )}
+                  {ch.learning_evidence && (
+                    <Good sx={{ mt: '8px', fontSize: (t) => t.typography.pxToRem(13) }}>
+                      <strong>Learning evidence:</strong> {ch.learning_evidence}
+                    </Good>
+                  )}
+                </Box>
+              ))}
+            </Stack>
+          </Panel>
+        </Section>
+      )}
+
       {sections.length === 0 ? (
         <Section>
-          <Panel component="section" aria-labelledby="guide-empty">
-            <Typography variant="h5" component="h2" id="guide-empty">No study guide yet</Typography>
+          <Panel
+            component="section"
+            aria-labelledby={guide.mapped_chapters && guide.mapped_chapters.length > 0 ? 'personal-notes-empty' : 'guide-empty'}
+          >
+            <Typography
+              variant="h5"
+              component="h2"
+              id={guide.mapped_chapters && guide.mapped_chapters.length > 0 ? 'personal-notes-empty' : 'guide-empty'}
+            >
+              {guide.mapped_chapters && guide.mapped_chapters.length > 0
+                ? 'Personal notes & AI synthesis'
+                : 'No study guide yet'}
+            </Typography>
             <Sub sx={{ mb: 0 }}>
-              {guide.drafting_available
-                ? 'Draft one with AI and edit anything that is wrong, or write the sections yourself.'
-                : 'Write the sections yourself, or set up an AI provider in Settings to draft them.'}
+              {guide.mapped_chapters && guide.mapped_chapters.length > 0
+                ? (guide.drafting_available
+                  ? 'Use "Draft with AI" above to generate synthesis notes against the built-in guide, or write your own sections.'
+                  : 'Use "Write a section" above to record your own synthesis notes, or set up an AI provider in Settings.')
+                : (guide.drafting_available
+                  ? 'Draft one with AI and edit anything that is wrong, or write the sections yourself.'
+                  : 'Write the sections yourself, or set up an AI provider in Settings to draft them.')}
             </Sub>
             {sandboxRow}
           </Panel>

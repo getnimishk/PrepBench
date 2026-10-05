@@ -248,3 +248,47 @@ def test_deleting_a_topic_removes_its_guide(topic):
         assert db.query(TopicGuideSection).filter(TopicGuideSection.topic_id == topic_id).count() == 0
     finally:
         db.close()
+
+
+# ---- 6. content pack study guide alignment -----------------------------
+
+
+def test_adf_topic_guide_includes_mapped_content_pack_chapters():
+    """An ADF roadmap topic links directly to its authoritative built-in study guide chapters."""
+    roadmap = client.post("/api/v1/roadmaps", json={"title": "ADF Master Roadmap"}).json()
+    phase = client.post(f"/api/v1/roadmaps/{roadmap['id']}/phases", json={"name": "1. ADF Foundations"}).json()
+    t1 = client.post(f"/api/v1/roadmaps/{roadmap['id']}/topics", json={
+        "phase_id": phase["id"],
+        "title": "What Azure Data Factory Is",
+        "learning_objective": "Understand ADF fundamentals.",
+    }).json()
+    t2 = client.post(f"/api/v1/roadmaps/{roadmap['id']}/topics", json={
+        "phase_id": phase["id"],
+        "title": "ADF vs Databricks vs Synapse vs Fabric Data Factory",
+        "learning_objective": "Compare big data and orchestration services.",
+    }).json()
+
+    try:
+        g1 = client.get(_base(roadmap["id"], t1["id"])).json()
+        assert len(g1["mapped_chapters"]) == 1
+        assert g1["mapped_chapters"][0]["chapter_id"] == "what-it-is"
+        assert g1["mapped_chapters"][0]["pack_id"] == "adf"
+        assert g1["mapped_chapters"][0]["chapter_number"] == 1
+        assert "orchestrator" in g1["mapped_chapters"][0]["chapter_summary"].lower()
+
+        g2 = client.get(_base(roadmap["id"], t2["id"])).json()
+        assert len(g2["mapped_chapters"]) == 2
+        chapter_ids = [c["chapter_id"] for c in g2["mapped_chapters"]]
+        assert "what-it-is" in chapter_ids
+        assert "fabric" in chapter_ids
+
+        # Also verify roadmap detail has linked_pack_id and topic mapped_chapters
+        detail = client.get(f"/api/v1/roadmaps/{roadmap['id']}").json()
+        assert detail["linked_pack_id"] == "adf"
+        assert detail["linked_pack_title"] == "Azure Data Factory"
+        d_topic1 = detail["phases"][0]["topics"][0]
+        assert len(d_topic1["mapped_chapters"]) == 1
+        assert d_topic1["mapped_chapters"][0]["chapter_id"] == "what-it-is"
+    finally:
+        client.delete(f"/api/v1/roadmaps/{roadmap['id']}")
+

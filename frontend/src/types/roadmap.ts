@@ -4,6 +4,20 @@
 
 export type RoadmapTopicStatus = 'not_started' | 'in_progress' | 'completed' | 'skipped';
 
+export interface MappedGuideChapter {
+  pack_id: string;
+  pack_title: string;
+  chapter_id: string;
+  chapter_number: number;
+  chapter_title: string;
+  chapter_summary?: string | null;
+  topic_number?: number | null;
+  topic_title?: string | null;
+  coverage?: string | null;
+  relevant_sections?: string | null;
+  learning_evidence?: string | null;
+}
+
 export interface RoadmapTopic {
   id: number;
   roadmap_id: number;
@@ -18,6 +32,7 @@ export interface RoadmapTopic {
   started_at?: string | null;
   completed_at?: string | null;
   evidence_notes?: string | null;
+  mapped_chapters?: MappedGuideChapter[];
 }
 
 export interface RoadmapPhase {
@@ -92,6 +107,8 @@ export interface RoadmapSummary {
   /** Phases in the plan, empty ones included. */
   phase_count?: number;
   progress: RoadmapProgress;
+  linked_pack_id?: string | null;
+  linked_pack_title?: string | null;
 }
 
 export interface RoadmapDetail extends RoadmapSummary {
@@ -302,6 +319,7 @@ export interface TopicGuide {
   read_count: number;
   drafting_available: boolean;
   drafting_unavailable_reason?: string | null;
+  mapped_chapters?: MappedGuideChapter[];
 }
 
 export interface TopicGuideSectionWrite {

@@ -195,11 +195,37 @@ export const RoadmapTopicPage: React.FC = () => {
               </Sub>
             </Section>
 
-            <Actions sx={{ mt: '16px' }}>
-              <Button variant="outlined" onClick={() => navigate(`/roadmaps/${rid}/topics/${topic.id}/guide`)}>
-                Study guide
-              </Button>
-            </Actions>
+            {topic.mapped_chapters && topic.mapped_chapters.length > 0 ? (
+              <Box sx={{ mt: '16px', pt: '14px', borderTop: '1px solid', borderColor: 'divider' }}>
+                <Eyebrow>Study Guide</Eyebrow>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', mt: '4px' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    Ch {topic.mapped_chapters[0].chapter_number} · {topic.mapped_chapters[0].chapter_title}
+                    {topic.mapped_chapters.length > 1 && ` (+${topic.mapped_chapters.length - 1} more)`}
+                  </Typography>
+                  <Pill tone="success">{topic.mapped_chapters[0].coverage || 'Full'} Coverage</Pill>
+                </Box>
+                <Actions sx={{ mt: '12px' }}>
+                  <Button
+                    variant="contained"
+                    color="ink"
+                    component={RouterLink}
+                    to={`/learn/guides/${topic.mapped_chapters[0].pack_id}/${topic.mapped_chapters[0].chapter_id}`}
+                  >
+                    Read Study Guide
+                  </Button>
+                  <Button variant="outlined" onClick={() => navigate(`/roadmaps/${rid}/topics/${topic.id}/guide`)}>
+                    Notes & AI draft
+                  </Button>
+                </Actions>
+              </Box>
+            ) : (
+              <Actions sx={{ mt: '16px' }}>
+                <Button variant="outlined" onClick={() => navigate(`/roadmaps/${rid}/topics/${topic.id}/guide`)}>
+                  Study guide
+                </Button>
+              </Actions>
+            )}
           </Panel>
 
           <Panel soft component="section" aria-labelledby="topic-status">

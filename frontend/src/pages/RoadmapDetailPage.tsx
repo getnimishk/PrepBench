@@ -350,6 +350,15 @@ export const RoadmapDetailPage: React.FC = () => {
         actions={(
           <>
             <Button variant="outlined" component={RouterLink} to="/roadmaps">← All roadmaps</Button>
+            {roadmap.linked_pack_id && (
+              <Button
+                variant="outlined"
+                component={RouterLink}
+                to={`/learn/guides/${roadmap.linked_pack_id}`}
+              >
+                Study guide ({roadmap.linked_pack_title || 'Full Guide'})
+              </Button>
+            )}
             <Button variant="outlined" onClick={() => setTabKey(journeyKey)}>Phase overview</Button>
             <Button variant="outlined" component={RouterLink} to={`/roadmaps/${id}/edit`}>Edit plan</Button>
             {!multiSheet && roadmap.resources.length > 0 && (

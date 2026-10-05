@@ -54,9 +54,11 @@ class TopicGuideService:
     # ---- reads ----------------------------------------------------------
 
     def get_guide(self, roadmap_id: int, topic_id: int) -> TopicGuideResponse:
-        self._require_topic(roadmap_id, topic_id)
+        topic = self._require_topic(roadmap_id, topic_id)
         sections = self._sections(topic_id)
         available = self.gateway.is_available(LLMTask.TOPIC_GUIDE_DRAFTING)
+        from app.services import content_pack_service
+        mapped_chapters = content_pack_service.find_mapped_chapters_for_topic(self.db, roadmap_id, topic)
         return TopicGuideResponse(
             sections=[TopicGuideSectionResponse.model_validate(s) for s in sections],
             read_count=sum(1 for s in sections if s.read_at is not None),
@@ -65,6 +67,7 @@ class TopicGuideService:
                 "No AI provider is set up for drafting study guides. Add one in "
                 "Settings, or write the sections yourself."
             ),
+            mapped_chapters=mapped_chapters,
         )
 
     # ---- AI drafting -----------------------------------------------------
