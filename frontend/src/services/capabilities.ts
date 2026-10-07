@@ -33,12 +33,23 @@ export const UNASSIGNED_CAPABILITIES: SubjectCapabilityProfile = Object.freeze({
  *
  * 1. PSM I (id: 1): CERTIFICATION with 709 questions, 85% pass mark, 80 questions/mock. Has Roadmap (id: 3, 13 phases, 63 topics, 188h). No interview or lab.
  * 2. Databricks (id: 2): SKILL with Lakehouse System Lab (AVAILABLE in current production). No certification, interview, or roadmap.
- * 3. System Design (id: 3): SKILL with 32 architecture prompts, 10 design reviews, 132 interview questions. Has Roadmap (id: 4, 13 phases, 63 topics, 188h). No cert or lab.
+ * 3. System Design (id: 3): SKILL with 32 architecture prompts and 10 design reviews (neither table is subject-scoped;
+ *    both are System Design content by nature). Verbal rounds use the shared interview library (36 questions, none
+ *    subject-scoped). Has Roadmap (id: 4) -- see the data note on roadmaps 3/4 below. No cert or lab.
  * 4. Kafka CCDAK (id: 4): CERTIFICATION profile registered with 83% pass mark, but QUESTION BANK HAS 0 LOADED QUESTIONS.
  *    Has Kafka Mastery Roadmap (id: 1).
  * 5. Agentic AI (id: 5): SKILL with Agentic AI Mastery Roadmap (id: 5). No interview questions loaded in database yet.
  * 6. ADF (id: 6): SKILL (ADF IS A SKILL, NOT A CERTIFICATION!). Supported via 18 authored incident scenarios,
  *    60 Roadmap topics, and 21 Study Guide chapters.
+ *    Interview is genuine and subject-scoped: the shipped pack (backend/app/content/packs/adf/v1.json) has a
+ *    Say-it question for each of 4 roles in each of its 18 scenarios (72 in all), and ScenarioPage saves the
+ *    learner's answer as an interview question under this preparation (PUT /interview-questions/by-source,
+ *    unique on source_ref + subject_id). It is NOT the shared, subject-less interview library, and nothing
+ *    here may present that library as ADF's own.
+ *
+ * Data note (not fixed here; a content/data task): PSM I's roadmap (id 3) and System Design's (id 4) are both
+ * "Storage FileSystems to Cloud Mastery Roadmap" with identical phases and topics -- off-topic for PSM I.
+ * `roadmap: true` reflects that a roadmap row is linked, not that its content suits the subject.
  *    Target capability includes Learning Lab; genuine current production availability is INTEGRATION_PENDING (scheduled for Phase 5).
  */
 const SUBJECT_CAPABILITY_PROFILES: Record<number, SubjectCapabilityProfile> = {
@@ -119,7 +130,7 @@ const SUBJECT_CAPABILITY_PROFILES: Record<number, SubjectCapabilityProfile> = {
   }),
   6: Object.freeze({
     certification: false, // P0 Invariant: ADF IS A SKILL, NEVER A CERTIFICATION!
-    interview: true,
+    interview: true, // Scenario Say-it questions saved under this subject (see the note above)
     learningLab: true, // Target capability in approved 5-capability architecture
     lab: true,
     learningLabStatus: 'INTEGRATION_PENDING', // Honest production state: behavioural experiments scheduled for Phase 5
@@ -289,10 +300,63 @@ function resolveSubjectId(
   return null;
 }
 
+/** A preparation as the server sent it, rather than a bare id or slug. */
+type LiveSubject = Pick<Subject, 'id' | 'slug' | 'kind' | 'question_count'> & Pick<Subject, 'content_packs'>;
+
+function isLiveSubject(value: unknown): value is LiveSubject {
+  return typeof value === 'object' && value !== null
+    && typeof (value as LiveSubject).id === 'number'
+    && typeof (value as LiveSubject).kind === 'string'
+    && typeof (value as LiveSubject).question_count === 'number';
+}
+
+/**
+ * What a preparation the table above does not describe can do, read from the
+ * preparation itself.
+ *
+ * Every preparation a learner creates or imports gets a new id, and the table is
+ * keyed by the six seeded ones. Returning UNASSIGNED for the rest turned off
+ * Practice, Exam and the Question Bank for a certification the learner had just
+ * created and filled -- a capability shown as unavailable when it is not.
+ *
+ * Only what the record states is claimed: a certification is one by its kind;
+ * questions by its own count; guides and scenarios by its attached packs.
+ * Interview and the Learning Lab need content of their own that a bare record
+ * cannot show, so they stay off. Roadmaps are not withheld: the Roadmaps screen
+ * is where any preparation's first roadmap is created or imported.
+ */
+function deriveCapabilities(s: LiveSubject): SubjectCapabilityProfile {
+  const questions = s.question_count;
+  const packs = s.content_packs?.length ?? 0;
+  return Object.freeze({
+    certification: s.kind.toLowerCase() === 'certification',
+    interview: false,
+    learningLab: false,
+    lab: false,
+    learningLabStatus: 'UNAVAILABLE',
+    workspace: true,
+    evidence: true,
+    roadmap: true,
+    studyGuide: packs > 0,
+    scenarios: packs > 0,
+    questionAvailability: questions > 0,
+    hasQuestionBank: questions > 0,
+    questionCount: questions,
+  });
+}
+
 /**
  * Returns the authoritative SubjectCapabilityProfile for a subject or subject ID.
  * Returns UNASSIGNED_CAPABILITIES if subjectOrId is null, undefined, or unrecognized.
  * NEVER defaults to ADF or PSM I when subject context is missing.
+ *
+ * Given the preparation itself (not just its id), two things come from the
+ * record rather than the table:
+ *  - the question count, so a bank imported later (Kafka's, say) is seen the
+ *    moment it is there, and a static 0 can never keep a filled bank locked;
+ *  - whether the table applies at all: it describes the six seeded preparations
+ *    by id *and* slug, so a learner's own preparation that happens to reuse an
+ *    id is read from its own record, not mistaken for PSM I or ADF.
  */
 export function getSubjectCapabilities(
   subjectOrId?: Subject | { id?: number; slug?: string; name?: string } | number | string | null
@@ -302,12 +366,23 @@ export function getSubjectCapabilities(
     return UNASSIGNED_CAPABILITIES;
   }
 
+  const live = isLiveSubject(subjectOrId) ? subjectOrId : null;
   const profile = SUBJECT_CAPABILITY_PROFILES[id];
-  if (profile) {
-    return profile;
+  const known = KNOWN_PRODUCTION_SUBJECTS.find((s) => s.id === id);
+
+  if (profile && (!live || !live.slug || live.slug === known?.slug)) {
+    if (!live || live.question_count === profile.questionCount) return profile;
+    return Object.freeze({
+      ...profile,
+      questionCount: live.question_count,
+      questionAvailability: live.question_count > 0,
+      hasQuestionBank: live.question_count > 0,
+    });
   }
 
-  // Fallback for any unknown / dynamically added subject outside the 6 known subjects
+  if (live) return deriveCapabilities(live);
+
+  // A bare id the table does not know: nothing can be claimed about it.
   return UNASSIGNED_CAPABILITIES;
 }
 

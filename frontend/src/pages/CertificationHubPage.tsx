@@ -123,7 +123,7 @@ export const CertificationHubPage: React.FC = () => {
 
   const targetCapabilities = useMemo(() => {
     if (!targetSubject) return UNASSIGNED_CAPABILITIES;
-    return getSubjectCapabilities(targetSubject.id);
+    return getSubjectCapabilities(targetSubject);
   }, [targetSubject]);
 
   const targetId = targetSubject?.id ?? null;
@@ -164,7 +164,7 @@ export const CertificationHubPage: React.FC = () => {
   // 1. Unassigned Subject Context Guard: Zero silent default to PSM I!
   if (!targetSubject) {
     const certCapable = subjects.filter((s) => {
-      const caps = getSubjectCapabilities(s.id);
+      const caps = getSubjectCapabilities(s);
       return caps.certification;
     });
 
@@ -176,10 +176,10 @@ export const CertificationHubPage: React.FC = () => {
           sub="No certification preparation is currently selected. Choose a certified track to inspect formal readiness and exam tools."
         />
         <Panel sx={{ p: 4, textAlign: 'center', mb: 3 }}>
-          <Box sx={{ display: 'inline-flex', p: 2, borderRadius: '50%', bgcolor: 'action.hover', mb: 2 }}>
+          <Box sx={{ display: 'inline-flex', p: 2, borderRadius: '50%', bgcolor: 'pb.surface2', mb: 2 }}>
             <FileCheck2 size={36} color={theme.palette.primary.main} />
           </Box>
-          <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>
+          <Typography variant="h5" component="h2" sx={{ fontWeight: 800, mb: 1 }}>
             Certification Readiness Scoping
           </Typography>
           <Typography variant="body1" sx={{ color: 'text.secondary', maxWidth: 600, mx: 'auto', mb: 3 }}>
@@ -212,22 +212,34 @@ export const CertificationHubPage: React.FC = () => {
   const isKafka = targetSubject.id === 4;
   const hasQuestions = targetCapabilities.questionAvailability && targetSubject.question_count > 0;
   const questionCount = targetSubject.question_count ?? targetCapabilities.questionCount ?? 0;
-  const passMark = targetSubject.pass_mark ?? 85;
-  const examQuestions = targetSubject.exam_question_count ?? 80;
-  const examMinutes = targetSubject.exam_minutes ?? 60;
+  // The exam profile as the preparation states it. A missing figure is said to
+  // be missing -- never filled in with PSM I's 85% / 80 questions / 60 minutes.
+  const passMark = targetSubject.pass_mark ?? null;
+  const examQuestions = targetSubject.exam_question_count ?? null;
+  const examMinutes = targetSubject.exam_minutes ?? null;
+  const passMarkText = passMark != null ? `${passMark}%` : 'no pass mark set';
+  const canSitMock = hasQuestions && targetSubject.has_exam_profile;
 
-  // Authoritative production readiness verdict from subject model
+  // The verdict is the readiness engine's, read from `readiness.state`, exactly
+  // as Home reads it. This hub used to work out its own READY from the last
+  // three scores and recency alone, which ignored the domain floors and could
+  // call a learner ready on the very screen beside Home's "not ready".
   const readiness = targetSubject.readiness;
+  const rules = readiness?.rules ?? null;
   const mockCount = readiness?.mock_count ?? 0;
   const recentScores = readiness?.recent_scores ?? [];
   const latestScore = recentScores.length > 0 ? recentScores[recentScores.length - 1] : null;
-  const streak = recentScores.slice(-3);
-  const isStreakMet = streak.length >= 3 && streak.every((s) => s >= passMark);
+  const streakNeeded = rules?.consecutive_mocks_at_pass ?? null;
+  const streak = streakNeeded != null ? recentScores.slice(-streakNeeded) : [];
+  const atPass = passMark != null ? streak.filter((sc) => sc >= passMark).length : null;
+  const isStreakMet = streakNeeded != null && atPass != null && streak.length >= streakNeeded && atPass === streakNeeded;
   const isRecencyMet = Boolean(readiness?.latest_taken_at && !readiness?.is_stale);
 
   const verdict = !hasQuestions
     ? 'DATA NOT AVAILABLE'
-    : isStreakMet && isRecencyMet
+    : mockCount === 0
+    ? 'NOT MEASURED YET'
+    : readiness?.state === 'ready'
     ? 'READY'
     : 'NOT READY';
 
@@ -291,31 +303,33 @@ export const CertificationHubPage: React.FC = () => {
           </Detail>
         </PanelHead>
         <Grid columns={4}>
-          <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'action.hover' }}>
+          <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'pb.surface2' }}>
             <Eyebrow>Credential Name</Eyebrow>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+            <Typography variant="subtitle1" component="p" sx={{ fontWeight: 800 }}>
               {targetSubject.certification ?? targetSubject.name}
             </Typography>
             <Detail sx={{ mt: 0.5 }}>Standard External Syllabus</Detail>
           </Box>
-          <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'action.hover' }}>
+          <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'pb.surface2' }}>
             <Eyebrow>Pass Threshold</Eyebrow>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-              {passMark}% Pass Mark
+            <Typography variant="subtitle1" component="p" sx={{ fontWeight: 800 }}>
+              {passMark != null ? `${passMark}% Pass Mark` : 'No pass mark set'}
             </Typography>
             <Detail sx={{ mt: 0.5 }}>Strict score required to pass</Detail>
           </Box>
-          <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'action.hover' }}>
+          <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'pb.surface2' }}>
             <Eyebrow>Exam Paper Format</Eyebrow>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-              {examQuestions} Questions · {examMinutes} Mins
+            <Typography variant="subtitle1" component="p" sx={{ fontWeight: 800 }}>
+              {examQuestions != null && examMinutes != null
+                ? `${examQuestions} Questions · ${examMinutes} Mins`
+                : 'No exam format set'}
             </Typography>
             <Detail sx={{ mt: 0.5 }}>Fixed timed conditions</Detail>
           </Box>
-          <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'action.hover' }}>
+          <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'pb.surface2' }}>
             <Eyebrow>Question Bank Truth</Eyebrow>
             <Typography
-              variant="subtitle1"
+              variant="subtitle1" component="p"
               sx={{ fontWeight: 800, color: hasQuestions ? 'success.main' : 'warning.main' }}
             >
               {questionCount} Questions Loaded
@@ -343,24 +357,32 @@ export const CertificationHubPage: React.FC = () => {
           <Alert severity="warning" sx={{ mb: 2 }}>
             <b>Certification configured, but question content is currently unavailable.</b>
             <Box sx={{ mt: 0.5 }}>
-              The credential profile for <b>{targetSubject.name}</b> exists with an {passMark}% pass threshold, but 0 questions are currently loaded in the database. A runnable mock exam cannot be generated until questions are imported into the question bank.
+              The credential profile for <b>{targetSubject.name}</b> exists ({passMarkText}), but 0 questions are currently loaded in the database. A runnable mock exam cannot be generated until questions are imported into the question bank.
             </Box>
           </Alert>
         ) : (
           <Grid columns={2} sx={{ gap: 3 }}>
             <Box>
               <Eyebrow>Authoritative Readiness Rules</Eyebrow>
-              <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
-                Formal Verdict: {verdict === 'READY' ? 'VERIFIED READY' : 'NOT YET READY'}
+              <Typography variant="h6" component="h3" sx={{ fontWeight: 800, mb: 1 }}>
+                Formal Verdict: {verdict === 'READY' ? 'VERIFIED READY' : verdict === 'NOT MEASURED YET' ? 'NOT MEASURED YET' : 'NOT YET READY'}
               </Typography>
               <Detail sx={{ mb: 2 }}>
-                Passing requires satisfying three strict criteria: a 3-mock qualifying streak $\ge {passMark}\%$, a qualifying mock sitting within the last 14 days, and all core domains above floor target.
+                {rules
+                  ? `The readiness engine calls this ready only with ${rules.consecutive_mocks_at_pass} consecutive mocks at or above `
+                    + `${passMarkText}, a mock within the last ${rules.recency_days} days, and every domain at or above `
+                    + `${rules.domain_floor_pct}%. The rows below are the evidence it read.`
+                  : 'The readiness engine sets the verdict; the rows below are the evidence it read.'}
               </Detail>
 
               <Box sx={{ display: 'grid', gap: 1.5 }}>
                 <Row
-                  title="3-Mock Qualifying Streak"
-                  detail={`${streak.filter((s) => s >= passMark).length} / 3 consecutive mocks at or above ${passMark}%`}
+                  title="Qualifying streak"
+                  detail={
+                    streakNeeded != null && atPass != null
+                      ? `${atPass} / ${streakNeeded} latest mocks at or above ${passMarkText}`
+                      : 'Not measurable without a pass mark and the readiness rules'
+                  }
                   middle={
                     isStreakMet ? (
                       <CheckCircle2 size={18} color={theme.palette.success.main} />
@@ -371,11 +393,11 @@ export const CertificationHubPage: React.FC = () => {
                   action={<Pill tone={isStreakMet ? 'success' : 'danger'}>{isStreakMet ? 'Satisfied' : 'Pending'}</Pill>}
                 />
                 <Row
-                  title="14-Day Recency Requirement"
+                  title="Recency"
                   detail={
                     readiness?.latest_taken_at
                       ? `Last mock taken ${new Date(readiness.latest_taken_at).toLocaleDateString()}`
-                      : 'No qualifying mock taken within 14-day window'
+                      : 'No mock taken yet'
                   }
                   middle={
                     isRecencyMet ? (
@@ -396,7 +418,7 @@ export const CertificationHubPage: React.FC = () => {
 
             <Box>
               <Eyebrow>Domain Performance Evidence</Eyebrow>
-              <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+              <Typography variant="h6" component="h3" sx={{ fontWeight: 800, mb: 1 }}>
                 Core Syllabus Domains
               </Typography>
               <Detail sx={{ mb: 2 }}>
@@ -407,8 +429,8 @@ export const CertificationHubPage: React.FC = () => {
                 <Stack spacing={2}>
                   {readiness.domains.map((d) => {
                     const score = d.score_pct ?? 0;
-                    const domainFloor = readiness.rules?.domain_floor_pct ?? 75;
-                    const isFloorMet = score >= domainFloor;
+                    const domainFloor = rules?.domain_floor_pct ?? null;
+                    const isFloorMet = domainFloor != null && d.score_pct != null && score >= domainFloor;
                     return (
                       <Box key={d.domain}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
@@ -422,9 +444,11 @@ export const CertificationHubPage: React.FC = () => {
                               color: isFloorMet ? 'success.main' : 'warning.main',
                             }}
                           >
-                            {d.score_pct != null
-                              ? `${Math.round(score)}% (Floor: ${Math.round(domainFloor)}%)`
-                              : 'Needs more questions'}
+                            {d.score_pct == null
+                              ? 'Needs more questions'
+                              : domainFloor != null
+                                ? `${Math.round(score)}% (Floor: ${Math.round(domainFloor)}%)`
+                                : `${Math.round(score)}%`}
                           </Typography>
                         </Box>
                         <Bar
@@ -437,7 +461,7 @@ export const CertificationHubPage: React.FC = () => {
                   })}
                 </Stack>
               ) : (
-                <Box sx={{ p: 3, textAlign: 'center', bgcolor: 'action.hover', borderRadius: 2 }}>
+                <Box sx={{ p: 3, textAlign: 'center', bgcolor: 'pb.surface2', borderRadius: 2 }}>
                   <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                     Sit full qualifying mocks to populate domain floor analysis.
                   </Typography>
@@ -505,7 +529,7 @@ export const CertificationHubPage: React.FC = () => {
                 />
               </>
             ) : (
-              <Box sx={{ p: 2, textAlign: 'center', bgcolor: 'action.hover', borderRadius: 2 }}>
+              <Box sx={{ p: 2, textAlign: 'center', bgcolor: 'pb.surface2', borderRadius: 2 }}>
                 <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                   Question practice is unavailable because 0 questions are loaded for {targetSubject.name}.
                 </Typography>
@@ -531,13 +555,13 @@ export const CertificationHubPage: React.FC = () => {
             <Detail>Authoritative status for launching an exam under official conditions.</Detail>
           </PanelHead>
 
-          {hasQuestions ? (
+          {canSitMock ? (
             <Box>
               <Alert severity="success" sx={{ mb: 2 }}>
                 <b>Ready to launch full mock.</b> {questionCount} verified questions available in question bank.
               </Alert>
               <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-                Sitting a mock creates a formal assessment record. The mock will present {examQuestions} questions in {examMinutes} minutes with an {passMark}% pass threshold.
+                Sitting a mock creates a formal assessment record. The mock will present {examQuestions} questions in {examMinutes} minutes with a {passMarkText} pass threshold.
               </Typography>
               <Actions>
                 <Button
@@ -555,6 +579,20 @@ export const CertificationHubPage: React.FC = () => {
                   disabled={!history || history.length === 0}
                 >
                   Latest Mock Review
+                </Button>
+              </Actions>
+            </Box>
+          ) : hasQuestions ? (
+            // Questions, but no exam profile: a mock has no length, time or pass
+            // mark to be sat against, and the exam engine refuses it.
+            <Box>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                <b>No exam profile set.</b> {questionCount} questions are loaded, but a mock needs a length, a time
+                limit and a pass mark. Add them in this preparation's settings.
+              </Alert>
+              <Actions>
+                <Button variant="outlined" component={RouterLink} to={`/preparations/${targetSubject.id}/edit`}>
+                  Preparation settings
                 </Button>
               </Actions>
             </Box>

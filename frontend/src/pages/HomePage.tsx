@@ -429,7 +429,7 @@ const FocusTopics: React.FC<{ topics: FocusTopic[]; subject: Subject }> = ({ top
                 borderRadius: '9px',
                 textDecoration: 'none',
                 color: 'text.primary',
-                '&:hover': { bgcolor: 'action.hover' },
+                '&:hover': { bgcolor: 'pb.surface2' },
               }}
             >
               <Box sx={{ minWidth: 0 }}>
@@ -517,7 +517,7 @@ const UnassignedHome: React.FC<{
         </PanelHead>
         <Grid columns={3}>
           {subjects.map((s) => {
-            const caps = getSubjectCapabilities(s.id);
+            const caps = getSubjectCapabilities(s);
             return (
               <Box
                 key={s.id}
@@ -539,7 +539,7 @@ const UnassignedHome: React.FC<{
                     {caps.learningLabStatus === 'AVAILABLE' && <Pill tone="success">Lab Live</Pill>}
                     {caps.learningLabStatus === 'INTEGRATION_PENDING' && <Pill tone="warning">Lab Pending (Phase 5)</Pill>}
                   </Box>
-                  <Typography variant="h6" sx={{ fontWeight: 800, color: t.text }}>
+                  <Typography variant="h6" component="h3" sx={{ fontWeight: 800, color: t.text }}>
                     {s.name}
                   </Typography>
                   <Typography variant="body2" sx={{ color: t.muted, mt: '4px', minHeight: 40 }}>
@@ -625,7 +625,7 @@ export const HomePage: React.FC = () => {
       if (ctxSelectedId === primary.id && ctxCapabilities && ctxCapabilities !== UNASSIGNED_CAPABILITIES) {
         return ctxCapabilities;
       }
-      return getSubjectCapabilities(primary.id);
+      return getSubjectCapabilities(primary);
     }
     return ctxCapabilities ?? UNASSIGNED_CAPABILITIES;
   }, [primary, ctxCapabilities, ctxSelectedId]);
@@ -858,7 +858,7 @@ export const HomePage: React.FC = () => {
         <Grid columns={3}>
           <Box sx={{ p: (t) => t.typography.pxToRem(14), borderRadius: '8px', bgcolor: t.surface2, border: `1px solid ${t.line}` }}>
             <Eyebrow>{isCertification ? 'Subject & Certification' : 'Subject & Skill Track'}</Eyebrow>
-            <Typography variant="h6" sx={{ fontWeight: 800, mt: '4px' }}>
+            <Typography variant="h6" component="p" sx={{ fontWeight: 800, mt: '4px' }}>
               {`Focus Track: ${primary.name}`}
             </Typography>
             <Typography variant="body2" sx={{ color: t.muted, mt: '2px' }}>
@@ -868,13 +868,13 @@ export const HomePage: React.FC = () => {
               {isCertification
                 ? (has0Questions
                   ? `Pass Mark: ${primary.pass_mark}% · 0 Questions loaded in current dataset`
-                  : `Pass Mark: ${primary.pass_mark}% · ${primary.question_count} Questions · ${primary.exam_minutes ?? 60} Minutes`)
+                  : `Pass Mark: ${primary.pass_mark}% · ${primary.question_count} Questions${primary.exam_minutes != null ? ` · ${primary.exam_minutes} Minutes` : ''}`)
                 : 'Skill Track · Continuous competency evaluation (no exam pass mark)'}
             </Detail>
           </Box>
           <Box sx={{ p: (t) => t.typography.pxToRem(14), borderRadius: '8px', bgcolor: t.surface2, border: `1px solid ${t.line}` }}>
             <Eyebrow>Target Professional Roles</Eyebrow>
-            <Typography variant="h6" sx={{ fontWeight: 800, mt: '4px' }}>
+            <Typography variant="h6" component="p" sx={{ fontWeight: 800, mt: '4px' }}>
               {targetRoles}
             </Typography>
             <Detail sx={{ mt: (t) => t.typography.pxToRem(10) }}>
@@ -883,7 +883,7 @@ export const HomePage: React.FC = () => {
           </Box>
           <Box sx={{ p: (t) => t.typography.pxToRem(14), borderRadius: '8px', bgcolor: t.surface2, border: `1px solid ${t.line}` }}>
             <Eyebrow>Curriculum Baseline</Eyebrow>
-            <Typography variant="h6" sx={{ fontWeight: 800, mt: '4px' }}>
+            <Typography variant="h6" component="p" sx={{ fontWeight: 800, mt: '4px' }}>
               {curriculumBaseline}
             </Typography>
             <Detail sx={{ mt: (t) => t.typography.pxToRem(10) }}>
@@ -933,7 +933,7 @@ export const HomePage: React.FC = () => {
             <CurrentEvidence subject={primary} topicsProgressed={topicsProgressed} />
           </Box>
           <Box sx={{ gridColumn: { xs: 'span 1', md: 'span 2' } }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: '8px' }}>
+            <Typography variant="subtitle2" component="p" sx={{ fontWeight: 700, mb: '8px' }}>
               {isCertification ? 'Domain Readiness Breakdown (Production Readiness API)' : 'Core Competency Dimensions'}
             </Typography>
             {isCertification && r.domains.length > 0 ? (
@@ -1034,7 +1034,9 @@ export const HomePage: React.FC = () => {
                 />
                 <Row
                   title="Full Mock Exam Simulator"
-                  detail={`${primary.exam_question_count ?? 80} questions · ${primary.exam_minutes ?? 60} mins · ${primary.pass_mark}% pass threshold`}
+                  detail={primary.exam_question_count != null && primary.exam_minutes != null
+                    ? `${primary.exam_question_count} questions · ${primary.exam_minutes} mins · ${primary.pass_mark}% pass threshold`
+                    : 'No exam format set for this preparation'}
                   action={
                     has0Questions ? (
                       <Button size="small" variant="outlined" disabled>
@@ -1151,7 +1153,7 @@ export const HomePage: React.FC = () => {
         {!capabilities.learningLab ? (
           <Box sx={{ p: (t) => t.typography.pxToRem(24), textAlign: 'center', bgcolor: t.surface2, borderRadius: '8px', border: `1px solid ${t.line}` }}>
             <FlaskConical size={32} color={t.muted} style={{ margin: '0 auto 8px' }} />
-            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+            <Typography variant="subtitle1" component="p" sx={{ fontWeight: 800 }}>
               Learning Lab Not Configured for {primary.name}
             </Typography>
             <Typography variant="body2" sx={{ color: t.muted, mt: '6px', maxWidth: 600, mx: 'auto' }}>
@@ -1178,7 +1180,7 @@ export const HomePage: React.FC = () => {
                 Planned Architectural Capability
               </Typography>
             </Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+            <Typography variant="subtitle1" component="p" sx={{ fontWeight: 800 }}>
               ADF Behaviour Labs — Scheduled for Phase 5 Integration
             </Typography>
             <Typography variant="body2" sx={{ color: t.muted, mt: '6px', maxWidth: 720 }}>
@@ -1186,7 +1188,7 @@ export const HomePage: React.FC = () => {
             </Typography>
             <Grid columns={2} sx={{ mt: 2 }}>
               <Box sx={{ p: (t) => t.typography.pxToRem(14), borderRadius: '8px', border: `1px solid ${t.line}`, bgcolor: t.surface }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                <Typography variant="subtitle2" component="p" sx={{ fontWeight: 700 }}>
                   Concurrency &amp; Parallelism Budget (Phase 5)
                 </Typography>
                 <Typography variant="body2" sx={{ color: t.muted, mt: '4px' }}>
@@ -1199,7 +1201,7 @@ export const HomePage: React.FC = () => {
                 </Actions>
               </Box>
               <Box sx={{ p: (t) => t.typography.pxToRem(14), borderRadius: '8px', border: `1px solid ${t.line}`, bgcolor: t.surface }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                <Typography variant="subtitle2" component="p" sx={{ fontWeight: 700 }}>
                   Watermark CDC &amp; Fault Tolerance (Phase 5)
                 </Typography>
                 <Typography variant="body2" sx={{ color: t.muted, mt: '4px' }}>
@@ -1218,7 +1220,7 @@ export const HomePage: React.FC = () => {
             {isDatabricks ? (
               <Box sx={{ p: (t) => t.typography.pxToRem(14), borderRadius: '8px', border: `1px solid ${t.line}`, bgcolor: t.surface2 }}>
                 <Pill tone="accent">Lakehouse System Lab</Pill>
-                <Typography variant="subtitle1" sx={{ fontWeight: 800, mt: '8px' }}>
+                <Typography variant="subtitle1" component="p" sx={{ fontWeight: 800, mt: '8px' }}>
                   End-to-End Lakehouse Migration
                 </Typography>
                 <Typography variant="body2" sx={{ color: t.muted, mt: '4px' }}>
@@ -1234,7 +1236,7 @@ export const HomePage: React.FC = () => {
               <>
                 <Box sx={{ p: (t) => t.typography.pxToRem(14), borderRadius: '8px', border: `1px solid ${t.line}`, bgcolor: t.surface2 }}>
                   <Pill tone="accent">ADF Behaviour Lab</Pill>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 800, mt: '8px' }}>
+                  <Typography variant="subtitle1" component="p" sx={{ fontWeight: 800, mt: '8px' }}>
                     Concurrency &amp; Parallelism Budget
                   </Typography>
                   <Typography variant="body2" sx={{ color: t.muted, mt: '4px' }}>
@@ -1248,7 +1250,7 @@ export const HomePage: React.FC = () => {
                 </Box>
                 <Box sx={{ p: (t) => t.typography.pxToRem(14), borderRadius: '8px', border: `1px solid ${t.line}`, bgcolor: t.surface2 }}>
                   <Pill tone="accent">ADF Behaviour Lab</Pill>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 800, mt: '8px' }}>
+                  <Typography variant="subtitle1" component="p" sx={{ fontWeight: 800, mt: '8px' }}>
                     Watermark CDC &amp; Fault Tolerance
                   </Typography>
                   <Typography variant="body2" sx={{ color: t.muted, mt: '4px' }}>

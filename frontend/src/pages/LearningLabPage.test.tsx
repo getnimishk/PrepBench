@@ -85,6 +85,13 @@ describe('LearningLabPage', () => {
     expect(within(card).queryByText(/cluster sizing/i)).not.toBeInTheDocument();
   });
 
+  it('never calls anything on the hub a "Behaviour Lab": that name is reserved for the pending ADF lab', () => {
+    renderPage();
+    // Databricks is the Lakehouse Lab. The ADF Behaviour Lab is not live, so it has no card here at all.
+    expect(screen.queryByText(/Behaviou?r Lab/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Behaviou?r Lab/i })).not.toBeInTheDocument();
+  });
+
   it('renders Financial Learning as coming soon with a disabled button', () => {
     renderPage();
     const financeCard = screen.getByRole('heading', { level: 3, name: 'Financial Learning' }).closest('article')!;

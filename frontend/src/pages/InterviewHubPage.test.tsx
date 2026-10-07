@@ -153,9 +153,11 @@ describe('InterviewHubPage — Phase 4 Interview Integration', () => {
       ],
       total: 1,
     });
-    mockGetDesignReviews.mockResolvedValue([
-      { id: 301, title: 'Kafka vs Kinesis Ingestion Axis' },
-    ]);
+    // The API's own shape: a page of items and the total.
+    mockGetDesignReviews.mockResolvedValue({
+      items: [{ id: 301, title: 'Kafka vs Kinesis Ingestion Axis' }],
+      total: 1,
+    });
   });
 
   it('renders System Design track with Studio prompts, Tradeoff Reviews, verbal architecture round, and recordings', async () => {
@@ -169,8 +171,8 @@ describe('InterviewHubPage — Phase 4 Interview Integration', () => {
 
     // 1. What kind of interview practice can I do?
     const q1 = await screen.findByRole('region', { name: '1. What kind of interview practice can I do?' });
-    expect(within(q1).getByText(/2 Architecture Prompts/)).toBeInTheDocument();
-    expect(within(q1).getByText(/Tradeoff Reviews/)).toBeInTheDocument();
+    expect(within(q1).getByText('2 architecture prompts')).toBeInTheDocument();
+    expect(within(q1).getByText('1 tradeoff review')).toBeInTheDocument();
     expect(within(q1).getByText('Spoken Architecture')).toBeInTheDocument();
 
     // 2. What technical capability is being assessed?
@@ -192,7 +194,7 @@ describe('InterviewHubPage — Phase 4 Interview Integration', () => {
     // 4. Evidence generated
     const q4 = screen.getByRole('region', { name: '4. What evidence/results have I generated?' });
     expect(within(q4).getByText('Studio Attempts')).toBeInTheDocument();
-    expect(within(q4).getByText('Audio Takes')).toBeInTheDocument();
+    expect(within(q4).getByText('Audio takes, all preparations')).toBeInTheDocument();
   });
 
   it('renders ADF track with verbal technical rounds, incident communication, and does NOT render System Design Studio', async () => {
@@ -223,6 +225,55 @@ describe('InterviewHubPage — Phase 4 Interview Integration', () => {
     );
     expect(within(q3).getByRole('link', { name: 'Explore Scenarios' })).toHaveAttribute('href', '/scenarios');
     expect(within(q3).queryByRole('link', { name: 'Open Studio' })).not.toBeInTheDocument();
+  });
+
+  it("counts ADF's own saved questions, not the shared library, and leads with its scenarios", async () => {
+    mockPreparation.mockReturnValue({
+      selectedId: 6,
+      selected: ADF_SUBJECT,
+      capabilities: getSubjectCapabilities(6),
+    });
+    mockGetInterviewQuestions.mockImplementation((params: { subject_id?: number }) => Promise.resolve(
+      params?.subject_id === 6 ? { items: [], total: 0 } : { items: [], total: 36 },
+    ));
+
+    renderInterviewHub();
+
+    const q3 = await screen.findByRole('region', { name: '3. Which interview modes are available?' });
+    // ADF's interview content is what its scenarios save under it: none yet.
+    expect(await within(q3).findByText('0 saved')).toBeInTheDocument();
+    expect(mockGetInterviewQuestions).toHaveBeenCalledWith({ subject_id: 6, limit: 1 });
+    // The shared library is named as shared, never presented as ADF's own.
+    expect(within(q3).getByText('36 library questions')).toBeInTheDocument();
+    expect(within(q3).getByText(/shared across preparations/)).toBeInTheDocument();
+    // The lead action goes to the content that is ADF's, not to the general library.
+    expect(screen.getByRole('link', { name: /Practise from Azure Data Factory scenarios/ }))
+      .toHaveAttribute('href', '/scenarios');
+  });
+
+  it('says a count is unavailable when it could not be read, never a stand-in number', async () => {
+    mockPreparation.mockReturnValue({
+      selectedId: 3,
+      selected: SYSTEM_DESIGN_SUBJECT,
+      capabilities: getSubjectCapabilities(3),
+    });
+    mockGetDesignReviews.mockRejectedValue(new Error('offline'));
+    mockGetSystemDesignPrompts.mockRejectedValue(new Error('offline'));
+    mockGetRecordings.mockRejectedValue(new Error('offline'));
+
+    renderInterviewHub();
+
+    const q1 = await screen.findByRole('region', { name: '1. What kind of interview practice can I do?' });
+    expect(within(q1).getByText('Tradeoff reviews unavailable')).toBeInTheDocument();
+    expect(within(q1).getByText('Architecture prompts unavailable')).toBeInTheDocument();
+    // The old fallback invented ten reviews whenever the list failed to load.
+    expect(screen.queryByText(/\b10\b.*review/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\b0 (architecture )?prompts?\b/i)).not.toBeInTheDocument();
+
+    const q3 = screen.getByRole('region', { name: '3. Which interview modes are available?' });
+    expect(within(q3).getByText('Recordings unavailable')).toBeInTheDocument();
+    // With the prompts unread there is no "next unattempted" to recommend.
+    expect(screen.queryByRole('link', { name: 'Start Architecture Answer' })).not.toBeInTheDocument();
   });
 
   it('renders CapabilityUnavailablePage for non-interview subject (PSM I) without silent switching', async () => {

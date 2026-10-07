@@ -51,6 +51,15 @@ const MEASURED = {
   },
 };
 
+/** The same preparation before any mock has been sat. */
+const UNMEASURED = {
+  ...MEASURED,
+  readiness: {
+    ...MEASURED.readiness, state: 'needs_evaluation' as const, mock_count: 0, recent_scores: [],
+    domains: [], weakest_domain: null, points_per_mock: null, blockers: [],
+  },
+};
+
 // jsdom has no real <canvas> context, so Chart.js throws on any non-empty
 // dataset regardless of which page renders it -- this predates this test
 // file (ScoreTrendChart was never testable with real data before either).
@@ -86,9 +95,21 @@ beforeEach(() => {
   mockGetScoreTrends.mockResolvedValue([]);
   mockGetSystemDesignAnalytics.mockResolvedValue(emptySdAnalytics);
   mockGetRecordingAnalytics.mockResolvedValue(emptyIpAnalytics);
-  mockGetSubjects.mockResolvedValue([]);
-  // Nothing picked: the page falls back to the preparation with the most mocks.
-  mockPreparation.mockReturnValue({ selectedId: null, selected: null });
+  // A learner working in PSM I, with no mocks sat yet.
+  mockGetSubjects.mockResolvedValue([UNMEASURED]);
+  mockPreparation.mockReturnValue({ selectedId: 1, selected: UNMEASURED, loading: false });
+});
+
+describe('AnalyticsPage with no preparation chosen', () => {
+  it('says no preparation is chosen rather than describing the one with the most mocks', async () => {
+    mockGetSubjects.mockResolvedValue([MEASURED]);
+    mockPreparation.mockReturnValue({ selectedId: null, selected: null, loading: false });
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: 'No preparation chosen' })).toBeInTheDocument();
+    expect(screen.queryByText('Scrum / PSM I')).not.toBeInTheDocument();
+    expect(mockGetDomainPerformance).not.toHaveBeenCalled();
+  });
 });
 
 describe('AnalyticsPage', () => {

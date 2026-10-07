@@ -104,12 +104,17 @@ export const PreparationProvider: React.FC<{ children: React.ReactNode }> = ({ c
       // point at a preparation that has since been deleted or archived, and
       // holding on to it would leave every scoped screen filtering by an id the
       // server will never match -- an app that looks empty for no stated reason.
+      //
+      // What it resolves to when there is no valid choice is *no* choice. It
+      // used to be the first preparation in the list, which on every install
+      // so far is PSM I: a learner who had picked nothing, or whose pick was
+      // deleted, was silently put to work in a certification they may never
+      // have meant to open. Unassigned is a state the app shows and asks about;
+      // picking for the learner is not.
       setSelectedId((current) => {
         if (current !== null && list.some((s) => s.id === current)) return current;
-        const first = list[0];
-        if (!first) return null;
-        writeStoredId(first.id);
-        return first.id;
+        if (current !== null) writeStoredId(null);
+        return null;
       });
     } catch (err) {
       failedRef.current = true;

@@ -185,7 +185,7 @@ describe('CertificationHubPage — Phase 4 Certification Integration', () => {
       name: '2. How ready am I? & 3. What evidence supports that assessment?',
     });
     expect(within(q2).getByText(/Verdict:\s*NOT READY/)).toBeInTheDocument();
-    expect(within(q2).getByText(/1 \/ 3 consecutive mocks at or above 85%/)).toBeInTheDocument();
+    expect(within(q2).getByText(/1 \/ 3 latest mocks at or above 85%/)).toBeInTheDocument();
     expect(within(q2).getByText('Managing Products with Agility')).toBeInTheDocument();
     expect(within(q2).getByText('79% (Floor: 75%)')).toBeInTheDocument();
 
@@ -336,5 +336,78 @@ describe('CertificationHubPage — Phase 4 Certification Integration', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'PSM I - Professional Scrum Master' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Question Bank (709)' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Start Mock Exam' })).toBeInTheDocument();
+  });
+});
+
+describe('CertificationHubPage -- the verdict comes from the readiness engine', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetHomeSummary.mockResolvedValue({ per_subject: [], resumable: null });
+    mockGetMockHistory.mockResolvedValue([]);
+    mockGetReviewCounts.mockResolvedValue({ spaced_due: 0, unreviewed: 0 });
+  });
+
+  const region = () => screen.findByRole('region', {
+    name: '2. How ready am I? & 3. What evidence supports that assessment?',
+  });
+
+  it('does not call a learner ready on streak and recency alone when the engine says otherwise', async () => {
+    // Three recent mocks above the pass mark -- the hub's old home-made rule
+    // said READY -- but a domain is under its floor, so the engine says not yet.
+    const underFloor: Subject = {
+      ...PSM_SUBJECT,
+      readiness: {
+        ...PSM_SUBJECT.readiness,
+        state: 'almost_there',
+        mock_count: 3,
+        recent_scores: [88, 90, 92],
+        domains: [{ domain: 'Managing Products with Agility', score_pct: 60, answered: 30, state: 'needs_work' }],
+      },
+    };
+    mockGetSubjects.mockResolvedValue([underFloor]);
+    mockPreparation.mockReturnValue({ selectedId: 1, selected: underFloor, capabilities: getSubjectCapabilities(1) });
+    renderCertHub();
+
+    const q2 = await region();
+    expect(within(q2).getByText(/Verdict:\s*NOT READY/)).toBeInTheDocument();
+    expect(within(q2).queryByText(/Verdict:\s*READY$/)).not.toBeInTheDocument();
+  });
+
+  it('says READY only when the engine does', async () => {
+    const ready: Subject = { ...PSM_SUBJECT, readiness: { ...PSM_SUBJECT.readiness, state: 'ready', mock_count: 3 } };
+    mockGetSubjects.mockResolvedValue([ready]);
+    mockPreparation.mockReturnValue({ selectedId: 1, selected: ready, capabilities: getSubjectCapabilities(1) });
+    renderCertHub();
+
+    expect(within(await region()).getByText(/Verdict:\s*READY/)).toBeInTheDocument();
+  });
+
+  it('says not measured yet, not "not ready", before any mock is sat', async () => {
+    const unmeasured: Subject = {
+      ...PSM_SUBJECT,
+      readiness: { ...PSM_SUBJECT.readiness, state: 'needs_evaluation', mock_count: 0, recent_scores: [], domains: [] },
+    };
+    mockGetSubjects.mockResolvedValue([unmeasured]);
+    mockPreparation.mockReturnValue({ selectedId: 1, selected: unmeasured, capabilities: getSubjectCapabilities(1) });
+    renderCertHub();
+
+    expect(within(await region()).getByText('Verdict: NOT MEASURED YET')).toBeInTheDocument();
+  });
+
+  it("never fills a missing exam profile with PSM I's figures", async () => {
+    const noProfile: Subject = {
+      ...PSM_SUBJECT, id: 42, slug: 'my-cert', name: 'My Cert', certification: 'My Cert',
+      pass_mark: null, exam_question_count: null, exam_minutes: null, has_exam_profile: false, question_count: 30,
+    };
+    mockGetSubjects.mockResolvedValue([noProfile]);
+    mockPreparation.mockReturnValue({ selectedId: 42, selected: noProfile, capabilities: getSubjectCapabilities(noProfile) });
+    renderCertHub();
+
+    const q1 = await screen.findByRole('region', { name: '1. What certification am I preparing for?' });
+    expect(within(q1).getByText('No pass mark set')).toBeInTheDocument();
+    expect(within(q1).getByText('No exam format set')).toBeInTheDocument();
+    expect(screen.queryByText(/85%/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/80 Questions/)).not.toBeInTheDocument();
+    expect(screen.getByText(/No exam profile set\./)).toBeInTheDocument();
   });
 });

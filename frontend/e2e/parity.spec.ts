@@ -50,7 +50,19 @@ test("the rail has the prototype's fourteen destinations plus the four Learning 
   await pickPreparation(page, prep.name);
   const nav = page.getByRole('navigation', { name: 'Main' });
   // 14 prototype destinations + 4 Learning Lab entries (All Sandboxes, Agile Metrics, Scenarios, Lakehouse Lab) = 18.
-  await expect(nav.getByRole('link')).toHaveCount(18);
+  // The rail is capability-aware: for a certification preparation, the entries it
+  // has no capability for stay on the rail as disabled buttons that say why, rather
+  // than links that open a screen with nothing for it.
+  const unavailable = [
+    'Rounds', 'System Design', 'Design Reviews', 'Recordings',
+    'All Sandboxes', 'Agile Metrics', 'Scenarios', 'Lakehouse Lab',
+  ];
+  await expect(nav.getByRole('link')).toHaveCount(18 - unavailable.length);
+  for (const label of unavailable) {
+    const entry = nav.getByRole('button', { name: `${label} (Not configured for ${prep.name})` });
+    await expect(entry, `${label} is on the rail, disabled`).toBeDisabled();
+    await expect(entry).toHaveAttribute('aria-disabled', 'true');
+  }
   await nav.getByRole('link', { name: 'Roadmaps' }).click();
   await expect(page).toHaveURL(/\/roadmaps$/);
   await expect(nav.getByRole('link', { name: 'Roadmaps' })).toHaveAttribute('aria-current', 'page');

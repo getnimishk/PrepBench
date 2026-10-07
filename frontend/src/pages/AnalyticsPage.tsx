@@ -364,19 +364,15 @@ export const AnalyticsPage: React.FC = () => {
 };
 
 /**
- * The preparation this page describes: the one chosen in the picker.
+ * The preparation this page describes: the one chosen in the picker, or none.
  *
  * So Insights describes the same thing Home does. The old inference -- most
- * mocks wins -- is kept only as the fallback when nothing is selected; on its
- * own it meant switching to another preparation left this page reporting on
- * PSM I.
+ * mocks wins -- first meant switching to another preparation left this page
+ * reporting on PSM I, and then, kept as the fallback for nothing selected,
+ * meant a learner who had chosen nothing was shown PSM I's results as theirs.
  */
 function describedPreparation(subjects: Subject[], selectedId: number | null): Subject | null {
-  const inferred =
-    [...subjects]
-      .filter((s) => s.has_exam_profile)
-      .sort((a, b) => b.readiness.mock_count - a.readiness.mock_count)[0] ?? null;
-  return subjects.find((s) => s.id === selectedId) ?? inferred;
+  return subjects.find((s) => s.id === selectedId) ?? null;
 }
 
 /**
@@ -431,6 +427,18 @@ const ExamsInsights: React.FC<{
   // is unknown rather than a guessed one.
   const floor = r?.rules?.domain_floor_pct;
   const explanation = r ? explainVerdict(r) : null;
+
+  if (!subject) {
+    return (
+      <Section>
+        <Panel component="section" aria-label="Performance trend">
+          <Eyebrow>Performance trend</Eyebrow>
+          <Typography variant="h5" component="h2" sx={{ mt: '4px' }}>No preparation chosen</Typography>
+          <Sub sx={{ mb: 0 }}>Exam results belong to one preparation. Pick the one you are working in from the header.</Sub>
+        </Panel>
+      </Section>
+    );
+  }
 
   if (!r || r.mock_count === 0) {
     return (

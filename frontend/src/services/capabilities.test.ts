@@ -3,6 +3,8 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import { describe, expect, it } from 'vitest';
+import type { ContentPackDetail } from '../types/contentPack';
+import adfPack from '../../../backend/app/content/packs/adf/v1.json';
 import {
   getSubjectCapabilities,
   getSubjectsWithCapability,
@@ -277,5 +279,81 @@ describe('Subject Capabilities Foundation (Phase 1)', () => {
       const ids = KNOWN_PRODUCTION_SUBJECTS.map((s) => s.id);
       expect(ids).toEqual([1, 2, 3, 4, 5, 6]);
     });
+  });
+});
+
+describe('Interview capability is backed by subject-scoped content', () => {
+  // ADF keeps `interview: true` only because its own content exists: each
+  // scenario in the shipped pack ends with a Say-it question per role, and
+  // ScenarioPage saves the learner's answer as an interview question under the
+  // ADF preparation. If the pack stops shipping them, this flag is a claim
+  // about nothing and must go false.
+  it('ADF ships a Say-it question for every role of every written scenario', () => {
+    const pack = adfPack as unknown as ContentPackDetail;
+    const written = pack.scenario_levels.flatMap((l) => l.scenarios).filter((sc) => sc.content);
+    const sayIt = written.flatMap((sc) =>
+      Object.values(sc.content!.lenses).map((lens) => lens.sayIt.question.trim()),
+    );
+    expect(written.length).toBeGreaterThan(0);
+    expect(sayIt.every((q) => q.length > 0)).toBe(true);
+    expect(getSubjectCapabilities(6).interview).toBe(true);
+  });
+
+  it('a subject with no interview content of its own has no interview capability', () => {
+    // Agentic AI and Databricks have neither prompts nor scenario questions of their own;
+    // the shared library is not theirs.
+    expect(getSubjectCapabilities(5).interview).toBe(false);
+    expect(getSubjectCapabilities(2).interview).toBe(false);
+    expect(isCapabilityAvailable(null, 'interview')).toBe(false);
+  });
+});
+
+describe('Capabilities read from the preparation itself', () => {
+  const record = (over: Partial<Subject>): Subject => ({
+    id: 42, name: 'My AZ-900', slug: 'my-az-900', kind: 'certification', is_archived: false,
+    display_order: 100, has_exam_profile: true, question_count: 120, content_packs: [],
+    readiness: { state: 'needs_evaluation', mock_count: 0, recent_scores: [] } as unknown as Subject['readiness'],
+    ...over,
+  });
+
+  it("gives a learner's own certification its certification capability, not UNASSIGNED", () => {
+    const caps = getSubjectCapabilities(record({}));
+    expect(caps.certification).toBe(true);
+    expect(caps.questionAvailability).toBe(true);
+    expect(caps.questionCount).toBe(120);
+    expect(caps.interview).toBe(false);
+    expect(caps.learningLabStatus).toBe('UNAVAILABLE');
+  });
+
+  it("claims guides and scenarios for a learner's skill only when it has packs attached", () => {
+    expect(getSubjectCapabilities(record({ kind: 'skill', question_count: 0 })).studyGuide).toBe(false);
+    const withPack = record({
+      kind: 'skill', question_count: 0,
+      content_packs: [{ pack_id: 'adls', pack_version: 1 } as unknown as NonNullable<Subject['content_packs']>[number]],
+    });
+    expect(getSubjectCapabilities(withPack).studyGuide).toBe(true);
+    expect(getSubjectCapabilities(withPack).certification).toBe(false);
+  });
+
+  it('sees questions imported into Kafka later, instead of keeping the bank locked at a static 0', () => {
+    const kafka = record({ id: 4, slug: 'confluent-certified-developer-for-apache-kafka', question_count: 0 });
+    expect(getSubjectCapabilities(kafka).questionAvailability).toBe(false);
+    const filled = { ...kafka, question_count: 55 };
+    expect(getSubjectCapabilities(filled).questionAvailability).toBe(true);
+    expect(getSubjectCapabilities(filled).questionCount).toBe(55);
+    expect(getSubjectCapabilities(filled).certification).toBe(true);
+  });
+
+  it("does not mistake a learner's preparation that reuses a seeded id for that seeded subject", () => {
+    // On another install, id 6 can be anything. Only the slug says it is ADF.
+    const notAdf = record({ id: 6, slug: 'my-az-900' });
+    const caps = getSubjectCapabilities(notAdf);
+    expect(caps.certification).toBe(true);
+    expect(caps.learningLabStatus).toBe('UNAVAILABLE');
+    expect(caps.scenarios).toBe(false);
+  });
+
+  it('still knows nothing about a bare id it does not describe', () => {
+    expect(getSubjectCapabilities(42)).toBe(UNASSIGNED_CAPABILITIES);
   });
 });

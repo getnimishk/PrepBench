@@ -87,7 +87,7 @@ test('screens stay usable with a large bank, a large roadmap and many areas', as
   await page.reload();
   await expect(page.getByText(new RegExp(`Large bank ${t} question \\d+`)).first()).toBeVisible({ timeout: 60_000 });
   await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Study Library', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Learn', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Study Library', level: 1 })).toBeVisible();
   await timed('question bank: first page of 2,000', async () => {
     await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Question Bank', exact: true }).click();
     await expect(page.getByText(new RegExp(`Large bank ${t} question \\d+`)).first()).toBeVisible({ timeout: 60_000 });

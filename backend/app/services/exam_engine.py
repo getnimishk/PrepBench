@@ -3,7 +3,6 @@
 # Commercial use requires a separate licence from the copyright holder.
 
 import random
-import re
 from collections import Counter
 from datetime import datetime, UTC, timedelta
 from typing import Dict, Optional
@@ -328,10 +327,24 @@ class ExamEngine:
         # it was not actually drawn from.
         certification = req.certification
 
+        # Scope is the preparation's own questions, by Question.subject_id and
+        # nothing else. A caller that sends only a certification string is
+        # resolved to the preparation holding that exact string above, and is
+        # then scoped the same way.
+        #
+        # The old lenient path ORed an ILIKE for every token of the
+        # certification name across Question.certification AND Question.domain,
+        # so "PSM I - Professional Scrum Master" matched any question whose
+        # domain contained "Master", and a Kafka session could be filled with
+        # PSM I questions. A word in common is not evidence of ownership. The
+        # only string match left is an exact (case-insensitive) one, for a
+        # certification no preparation holds.
         subject_scope_id = subject.id if subject is not None else None
 
         # Refused before a single question is fetched, because it is a fact
-        # about the subject and not about the bank.
+        # about the subject and not about the bank. A skill has no pass mark,
+        # so a mock of it could not measure anything -- that, not "widen the
+        # filters", is the reason the learner has to be given.
         self._refuse_mock_without_a_profile(req, subject)
 
         if subject_scope_id is None and certification and certification.strip():

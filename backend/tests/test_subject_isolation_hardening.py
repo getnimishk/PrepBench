@@ -20,6 +20,7 @@ Regression Tests:
   Test 5: Review queue for Kafka returns 0 items; does not leak PSM I review items, and check questions are isolated.
   Test 6: Positive control: PSM I question retrieval and mock creation work normally.
   Test 7: Direct API protection: direct requests with subject_id=kafka.id or Kafka certification string return 0 questions / 400.
+  Test 8: Spaced review: Kafka deck and queue count are empty while PSM I cards are due; a Kafka memory drill is refused.
 """
 
 import uuid
@@ -363,3 +364,69 @@ def test_7_direct_api_protection_by_certification_string(db):
     )
     assert res.status_code == 400
     assert "no questions yet" in res.json()["detail"].lower()
+
+
+def test_8_spaced_review_for_kafka_never_draws_psm_cards(db):
+    """Test 8: Spaced review is scoped by the question's own preparation.
+
+    PSM I cards are due; Kafka has no questions. Kafka's deck is empty and its
+    count is zero, a Kafka memory drill is refused, and PSM I's own deck still
+    holds its cards -- the scope, not the schedule, decides what is drawn.
+    """
+    from datetime import timedelta
+
+    from app.core.timeutils import utc_now_naive
+    from app.models.spaced_repetition import SpacedRepetition
+
+    kafka = _get_or_create_kafka(db)
+    psm = _get_or_create_psm(db)
+    past = utc_now_naive() - timedelta(days=1)
+
+    questions = []
+    for i in range(3):
+        q = Question(
+            text=f"PSM I spaced card {i} {uuid.uuid4().hex[:6]}",
+            certification=psm.certification,
+            subject_id=psm.id,
+            domain="Scrum Events",
+            topic="Kafka Streams Master",  # a shared word with Kafka's certification, on purpose
+            question_type=QuestionType.SINGLE_CHOICE,
+            difficulty="medium",
+            options=[
+                QuestionOption(option_text="Correct", is_correct=True, order_index=1),
+                QuestionOption(option_text="Wrong", is_correct=False, order_index=2),
+            ],
+        )
+        db.add(q)
+        questions.append(q)
+    db.commit()
+    cards = [SpacedRepetition(question_id=q.id, next_review_date=past) for q in questions]
+    db.add_all(cards)
+    db.commit()
+    psm_ids = {q.id for q in questions}
+
+    try:
+        kafka_deck = client.get("/api/v1/spaced/deck", params={"subject_id": kafka.id, "limit": 50})
+        assert kafka_deck.status_code == 200, kafka_deck.text
+        assert kafka_deck.json()["due_total"] == 0
+        assert kafka_deck.json()["cards"] == []
+
+        drill = client.post("/api/v1/exams", json={
+            "subject_id": kafka.id, "exam_mode": "spaced_repetition",
+            "session_kind": "drill", "total_questions": 5,
+        })
+        assert drill.status_code == 400, drill.text
+
+        queue = client.get("/api/v1/review/queue", params={"subject_id": kafka.id}).json()
+        assert queue["spaced_due"] == 0
+
+        psm_deck = client.get("/api/v1/spaced/deck", params={"subject_id": psm.id, "limit": 50}).json()
+        drawn = {c["question_id"] for c in psm_deck["cards"]}
+        assert psm_ids <= drawn
+    finally:
+        for c in cards:
+            db.delete(c)
+        db.commit()
+        for q in questions:
+            db.delete(q)
+        db.commit()

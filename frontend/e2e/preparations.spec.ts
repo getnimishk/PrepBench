@@ -3,7 +3,7 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import { expect, test } from './fixtures';
-import { createCertification, tag } from './helpers';
+import { createCertification, pickPreparation, tag } from './helpers';
 
 /**
  * Adding, archiving and deleting a preparation through the screens, with the
@@ -72,6 +72,9 @@ test('archiving hides a preparation from the picker and restoring brings it back
 test('delete refuses until the name is typed exactly, then really deletes', async ({ page, request }) => {
   const prep = await createCertification(request, 'Doomed');
 
+  // Work in it first, so deleting it has to move the picker off it.
+  await page.goto('/');
+  await pickPreparation(page, prep.name);
   await page.goto(`/preparations/${prep.id}/edit`);
   await page.getByRole('button', { name: 'Delete', exact: true }).click();
 
@@ -90,7 +93,9 @@ test('delete refuses until the name is typed exactly, then really deletes', asyn
   expect((await request.get(`/api/v1/subjects/${prep.id}`)).status()).toBe(404);
 
   // And the picker must not be left pointing at the preparation that is gone --
-  // a real bug found while building this screen.
+  // a real bug found while building this screen. Nor does it jump to another
+  // preparation the learner never chose: with the chosen one gone, nothing is.
+  await expect(page.getByRole('button', { name: new RegExp(`^Preparation: ${prep.name}`) })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Preparation: No preparation. Change preparation' }))
-    .toHaveCount(0);
+    .toBeVisible();
 });

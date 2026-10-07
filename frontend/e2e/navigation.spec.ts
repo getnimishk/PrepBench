@@ -88,6 +88,7 @@ test('every screen opens with no console errors, and no link on any of them lead
   const routes = [
     '/', '/preparations', '/preparations/new', `/preparations/${prep.id}/edit`, `/subjects/${prep.id}`,
     '/practice', '/practice?tab=weak', '/practice?tab=spaced', '/practice?tab=custom', '/practice?tab=mock', '/practice/spaced',
+    '/certification', '/interview',
     '/learn', '/learn/guides/adf', '/learn/guides/adf/pitfalls', '/review', '/exam-setup', '/exam-setup?kind=drill', `/exam-review/${mock}`,
     '/question-bank', '/analytics', `/analytics/area?subject=${prep.id}&domain=${encodeURIComponent(area)}`,
     '/roadmaps', `/roadmaps/${roadmap.id}`,

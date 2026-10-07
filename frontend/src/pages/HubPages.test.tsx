@@ -141,14 +141,18 @@ beforeEach(() => {
   mockGetOther.mockResolvedValue([]);
   mockGetFocus.mockResolvedValue([]);
   mockReviewCounts.mockResolvedValue({ unreviewed: 0, spaced_due: 8 });
-  mockPreparation.mockReturnValue({ selectedId: null, selected: null });
+  // A learner working in PSM I. With nothing picked the page leads with no
+  // preparation at all (see 'Practice -- with no preparation chosen').
+  mockPreparation.mockReturnValue({ selectedId: 1, selected: null, loading: false });
 });
 
 // ---- continue ----------------------------------------------------------
 
 describe('Practice — continue', () => {
   it('leads with the unfinished session when there is one', async () => {
-    mockGetHome.mockResolvedValue(summary({ resumable: RESUMABLE }));
+    mockGetHome.mockResolvedValue(summary({
+      resumable: RESUMABLE, per_subject: [{ subject_id: 1, unreviewed: 0, resumable: RESUMABLE }],
+    }));
     renderPractice();
 
     const panel = await recommended();
@@ -236,7 +240,9 @@ describe('Practice — one dominant action', () => {
   // was started wins, and the weakness stays on the page as a quieter way in.
   it('still has exactly one filled button when both a session and a weakness exist', async () => {
     mockGetSubjects.mockResolvedValue([WEAK]);
-    mockGetHome.mockResolvedValue(summary({ resumable: RESUMABLE }));
+    mockGetHome.mockResolvedValue(summary({
+      resumable: RESUMABLE, per_subject: [{ subject_id: 1, unreviewed: 0, resumable: RESUMABLE }],
+    }));
     const { container } = renderPractice();
 
     await recommended();
@@ -304,6 +310,19 @@ describe('Practice — also available, and other ways to practise', () => {
 });
 
 // ---- empty and degraded states -----------------------------------------
+
+describe('Practice -- with no preparation chosen', () => {
+  it('recommends nothing rather than the certification with the most mocks', async () => {
+    mockPreparation.mockReturnValue({ selectedId: null, selected: null, loading: false });
+    mockGetSubjects.mockResolvedValue([WEAK]);
+    renderPractice();
+
+    const panel = await recommended();
+    expect(within(panel).getByRole('heading', { name: 'Nothing to recommend yet' })).toBeInTheDocument();
+    expect(within(panel).queryByRole('link', { name: 'Take a mock' })).not.toBeInTheDocument();
+    expect(mockReviewCounts).not.toHaveBeenCalled();
+  });
+});
 
 describe('Practice — when there is nothing to recommend', () => {
   it('still gives a usable page with no subjects at all', async () => {

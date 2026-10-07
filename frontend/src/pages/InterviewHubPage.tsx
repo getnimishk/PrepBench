@@ -5,30 +5,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import {
-  Alert,
   Box,
   Button,
   Chip,
   Stack,
-  Tab,
-  Tabs,
   Typography,
   useTheme,
 } from '@mui/material';
-import {
-  ArrowRight,
-  Award,
-  CheckCircle2,
-  FolderGit2,
-  History,
-  Mic,
-  Mic2,
-  Network,
-  RotateCcw,
-  Scale,
-  ScrollText,
-  Workflow,
-} from 'lucide-react';
+import { Award } from 'lucide-react';
 import {
   Actions,
   Detail,
@@ -39,14 +23,11 @@ import {
   PanelHead,
   Pill,
   Row,
-  Section,
-  Sub,
 } from '../components/ui/primitives';
 import { usePreparation } from '../context/PreparationContext';
 import {
   getDesignReviews,
   getInterviewQuestions,
-  getInterviewRoundTypes,
   getRecordings,
   getSubjects,
   getSystemDesignAttempts,
@@ -54,17 +35,25 @@ import {
 } from '../services/api';
 import {
   getSubjectCapabilities,
-  KNOWN_PRODUCTION_SUBJECTS,
   UNASSIGNED_CAPABILITIES,
 } from '../services/capabilities';
 import { CapabilityUnavailablePage } from '../components/common/CapabilityUnavailablePage';
 import { LoadingState } from '../components/common/States';
-import type { InterviewQuestion, RoundTypeInfo } from '../types/interviewQuestion';
 import type { PracticeRecording } from '../types/recording';
 import type { Subject } from '../types/subject';
 import type { SystemDesignAttempt, SystemDesignPrompt } from '../types/systemDesign';
 
-type InterviewTab = 'overview' | 'system_design' | 'verbal' | 'recordings';
+/** How many recordings are read; a full page means there may be more. */
+const RECORDINGS_LIMIT = 100;
+
+/**
+ * A figure as it was read, or a plain statement that it could not be. Never a
+ * stand-in number: a count the page invented on failure (this hub used to show
+ * "10 Tradeoff Reviews" whenever that list failed to load) is a fabricated
+ * result, and the learner cannot tell it apart from a real one.
+ */
+const countOr = (n: number | null, noun: string, nounPlural = `${noun}s`): string =>
+  n == null ? `${noun[0].toUpperCase()}${nounPlural.slice(1)} unavailable` : `${n} ${n === 1 ? noun : nounPlural}`;
 
 export const InterviewHubPage: React.FC = () => {
   const theme = useTheme();
@@ -75,15 +64,18 @@ export const InterviewHubPage: React.FC = () => {
     capabilities: ctxCapabilities,
   } = usePreparation();
 
+  // Each source is held as what was read, or null when the read failed, so a
+  // failure is shown as a failure rather than as zero or as a guess.
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [roundTypes, setRoundTypes] = useState<RoundTypeInfo[]>([]);
-  const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
-  const [prompts, setPrompts] = useState<SystemDesignPrompt[]>([]);
-  const [attempts, setAttempts] = useState<SystemDesignAttempt[]>([]);
-  const [recordings, setRecordings] = useState<PracticeRecording[]>([]);
-  const [designReviewsCount, setDesignReviewsCount] = useState<number>(10);
+  const [libraryTotal, setLibraryTotal] = useState<number | null>(null);
+  const [prompts, setPrompts] = useState<SystemDesignPrompt[] | null>(null);
+  const [attempts, setAttempts] = useState<SystemDesignAttempt[] | null>(null);
+  const [recordings, setRecordings] = useState<PracticeRecording[] | null>(null);
+  const [designReviewsCount, setDesignReviewsCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<InterviewTab>('overview');
+  // Questions saved under this preparation (a Skill's scenarios save their
+  // Say-it question here). undefined while unread.
+  const [subjectQuestionTotal, setSubjectQuestionTotal] = useState<number | null | undefined>(undefined);
 
   const urlSubjectParam = searchParams.get('subject');
 
@@ -92,19 +84,17 @@ export const InterviewHubPage: React.FC = () => {
     setLoading(true);
 
     Promise.all([
-      getSubjects().catch(() => []),
-      getInterviewRoundTypes().catch(() => []),
-      getInterviewQuestions({ limit: 100 }).then((r) => r.items).catch(() => []),
-      getSystemDesignPrompts({ limit: 100 }).then((r) => r.items).catch(() => []),
-      getSystemDesignAttempts({ limit: 100 }).then((r) => r.items).catch(() => []),
-      getRecordings({ limit: 100 }).then((r) => r.items).catch(() => []),
-      getDesignReviews().then((r) => r.total ?? r.items?.length ?? 0).catch(() => 10),
+      getSubjects().catch(() => [] as Subject[]),
+      getInterviewQuestions({ limit: 1 }).then((r) => r.total).catch(() => null),
+      getSystemDesignPrompts({ limit: 500 }).then((r) => r.items).catch(() => null),
+      getSystemDesignAttempts({ limit: 500 }).then((r) => r.items).catch(() => null),
+      getRecordings({ limit: RECORDINGS_LIMIT }).then((r) => r.items).catch(() => null),
+      getDesignReviews().then((r) => r.total).catch(() => null),
     ])
-      .then(([subjs, rTypes, qs, prs, atts, recs, drCount]) => {
+      .then(([subjs, qTotal, prs, atts, recs, drCount]) => {
         if (cancelled) return;
         setSubjects(subjs);
-        setRoundTypes(rTypes);
-        setQuestions(qs);
+        setLibraryTotal(qTotal);
         setPrompts(prs);
         setAttempts(atts);
         setRecordings(recs);
@@ -136,8 +126,19 @@ export const InterviewHubPage: React.FC = () => {
 
   const targetCapabilities = useMemo(() => {
     if (!targetSubject) return UNASSIGNED_CAPABILITIES;
-    return getSubjectCapabilities(targetSubject.id);
+    return getSubjectCapabilities(targetSubject);
   }, [targetSubject]);
+
+  const targetId = targetSubject?.id ?? null;
+  useEffect(() => {
+    setSubjectQuestionTotal(undefined);
+    if (targetId == null) return undefined;
+    let cancelled = false;
+    getInterviewQuestions({ subject_id: targetId, limit: 1 })
+      .then((r) => { if (!cancelled) setSubjectQuestionTotal(r.total); })
+      .catch(() => { if (!cancelled) setSubjectQuestionTotal(null); });
+    return () => { cancelled = true; };
+  }, [targetId]);
 
   if (loading) {
     return <LoadingState label="Loading Interview Hub…" />;
@@ -146,7 +147,7 @@ export const InterviewHubPage: React.FC = () => {
   // 1. Unassigned Subject Context Guard: Zero silent default to System Design or ADF!
   if (!targetSubject) {
     const interviewCapable = subjects.filter((s) => {
-      const caps = getSubjectCapabilities(s.id);
+      const caps = getSubjectCapabilities(s);
       return caps.interview;
     });
 
@@ -158,10 +159,10 @@ export const InterviewHubPage: React.FC = () => {
           sub="No preparation is currently selected. Choose a technical preparation to access interview studio, system design, or verbal practice."
         />
         <Panel sx={{ p: 4, textAlign: 'center', mb: 3 }}>
-          <Box sx={{ display: 'inline-flex', p: 2, borderRadius: '50%', bgcolor: 'action.hover', mb: 2 }}>
+          <Box sx={{ display: 'inline-flex', p: 2, borderRadius: '50%', bgcolor: 'pb.surface2', mb: 2 }}>
             <Award size={36} color={theme.palette.primary.main} />
           </Box>
-          <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>
+          <Typography variant="h5" component="h2" sx={{ fontWeight: 800, mb: 1 }}>
             Technical Capability Rehearsal
           </Typography>
           <Typography variant="body1" sx={{ color: 'text.secondary', maxWidth: 600, mx: 'auto', mb: 3 }}>
@@ -190,12 +191,21 @@ export const InterviewHubPage: React.FC = () => {
   }
 
   const isSystemDesignSubject = targetSubject.id === 3;
-  const isAdfSubject = targetSubject.id === 6;
 
-  // Filter questions and attempts for active context where applicable
-  const subjectRecordings = recordings;
-  const attemptedPromptIds = new Set(attempts.map((a) => a.prompt_id));
-  const unattemptedPrompts = prompts.filter((p) => !attemptedPromptIds.has(p.id));
+  // Recordings are kept across every preparation; the page says so where it
+  // counts them rather than presenting them as this preparation's.
+  const recordingCount = recordings == null ? null : recordings.length;
+  const recordingLabel = recordingCount == null
+    ? 'Recordings unavailable'
+    : `${recordingCount}${recordingCount >= RECORDINGS_LIMIT ? '+' : ''} across all preparations`;
+  const analysedCount = recordings == null ? null : recordings.filter((r) => r.analysis_status === 'analyzed').length;
+  // "Next unattempted" needs both lists: with the attempts unread, every prompt
+  // would look unattempted.
+  const attemptedPromptIds = new Set((attempts ?? []).map((a) => a.prompt_id));
+  const unattemptedPrompts = prompts != null && attempts != null
+    ? prompts.filter((p) => !attemptedPromptIds.has(p.id))
+    : [];
+  const promptCount = prompts == null ? null : prompts.length;
 
   return (
     <Box>
@@ -220,16 +230,16 @@ export const InterviewHubPage: React.FC = () => {
                 component={RouterLink}
                 to="/system-design"
               >
-                Open Design Studio ({prompts.length})
+                Open Design Studio
               </Button>
             ) : (
               <Button
                 variant="contained"
                 color="primary"
                 component={RouterLink}
-                to="/interview-practice"
+                to="/scenarios"
               >
-                Start Practice Round
+                Practise from {targetSubject.name} scenarios
               </Button>
             )}
             <Button
@@ -237,25 +247,11 @@ export const InterviewHubPage: React.FC = () => {
               component={RouterLink}
               to="/recordings"
             >
-              Recordings ({subjectRecordings.length})
+              Recordings
             </Button>
           </>
         }
       />
-
-      <Tabs
-        value={tab}
-        onChange={(_, val: InterviewTab) => setTab(val)}
-        aria-label="Interview tabs"
-        sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}
-      >
-        <Tab value="overview" label="Performance Overview" id="interview-tab-overview" />
-        {isSystemDesignSubject && (
-          <Tab value="system_design" label={`System Design Prompts (${prompts.length})`} id="interview-tab-design" />
-        )}
-        <Tab value="verbal" label={`Verbal Practice (${questions.length})`} id="interview-tab-verbal" />
-        <Tab value="recordings" label={`Recordings & Analyses (${subjectRecordings.length})`} id="interview-tab-recs" />
-      </Tabs>
 
       {/* QUESTION 1: What kind of interview practice can I do? */}
       <Panel component="section" aria-labelledby="interview-q1-title" sx={{ mb: 3 }}>
@@ -270,10 +266,10 @@ export const InterviewHubPage: React.FC = () => {
         </PanelHead>
         <Grid columns={isSystemDesignSubject ? 4 : 3}>
           {isSystemDesignSubject && (
-            <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'action.hover' }}>
+            <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'pb.surface2' }}>
               <Eyebrow>Written System Design</Eyebrow>
-              <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-                {prompts.length} Architecture Prompts
+              <Typography variant="subtitle1" component="p" sx={{ fontWeight: 800 }}>
+                {countOr(promptCount, 'architecture prompt')}
               </Typography>
               <Detail sx={{ mt: 0.5 }}>
                 6-dimension rubric grading: Scale, Storage, Deep Dive, Tradeoffs
@@ -281,28 +277,28 @@ export const InterviewHubPage: React.FC = () => {
             </Box>
           )}
           {isSystemDesignSubject && (
-            <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'action.hover' }}>
+            <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'pb.surface2' }}>
               <Eyebrow>Architecture Reviews</Eyebrow>
-              <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-                {designReviewsCount} Tradeoff Reviews
+              <Typography variant="subtitle1" component="p" sx={{ fontWeight: 800 }}>
+                {countOr(designReviewsCount, 'tradeoff review')}
               </Typography>
               <Detail sx={{ mt: 0.5 }}>
                 Deciding-axis evaluation, architectural rationale &amp; reveal
               </Detail>
             </Box>
           )}
-          <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'action.hover' }}>
+          <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'pb.surface2' }}>
             <Eyebrow>Verbal Practice Rounds</Eyebrow>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+            <Typography variant="subtitle1" component="p" sx={{ fontWeight: 800 }}>
               {isSystemDesignSubject ? 'Spoken Architecture' : 'Technical & Incident'}
             </Typography>
             <Detail sx={{ mt: 0.5 }}>
               Audio recording with thinking time and model outlines
             </Detail>
           </Box>
-          <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'action.hover' }}>
+          <Box sx={{ p: 2, borderRadius: 2, bgcolor: 'pb.surface2' }}>
             <Eyebrow>AI Rubric Evaluation</Eyebrow>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+            <Typography variant="subtitle1" component="p" sx={{ fontWeight: 800 }}>
               Automated Analysis
             </Typography>
             <Detail sx={{ mt: 0.5 }}>
@@ -325,7 +321,7 @@ export const InterviewHubPage: React.FC = () => {
         </PanelHead>
         <Grid columns={2}>
           <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1 }}>
+            <Typography variant="subtitle1" component="p" sx={{ fontWeight: 800, mb: 1 }}>
               {isSystemDesignSubject
                 ? 'Distributed Architecture & Tradeoff Defense'
                 : 'Pipeline Reliability & Incident Communication'}
@@ -355,9 +351,9 @@ export const InterviewHubPage: React.FC = () => {
             </Box>
           </Box>
 
-          <Box sx={{ p: 2.5, borderRadius: 2, bgcolor: 'action.hover' }}>
+          <Box sx={{ p: 2.5, borderRadius: 2, bgcolor: 'pb.surface2' }}>
             <Eyebrow>Evaluation Invariant</Eyebrow>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+            <Typography variant="subtitle2" component="p" sx={{ fontWeight: 700, mb: 1 }}>
               Technical Capability vs Certification Readiness
             </Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -380,8 +376,8 @@ export const InterviewHubPage: React.FC = () => {
             <>
               <Row
                 title="System Design Studio"
-                detail="32 typed architecture prompts across Request Serving, Data Platform, and AI Platform"
-                middle={<Pill tone="accent">{prompts.length} Prompts</Pill>}
+                detail="Typed architecture prompts, graded against a six-dimension rubric"
+                middle={<Pill tone={promptCount == null ? 'warning' : 'accent'}>{countOr(promptCount, 'prompt')}</Pill>}
                 action={
                   <Button
                     size="small"
@@ -396,7 +392,7 @@ export const InterviewHubPage: React.FC = () => {
               <Row
                 title="Architecture Design Reviews"
                 detail="Tradeoff decisions: evaluate two design options along a decisive architectural axis"
-                middle={<Pill tone="accent">{designReviewsCount} Reviews</Pill>}
+                middle={<Pill tone={designReviewsCount == null ? 'warning' : 'accent'}>{countOr(designReviewsCount, 'review')}</Pill>}
                 action={
                   <Button
                     size="small"
@@ -416,9 +412,9 @@ export const InterviewHubPage: React.FC = () => {
             detail={
               isSystemDesignSubject
                 ? 'Spoken system design questions: record verbal walkthroughs for URL shorteners, distributed caches, etc.'
-                : 'Technical, Behavioral, and Hiring Manager interview questions with audio recorder'
+                : 'Technical, Behavioral, and Hiring Manager questions from the interview library, which is shared across preparations'
             }
-            middle={<Pill tone="accent">Audio Rehearsal</Pill>}
+            middle={<Pill tone={libraryTotal == null ? 'warning' : 'accent'}>{countOr(libraryTotal, 'library question')}</Pill>}
             action={
               <Button
                 size="small"
@@ -434,7 +430,7 @@ export const InterviewHubPage: React.FC = () => {
           <Row
             title="Audio Recordings &amp; Rubric Feedback"
             detail="Playback previous takes, review AI transcripts, filler-word counts, and rubric scoring"
-            middle={<Pill tone="neutral">{subjectRecordings.length} Recorded</Pill>}
+            middle={<Pill tone={recordingCount == null ? 'warning' : 'neutral'}>{recordingLabel}</Pill>}
             action={
               <Button
                 size="small"
@@ -447,11 +443,22 @@ export const InterviewHubPage: React.FC = () => {
             }
           />
 
-          {isAdfSubject && (
+          {!isSystemDesignSubject && (
             <Row
-              title="Applied Scenario Say-It Questions"
-              detail="Enterprise incident scenarios produce Say-it verbal communication challenges"
-              middle={<Pill tone="accent">Scenarios</Pill>}
+              title={`${targetSubject.name} scenario Say-it questions`}
+              detail={
+                'Each scenario ends with a Say-it question for your role. Saving your answer adds it to the '
+                + `interview library under ${targetSubject.name}, where you can rehearse it aloud.`
+              }
+              middle={
+                <Pill tone={subjectQuestionTotal === null ? 'warning' : 'accent'}>
+                  {subjectQuestionTotal === undefined
+                    ? 'Counting…'
+                    : subjectQuestionTotal === null
+                      ? 'Saved questions unavailable'
+                      : `${subjectQuestionTotal} saved`}
+                </Pill>
+              }
               action={
                 <Button
                   size="small"
@@ -478,22 +485,22 @@ export const InterviewHubPage: React.FC = () => {
           </PanelHead>
           <Grid columns={isSystemDesignSubject ? 3 : 2}>
             {isSystemDesignSubject && (
-              <Box sx={{ p: 2, textAlign: 'center', bgcolor: 'action.hover', borderRadius: 2 }}>
-                <Typography variant="h4" sx={{ fontWeight: 800 }}>
-                  {attempts.length}
+              <Box sx={{ p: 2, textAlign: 'center', bgcolor: 'pb.surface2', borderRadius: 2 }}>
+                <Typography variant="h4" component="p" sx={{ fontWeight: 800 }}>
+                  {attempts == null ? '—' : attempts.length}
                 </Typography>
                 <Detail sx={{ mt: 0.5 }}>Studio Attempts</Detail>
               </Box>
             )}
-            <Box sx={{ p: 2, textAlign: 'center', bgcolor: 'action.hover', borderRadius: 2 }}>
-              <Typography variant="h4" sx={{ fontWeight: 800 }}>
-                {subjectRecordings.length}
+            <Box sx={{ p: 2, textAlign: 'center', bgcolor: 'pb.surface2', borderRadius: 2 }}>
+              <Typography variant="h4" component="p" sx={{ fontWeight: 800 }}>
+                {recordingCount == null ? '—' : recordingCount}
               </Typography>
-              <Detail sx={{ mt: 0.5 }}>Audio Takes</Detail>
+              <Detail sx={{ mt: 0.5 }}>Audio takes, all preparations</Detail>
             </Box>
-            <Box sx={{ p: 2, textAlign: 'center', bgcolor: 'action.hover', borderRadius: 2 }}>
-              <Typography variant="h4" sx={{ fontWeight: 800 }}>
-                {subjectRecordings.filter((r) => r.analysis_status === 'analyzed').length}
+            <Box sx={{ p: 2, textAlign: 'center', bgcolor: 'pb.surface2', borderRadius: 2 }}>
+              <Typography variant="h4" component="p" sx={{ fontWeight: 800 }}>
+                {analysedCount == null ? '—' : analysedCount}
               </Typography>
               <Detail sx={{ mt: 0.5 }}>AI Analyzed</Detail>
             </Box>
@@ -520,7 +527,7 @@ export const InterviewHubPage: React.FC = () => {
           <Box sx={{ display: 'grid', gap: 1.5 }}>
             {isSystemDesignSubject && unattemptedPrompts.length > 0 ? (
               <Box>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                <Typography variant="subtitle2" component="p" sx={{ fontWeight: 700 }}>
                   Next Unattempted Architecture Challenge:
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5, mb: 1.5 }}>
@@ -537,7 +544,7 @@ export const InterviewHubPage: React.FC = () => {
               </Box>
             ) : (
               <Box>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                <Typography variant="subtitle2" component="p" sx={{ fontWeight: 700 }}>
                   Take an Audio Recording Practice Round:
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5, mb: 1.5 }}>

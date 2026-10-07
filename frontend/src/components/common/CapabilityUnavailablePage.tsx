@@ -52,13 +52,13 @@ export const CapabilityUnavailablePage: React.FC<CapabilityUnavailablePageProps>
             display: 'inline-flex',
             p: 2,
             borderRadius: '50%',
-            bgcolor: 'action.hover',
+            bgcolor: 'pb.surface2',
             mb: 2,
           }}
         >
           <ShieldAlert size={36} color={theme.palette.warning.main} />
         </Box>
-        <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>
+        <Typography variant="h5" component="h2" sx={{ fontWeight: 800, mb: 1 }}>
           {capability} is not configured for {subjectName}
         </Typography>
         <Typography variant="body1" sx={{ color: 'text.secondary', maxWidth: 600, mx: 'auto', mb: 3 }}>

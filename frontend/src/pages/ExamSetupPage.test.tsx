@@ -83,7 +83,9 @@ const renderSetup = (entry = '/exam-setup') =>
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockPreparation.mockReturnValue({ selectedId: null, selected: null });
+  // A learner working in PSM I: the page only ever sets a paper for a
+  // preparation somebody chose (see the "chosen nothing" tests below).
+  mockPreparation.mockReturnValue({ selectedId: 1, selected: CERT, loading: false });
   mockGetSubjects.mockResolvedValue([CERT, SKILL]);
   mockGetFilters.mockResolvedValue({
     certifications: [], topics: ['Scrum Events', 'Daily Scrum'], difficulties: ['easy', 'hard'],
@@ -197,6 +199,7 @@ describe('Mock Exam setup', () => {
   });
 
   it('has no mock for a preparation without an exam', async () => {
+    mockPreparation.mockReturnValue({ selectedId: 3, selected: SKILL, loading: false });
     mockGetSubjects.mockResolvedValue([SKILL]);
     renderSetup('/exam-setup?kind=mock');
 
@@ -209,6 +212,34 @@ describe('Mock Exam setup', () => {
     renderSetup('/exam-setup?kind=mock&subject=1');
 
     expect(await screen.findByRole('heading', { name: 'System Design is a skill, not an exam' })).toBeInTheDocument();
+  });
+});
+
+describe('Exam setup with no preparation chosen', () => {
+  beforeEach(() => {
+    mockPreparation.mockReturnValue({ selectedId: null, selected: null, loading: false });
+  });
+
+  it('asks for a preparation rather than setting a PSM I paper', async () => {
+    renderSetup('/exam-setup?kind=mock');
+
+    expect(await screen.findByRole('heading', { name: 'Choose a preparation first' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Start mock' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Scrum \/ PSM I/)).not.toBeInTheDocument();
+    expect(mockStartExam).not.toHaveBeenCalled();
+  });
+
+  it('asks for a drill too, rather than drilling the first bank', async () => {
+    renderSetup('/exam-setup?kind=drill');
+
+    expect(await screen.findByRole('heading', { name: 'Choose a preparation first' })).toBeInTheDocument();
+    expect(mockStartExam).not.toHaveBeenCalled();
+  });
+
+  it('uses a preparation named in the address, which is a choice', async () => {
+    renderSetup('/exam-setup?kind=mock&subject=1');
+
+    expect(await screen.findByRole('button', { name: 'Start mock' })).toBeInTheDocument();
   });
 });
 

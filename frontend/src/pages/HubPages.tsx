@@ -90,18 +90,15 @@ export const PracticeHubPage: React.FC = () => {
       .finally(() => setLoading(false));
   }, [loadAttempt]);
 
-  // The preparation picked in the header. Inferred only when nothing is picked
-  // (outside a provider): a subject with no questions cannot be practised at
-  // all, so it is not the one to lead with -- a fresh install has three
-  // subjects and an empty bank.
+  // The preparation picked in the header, and only that one. It used to be
+  // inferred always, so Practice ignored the picker: with Databricks picked,
+  // the page recommended a PSM I mock.
   //
-  // It used to be inferred always, so Practice ignored the picker: with
-  // Databricks picked, the page recommended a PSM I mock.
-  const inferred = [...subjects]
-    .filter((s) => s.has_exam_profile && s.question_count > 0)
-    .sort((a, b) => b.readiness.mock_count - a.readiness.mock_count)[0] ?? null;
+  // Nothing picked is now just that: no preparation leads. The inference that
+  // remained for it chose the certification with the most mocks, which on every
+  // install is PSM I -- the same silent default the picker itself no longer makes.
   const picked = subjects.find((s) => s.id === selectedId) ?? null;
-  const primary = picked ?? inferred;
+  const primary = picked;
   const primaryId = primary?.id ?? null;
 
   // What spaced repetition has due, for the "Also available" row. A count that
