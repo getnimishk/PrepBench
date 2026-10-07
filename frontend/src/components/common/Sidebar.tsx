@@ -5,26 +5,24 @@
 import React, { useEffect, useState } from 'react';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import {
-  Box, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Tooltip, IconButton, useMediaQuery,
+  Box, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Tooltip, IconButton, Typography, useMediaQuery,
 } from '@mui/material';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSidebar } from '../../App';
 import { usePreparation } from '../../context/PreparationContext';
 import { useConnection } from '../../hooks/useConnection';
 import { getReviewCounts } from '../../services/api';
-import { NAV_GROUPS, sectionFor, type NavEntry } from './navigation';
+import { NAV_GROUPS, isNavKeySupported, sectionFor, type NavEntry } from './navigation';
+import { BrandLogo } from './BrandLogo';
 import { usePb } from '../../theme/usePb';
 import { RAIL_QUERY } from '../../theme/tokens';
 
 // Every area at the top level, grouped, as the unified prototype's rail has it:
-// Today, Certification, Interview, Evidence and Workspace, fourteen destinations.
+// Today, Certification, Interview, Evidence, Workspace and Learning Lab.
 //
-// This was once four verbs -- Home, Practice, Learn, Review -- with the formats
-// reached from inside them, because the list before that was a feature inventory
-// in which "Chart Sandbox" sat at the same weight as Practice itself. The groups
-// are what keep fourteen from reading that way again: the rail is a map of the
-// product, and a first-time reader can see its shape without learning which verb
-// hides which format.
+// The rail is capability-aware: items unsupported by the currently active subject
+// are rendered in a disabled state with an explanatory tooltip indicating why,
+// ensuring context integrity and clear capability boundaries.
 
 /**
  * Review waiting in the picked preparation: unreviewed mock misses plus questions
@@ -52,7 +50,7 @@ function useReviewWaiting(): { unreviewed: number; spacedDue: number } | null {
   return counts;
 }
 
-/** The prototype's rail width, and the icon rail it becomes below 1080px. */
+/** The rail width, and the icon rail it becomes below 1080px. */
 const RAIL_WIDTH = 238;
 const ICON_RAIL_WIDTH = 76;
 
@@ -67,6 +65,7 @@ export const Sidebar: React.FC = () => {
 
   const location = useLocation();
   const section = sectionFor(location.pathname);
+  const { selected, selectedId, capabilities } = usePreparation();
   const review = useReviewWaiting();
   const waiting = review ? review.unreviewed + review.spacedDue : 0;
   const waitingText = review && waiting > 0
@@ -76,11 +75,80 @@ export const Sidebar: React.FC = () => {
   const renderItems = (items: NavEntry[]) => items.map((item) => {
     const Icon = item.icon;
     const active = section.key === item.key;
+    const supported = isNavKeySupported(item.key, capabilities, selected ?? (selectedId ? { id: selectedId } : null));
+    const subjectName = selected?.name ?? (selectedId ? `Subject ${selectedId}` : 'current subject');
+
     // The count sits on the Review Queue entry only, and only when there is
     // something to count. Its words go in the link's name, so a screen reader
     // hears what the number means rather than a bare digit.
     const count = item.key === 'review' && waitingText ? waiting : null;
     const name = count !== null ? `${item.label}, ${waitingText}` : item.label;
+
+    if (!supported) {
+      // Disabled non-clickable control for unsupported capabilities (Strict P0 requirement)
+      const isPending = item.key === 'lab' && capabilities?.learningLabStatus === 'INTEGRATION_PENDING';
+      const disabledReason = isPending
+        ? `${item.label} (Integration pending for ${subjectName})`
+        : `${item.label} (Not configured for ${subjectName})`;
+      const disabledButton = (
+        <ListItemButton
+          disabled
+          aria-disabled="true"
+          aria-label={disabledReason}
+          sx={{
+            minHeight: 0,
+            gap: '10px',
+            px: '12px',
+            py: '10px',
+            my: '2px',
+            borderRadius: '9px',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            color: t.faint,
+            bgcolor: 'transparent',
+            fontSize: (theme) => theme.typography.pxToRem(14),
+            lineHeight: 1.48,
+            opacity: 0.35,
+            cursor: 'not-allowed !important',
+            pointerEvents: 'auto',
+            '&.Mui-disabled': {
+              color: t.faint,
+              opacity: 0.35,
+              cursor: 'not-allowed',
+              pointerEvents: 'auto',
+            },
+            [RAIL_QUERY]: {
+              justifyContent: 'center',
+              px: '10px',
+            },
+          }}
+        >
+          <ListItemIcon sx={{ minWidth: 0, color: 'inherit', justifyContent: 'center' }}>
+            <Icon size={collapsed ? 19 : 16} strokeWidth={collapsed ? 1.9 : 2.1} aria-hidden />
+          </ListItemIcon>
+          {!collapsed && (
+            <ListItemText
+              primary={item.label}
+              sx={{ m: 0, [RAIL_QUERY]: { display: 'none' } }}
+              slotProps={{
+                primary: {
+                  noWrap: true,
+                  sx: { fontSize: 'inherit', fontWeight: 'inherit', lineHeight: 'inherit', color: 'inherit' },
+                },
+              }}
+            />
+          )}
+        </ListItemButton>
+      );
+
+      return (
+        <ListItem key={item.path} disablePadding sx={{ display: 'block' }}>
+          <Tooltip title={disabledReason} placement="right" arrow>
+            {disabledButton}
+          </Tooltip>
+        </ListItem>
+      );
+    }
+
     const link = (
       <ListItemButton
         component={RouterLink}
@@ -97,7 +165,7 @@ export const Sidebar: React.FC = () => {
           borderRadius: '9px',
           justifyContent: collapsed ? 'center' : 'flex-start',
           color: t.muted,
-          fontSize: (t) => t.typography.pxToRem(14),
+          fontSize: (theme) => theme.typography.pxToRem(14),
           lineHeight: 1.48,
           transition: 'background-color .15s ease, color .15s ease',
           '&:hover': { bgcolor: t.surface2, color: t.text },
@@ -133,7 +201,7 @@ export const Sidebar: React.FC = () => {
             component="span"
             aria-hidden
             sx={{
-              ml: 'auto', pl: 1, fontSize: (t) => t.typography.pxToRem(10), fontVariantNumeric: 'tabular-nums', color: 'inherit',
+              ml: 'auto', pl: 1, fontSize: (theme) => theme.typography.pxToRem(10), fontVariantNumeric: 'tabular-nums', color: 'inherit',
               [RAIL_QUERY]: { display: 'none' },
             }}
           >
@@ -169,9 +237,7 @@ export const Sidebar: React.FC = () => {
         },
         flexShrink: 0,
         // The rail stands beside the page for its full height and stays where it
-        // is while the page scrolls. It used to grow with the document, so on a
-        // long screen every destination scrolled off the top and the only way
-        // back to Home was to scroll the content you were reading.
+        // is while the page scrolls.
         position: 'sticky',
         top: 0,
         alignSelf: 'flex-start',
@@ -187,65 +253,38 @@ export const Sidebar: React.FC = () => {
         zIndex: 50,
       }}
     >
-      {/* The product's name, not a heading: every page names itself. */}
+      {/* Authoritative PrepBench Brand */}
       <Box
         sx={{
-          fontSize: collapsed ? '1.375rem' : '1.3125rem',
-          fontWeight: 820,
-          letterSpacing: '-0.04em',
-          lineHeight: 1.2,
-          color: t.text,
-          px: collapsed ? 0 : '12px',
-          pt: '6px',
-          pb: '23px',
-          textAlign: collapsed ? 'center' : 'left',
-          whiteSpace: 'nowrap',
+          px: collapsed ? 0 : '10px',
+          pt: '4px',
+          pb: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: collapsed ? 'center' : 'flex-start',
           [RAIL_QUERY]: {
             px: 0,
-            textAlign: 'center',
+            justifyContent: 'center',
           },
         }}
       >
-        {collapsed ? (
-          <span aria-label="PrepBench">P</span>
-        ) : (
-          <>
-            <Box component="span" sx={{ [RAIL_QUERY]: { display: 'none' } }}>
-              PrepBench
-            </Box>
-            <Box
-              component="span"
-              aria-label="PrepBench"
-              sx={{ display: 'none', [RAIL_QUERY]: { display: 'inline' } }}
-            >
-              P
-            </Box>
-            <Box
-              component="small"
-              sx={{
-                display: 'block', fontSize: (t) => t.typography.pxToRem(9), color: t.faint, letterSpacing: '0.06em',
-                mt: '3px', fontWeight: 650,
-                [RAIL_QUERY]: { display: 'none' },
-              }}
-            >
-              Local-first preparation workspace
-            </Box>
-          </>
-        )}
+        <BrandLogo
+          to="/"
+          variant={collapsed ? 'mark' : 'full'}
+          size={collapsed ? 28 : 32}
+        />
       </Box>
 
       <Box component="nav" aria-label="Main" sx={{ flexGrow: 1 }}>
         {NAV_GROUPS.map((group) => (
           <Box key={group.heading} sx={{ mb: '2px' }}>
-            {/* Headings are what let fourteen destinations read as a map rather
-                than a list. They go on the icon rail, where the tooltips carry
-                the labels. */}
+            {/* Headings are what let destinations read as a map rather than a list. */}
             {!collapsed && (
               <Box
                 sx={{
                   m: '17px 12px 6px',
                   color: t.faint,
-                  fontSize: (t) => t.typography.pxToRem(10),
+                  fontSize: (theme) => theme.typography.pxToRem(10),
                   fontWeight: 800,
                   letterSpacing: '0.11em',
                   textTransform: 'uppercase',
@@ -261,8 +300,50 @@ export const Sidebar: React.FC = () => {
         ))}
       </Box>
 
+      {/* Active Subject Context Indicator (Bound to Active Subject) */}
+      {!collapsed && selected && (
+        <Box
+          data-testid="sidebar-active-subject"
+          sx={{
+            p: '10px',
+            borderRadius: '8px',
+            bgcolor: t.surface2,
+            border: `1px solid ${t.line}`,
+            mt: 'auto',
+            mb: 1,
+            [RAIL_QUERY]: { display: 'none' },
+          }}
+        >
+          <Typography
+            variant="caption"
+            sx={{
+              color: t.faint,
+              textTransform: 'uppercase',
+              fontWeight: 800,
+              fontSize: (theme) => theme.typography.pxToRem(10),
+              letterSpacing: '0.08em',
+              display: 'block',
+            }}
+          >
+            Active Subject
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 780, color: t.text, lineHeight: 1.3, mt: '2px' }}>
+            {selected.name}
+          </Typography>
+          <Typography variant="caption" sx={{ color: t.muted, display: 'block', mt: '3px', fontSize: (theme) => theme.typography.pxToRem(11) }}>
+            {selected.kind === 'certification'
+              ? `${selected.question_count} Questions${selected.pass_mark ? ` · Pass: ${selected.pass_mark}%` : ''}`
+              : selected.description
+              ? selected.description.length > 45
+                ? `${selected.description.slice(0, 42)}...`
+                : selected.description
+              : 'Skill Track'}
+          </Typography>
+        </Box>
+      )}
+
       {!narrow && (
-        <Box sx={{ pt: 1.5, display: 'flex', justifyContent: collapsed ? 'center' : 'flex-end', [RAIL_QUERY]: { display: 'none' } }}>
+        <Box sx={{ pt: 1, display: 'flex', justifyContent: collapsed ? 'center' : 'flex-end', [RAIL_QUERY]: { display: 'none' } }}>
           <IconButton
             onClick={toggleCollapsed}
             aria-label={collapsed ? 'Expand the sidebar' : 'Collapse the sidebar'}

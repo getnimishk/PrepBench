@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 118 116" fill="none">
+  <defs>
+    <!-- Facet 1: Outer Left Vertical Face (Gradient: Royal to Cobalt) -->
+    <linearGradient id="pbm-left-pillar" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0F93FA"/>
+      <stop offset="45%" stop-color="#0971F6"/>
+      <stop offset="100%" stop-color="#093196"/>
+    </linearGradient>
+
+    <!-- Facet 2: Left Roof Facet (Cobalt) -->
+    <linearGradient id="pbm-roof-left" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#0A3CB8"/>
+      <stop offset="60%" stop-color="#1052CE"/>
+      <stop offset="100%" stop-color="#1374E5"/>
+    </linearGradient>
+
+    <!-- Facet 3: Right Roof Facet (Electric Blue to Radiant Cyan) -->
+    <linearGradient id="pbm-roof-right" x1="0%" y1="0%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#138CFB"/>
+      <stop offset="45%" stop-color="#15B8F4"/>
+      <stop offset="100%" stop-color="#16C6EF"/>
+    </linearGradient>
+
+    <!-- Facet 4: Outer Right Flange (Cyan down to Deep Navy) -->
+    <linearGradient id="pbm-right-flange" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#16C6EF"/>
+      <stop offset="35%" stop-color="#03A2D8"/>
+      <stop offset="100%" stop-color="#08287B"/>
+    </linearGradient>
+
+    <!-- Facet 5: Inner Loop Upper Navy Slope -->
+    <linearGradient id="pbm-inner-navy" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0A2F8F"/>
+      <stop offset="100%" stop-color="#10206B"/>
+    </linearGradient>
+
+    <!-- Facet 6: Inner Loop Purple / Violet Fold -->
+    <linearGradient id="pbm-inner-purple" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7C3AED"/>
+      <stop offset="45%" stop-color="#6366F1"/>
+      <stop offset="100%" stop-color="#3D33ED"/>
+    </linearGradient>
+
+    <!-- Facet 7: Front Stem (Vibrant Electric Royal Blue) -->
+    <linearGradient id="pbm-front-stem" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0356EC"/>
+      <stop offset="100%" stop-color="#0245D0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 1. Left Vertical Pillar -->
+  <path d="M 1 29 L 22 38 L 22 103 L 1 92 Z" fill="url(#pbm-left-pillar)"/>
+
+  <!-- 2. Roof Left Facet -->
+  <path d="M 1 29 L 58 0 L 58 25 L 22 38 Z" fill="url(#pbm-roof-left)"/>
+
+  <!-- 3. Roof Right Facet -->
+  <path d="M 58 0 L 116 29 L 94 43 L 58 25 Z" fill="url(#pbm-roof-right)"/>
+
+  <!-- 4. Outer Right Flange -->
+  <path d="M 116 29 L 116 59 L 94 72 L 94 43 Z" fill="url(#pbm-right-flange)"/>
+
+  <!-- 5. Inner Loop Upper Navy Slope -->
+  <path d="M 94 43 L 94 72 L 66 85 L 66 58 Z" fill="url(#pbm-inner-navy)"/>
+
+  <!-- 6. Inner Loop Purple Fold -->
+  <path d="M 38 70 L 66 55 L 66 85 L 38 85 Z" fill="url(#pbm-inner-purple)"/>
+
+  <!-- 7. Front Stem -->
+  <path d="M 38 85 L 66 85 L 66 113 L 38 113 Z" fill="url(#pbm-front-stem)"/>
+</svg>

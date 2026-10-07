@@ -3,11 +3,12 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Alert, Box, Button, CircularProgress, Collapse, Tab, Tabs, TextField, Typography,
 } from '@mui/material';
 import { ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
+import { usePreparation } from '../context/PreparationContext';
 import {
   getInterviewRoundTypes,
   getInterviewQuestions,
@@ -47,6 +48,8 @@ const footerFor = (round: RoundTypeInfo | undefined, question: InterviewQuestion
 
 export const InterviewPracticeSetupPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { selected, selectedId, capabilities } = usePreparation();
 
   const [roundTypes, setRoundTypes] = useState<RoundTypeInfo[]>([]);
   const [roundsError, setRoundsError] = useState<string | null>(null);
@@ -57,7 +60,11 @@ export const InterviewPracticeSetupPage: React.FC = () => {
   const [questionsAttempt, setQuestionsAttempt] = useState(0);
   const [recordingCount, setRecordingCount] = useState<number | null>(null);
 
-  const [tab, setTab] = useState<RoundTab>('all');
+  const roundParam = searchParams.get('round') as RoundTab | null;
+  const initialTab: RoundTab =
+    roundParam ?? (selectedId === 3 ? 'system_design' : 'all');
+
+  const [tab, setTab] = useState<RoundTab>(initialTab);
 
   const [genRound, setGenRound] = useState<InterviewRoundType | ''>('');
   const [genTopic, setGenTopic] = useState('');
@@ -174,6 +181,43 @@ export const InterviewPracticeSetupPage: React.FC = () => {
           action={<Button color="inherit" size="small" onClick={() => setRoundsAttempt((n) => n + 1)}>Retry</Button>}
         >
           {roundsError}
+        </Alert>
+      )}
+
+      {selectedId === 3 && (
+        <Alert severity="info" sx={{ mt: 2, mb: 1 }}>
+          <b>System Design Track:</b> Practicing verbal architecture explanations? You can also practice written challenges in the{' '}
+          <Box component={RouterLink} to="/system-design" sx={{ color: 'primary.main', fontWeight: 600 }}>
+            System Design Studio (32 prompts)
+          </Box>{' '}
+          or tradeoff decisions in{' '}
+          <Box component={RouterLink} to="/design-reviews" sx={{ color: 'primary.main', fontWeight: 600 }}>
+            Architecture Design Reviews
+          </Box>.
+        </Alert>
+      )}
+
+      {selectedId === 6 && (
+        <Alert severity="info" sx={{ mt: 2, mb: 1 }}>
+          <b>Azure Data Factory Track:</b> Practicing incident communication? Say-it answers saved from{' '}
+          <Box component={RouterLink} to="/scenarios" sx={{ color: 'primary.main', fontWeight: 600 }}>
+            ADF Production Scenarios
+          </Box>{' '}
+          are saved to this library.
+        </Alert>
+      )}
+
+      {selected && capabilities && !capabilities.interview && (
+        <Alert severity="warning" sx={{ mt: 2, mb: 1 }}>
+          <b>Interview Practice Guard:</b> Verbal interviews are not configured for <b>{selected.name}</b>. You are viewing the general interview library. Switch to{' '}
+          <Box component={RouterLink} to="/interview?subject=3" sx={{ color: 'primary.main', fontWeight: 600 }}>
+            System Design
+          </Box>{' '}
+          or{' '}
+          <Box component={RouterLink} to="/interview?subject=6" sx={{ color: 'primary.main', fontWeight: 600 }}>
+            Azure Data Factory
+          </Box>{' '}
+          for subject-specific interview rounds.
         </Alert>
       )}
       {fetchError && (

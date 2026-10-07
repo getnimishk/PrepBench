@@ -68,7 +68,9 @@ export const PreparationsPage: React.FC = () => {
 
   const active = (all ?? []).filter((p) => !p.is_archived);
   const archived = (all ?? []).filter((p) => p.is_archived);
-  const current = active.find((p) => p.id === selectedId) ?? active[0] ?? null;
+  // The one the learner chose, or none. It used to fall back to the first
+  // card, which ringed PSM I as "current" for a learner who had chosen nothing.
+  const current = active.find((p) => p.id === selectedId) ?? null;
   const facts = useOverviewFacts(current?.id);
 
   const toggleArchive = async (prep: Subject) => {

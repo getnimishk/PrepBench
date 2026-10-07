@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <!-- Electric Blue Squircle Container -->
+  <rect width="128" height="128" rx="28" fill="#034FDF"/>
+
+  <!-- Solid White Dimensional Cutout Mark -->
+  <g transform="translate(23, 22) scale(0.70)" fill="#FFFFFF">
+    <path d="M 1 29 L 22 38 L 22 103 L 1 92 Z"/>
+    <path d="M 1 29 L 58 0 L 58 25 L 22 38 Z"/>
+    <path d="M 58 0 L 116 29 L 94 43 L 58 25 Z"/>
+    <path d="M 116 29 L 116 59 L 94 72 L 94 43 Z"/>
+    <path d="M 94 43 L 94 72 L 66 85 L 66 58 Z"/>
+    <path d="M 38 70 L 66 55 L 66 85 L 38 85 Z"/>
+    <path d="M 38 85 L 66 85 L 66 113 L 38 113 Z"/>
+  </g>
+</svg>

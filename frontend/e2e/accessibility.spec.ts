@@ -96,6 +96,7 @@ flowchart TD
 const ROUTES = (prepId: number, roadmapId: number, roleId: number, topicId: number, sheets: SheetIds) => [
   '/', '/preparations', '/preparations/new', `/preparations/${prepId}/edit`,
   '/preparations/roles/new', `/preparations/roles/${roleId}`, `/preparations/roles/${roleId}/diagnostic`, '/practice', '/practice?tab=spaced', '/practice?tab=custom', '/learn',
+  '/certification', '/interview',
   '/learn/guides/adf', '/learn/guides/adf/pitfalls', '/scenarios', '/scenarios/adf/1',
   '/review', '/exam-setup', '/question-bank', '/analytics', `/analytics/area?subject=${prepId}&domain=Accessible%20Area`,
   '/roadmaps', `/roadmaps/${roadmapId}/edit`,

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 94" fill="none">
+  <!-- Monochrome Mark -->
+  <g transform="translate(0, 2) scale(0.78)">
+    <!-- 1. Left Vertical Pillar -->
+    <path d="M 1 29 L 22 38 L 22 103 L 1 92 Z" fill="#000000"/>
+    <!-- 2. Roof Left Facet -->
+    <path d="M 1 29 L 58 0 L 58 25 L 22 38 Z" fill="#1F2937"/>
+    <!-- 3. Roof Right Facet -->
+    <path d="M 58 0 L 116 29 L 94 43 L 58 25 Z" fill="#374151"/>
+    <!-- 4. Outer Right Flange -->
+    <path d="M 116 29 L 116 59 L 94 72 L 94 43 Z" fill="#111827"/>
+    <!-- 5. Inner Loop Upper Slope -->
+    <path d="M 94 43 L 94 72 L 66 85 L 66 58 Z" fill="#000000"/>
+    <!-- 6. Inner Loop Purple Fold -->
+    <path d="M 38 70 L 66 55 L 66 85 L 38 85 Z" fill="#1F2937"/>
+    <!-- 7. Front Stem -->
+    <path d="M 38 85 L 66 85 L 66 113 L 38 113 Z" fill="#000000"/>
+  </g>
+
+  <!-- Wordmark in solid black -->
+  <text x="110" y="55" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="52" font-weight="800" letter-spacing="-0.03em" fill="#000000">PrepBench</text>
+</svg>

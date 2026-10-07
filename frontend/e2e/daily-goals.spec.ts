@@ -37,8 +37,13 @@ test('the certification goal counts real misses, for the picked preparation only
   await expect(certification.getByText('0 / 0')).toBeVisible();
 });
 
-test('the interview goal is always shown, and has no signal before anything is analysed', async ({ page }) => {
+test('the interview goal is always shown, and has no signal before anything is analysed', async ({ page, request }) => {
+  // Home shows the goals of the preparation being worked in. Nothing is chosen
+  // for the learner any more (no silent first-preparation default), so the test
+  // chooses one, as a learner does.
+  const prep = await createCertification(request, 'Interview Goal');
   await page.goto('/');
+  await pickPreparation(page, prep.name);
 
   const interview = page.getByTestId('goal-interview');
   await expect(interview.getByText('Interview practice')).toBeVisible();

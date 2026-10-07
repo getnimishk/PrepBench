@@ -7,13 +7,33 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
+import { getSubjectCapabilities } from '../../services/capabilities';
+import type { Subject } from '../../types/subject';
+import type { SubjectCapabilityProfile } from '../../types/capabilities';
 
 const getReviewCounts = vi.fn();
 vi.mock('../../services/api', () => ({
   getReviewCounts: (...a: unknown[]) => getReviewCounts(...a),
 }));
 
-const preparation = { selectedId: 4 as number | null, loading: false };
+let mockSidebarCollapsed = false;
+vi.mock('../../App', () => ({
+  useSidebar: () => ({ collapsed: mockSidebarCollapsed, toggleCollapsed: () => {} }),
+}));
+
+interface MockPreparation {
+  selectedId: number | null;
+  selected: Subject | null;
+  loading: boolean;
+  capabilities?: SubjectCapabilityProfile;
+}
+
+const preparation: MockPreparation = {
+  selectedId: 4,
+  selected: null,
+  loading: false,
+};
+
 vi.mock('../../context/PreparationContext', () => ({
   usePreparation: () => preparation,
 }));
@@ -21,10 +41,6 @@ vi.mock('../../context/PreparationContext', () => ({
 let connectionState = 'online';
 vi.mock('../../hooks/useConnection', () => ({
   useConnection: () => connectionState,
-}));
-
-vi.mock('../../App', () => ({
-  useSidebar: () => ({ collapsed: false, toggleCollapsed: () => {} }),
 }));
 
 const renderAt = (path: string) => render(
@@ -37,12 +53,15 @@ beforeEach(() => {
   getReviewCounts.mockReset();
   getReviewCounts.mockResolvedValue({ unreviewed: 0, spaced_due: 0 });
   preparation.selectedId = 4;
+  preparation.selected = null;
   preparation.loading = false;
+  preparation.capabilities = undefined;
+  mockSidebarCollapsed = false;
   connectionState = 'online';
 });
 
 describe('Sidebar', () => {
-  it('lists every destination, Roadmaps among them, under the prototype headings', async () => {
+  it('lists every destination, Roadmaps among them, under the prototype headings when capabilities are unconstrained', async () => {
     renderAt('/');
     const nav = screen.getByRole('navigation', { name: 'Main' });
 
@@ -57,6 +76,14 @@ describe('Sidebar', () => {
     expect(within(nav).getByRole('link', { name: 'All Sandboxes' })).toHaveAttribute('href', '/lab');
     expect(within(nav).getByRole('link', { name: 'Agile Metrics' })).toHaveAttribute('href', '/chart-sandbox');
     expect(within(nav).getByRole('link', { name: 'Scenarios' })).toHaveAttribute('href', '/scenarios');
+    await waitFor(() => expect(getReviewCounts).toHaveBeenCalled());
+  });
+
+  it('renders the authoritative PrepBench brand logo in the sidebar header', async () => {
+    renderAt('/');
+    expect(screen.getByLabelText('PrepBench Mark')).toBeInTheDocument();
+    expect(screen.getByText('Prep')).toBeInTheDocument();
+    expect(screen.getByText('Bench')).toBeInTheDocument();
     await waitFor(() => expect(getReviewCounts).toHaveBeenCalled());
   });
 
@@ -100,5 +127,109 @@ describe('Sidebar', () => {
     connectionState = 'unreachable';
     renderAt('/');
     expect(getReviewCounts).not.toHaveBeenCalled();
+  });
+
+  it('displays active subject indicator at bottom of sidebar when a subject is selected', async () => {
+    preparation.selected = {
+      id: 6,
+      name: 'Azure Data Factory',
+      slug: 'azure-data-factory',
+      kind: 'skill',
+      description: 'Master enterprise ETL pipelines and orchestrations',
+      question_count: 0,
+      has_exam_profile: false,
+      is_archived: false,
+      display_order: 6,
+      readiness: { state: 'needs_evaluation', mock_count: 0, recent_scores: [], is_stale: false, domains: [], blockers: [] },
+    };
+
+    renderAt('/');
+    const badge = screen.getByTestId('sidebar-active-subject');
+    expect(badge).toBeInTheDocument();
+    expect(within(badge).getByText('Active Subject')).toBeInTheDocument();
+    expect(within(badge).getByText('Azure Data Factory')).toBeInTheDocument();
+    await waitFor(() => expect(getReviewCounts).toHaveBeenCalled());
+  });
+
+  it('enforces capability truth for ADF: Certification is disabled with explaining aria labels', async () => {
+    preparation.selectedId = 6;
+    preparation.selected = {
+      id: 6,
+      name: 'Azure Data Factory',
+      slug: 'azure-data-factory',
+      kind: 'skill',
+      question_count: 0,
+      has_exam_profile: false,
+      is_archived: false,
+      display_order: 6,
+      readiness: { state: 'needs_evaluation', mock_count: 0, recent_scores: [], is_stale: false, domains: [], blockers: [] },
+    };
+    preparation.capabilities = getSubjectCapabilities(6);
+
+    renderAt('/');
+
+    // ADF has no certification: Mock Exam, Question Bank, Practice, Review Queue must be disabled!
+    const mockExam = screen.getByRole('button', { name: 'Mock Exam (Not configured for Azure Data Factory)' });
+    expect(mockExam).toHaveAttribute('aria-disabled', 'true');
+    expect(mockExam).toHaveClass('Mui-disabled');
+
+    const questionBank = screen.getByRole('button', { name: 'Question Bank (Not configured for Azure Data Factory)' });
+    expect(questionBank).toHaveAttribute('aria-disabled', 'true');
+    expect(questionBank).toHaveClass('Mui-disabled');
+
+    // All Sandboxes is disabled pending integration (Phase 5)
+    const allSandboxes = screen.getByRole('button', { name: 'All Sandboxes (Integration pending for Azure Data Factory)' });
+    expect(allSandboxes).toHaveAttribute('aria-disabled', 'true');
+    expect(allSandboxes).toHaveClass('Mui-disabled');
+
+    // Supported features for ADF are active links
+    expect(screen.getByRole('link', { name: 'Roadmaps' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Study Library' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Scenarios' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Rounds' })).toBeInTheDocument();
+    await waitFor(() => expect(getReviewCounts).toHaveBeenCalled());
+  });
+
+  it('enforces capability truth for Databricks: Lakehouse Lab is enabled, Cert and Interview disabled', async () => {
+    preparation.selectedId = 2;
+    preparation.selected = {
+      id: 2,
+      name: 'Databricks Lakehouse',
+      slug: 'databricks',
+      kind: 'skill',
+      question_count: 0,
+      has_exam_profile: false,
+      is_archived: false,
+      display_order: 2,
+      readiness: { state: 'needs_evaluation', mock_count: 0, recent_scores: [], is_stale: false, domains: [], blockers: [] },
+    };
+    preparation.capabilities = getSubjectCapabilities(2);
+
+    renderAt('/');
+
+    // Databricks Lakehouse Lab is enabled
+    expect(screen.getByRole('link', { name: 'Lakehouse Lab' })).toHaveAttribute('href', '/databricks-sandbox');
+    expect(screen.getByRole('link', { name: 'All Sandboxes' })).toHaveAttribute('href', '/lab');
+
+    // Certification and Interview are disabled for Databricks
+    const mockExam = screen.getByRole('button', { name: 'Mock Exam (Not configured for Databricks Lakehouse)' });
+    expect(mockExam).toHaveAttribute('aria-disabled', 'true');
+    expect(mockExam).toHaveClass('Mui-disabled');
+
+    const rounds = screen.getByRole('button', { name: 'Rounds (Not configured for Databricks Lakehouse)' });
+    expect(rounds).toHaveAttribute('aria-disabled', 'true');
+    expect(rounds).toHaveClass('Mui-disabled');
+    await waitFor(() => expect(getReviewCounts).toHaveBeenCalled());
+  });
+
+  it('renders compact mark-only logo in collapsed rail mode', async () => {
+    mockSidebarCollapsed = true;
+    renderAt('/');
+
+    // Mark is rendered with aria-label
+    expect(screen.getByLabelText('PrepBench Mark')).toBeInTheDocument();
+    // Wordmark text is hidden in mark-only mode
+    expect(screen.queryByText('Prep')).not.toBeInTheDocument();
+    await waitFor(() => expect(getReviewCounts).toHaveBeenCalled());
   });
 });

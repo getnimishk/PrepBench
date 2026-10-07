@@ -34,7 +34,7 @@ import { LoadingState } from '../components/common/States';
  * Both follow the preparation picked in the header. The page used to offer its
  * own Subject menu, so the header could say Databricks while the paper was set
  * up for PSM I. A preparation named in the address is used only when nothing is
- * picked.
+ * picked, and with neither the page asks for one rather than choosing.
  */
 
 /** What a drill can be narrowed to. A mock has no equivalent list by design. */
@@ -68,12 +68,24 @@ export const ExamSetupPage: React.FC = () => {
     return <LoadingState label="Loading your preparations…" />;
   }
 
+  // Only ever a preparation somebody chose: the one in the header, or the one
+  // named in the address. It used to fall back to the first with an exam
+  // profile, then the first of all -- PSM I on every install -- so a learner
+  // who had chosen nothing was set a PSM I paper without being asked.
   const subject =
     subjects.find((s) => s.id === selectedId)
     ?? subjects.find((s) => s.id === requested)
-    ?? subjects.find((s) => s.has_exam_profile)
-    ?? subjects[0]
     ?? null;
+
+  if (!subject && subjects.length > 0) {
+    return (
+      <PageHead
+        title="Choose a preparation first"
+        sub="A paper is drawn from one preparation's questions. Pick the preparation you are working in from the header, then come back here."
+        actions={<Button component={RouterLink} to="/preparations" variant="outlined">Your preparations</Button>}
+      />
+    );
+  }
 
   if (!subject) {
     return (
@@ -166,6 +178,11 @@ const DrillSetup: React.FC<{ subject: Subject }> = ({ subject }) => {
       />
 
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+      {subject.question_count === 0 && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          Question bank not loaded in current dataset (0 questions). Practice drills cannot be started until questions are imported.
+        </Alert>
+      )}
 
       <Stack spacing={2.5} sx={{ mb: 4 }}>
         <Choice
@@ -175,7 +192,7 @@ const DrillSetup: React.FC<{ subject: Subject }> = ({ subject }) => {
             : `${totalQuestions} questions, untimed, with the explanation after each one. `
               + 'Drills close gaps; they do not measure.'}
           primary
-          disabled={loading}
+          disabled={loading || subject.question_count === 0}
           onClick={start}
         />
         {subject.has_exam_profile && (

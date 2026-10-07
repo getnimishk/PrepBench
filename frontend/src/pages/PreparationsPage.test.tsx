@@ -23,8 +23,9 @@ vi.mock('../services/api', () => ({
 }));
 
 const refresh = vi.fn();
+const chosen: { id: number | null } = { id: 1 };
 vi.mock('../context/PreparationContext', () => ({
-  usePreparation: () => ({ selectedId: 1, select: vi.fn(), refresh }),
+  usePreparation: () => ({ selectedId: chosen.id, select: vi.fn(), refresh }),
 }));
 
 const READINESS = {
@@ -57,9 +58,22 @@ beforeEach(() => {
   api.getReviewCounts.mockReset().mockResolvedValue({ unreviewed: 12, spaced_due: 8 });
   api.getQuestionBankSummary.mockReset().mockResolvedValue({ questions: 709, missed_at_least_once: 71 });
   refresh.mockReset().mockResolvedValue(undefined);
+  chosen.id = 1;
 });
 
 describe('PreparationsPage', () => {
+  it('rings no card as current when no preparation has been chosen', async () => {
+    chosen.id = null;
+    api.getSubjects.mockResolvedValue([PSM, SKILL]);
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: 'Scrum / PSM I: Almost there · 93%' }))
+      .toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'System Design: Practised, not certified' }))
+      .toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('region', { name: 'Scrum / PSM I' })).not.toBeInTheDocument();
+  });
+
   it('says the list could not be read instead of calling it empty, and loads on retry', async () => {
     const user = userEvent.setup();
     api.getSubjects.mockRejectedValueOnce({ isAxiosError: true, request: {} }).mockResolvedValue([PSM]);
