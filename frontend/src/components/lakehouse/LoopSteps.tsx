@@ -8,14 +8,19 @@ import { MONO_STACK } from '../../theme/tokens';
 
 export const LOOP_STEPS = ['Predict', 'Manipulate', 'Observe', 'Explain'] as const;
 
-/** Where a station is in the Lab's loop. Each step's panel carries its own heading. */
-export const LoopSteps: React.FC<{ active: number }> = ({ active }) => (
+/**
+ * Where a station is in the Lab's loop. Each step's panel carries its own heading.
+ *
+ * `steps` defaults to the Lakehouse stations' four; the ADF Behaviour Lab passes its eight.
+ * An `active` past the last step means every step is done.
+ */
+export const LoopSteps: React.FC<{ active: number; steps?: readonly string[] }> = ({ active, steps = LOOP_STEPS }) => (
   <Box
     component="ol"
-    aria-label={`Step ${active + 1} of 4: ${LOOP_STEPS[active]}`}
+    aria-label={active < steps.length ? `Step ${active + 1} of ${steps.length}: ${steps[active]}` : `All ${steps.length} steps done`}
     sx={{ display: 'flex', flexWrap: 'wrap', gap: '6px', listStyle: 'none', p: 0, m: '14px 0 16px' }}
   >
-    {LOOP_STEPS.map((step, i) => {
+    {steps.map((step, i) => {
       const done = i < active;
       const now = i === active;
       return (

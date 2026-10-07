@@ -91,10 +91,11 @@ describe('isNavKeySupported', () => {
     expect(isNavKeySupported('insights', adfCaps, adfSubj)).toBe(true);
     expect(isNavKeySupported('preparations', adfCaps, adfSubj)).toBe(true);
 
-    // Learning Lab is pending for ADF until Phase 5:
-    expect(isNavKeySupported('lab', adfCaps, adfSubj)).toBe(false);
-    // Once Phase 5 activates AVAILABLE status, lab automatically becomes supported:
-    expect(isNavKeySupported('lab', { ...adfCaps, learningLabStatus: 'AVAILABLE' }, adfSubj)).toBe(true);
+    // The Behaviour Lab is live (all five experiments built), so the lab entry is supported:
+    expect(adfCaps.learningLabStatus).toBe('AVAILABLE');
+    expect(isNavKeySupported('lab', adfCaps, adfSubj)).toBe(true);
+    // ...and it is withheld again whenever the registry is incomplete:
+    expect(isNavKeySupported('lab', { ...adfCaps, learningLabStatus: 'INTEGRATION_PENDING' }, adfSubj)).toBe(false);
 
     // Databricks-specific sandbox is unsupported for ADF
     expect(isNavKeySupported('databricks-sandbox', adfCaps, adfSubj)).toBe(false);

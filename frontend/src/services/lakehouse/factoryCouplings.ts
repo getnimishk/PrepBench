@@ -16,7 +16,11 @@
 // arithmetic by default. And every entry reaches the learner: FactoryLedger
 // renders them all, and a test checks that each one's label is on screen.
 
-export type FactoryCouplingType = 'arithmetic' | 'assumption' | 'convention';
+/**
+ * `fact` is a statement the ADF content pack makes (and grounds in Microsoft Learn), used by the
+ * ADF Behaviour Lab's models; the Lakehouse stations use the other three.
+ */
+export type FactoryCouplingType = 'arithmetic' | 'assumption' | 'convention' | 'fact';
 
 export interface FactoryCoupling {
   id: string;

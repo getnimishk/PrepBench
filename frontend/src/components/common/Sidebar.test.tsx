@@ -177,10 +177,9 @@ describe('Sidebar', () => {
     expect(questionBank).toHaveAttribute('aria-disabled', 'true');
     expect(questionBank).toHaveClass('Mui-disabled');
 
-    // All Sandboxes is disabled pending integration (Phase 5)
-    const allSandboxes = screen.getByRole('button', { name: 'All Sandboxes (Integration pending for Azure Data Factory)' });
-    expect(allSandboxes).toHaveAttribute('aria-disabled', 'true');
-    expect(allSandboxes).toHaveClass('Mui-disabled');
+    // The Behaviour Lab is live, so All Sandboxes is an ordinary link to the Learning Lab
+    expect(screen.getByRole('link', { name: 'All Sandboxes' })).toHaveAttribute('href', '/lab');
+    expect(screen.queryByRole('button', { name: /^All Sandboxes \(/ })).not.toBeInTheDocument();
 
     // Supported features for ADF are active links
     expect(screen.getByRole('link', { name: 'Roadmaps' })).toBeInTheDocument();

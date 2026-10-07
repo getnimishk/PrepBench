@@ -759,7 +759,7 @@ export const HomePage: React.FC = () => {
         <Button
           variant="contained"
           component={RouterLink}
-          to={isDatabricks ? '/databricks-sandbox' : '/lab'}
+          to={isDatabricks ? '/databricks-sandbox' : '/lab/adf'}
         >
           {isDatabricks ? 'Open Lakehouse Lab' : 'Open Behaviour Lab'}
         </Button>
@@ -1067,8 +1067,8 @@ export const HomePage: React.FC = () => {
                   title={isDatabricks ? 'Lakehouse Simulation Lab' : 'ADF Behaviour Labs'}
                   detail={isDatabricks ? 'Interactive Delta Lake & ADLS Gen2 pipeline sandbox' : 'Manipulate pipeline parameters, inject transient faults, and observe mechanistic causality'}
                   action={
-                    <Button size="small" variant="contained" component={RouterLink} to={isDatabricks ? '/databricks-sandbox' : '/lab'}>
-                      {isDatabricks ? 'Open Lakehouse Lab' : 'Open Lab'}
+                    <Button size="small" variant="contained" component={RouterLink} to={isDatabricks ? '/databricks-sandbox' : '/lab/adf'}>
+                      {isDatabricks ? 'Open Lakehouse Lab' : 'Open Behaviour Lab'}
                     </Button>
                   }
                 />
@@ -1135,9 +1135,9 @@ export const HomePage: React.FC = () => {
                 variant="outlined"
                 size="small"
                 component={RouterLink}
-                to={isDatabricks ? '/databricks-sandbox' : '/lab'}
+                to={isDatabricks ? '/databricks-sandbox' : '/lab/adf'}
               >
-                {isDatabricks ? 'Lakehouse Sandbox' : 'All Lab Sandboxes'}
+                {isDatabricks ? 'Lakehouse Sandbox' : 'All five experiments'}
               </Button>
             ) : isLabPending ? (
               <Pill tone="warning">Integration Pending (Phase 5)</Pill>
@@ -1243,7 +1243,7 @@ export const HomePage: React.FC = () => {
                     Manipulate ForEach batchCount, parallelCopies, and DIUs against source connection pool limits to observe throttling.
                   </Typography>
                   <Actions sx={{ mt: (t) => t.typography.pxToRem(12) }}>
-                    <Button size="small" variant="contained" component={RouterLink} to="/lab">
+                    <Button size="small" variant="contained" component={RouterLink} to="/lab/adf/concurrency" aria-label="Launch Concurrency Budget">
                       Launch Experiment
                     </Button>
                   </Actions>
@@ -1251,13 +1251,13 @@ export const HomePage: React.FC = () => {
                 <Box sx={{ p: (t) => t.typography.pxToRem(14), borderRadius: '8px', border: `1px solid ${t.line}`, bgcolor: t.surface2 }}>
                   <Pill tone="accent">ADF Behaviour Lab</Pill>
                   <Typography variant="subtitle1" component="p" sx={{ fontWeight: 800, mt: '8px' }}>
-                    Watermark CDC &amp; Fault Tolerance
+                    Watermark &amp; Transient Failure
                   </Typography>
                   <Typography variant="body2" sx={{ color: t.muted, mt: '4px' }}>
                     Inject transient failures mid-copy. Compare updating watermark on completion vs success with Append vs Upsert sink.
                   </Typography>
                   <Actions sx={{ mt: (t) => t.typography.pxToRem(12) }}>
-                    <Button size="small" variant="contained" component={RouterLink} to="/lab">
+                    <Button size="small" variant="contained" component={RouterLink} to="/lab/adf/watermark" aria-label="Launch Watermark & Transient Failure">
                       Launch Experiment
                     </Button>
                   </Actions>

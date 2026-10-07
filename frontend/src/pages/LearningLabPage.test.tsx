@@ -33,7 +33,7 @@ describe('LearningLabPage', () => {
     expect(within(section).getByText('4 · Explain')).toBeInTheDocument();
   });
 
-  it('renders the available sandboxes section and all 4 cards', () => {
+  it('renders the available sandboxes section and all 5 cards', () => {
     renderPage();
     const section = screen.getByRole('region', { name: 'Available sandboxes' });
     expect(within(section).getByRole('heading', { level: 2, name: 'Available sandboxes' })).toBeInTheDocument();
@@ -42,7 +42,9 @@ describe('LearningLabPage', () => {
     expect(screen.getByRole('heading', { level: 3, name: 'Agile Metrics' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'Scenarios' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'Lakehouse Lab' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: 'ADF Behaviour Lab' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'Financial Learning' })).toBeInTheDocument();
+    expect(within(section).getAllByRole('heading', { level: 3 })).toHaveLength(5);
   });
 
   it('marks Agile Metrics as live with active link to /chart-sandbox', () => {
@@ -85,11 +87,14 @@ describe('LearningLabPage', () => {
     expect(within(card).queryByText(/cluster sizing/i)).not.toBeInTheDocument();
   });
 
-  it('never calls anything on the hub a "Behaviour Lab": that name is reserved for the pending ADF lab', () => {
+  it('keeps the two labs\u2019 names apart: Databricks\u2019 is the Lakehouse Lab, ADF\u2019s the Behaviour Lab', () => {
     renderPage();
-    // Databricks is the Lakehouse Lab. The ADF Behaviour Lab is not live, so it has no card here at all.
-    expect(screen.queryByText(/Behaviou?r Lab/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Behaviou?r Lab/i })).not.toBeInTheDocument();
+    const lakehouse = screen.getByRole('heading', { level: 3, name: 'Lakehouse Lab' }).closest('article')!;
+    expect(within(lakehouse).queryByText(/Behaviou?r Lab/i)).not.toBeInTheDocument();
+    const adf = screen.getByRole('heading', { level: 3, name: 'ADF Behaviour Lab' }).closest('article')!;
+    expect(within(adf).getByText('Live')).toBeInTheDocument();
+    expect(within(adf).getByRole('link', { name: 'Open sandbox: ADF Behaviour Lab' })).toHaveAttribute('href', '/lab/adf');
+    expect(within(adf).queryByText(/Lakehouse/i)).not.toBeInTheDocument();
   });
 
   it('renders Financial Learning as coming soon with a disabled button', () => {

@@ -23,7 +23,8 @@ describe('Subject Capabilities Foundation (Phase 1)', () => {
       expect(caps.interview).toBe(true);
       expect(caps.learningLab).toBe(true);
       expect(caps.lab).toBe(true);
-      expect(caps.learningLabStatus).toBe('INTEGRATION_PENDING');
+      // All five Behaviour Lab experiments are built, so the registry makes it AVAILABLE.
+      expect(caps.learningLabStatus).toBe('AVAILABLE');
       expect(caps.workspace).toBe(true);
       expect(caps.evidence).toBe(true);
       expect(caps.roadmap).toBe(true);
@@ -160,13 +161,13 @@ describe('Subject Capabilities Foundation (Phase 1)', () => {
 
   describe('isCapabilityAvailable and isTargetCapability', () => {
     it('returns true only for genuinely supported capabilities and respects production availability', () => {
-      // ADF: Target capability has learningLab, but production availability is pending Phase 5
+      // ADF: the Behaviour Lab is live now that all five experiments are built
       expect(isCapabilityAvailable(6, 'certification')).toBe(false);
       expect(isCapabilityAvailable(6, 'interview')).toBe(true);
       expect(isTargetCapability(6, 'learningLab')).toBe(true);
       expect(isTargetCapability(6, 'lab')).toBe(true);
-      expect(isCapabilityAvailable(6, 'learningLab')).toBe(false); // Integration pending until Phase 5
-      expect(isCapabilityAvailable(6, 'lab')).toBe(false);
+      expect(isCapabilityAvailable(6, 'learningLab')).toBe(true);
+      expect(isCapabilityAvailable(6, 'lab')).toBe(true);
       expect(isCapabilityAvailable(6, 'workspace')).toBe(true);
       expect(isCapabilityAvailable(6, 'evidence')).toBe(true);
 
@@ -235,9 +236,9 @@ describe('Subject Capabilities Foundation (Phase 1)', () => {
       const certSubjects = getSubjectsWithCapability(mockList, 'certification');
       expect(certSubjects.map((s) => s.id)).toEqual([1]);
 
-      // Learning Lab in production: Databricks is AVAILABLE; ADF is INTEGRATION_PENDING (Phase 5)
+      // Learning Lab in production: Databricks (Lakehouse Lab) and ADF (Behaviour Lab) are both AVAILABLE
       const labSubjects = getSubjectsWithCapability(mockList, 'learningLab');
-      expect(labSubjects.map((s) => s.id)).toEqual([2]);
+      expect(labSubjects.map((s) => s.id)).toEqual([2, 6]);
 
       // Target architecture capability covers both Databricks and ADF
       const targetLabSubjects = mockList.filter((s) => isTargetCapability(s, 'learningLab'));
@@ -254,9 +255,9 @@ describe('Subject Capabilities Foundation (Phase 1)', () => {
       const certSubjects = getSubjectsWithCapability('certification');
       expect(certSubjects.map((s) => s.id)).toEqual([1, 4]);
 
-      // Learning Lab in production: Databricks is AVAILABLE; ADF is INTEGRATION_PENDING (Phase 5)
+      // Learning Lab in production: Databricks (Lakehouse Lab) and ADF (Behaviour Lab) are both AVAILABLE
       const labSubjects = getSubjectsWithCapability('learningLab');
-      expect(labSubjects.map((s) => s.id)).toEqual([2]);
+      expect(labSubjects.map((s) => s.id)).toEqual([2, 6]);
 
       // Target architecture capability covers both Databricks and ADF
       const targetLabSubjects = KNOWN_PRODUCTION_SUBJECTS.filter((s) => isTargetCapability(s.id, 'learningLab'));

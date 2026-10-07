@@ -4,6 +4,7 @@
 
 import type { CapabilityName, SubjectCapabilityProfile, SubjectSummary } from '../types/capabilities';
 import type { Subject } from '../types/subject';
+import { adfLabStatus, hasAdfPack } from './adfLab/experiments';
 
 /**
  * Unassigned / missing subject capabilities fallback profile.
@@ -50,7 +51,8 @@ export const UNASSIGNED_CAPABILITIES: SubjectCapabilityProfile = Object.freeze({
  * Data note (not fixed here; a content/data task): PSM I's roadmap (id 3) and System Design's (id 4) are both
  * "Storage FileSystems to Cloud Mastery Roadmap" with identical phases and topics -- off-topic for PSM I.
  * `roadmap: true` reflects that a roadmap row is linked, not that its content suits the subject.
- *    Target capability includes Learning Lab; genuine current production availability is INTEGRATION_PENDING (scheduled for Phase 5).
+ *    Learning Lab: the ADF Behaviour Lab's five experiments (Phase 5). Its status comes from the lab's registry
+ *    (services/adfLab/experiments.ts adfLabStatus): AVAILABLE only while all five are built.
  */
 const SUBJECT_CAPABILITY_PROFILES: Record<number, SubjectCapabilityProfile> = {
   1: Object.freeze({
@@ -131,9 +133,11 @@ const SUBJECT_CAPABILITY_PROFILES: Record<number, SubjectCapabilityProfile> = {
   6: Object.freeze({
     certification: false, // P0 Invariant: ADF IS A SKILL, NEVER A CERTIFICATION!
     interview: true, // Scenario Say-it questions saved under this subject (see the note above)
-    learningLab: true, // Target capability in approved 5-capability architecture
+    learningLab: true, // The ADF Behaviour Lab (services/adfLab), five experiments
     lab: true,
-    learningLabStatus: 'INTEGRATION_PENDING', // Honest production state: behavioural experiments scheduled for Phase 5
+    // From the lab's own registry: AVAILABLE only while all five experiments are built
+    // (adfLabStatus), INTEGRATION_PENDING the moment any one is not.
+    learningLabStatus: adfLabStatus(),
     workspace: true,
     evidence: true,
     roadmap: true,
@@ -321,19 +325,23 @@ function isLiveSubject(value: unknown): value is LiveSubject {
  *
  * Only what the record states is claimed: a certification is one by its kind;
  * questions by its own count; guides and scenarios by its attached packs.
- * Interview and the Learning Lab need content of their own that a bare record
- * cannot show, so they stay off. Roadmaps are not withheld: the Roadmaps screen
+ * Interview needs content of its own that a bare record cannot show, so it stays
+ * off. The Learning Lab is on when the ADF pack is attached: the ADF Behaviour
+ * Lab's experiments are that pack's. Roadmaps are not withheld: the Roadmaps screen
  * is where any preparation's first roadmap is created or imported.
  */
 function deriveCapabilities(s: LiveSubject): SubjectCapabilityProfile {
   const questions = s.question_count;
   const packs = s.content_packs?.length ?? 0;
+  // The ADF Behaviour Lab is for any preparation with the ADF pack attached, not only the seeded
+  // one: its experiments are the pack's, and the lab pages check for the pack themselves.
+  const adfLab = hasAdfPack(s);
   return Object.freeze({
     certification: s.kind.toLowerCase() === 'certification',
     interview: false,
-    learningLab: false,
-    lab: false,
-    learningLabStatus: 'UNAVAILABLE',
+    learningLab: adfLab,
+    lab: adfLab,
+    learningLabStatus: adfLab ? adfLabStatus() : 'UNAVAILABLE',
     workspace: true,
     evidence: true,
     roadmap: true,

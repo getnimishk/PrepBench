@@ -251,6 +251,13 @@ beforeEach(() => {
   mockGetDailyGoals.mockRejectedValue(new Error('no goals'));
 });
 
+/**
+ * ADF's lab while any one experiment is not built: the registry derives INTEGRATION_PENDING
+ * (services/adfLab/experiments.ts adfLabStatus). The pending Home must keep working for that case,
+ * so these tests hold it explicitly; ADF with all five built is AVAILABLE (see Regression 4).
+ */
+const ADF_LAB_PENDING = () => ({ ...getSubjectCapabilities(6), learningLabStatus: 'INTEGRATION_PENDING' as const });
+
 describe('Phase 3 — Unified Home & Certification Readiness Integration', () => {
   it('correctly renders PSM I: separates formal verdict (NOT READY) from coaching note (Almost there)', async () => {
     mockContext.selectedId = 1;
@@ -318,7 +325,7 @@ describe('Phase 3 — Unified Home & Certification Readiness Integration', () =>
   it('correctly renders ADF: Skill track with SKILL COMPETENCY TRACKING, pending lab state, and no exam simulator', async () => {
     mockContext.selectedId = 6;
     mockContext.selected = ADF_SUBJECT;
-    mockContext.capabilities = getSubjectCapabilities(6);
+    mockContext.capabilities = ADF_LAB_PENDING();
 
     renderHomePage();
 
@@ -425,10 +432,10 @@ describe('Phase 3 — Unified Home & Certification Readiness Integration', () =>
   });
 
   describe('Phase 3 Learning Lab Production Availability Hardening (Phase Gate Invariants)', () => {
-    it('Regression 1: ADF Learning Lab is not presented as fully AVAILABLE before Phase 5', async () => {
+    it('Regression 1: while any experiment is not built, the ADF Learning Lab is not presented as AVAILABLE', async () => {
       mockContext.selectedId = 6;
       mockContext.selected = ADF_SUBJECT;
-      mockContext.capabilities = getSubjectCapabilities(6);
+      mockContext.capabilities = ADF_LAB_PENDING();
 
       renderHomePage();
 
@@ -453,10 +460,10 @@ describe('Phase 3 — Unified Home & Certification Readiness Integration', () =>
       expect(practiceLabBtn).toBeDisabled();
     });
 
-    it('Regression 2: ADF Home CTA does not launch an unavailable ADF experiment', async () => {
+    it('Regression 2: while any experiment is not built, the ADF Home CTA does not launch one', async () => {
       mockContext.selectedId = 6;
       mockContext.selected = ADF_SUBJECT;
-      mockContext.capabilities = getSubjectCapabilities(6);
+      mockContext.capabilities = ADF_LAB_PENDING();
 
       renderHomePage();
 
@@ -503,34 +510,30 @@ describe('Phase 3 — Unified Home & Certification Readiness Integration', () =>
       expect(within(panel5).getByRole('link', { name: 'Lakehouse Sandbox' })).toHaveAttribute('href', '/databricks-sandbox');
     });
 
-    it('Regression 4: Changing ADF state to AVAILABLE (in Phase 5) automatically enables the CTA without redesigning Home', async () => {
+    it('Regression 4: with all five experiments built, ADF is AVAILABLE and Home opens the Behaviour Lab without a redesign', async () => {
       mockContext.selectedId = 6;
       mockContext.selected = ADF_SUBJECT;
-      // Simulate Phase 5 activation of ADF Behaviour Lab:
-      mockContext.capabilities = {
-        ...getSubjectCapabilities(6),
-        learningLabStatus: 'AVAILABLE',
-      };
+      // The real state now: the registry has all five experiments built.
+      mockContext.capabilities = getSubjectCapabilities(6);
+      expect(mockContext.capabilities.learningLabStatus).toBe('AVAILABLE');
 
       renderHomePage();
 
-      // Home immediately reflects the live state without requiring any architectural changes:
-      // 1. Top primary CTA becomes active link to /lab
-      const topCta = await screen.findByRole('link', { name: 'Open Behaviour Lab' });
-      expect(topCta).toBeInTheDocument();
-      expect(topCta).toHaveAttribute('href', '/lab');
+      // 1. Top primary CTA is an active link to the Behaviour Lab
+      const topCtas = await screen.findAllByRole('link', { name: 'Open Behaviour Lab' });
+      expect(topCtas[0]).toHaveAttribute('href', '/lab/adf');
+      expect(screen.queryByRole('button', { name: 'Behaviour Lab (Integration Pending)' })).not.toBeInTheDocument();
 
-      // 2. Section 4 Practice opens active lab link
+      // 2. Section 4 Practice opens the Behaviour Lab
       const panel4 = screen.getByRole('region', { name: '4. What can I practice?' });
-      expect(within(panel4).getByRole('link', { name: 'Open Lab' })).toHaveAttribute('href', '/lab');
+      expect(within(panel4).getByRole('link', { name: 'Open Behaviour Lab' })).toHaveAttribute('href', '/lab/adf');
 
-      // 3. Section 5 renders active experiment cards with Launch Experiment buttons linking to /lab
+      // 3. Section 5: each experiment card launches its own experiment; nothing says "Phase 5" any more
       const panel5 = screen.getByRole('region', { name: '5. What can I experiment with? (Learning Lab)' });
-      const launchButtons = within(panel5).getAllByRole('link', { name: 'Launch Experiment' });
-      expect(launchButtons).toHaveLength(2);
-      expect(launchButtons[0]).toHaveAttribute('href', '/lab');
-      expect(launchButtons[1]).toHaveAttribute('href', '/lab');
-      expect(within(panel5).getByRole('link', { name: 'All Lab Sandboxes' })).toHaveAttribute('href', '/lab');
+      expect(within(panel5).getByRole('link', { name: 'Launch Concurrency Budget' })).toHaveAttribute('href', '/lab/adf/concurrency');
+      expect(within(panel5).getByRole('link', { name: 'Launch Watermark & Transient Failure' })).toHaveAttribute('href', '/lab/adf/watermark');
+      expect(within(panel5).getByRole('link', { name: 'All five experiments' })).toHaveAttribute('href', '/lab/adf');
+      expect(within(panel5).queryByText(/Phase 5/)).not.toBeInTheDocument();
     });
   });
 });
