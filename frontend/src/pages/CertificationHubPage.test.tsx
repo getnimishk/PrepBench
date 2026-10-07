@@ -5,6 +5,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { CertificationHubPage } from './CertificationHubPage';
 import { Subject } from '../types/subject';
@@ -409,5 +410,52 @@ describe('CertificationHubPage -- the verdict comes from the readiness engine', 
     expect(screen.queryByText(/85%/)).not.toBeInTheDocument();
     expect(screen.queryByText(/80 Questions/)).not.toBeInTheDocument();
     expect(screen.getByText(/No exam profile set\./)).toBeInTheDocument();
+  });
+});
+
+describe('CertificationHubPage -- following its links keeps the certification it shows', () => {
+  const select = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetSubjects.mockResolvedValue([PSM_SUBJECT, KAFKA_SUBJECT]);
+    mockGetHomeSummary.mockResolvedValue({ per_subject: [], resumable: null });
+    mockGetMockHistory.mockResolvedValue([]);
+    mockGetReviewCounts.mockResolvedValue({ spaced_due: 14, unreviewed: 2 });
+  });
+
+  it("makes the shown preparation the working one before opening a screen scoped by the header's", async () => {
+    // Opened for PSM I from the hub's own track chooser while Kafka is in the header. Review,
+    // drills and the bank read the header's preparation, so without this the PSM I hub would
+    // open Kafka's (or no) cards.
+    mockPreparation.mockReturnValue({
+      selectedId: 4, selected: KAFKA_SUBJECT, capabilities: getSubjectCapabilities(4), select,
+    });
+    renderCertHub('/certification?subject=1');
+
+    const q4 = await screen.findByRole('region', { name: '4. What should I practice next?' });
+    await userEvent.click(within(q4).getByRole('link', { name: 'Review Queue' }));
+    expect(select).toHaveBeenCalledWith(1);
+  });
+
+  it('changes nothing when the shown preparation already is the working one', async () => {
+    mockPreparation.mockReturnValue({
+      selectedId: 1, selected: PSM_SUBJECT, capabilities: getSubjectCapabilities(1), select,
+    });
+    renderCertHub();
+
+    const q4 = await screen.findByRole('region', { name: '4. What should I practice next?' });
+    await userEvent.click(within(q4).getByRole('link', { name: 'Start Drill' }));
+    expect(select).not.toHaveBeenCalled();
+  });
+
+  it('has no tabs that switch nothing', async () => {
+    mockPreparation.mockReturnValue({
+      selectedId: 1, selected: PSM_SUBJECT, capabilities: getSubjectCapabilities(1), select,
+    });
+    renderCertHub();
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'PSM I - Professional Scrum Master' })).toBeInTheDocument();
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
   });
 });

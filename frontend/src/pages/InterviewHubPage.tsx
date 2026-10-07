@@ -62,6 +62,7 @@ export const InterviewHubPage: React.FC = () => {
     selected: ctxSelected,
     selectedId: ctxSelectedId,
     capabilities: ctxCapabilities,
+    select,
   } = usePreparation();
 
   // Each source is held as what was read, or null when the read failed, so a
@@ -192,6 +193,16 @@ export const InterviewHubPage: React.FC = () => {
 
   const isSystemDesignSubject = targetSubject.id === 3;
 
+  // This hub can show a preparation other than the one in the header: its own
+  // track chooser and CapabilityUnavailablePage link here with ?subject=. The
+  // screens it links on to are scoped by the header's preparation, so following
+  // one of those links unchanged opened another preparation's scenarios.
+  // Clicking one makes the shown preparation the one being worked in first:
+  // the learner's own action, on a page titled with it, not a silent switch.
+  const adoptTarget = () => {
+    if (targetSubject.id !== ctxSelectedId) select(targetSubject.id);
+  };
+
   // Recordings are kept across every preparation; the page says so where it
   // counts them rather than presenting them as this preparation's.
   const recordingCount = recordings == null ? null : recordings.length;
@@ -237,6 +248,7 @@ export const InterviewHubPage: React.FC = () => {
                 variant="contained"
                 color="primary"
                 component={RouterLink}
+                onClick={adoptTarget}
                 to="/scenarios"
               >
                 Practise from {targetSubject.name} scenarios
@@ -464,6 +476,7 @@ export const InterviewHubPage: React.FC = () => {
                   size="small"
                   variant="outlined"
                   component={RouterLink}
+                  onClick={adoptTarget}
                   to="/scenarios"
                 >
                   Explore Scenarios

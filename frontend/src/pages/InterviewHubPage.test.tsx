@@ -5,6 +5,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { InterviewHubPage } from './InterviewHubPage';
 import { Subject } from '../types/subject';
@@ -316,5 +317,26 @@ describe('InterviewHubPage — Phase 4 Interview Integration', () => {
       'href',
       '/interview?subject=6'
     );
+  });
+});
+
+describe('InterviewHubPage -- following its scenario links keeps the preparation it shows', () => {
+  it("makes the shown preparation the working one before opening its scenarios", async () => {
+    const select = vi.fn();
+    mockGetSubjects.mockResolvedValue(ALL_SUBJECTS);
+    mockGetInterviewQuestions.mockResolvedValue({ items: [], total: 0 });
+    mockGetSystemDesignPrompts.mockResolvedValue({ items: [], total: 0 });
+    mockGetSystemDesignAttempts.mockResolvedValue({ items: [], total: 0 });
+    mockGetRecordings.mockResolvedValue({ items: [] });
+    mockGetDesignReviews.mockResolvedValue({ items: [], total: 0 });
+    // Opened for ADF from the track chooser with nothing in the header: /scenarios reads the
+    // header's preparation, so without this it would show no ADF scenarios at all.
+    mockPreparation.mockReturnValue({
+      selectedId: null, selected: null, capabilities: UNASSIGNED_CAPABILITIES, select,
+    });
+    renderInterviewHub('/interview?subject=6');
+
+    await userEvent.click(await screen.findByRole('link', { name: /Practise from Azure Data Factory scenarios/ }));
+    expect(select).toHaveBeenCalledWith(6);
   });
 });

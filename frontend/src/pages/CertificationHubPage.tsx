@@ -11,8 +11,6 @@ import {
   Chip,
   LinearProgress,
   Stack,
-  Tab,
-  Tabs,
   Typography,
   useTheme,
 } from '@mui/material';
@@ -62,7 +60,6 @@ import { LoadingState } from '../components/common/States';
 import type { MockHistoryItem } from '../types/exam';
 import type { HomeSummary, Subject } from '../types/subject';
 
-type CertTab = 'overview' | 'simulator' | 'bank' | 'spaced';
 
 export const CertificationHubPage: React.FC = () => {
   const theme = useTheme();
@@ -71,6 +68,7 @@ export const CertificationHubPage: React.FC = () => {
     selected: ctxSelected,
     selectedId: ctxSelectedId,
     capabilities: ctxCapabilities,
+    select,
   } = usePreparation();
 
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -79,7 +77,6 @@ export const CertificationHubPage: React.FC = () => {
   const [spacedDue, setSpacedDue] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [tab, setTab] = useState<CertTab>('overview');
 
   const urlSubjectParam = searchParams.get('subject');
 
@@ -207,6 +204,16 @@ export const CertificationHubPage: React.FC = () => {
     return <CapabilityUnavailablePage capability="Certification" subject={targetSubject} />;
   }
 
+  // This hub can show a preparation other than the one in the header: its own
+  // track chooser and CapabilityUnavailablePage link here with ?subject=. The
+  // screens it links on to are scoped by the header's preparation, so following
+  // one of those links unchanged opened another preparation's cards, drills or bank.
+  // Clicking one makes the shown preparation the one being worked in first:
+  // the learner's own action, on a page titled with it, not a silent switch.
+  const adoptTarget = () => {
+    if (targetSubject.id !== ctxSelectedId) select(targetSubject.id);
+  };
+
   // Authoritative data truth
   const isPsm = targetSubject.id === 1;
   const isKafka = targetSubject.id === 4;
@@ -259,6 +266,7 @@ export const CertificationHubPage: React.FC = () => {
                 variant="contained"
                 color="primary"
                 component={RouterLink}
+                onClick={adoptTarget}
                 to={`/exam-setup?kind=mock&subject=${targetSubject.id}`}
               >
                 Start Mock Exam
@@ -271,6 +279,7 @@ export const CertificationHubPage: React.FC = () => {
             <Button
               variant="outlined"
               component={RouterLink}
+              onClick={adoptTarget}
               to={`/question-bank?subject=${targetSubject.id}`}
             >
               Question Bank ({questionCount})
@@ -279,17 +288,6 @@ export const CertificationHubPage: React.FC = () => {
         }
       />
 
-      <Tabs
-        value={tab}
-        onChange={(_, val: CertTab) => setTab(val)}
-        aria-label="Certification tabs"
-        sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}
-      >
-        <Tab value="overview" label="Readiness Overview" id="cert-tab-overview" />
-        <Tab value="simulator" label="Exam Simulator" id="cert-tab-simulator" />
-        <Tab value="bank" label={`Question Bank (${questionCount})`} id="cert-tab-bank" />
-        <Tab value="spaced" label={`Review Queue ${spacedDue ? `(${spacedDue})` : ''}`} id="cert-tab-spaced" />
-      </Tabs>
 
       {/* QUESTION 1: What certification am I preparing for? */}
       <Panel component="section" aria-labelledby="cert-q1-title" sx={{ mb: 3 }}>
@@ -492,6 +490,7 @@ export const CertificationHubPage: React.FC = () => {
                       size="small"
                       variant="outlined"
                       component={RouterLink}
+                      onClick={adoptTarget}
                       to={`/exam-setup?kind=drill&subject=${targetSubject.id}`}
                     >
                       Start Drill
@@ -507,6 +506,7 @@ export const CertificationHubPage: React.FC = () => {
                       size="small"
                       variant="outlined"
                       component={RouterLink}
+                      onClick={adoptTarget}
                       to={`/practice/spaced?subject=${targetSubject.id}`}
                     >
                       Review Queue
@@ -521,6 +521,7 @@ export const CertificationHubPage: React.FC = () => {
                       size="small"
                       variant="outlined"
                       component={RouterLink}
+                      onClick={adoptTarget}
                       to={`/question-bank?subject=${targetSubject.id}`}
                     >
                       Open Bank
@@ -537,6 +538,7 @@ export const CertificationHubPage: React.FC = () => {
                   size="small"
                   variant="outlined"
                   component={RouterLink}
+                  onClick={adoptTarget}
                   to={`/question-bank?subject=${targetSubject.id}`}
                   sx={{ mt: 1.5 }}
                 >
@@ -568,6 +570,7 @@ export const CertificationHubPage: React.FC = () => {
                   variant="contained"
                   color="primary"
                   component={RouterLink}
+                  onClick={adoptTarget}
                   to={`/exam-setup?kind=mock&subject=${targetSubject.id}`}
                 >
                   Configure & Start Mock Exam
@@ -611,6 +614,7 @@ export const CertificationHubPage: React.FC = () => {
                 <Button
                   variant="outlined"
                   component={RouterLink}
+                  onClick={adoptTarget}
                   to={`/question-bank?subject=${targetSubject.id}`}
                 >
                   Open Question Bank to Import
