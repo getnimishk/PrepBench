@@ -9,6 +9,8 @@ import { getSubjects } from '../services/api';
 import { loadFailed } from '../services/apiError';
 import { connection } from '../services/connection';
 import type { Subject } from '../types/subject';
+import type { SubjectCapabilityProfile } from '../types/capabilities';
+import { getSubjectCapabilities, UNASSIGNED_CAPABILITIES } from '../services/capabilities';
 
 /**
  * Which preparation you are working in.
@@ -30,16 +32,18 @@ import type { Subject } from '../types/subject';
 
 const STORAGE_KEY = 'prepbench.selectedPreparationId';
 
-interface PreparationContextValue {
+export interface PreparationContextValue {
   /** Selectable preparations, archived ones excluded. */
   preparations: Subject[];
   selected: Subject | null;
   selectedId: number | null;
-  select: (id: number) => void;
+  select: (id: number | null) => void;
   /** Re-fetch after a create, edit, archive or delete. */
   refresh: () => Promise<void>;
   loading: boolean;
   error: string | null;
+  /** Authoritative capability profile for current subject */
+  capabilities: SubjectCapabilityProfile;
 }
 
 const PreparationContext = createContext<PreparationContextValue>({
@@ -50,6 +54,7 @@ const PreparationContext = createContext<PreparationContextValue>({
   refresh: async () => {},
   loading: true,
   error: null,
+  capabilities: UNASSIGNED_CAPABILITIES,
 });
 
 export const usePreparation = () => useContext(PreparationContext);
@@ -67,9 +72,13 @@ function readStoredId(): number | null {
   }
 }
 
-function writeStoredId(id: number): void {
+function writeStoredId(id: number | null): void {
   try {
-    localStorage.setItem(STORAGE_KEY, String(id));
+    if (id === null) {
+      localStorage.removeItem(STORAGE_KEY);
+    } else {
+      localStorage.setItem(STORAGE_KEY, String(id));
+    }
   } catch {
     // A preference that cannot be saved is not worth failing a render over.
   }
@@ -121,20 +130,33 @@ export const PreparationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (state === 'online' && failedRef.current) void load();
   }), [load]);
 
-  const select = useCallback((id: number) => {
+  const select = useCallback((id: number | null) => {
     setSelectedId(id);
     writeStoredId(id);
   }, []);
 
+  const selected = useMemo(() => {
+    if (selectedId === null) return null;
+    return preparations.find((s) => s.id === selectedId) ?? null;
+  }, [preparations, selectedId]);
+
+  const capabilities = useMemo<SubjectCapabilityProfile>(() => {
+    if (selectedId === null) {
+      return UNASSIGNED_CAPABILITIES;
+    }
+    return getSubjectCapabilities(selected ?? selectedId);
+  }, [selected, selectedId]);
+
   const value = useMemo<PreparationContextValue>(() => ({
     preparations,
-    selected: preparations.find((s) => s.id === selectedId) ?? null,
+    selected,
     selectedId,
     select,
     refresh: load,
     loading,
     error,
-  }), [preparations, selectedId, select, load, loading, error]);
+    capabilities,
+  }), [preparations, selected, selectedId, select, load, loading, error, capabilities]);
 
   return (
     <PreparationContext.Provider value={value}>

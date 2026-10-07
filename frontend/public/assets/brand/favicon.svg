@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <defs>
+    <!-- Facet 1: Outer Left Vertical Face -->
+    <linearGradient id="fav-left-pillar" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0F93FA"/>
+      <stop offset="50%" stop-color="#0971F6"/>
+      <stop offset="100%" stop-color="#093196"/>
+    </linearGradient>
+
+    <!-- Facet 2: Left Roof Facet -->
+    <linearGradient id="fav-roof-left" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#0A3CB8"/>
+      <stop offset="100%" stop-color="#1374E5"/>
+    </linearGradient>
+
+    <!-- Facet 3: Right Roof Facet -->
+    <linearGradient id="fav-roof-right" x1="0%" y1="0%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#138CFB"/>
+      <stop offset="100%" stop-color="#16C6EF"/>
+    </linearGradient>
+
+    <!-- Facet 4: Outer Right Flange -->
+    <linearGradient id="fav-right-flange" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#16C6EF"/>
+      <stop offset="100%" stop-color="#08287B"/>
+    </linearGradient>
+
+    <!-- Facet 5: Inner Loop Navy Facet -->
+    <linearGradient id="fav-inner-navy" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0A2F8F"/>
+      <stop offset="100%" stop-color="#10206B"/>
+    </linearGradient>
+
+    <!-- Facet 6: Inner Loop Purple / Violet Fold -->
+    <linearGradient id="fav-inner-purple" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7C3AED"/>
+      <stop offset="100%" stop-color="#3D33ED"/>
+    </linearGradient>
+
+    <!-- Facet 7: Front Stem -->
+    <linearGradient id="fav-front-stem" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0356EC"/>
+      <stop offset="100%" stop-color="#0245D0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Dark Background Container -->
+  <rect width="32" height="32" rx="7" fill="#081424"/>
+
+  <!-- Scaled 3D Dimensional Mark -->
+  <g transform="translate(5.5, 5.5) scale(0.18)">
+    <path d="M 1 29 L 22 38 L 22 103 L 1 92 Z" fill="url(#fav-left-pillar)"/>
+    <path d="M 1 29 L 58 0 L 58 25 L 22 38 Z" fill="url(#fav-roof-left)"/>
+    <path d="M 58 0 L 116 29 L 94 43 L 58 25 Z" fill="url(#fav-roof-right)"/>
+    <path d="M 116 29 L 116 59 L 94 72 L 94 43 Z" fill="url(#fav-right-flange)"/>
+    <path d="M 94 43 L 94 72 L 66 85 L 66 58 Z" fill="url(#fav-inner-navy)"/>
+    <path d="M 38 70 L 66 55 L 66 85 L 38 85 Z" fill="url(#fav-inner-purple)"/>
+    <path d="M 38 85 L 66 85 L 66 113 L 38 113 Z" fill="url(#fav-front-stem)"/>
+  </g>
+</svg>

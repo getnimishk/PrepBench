@@ -166,6 +166,11 @@ const DrillSetup: React.FC<{ subject: Subject }> = ({ subject }) => {
       />
 
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+      {subject.question_count === 0 && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          Question bank not loaded in current dataset (0 questions). Practice drills cannot be started until questions are imported.
+        </Alert>
+      )}
 
       <Stack spacing={2.5} sx={{ mb: 4 }}>
         <Choice
@@ -175,7 +180,7 @@ const DrillSetup: React.FC<{ subject: Subject }> = ({ subject }) => {
             : `${totalQuestions} questions, untimed, with the explanation after each one. `
               + 'Drills close gaps; they do not measure.'}
           primary
-          disabled={loading}
+          disabled={loading || subject.question_count === 0}
           onClick={start}
         />
         {subject.has_exam_profile && (

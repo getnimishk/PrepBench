@@ -1,0 +1,22 @@
+{
+  "name": "PrepBench",
+  "short_name": "PrepBench",
+  "description": "Technical Capability, Proven. The unified technical preparation platform across Certification, Interview, Learning Lab, Workspace, and Evidence.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#081424",
+  "theme_color": "#081424",
+  "icons": [
+    {
+      "src": "/assets/brand/favicon.svg",
+      "sizes": "32x32 16x16",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/assets/brand/prepbench-app-icon-pwa.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

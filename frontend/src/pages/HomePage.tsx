@@ -5,7 +5,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { Alert, Box, Button, Stack, Typography, useTheme } from '@mui/material';
-import { ChevronRight, Map as RouteMap } from 'lucide-react';
+import {
+  Activity, ArrowRight, Award, BookOpen, ChevronRight, Database, FileCheck2, FlaskConical,
+  FolderGit2, History, Layers, Library, Map as RouteMap, Mic, Network,
+  PlayCircle, ShieldCheck, Workflow,
+} from 'lucide-react';
 import {
   getSubjects, getHomeSummary, getOtherPreparation, getFocusTopics, getDailyGoals, getRoadmaps,
 } from '../services/api';
@@ -21,53 +25,30 @@ import { nextAction } from '../services/recommendation';
 import { WhyThis } from '../components/common/WhyThis';
 import { LoadingState } from '../components/common/States';
 import {
-  Actions, BigFigure, Detail, Good, Grid, Metric, MetricRow, Note, PageHead, Panel, PanelHead, Pill, Row, Section, Sub,
+  Actions, Bar, BigFigure, Detail, Eyebrow, Good, Grid, Metric, MetricRow, Note, PageHead, Panel, PanelHead, Pill, Row, Section, Sub,
   type Tone,
 } from '../components/ui/primitives';
 import { usePb } from '../theme/usePb';
 import { chooseRoadmap } from '../services/roadmapChoice';
+import { getSubjectCapabilities, UNASSIGNED_CAPABILITIES } from '../services/capabilities';
 
 /**
- * Where you stand, why, and the one thing worth doing about it.
+ * Unified PrepBench Home & Certification Readiness Experience.
  *
- * Laid out as the unified prototype's Home: the verdict with the preparation as
- * its eyebrow; today's two goals; the current evidence beside the next useful
- * action; what is already in motion; and, across the other preparations, what
- * needs attention. The topics to focus on and the rest of the preparation stay
- * under it, quieter.
+ * Grounded in the Five Connected Capabilities (Certification, Interview,
+ * Learning Lab, Workspace, Evidence) and the 5 decisive architectural questions:
+ * 1. What am I preparing for?
+ * 2. Am I ready? (Formal verification verdict from production readiness API)
+ * 3. What should I learn next?
+ * 4. What can I practice?
+ * 5. What can I experiment with? (Learning Lab understanding engine)
  *
- * Four rounds of correction landed here before the prototype did, and what
- * they refused is still refused: a streak, a goal ring, a second chart, an
- * activity feed, a wall of unrelated KPI cards, and an invented "weakest area".
- * Every figure is read from the rows that caused it, and the one chart is the
- * mocks readiness is computed from, drawn against the pass mark.
- *
- * A daily goal was on that list, and was put back in Phase 4 by decision,
- * against the unified prototype. What was refused was a quota that turns a
- * quiet day into a failure; the two goals here are not that. See
- * components/home/DailyGoals.tsx.
+ * Architectural Invariants:
+ * - Uses existing production readiness engine directly (no competing calculator).
+ * - Formal Certification verdict is strictly separated from coaching interpretation.
+ * - All actions and CTAs are subject- and capability-aware.
+ * - When no subject is selected, renders the Unassigned view without defaulting silently.
  */
-
-/** How many focus topics the panel shows before deferring to Insights. */
-const FOCUS_LIMIT = 4;
-
-/**
- * The subject being prepared for: the one chosen in the header's picker.
- *
- * This used to be inferred -- the subject with an exam profile and the most
- * evidence behind it -- which meant Home ignored the picker entirely: switch to
- * Databricks and Home went on describing PSM I. The inference stays only as the
- * fallback for when nothing is selected, which is also what keeps this page
- * rendering outside a PreparationProvider.
- */
-const pickPrimary = (subjects: Subject[], selectedId: number | null): Subject => {
-  const inferred =
-    [...subjects]
-      .filter((s) => s.has_exam_profile)
-      .sort((a, b) => b.readiness.mock_count - a.readiness.mock_count)[0]
-    ?? subjects[0];
-  return subjects.find((s) => s.id === selectedId) ?? inferred;
-};
 
 const shortDate = (iso?: string | null): string | null => {
   if (!iso) return null;
@@ -77,7 +58,6 @@ const shortDate = (iso?: string | null): string | null => {
     : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 };
 
-/** "today" where that is true, and a date where it is not. */
 const worked = (iso?: string | null): string | null => {
   if (!iso) return null;
   const d = new Date(iso);
@@ -90,195 +70,14 @@ const worked = (iso?: string | null): string | null => {
 
 const hours = (h: number) => (Number.isInteger(h) ? `${h}h` : `${h.toFixed(1)}h`);
 
-export const HomePage: React.FC = () => {
-  const navigate = useNavigate();
-  const { selectedId } = usePreparation();
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [summary, setSummary] = useState<HomeSummary | null>(null);
-  const [other, setOther] = useState<OtherPreparation[]>([]);
-  const [roadmaps, setRoadmaps] = useState<RoadmapSummary[]>([]);
-  const [focus, setFocus] = useState<FocusTopic[]>([]);
-  const [goals, setGoals] = useState<DailyGoalsData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = () => {
-    setLoading(true);
-    setError(null);
-    Promise.all([
-      getSubjects(),
-      getHomeSummary(),
-      getOtherPreparation().catch(() => []),
-      // Supporting detail: a roadmap that cannot be read costs its one row, not the page.
-      getRoadmaps().catch(() => []),
-    ])
-      .then(([s, h, o, r]) => { setSubjects(s); setSummary(h); setOther(o); setRoadmaps(r); })
-      .catch(() => setError('Could not reach PrepBench’s backend, so this page has nothing '
-        + 'to show yet. Nothing has been lost — your history is in the database on this machine.'))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(load, []);
-
-  // Worked out before the early returns below, because the focus list is
-  // fetched for it and hooks cannot follow a return.
-  const primaryId = useMemo(
-    () => (subjects.length === 0 ? null : pickPrimary(subjects, selectedId).id),
-    [subjects, selectedId],
-  );
-
-  // The weak topics of the preparation on screen. Topic names repeat across
-  // banks, so a pooled list named another preparation's topics here -- and
-  // linked each one to a drill of this preparation that would refuse it. The
-  // list is supporting detail, so losing it must not cost the verdict.
-  useEffect(() => {
-    if (primaryId == null) return undefined;
-    let cancelled = false;
-    getFocusTopics(primaryId)
-      .then((f) => { if (!cancelled) setFocus(f); })
-      .catch(() => { if (!cancelled) setFocus([]); });
-    return () => { cancelled = true; };
-  }, [primaryId]);
-
-  // The goals are fetched on their own, and again whenever the preparation
-  // changes -- the certification goal belongs to one preparation, so switching
-  // must replace it. Separate from the main load so that a failure here costs
-  // the learner the goals and not the verdict, which is why they opened the page.
-  useEffect(() => {
-    let cancelled = false;
-    getDailyGoals(selectedId)
-      .then((g) => { if (!cancelled) setGoals(g); })
-      .catch(() => { if (!cancelled) setGoals(null); });
-    return () => { cancelled = true; };
-  }, [selectedId]);
-
-  if (loading) {
-    return <LoadingState label="Loading your progress…" />;
-  }
-  // Actionable rather than merely truthful: an error the reader can only
-  // look at is a dead end, and this is the first screen of the product.
-  if (error) {
-    return (
-      <Alert
-        severity="error"
-        action={<Button color="inherit" size="small" onClick={load}>Retry</Button>}
-      >
-        {error}
-      </Alert>
-    );
-  }
-
-  if (subjects.length === 0) {
-    return (
-      <PageHead
-        title="Nothing to measure yet"
-        sub="Import a question bank and PrepBench will start keeping track of where you stand."
-        actions={<Button variant="contained" onClick={() => navigate('/question-bank')}>Import questions</Button>}
-      />
-    );
-  }
-
-  const primary = pickPrimary(subjects, selectedId);
-  const r = primary.readiness;
-  const unmeasured = r.mock_count === 0 && r.state === 'needs_evaluation';
-
-  const counts = summary?.per_subject.find((p) => p.subject_id === primary.id);
-  const unreviewed = counts?.unreviewed ?? 0;
-  // This preparation's unfinished session only. The top-level one is the newest
-  // across all preparations, and "Pick it up" on it opened another preparation.
-  const resumable = counts?.resumable ?? null;
-
-  // The preparation's own roadmaps count toward it; another preparation's never do.
-  const own = roadmaps.filter((m) => !m.is_archived && m.subject_id === primary.id);
-  const topicsProgressed = own.length > 0
-    ? own.reduce((n, m) => n + m.progress.completed_count + m.progress.in_progress_count, 0)
-    : null;
-  const activeRoadmap = chooseRoadmap(roadmaps, primary.id);
-
-  const description = primary.description?.trim().replace(/\.$/, '');
-
-  return (
-    <Box>
-      <PageHead
-        eyebrow={(
-          <Box
-            component={RouterLink}
-            to={`/subjects/${primary.id}`}
-            sx={{
-              color: 'inherit', textDecoration: 'none',
-              '&:hover': { color: 'primary.main' },
-            }}
-          >
-            {primary.name}
-          </Box>
-        )}
-        title={unmeasured ? 'Not measured yet' : READINESS_LABELS[r.state]}
-        sub={`${description ? `${description}. ` : ''}Two things stay warm every day: certification readiness and interview readiness.`}
-      />
-
-      {goals && (
-        <Section>
-          <DailyGoals goals={goals} />
-        </Section>
-      )}
-
-      <Section>
-        <Grid columns={2}>
-          <CurrentEvidence subject={primary} topicsProgressed={topicsProgressed} />
-          <NextUsefulAction subject={primary} unreviewed={unreviewed} resumable={resumable} />
-        </Grid>
-      </Section>
-
-      <Section>
-        <InMotion
-          subject={primary}
-          resumable={resumable}
-          goals={goals}
-          unreviewed={unreviewed}
-          roadmap={activeRoadmap?.roadmap ?? null}
-        />
-      </Section>
-
-      <NeedsAttention subjects={subjects.filter((s) => s.id !== primary.id)} />
-
-      {(focus.length > 0 || other.length > 0) && (
-        <Section>
-          <Grid columns={2}>
-            {focus.length > 0 && <FocusTopics topics={focus} subject={primary} />}
-            {other.length > 0 && <OtherPreparationPanel items={other} />}
-          </Grid>
-        </Section>
-      )}
-    </Box>
-  );
-};
-
 /**
- * The shape of the last few papers, drawn.
- *
- * Four numbers in a row answer "what did I get". They do not answer "am I
- * improving" without the reader doing the arithmetic, and that is the question
- * this picture exists for -- so the pass mark is drawn as a line rather than
- * printed as a figure, and whether the run has crossed it is then something
- * you see rather than something you work out.
- *
- * It is deliberately NOT built on /analytics/score-trends, which is the series
- * Insights charts. That endpoint pools every completed session: on this
- * database it contains a 5.0%, a 36.2% and a 60.0% from drills and practice
- * runs. Charting those under "your progress" would contradict the verdict
- * printed directly above it, which is computed from mocks alone. The series
- * here is `recent_scores` -- the same numbers, from the same rule, as the
- * state it is evidence for.
- *
- * The prototype draws five bars of invented height here. A line against the
- * pass mark is kept instead: the bars had no pass mark to be read against.
+ * Trend chart: qualifying mock exam scores drawn against the pass mark line.
  */
 const TrendChart: React.FC<{ scores: number[]; passMark: number | null }> = ({
   scores, passMark,
 }) => {
   const theme = useTheme();
   const pb = usePb();
-  // One point is a dot, not a trend. Say nothing rather than draw nothing.
   if (scores.length < 2) return null;
 
   const W = 460;
@@ -287,8 +86,6 @@ const TrendChart: React.FC<{ scores: number[]; passMark: number | null }> = ({
   const padTop = 18;
   const padBottom = 26;
 
-  // Scaled to the run and the pass mark together, so the line's relationship
-  // to the mark is the thing the height encodes.
   const values = passMark != null ? [...scores, passMark] : scores;
   const lo = Math.max(0, Math.min(...values) - 8);
   const hi = Math.min(100, Math.max(...values) + 8);
@@ -300,11 +97,10 @@ const TrendChart: React.FC<{ scores: number[]; passMark: number | null }> = ({
   const line = scores.map((s, i) => `${i === 0 ? 'M' : 'L'} ${x(i)} ${y(s)}`).join(' ');
   const area = `${line} L ${x(scores.length - 1)} ${H - padBottom} L ${x(0)} ${H - padBottom} Z`;
   const accent = theme.palette.primary.main;
-  // Scale SVG text labels when Large text setting is active (fontSize scales from 14 to 16)
   const textScale = theme.typography.fontSize / 14;
 
   return (
-    <Box sx={{ width: '100%', minWidth: 0, mt: '17px' }}>
+    <Box sx={{ width: '100%', minWidth: 0, mt: (t) => t.typography.pxToRem(17) }}>
       <Box
         component="svg"
         viewBox={`0 0 ${W} ${H}`}
@@ -329,8 +125,6 @@ const TrendChart: React.FC<{ scores: number[]; passMark: number | null }> = ({
               stroke={pb.rule} strokeWidth="1"
               strokeDasharray="4 4"
             />
-            {/* Left end, above the rule. Anchored to the right it landed on
-                top of the final point, which is exactly where the eye goes. */}
             <text
               x={padX - 10} y={y(passMark) - 7} textAnchor="start"
               fontSize={Math.round(11 * textScale)} fontWeight="600"
@@ -371,9 +165,8 @@ const TrendChart: React.FC<{ scores: number[]; passMark: number | null }> = ({
 };
 
 /**
- * The prototype's "Current evidence": the latest qualifying run against the
- * pass mark, the evidence behind it, the lowest area, the roadmap work done,
- * and the run drawn.
+ * Current Evidence component: displays the latest qualifying mock score,
+ * mock count, and trend against pass mark.
  */
 const CurrentEvidence: React.FC<{ subject: Subject; topicsProgressed: number | null }> = ({
   subject, topicsProgressed,
@@ -396,8 +189,6 @@ const CurrentEvidence: React.FC<{ subject: Subject; topicsProgressed: number | n
 
       {r.mock_count === 0 ? (
         <>
-          {/* No mocks means no evidence, and an empty band of zeroes would read
-              as failure rather than as absence. */}
           <BigFigure>—</BigFigure>
           <Sub sx={{ mb: 0 }}>
             Readiness is read from full mocks under exam conditions, and none has been sat yet.
@@ -411,9 +202,6 @@ const CurrentEvidence: React.FC<{ subject: Subject; topicsProgressed: number | n
           </BigFigure>
           <MetricRow>
             <Metric value={`${r.mock_count} ${r.mock_count === 1 ? 'mock' : 'mocks'}`} label={last ? `evidence · last sat ${last}` : 'evidence'} />
-            {/* The lowest area, named for what it is: under the floor only when
-                the verdict says so. Calling an area above the floor "weakest"
-                invents a problem a learner cannot tell from a real one. */}
             {weakest && weakest.score_pct != null && (
               <Metric
                 value={pct(weakest.score_pct)}
@@ -422,22 +210,22 @@ const CurrentEvidence: React.FC<{ subject: Subject; topicsProgressed: number | n
             )}
             {topicsProgressed != null && <Metric value={topicsProgressed} label="topics progressed" />}
           </MetricRow>
-          <Detail sx={{ mt: '14px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'text.secondary' }}>
+          <Detail sx={{ mt: (t) => t.typography.pxToRem(14), fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'text.secondary' }}>
             Your last {scores.length} mock{scores.length === 1 ? '' : 's'}
           </Detail>
           {scores.length >= 2 ? (
             <TrendChart scores={scores} passMark={passMark} />
           ) : (
-            <Detail sx={{ mt: '14px' }}>
+            <Detail sx={{ mt: (t) => t.typography.pxToRem(14) }}>
               One paper is a reading, not a direction. The shape of your progress appears from the second mock.
             </Detail>
           )}
           {r.most_improved && (
-            <Detail sx={{ mt: '10px' }}>
+            <Detail sx={{ mt: (t) => t.typography.pxToRem(10) }}>
               {r.most_improved.domain} went from {pct(r.most_improved.before_pct)} to {pct(r.most_improved.after_pct)} between your last two mocks.
             </Detail>
           )}
-          <Detail sx={{ mt: '10px' }}>
+          <Detail sx={{ mt: (t) => t.typography.pxToRem(10) }}>
             Broad assessments measure certification readiness; focused practice repairs gaps.
           </Detail>
         </>
@@ -447,12 +235,7 @@ const CurrentEvidence: React.FC<{ subject: Subject; topicsProgressed: number | n
 };
 
 /**
- * The prototype's "Next useful action": the one action, chosen from the
- * evidence rather than offered as a menu, and why the verdict is what it is.
- *
- * The ladder in services/recommendation reads the same blockers the verdict is
- * computed from, so the button changes as the evidence changes -- and "Why am
- * I seeing this?" shows the evidence and what would change it.
+ * Next Useful Action recommendation.
  */
 const NextUsefulAction: React.FC<{
   subject: Subject;
@@ -464,9 +247,6 @@ const NextUsefulAction: React.FC<{
   const r = subject.readiness;
   const weak = r.blockers.find((b) => b.kind === 'weak_domain');
   const title = next.label === 'Weak area' && weak?.domain ? weak.domain : next.label;
-  // A plateau is read from the state rather than from `blockers[0]`: PLATEAU is
-  // a state, not an unmet condition, so the blocker list describes the score
-  // and never the shape of it.
   const plateau = r.state === 'plateau';
   const blocker = r.blockers[0] ?? null;
 
@@ -475,26 +255,25 @@ const NextUsefulAction: React.FC<{
       <PanelHead eyebrow="Next useful action" title={title} titleId="home-next" sx={{ mb: 0 }} />
       <Sub sx={{ mb: 0 }}>{next.why}</Sub>
       <WhyThis explanation={next} sx={{ mt: 1 }} />
-      <Actions sx={{ mt: '16px' }}>
+      <Actions sx={{ mt: (t) => t.typography.pxToRem(16) }}>
         {next.cta && next.to && (
           <Button variant="contained" onClick={() => navigate(next.to!)}>{next.cta}</Button>
         )}
         <Button variant="outlined" component={RouterLink} to={`/subjects/${subject.id}`}>Open preparation</Button>
       </Actions>
       {r.mock_count > 0 && (plateau || blocker ? (
-        <Note sx={{ mt: '14px' }}>
+        <Note sx={{ mt: (t) => t.typography.pxToRem(14) }}>
           {plateau ? plateauSentence(r.recent_scores, r.rules) : blockerSentence(blocker!, r.rules)}
         </Note>
       ) : (
-        <Good sx={{ mt: '14px' }}>{readySentence(r.pass_mark, r.rules)}</Good>
+        <Good sx={{ mt: (t) => t.typography.pxToRem(14) }}>{readySentence(r.pass_mark, r.rules)}</Good>
       ))}
     </Panel>
   );
 };
 
 /**
- * The prototype's "Continue -- Already in motion": work started and not
- * finished. Each row is only drawn when that work exists.
+ * In Motion: ongoing mock attempts, reviews due, and active roadmap plans.
  */
 const InMotion: React.FC<{
   subject: Subject;
@@ -585,9 +364,7 @@ const ATTENTION: Partial<Record<Blocker['kind'], { label: string; tone: Tone; or
 };
 
 /**
- * The prototype's "Needs attention", across the other preparations: each one
- * whose own readiness rules name a problem, in their own words. A preparation
- * those rules have nothing against is not listed.
+ * Needs Attention across other subjects.
  */
 const NeedsAttention: React.FC<{ subjects: Subject[] }> = ({ subjects }) => {
   const items = subjects
@@ -600,39 +377,31 @@ const NeedsAttention: React.FC<{ subjects: Subject[] }> = ({ subjects }) => {
     .sort((a, b) => a.meta.order - b.meta.order);
 
   if (items.length === 0) return null;
+
   return (
-    <Section>
-      <Panel component="section" aria-labelledby="home-attention">
-        <PanelHead
-          eyebrow="Across your preparations"
-          title="Needs attention"
-          titleId="home-attention"
-          aside={<Button variant="text" component={RouterLink} to="/preparations">All preparations</Button>}
+    <Panel component="section" aria-labelledby="home-attention" sx={{ mt: 3 }}>
+      <PanelHead eyebrow="Across other preparations" title="Needs attention" titleId="home-attention" />
+      {items.map(({ subject, blocker, meta }) => (
+        <Row
+          key={subject.id}
+          title={subject.name}
+          detail={blockerSentence(blocker, subject.readiness.rules)}
+          middle={<Pill tone={meta.tone}>{meta.label}</Pill>}
+          action={<Button variant="outlined" component={RouterLink} to={`/subjects/${subject.id}`}>Open</Button>}
         />
-        {items.map(({ subject, blocker, meta }) => (
-          <Row
-            key={subject.id}
-            title={subject.name}
-            detail={blockerSentence(blocker, subject.readiness.rules)}
-            middle={<Pill tone={meta.tone}>{meta.label}</Pill>}
-            action={<Button variant="outlined" component={RouterLink} to={`/subjects/${subject.id}`}>Open</Button>}
-          />
-        ))}
-      </Panel>
-    </Section>
+      ))}
+    </Panel>
   );
 };
 
+const FOCUS_LIMIT = 4;
+
 /**
- * The topics the one action would actually draw from.
- *
- * The counts are real and come from the same query the weak-topic drill uses,
- * so this list cannot name something Practice would then refuse to offer. And
- * every row here is below the floor -- a panel headed "Topics to focus on"
- * that lists topics you are fine at would be a list of topics you are fine at.
+ * Focus topics panel for weak areas.
  */
 const FocusTopics: React.FC<{ topics: FocusTopic[]; subject: Subject }> = ({ topics, subject }) => {
   const theme = useTheme();
+  if (topics.length === 0) return null;
   const shown = topics.slice(0, FOCUS_LIMIT);
 
   return (
@@ -649,8 +418,7 @@ const FocusTopics: React.FC<{ topics: FocusTopic[]; subject: Subject }> = ({ top
             <Box
               key={t.topic}
               component={RouterLink}
-              to={`/exam-setup?kind=drill&subject=${subject.id}`
-                + `&topic=${encodeURIComponent(t.topic)}`}
+              to={`/exam-setup?kind=drill&subject=${subject.id}&topic=${encodeURIComponent(t.topic)}`}
               aria-label={`Practise ${t.topic} — ${t.correct} of ${t.answered} correct in your mocks`}
               sx={{
                 display: 'grid',
@@ -667,16 +435,11 @@ const FocusTopics: React.FC<{ topics: FocusTopic[]; subject: Subject }> = ({ top
               <Box sx={{ minWidth: 0 }}>
                 <Typography
                   variant="body1"
-                  // Topics in this bank run to sixty characters, so the row
-                  // truncates. The full name is on the link's accessible name
-                  // and here, so nothing is only available to a mouse.
                   title={t.topic}
                   sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                 >
                   {t.topic}
                 </Typography>
-                {/* The bar restates the fraction beside it, so nothing here
-                    depends on reading a colour. */}
                 <Box aria-hidden sx={{ mt: '6px', height: 7, borderRadius: '8px', bgcolor: 'pb.track', overflow: 'hidden' }}>
                   <Box sx={{ width: `${Math.round(ratio * 100)}%`, height: '100%', bgcolor: barColor, borderRadius: '8px' }} />
                 </Box>
@@ -700,22 +463,830 @@ const FocusTopics: React.FC<{ topics: FocusTopic[]; subject: Subject }> = ({ top
 };
 
 /**
- * Everything else being prepared: a record, not a launcher -- counts of work
- * already done, each a way into where that work lives.
+ * Other practice formats used.
  */
 const OtherPreparationPanel: React.FC<{ items: OtherPreparation[] }> = ({ items }) => (
-  <Panel component="section" aria-labelledby="home-other">
-    <PanelHead eyebrow="Counted from work already done" title="Other preparation" titleId="home-other" sx={{ mb: '4px' }} />
-    <Detail>None of it moves the verdict above.</Detail>
-    <Box sx={{ mt: '6px' }}>
-      {items.map((it) => (
-        <Row
-          key={it.key}
-          title={it.label}
-          detail={it.detail}
-          action={<Button variant="outlined" component={RouterLink} to={it.href} aria-label={`${it.label} — ${it.detail}`}>Open</Button>}
-        />
-      ))}
-    </Box>
+  <Panel component="section" aria-labelledby="home-other-formats">
+    <PanelHead eyebrow="Explore" title="Other formats used" titleId="home-other-formats" />
+    {items.map((item) => (
+      <Row
+        key={item.key}
+        title={item.label}
+        detail={item.detail}
+        action={<Button size="small" variant="outlined" component={RouterLink} to={item.href}>Open</Button>}
+      />
+    ))}
   </Panel>
 );
+
+/**
+ * Unassigned Home State when no subject is selected (selectedId === null).
+ */
+const UnassignedHome: React.FC<{
+  subjects: Subject[];
+  onSelect: (id: number) => void;
+}> = ({ subjects, onSelect }) => {
+  const t = usePb();
+  const navigate = useNavigate();
+
+  return (
+    <Box>
+      <PageHead
+        eyebrow="PrepBench · Technical Capability, Proven."
+        title="Choose Your Focus Area"
+        sub="Select an active subject from your workspace to track certification readiness, practice interview rounds, and explore behaviour sandboxes."
+        actions={
+          <Stack direction="row" spacing={1.5}>
+            <Button variant="contained" component={RouterLink} to="/preparations">
+              My Preparations
+            </Button>
+            <Button variant="outlined" component={RouterLink} to="/lab">
+              All Sandboxes
+            </Button>
+          </Stack>
+        }
+      />
+
+      <Panel component="section" aria-labelledby="unassigned-subjects-title" sx={{ mt: 3, mb: 3 }}>
+        <PanelHead
+          eyebrow="Available Preparations"
+          title="Registered Subjects & Skill Tracks"
+          titleId="unassigned-subjects-title"
+        >
+          <Detail>Click any preparation below to make it your active focus.</Detail>
+        </PanelHead>
+        <Grid columns={3}>
+          {subjects.map((s) => {
+            const caps = getSubjectCapabilities(s.id);
+            return (
+              <Box
+                key={s.id}
+                sx={{
+                  p: '16px',
+                  borderRadius: '9px',
+                  bgcolor: t.surface2,
+                  border: `1px solid ${t.line}`,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                    <Pill tone={s.kind === 'certification' ? 'accent' : 'neutral'}>
+                      {s.kind === 'certification' ? 'Certification' : 'Skill Track'}
+                    </Pill>
+                    {caps.learningLabStatus === 'AVAILABLE' && <Pill tone="success">Lab Live</Pill>}
+                    {caps.learningLabStatus === 'INTEGRATION_PENDING' && <Pill tone="warning">Lab Pending (Phase 5)</Pill>}
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 800, color: t.text }}>
+                    {s.name}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: t.muted, mt: '4px', minHeight: 40 }}>
+                    {s.description || 'Comprehensive syllabus and evaluation materials.'}
+                  </Typography>
+                  <Detail sx={{ mt: '10px' }}>
+                    {s.kind === 'certification'
+                      ? `${s.question_count} Questions · Pass: ${s.pass_mark}%`
+                      : 'Skill track with active curriculum'}
+                  </Detail>
+                </Box>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => onSelect(s.id)}
+                  sx={{ mt: 2, width: '100%' }}
+                >
+                  Select {s.name}
+                </Button>
+              </Box>
+            );
+          })}
+        </Grid>
+      </Panel>
+    </Box>
+  );
+};
+
+export const HomePage: React.FC = () => {
+  const navigate = useNavigate();
+  const t = usePb();
+  const {
+    selected,
+    selectedId: ctxSelectedId,
+    capabilities: ctxCapabilities,
+    select,
+    loading: ctxLoading,
+  } = usePreparation();
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [summary, setSummary] = useState<HomeSummary | null>(null);
+  const [other, setOther] = useState<OtherPreparation[]>([]);
+  const [roadmaps, setRoadmaps] = useState<RoadmapSummary[]>([]);
+  const [focus, setFocus] = useState<FocusTopic[]>([]);
+  const [goals, setGoals] = useState<DailyGoalsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = () => {
+    setLoading(true);
+    setError(null);
+    Promise.all([
+      getSubjects(),
+      getHomeSummary(),
+      getOtherPreparation().catch(() => []),
+      getRoadmaps().catch(() => []),
+    ])
+      .then(([s, h, o, r]) => { setSubjects(s); setSummary(h); setOther(o); setRoadmaps(r); })
+      .catch(() => setError('Could not reach PrepBench’s backend, so this page has nothing '
+        + 'to show yet. Nothing has been lost — your history is in the database on this machine.'))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(load, []);
+
+  // Determine active primary subject:
+  // 1. If selectedId is explicitly specified, find the matching subject.
+  // 2. If selectedId is null in a loaded PreparationContext (!ctxLoading), render the Unassigned view.
+  // 3. Fallback to first subject with exam profile for standalone / unwrapped tests.
+  const primary: Subject | null = useMemo(() => {
+    if (subjects.length === 0) return null;
+    if (ctxSelectedId === null && ctxLoading === false && typeof select === 'function') {
+      return null;
+    }
+    if (ctxSelectedId != null) {
+      return subjects.find((s) => s.id === ctxSelectedId) ?? null;
+    }
+    return subjects.find((s) => s.has_exam_profile) ?? subjects[0];
+  }, [subjects, ctxSelectedId, ctxLoading, select]);
+
+  const primaryId = primary?.id ?? null;
+  const capabilities = useMemo(() => {
+    if (primary) {
+      if (ctxSelectedId === primary.id && ctxCapabilities && ctxCapabilities !== UNASSIGNED_CAPABILITIES) {
+        return ctxCapabilities;
+      }
+      return getSubjectCapabilities(primary.id);
+    }
+    return ctxCapabilities ?? UNASSIGNED_CAPABILITIES;
+  }, [primary, ctxCapabilities, ctxSelectedId]);
+
+  useEffect(() => {
+    if (primaryId == null) return undefined;
+    let cancelled = false;
+    getFocusTopics(primaryId)
+      .then((f) => { if (!cancelled) setFocus(f); })
+      .catch(() => { if (!cancelled) setFocus([]); });
+    return () => { cancelled = true; };
+  }, [primaryId]);
+
+  useEffect(() => {
+    if (primaryId == null) return undefined;
+    let cancelled = false;
+    getDailyGoals(primaryId)
+      .then((g) => { if (!cancelled) setGoals(g); })
+      .catch(() => { if (!cancelled) setGoals(null); });
+    return () => { cancelled = true; };
+  }, [primaryId]);
+
+  if (loading) {
+    return <LoadingState label="Loading your progress…" />;
+  }
+
+  if (error) {
+    return (
+      <Alert
+        severity="error"
+        action={<Button color="inherit" size="small" onClick={load}>Retry</Button>}
+      >
+        {error}
+      </Alert>
+    );
+  }
+
+  if (subjects.length === 0) {
+    return (
+      <PageHead
+        title="Nothing to measure yet"
+        sub="Import a question bank and PrepBench will start keeping track of where you stand."
+        actions={<Button variant="contained" onClick={() => navigate('/question-bank')}>Import questions</Button>}
+      />
+    );
+  }
+
+  // Explicit unassigned state:
+  if (primary == null) {
+    return (
+      <UnassignedHome
+        subjects={subjects}
+        onSelect={(id) => select(id)}
+      />
+    );
+  }
+
+  const r = primary.readiness;
+  const isCertification = primary.kind === 'certification' && capabilities.certification;
+  const isKafka = primary.id === 4;
+  const isAdf = primary.id === 6;
+  const isDatabricks = primary.id === 2;
+  const isSystemDesign = primary.id === 3;
+  const isAgenticAi = primary.id === 5;
+  const has0Questions = isKafka || (isCertification && primary.question_count === 0);
+
+  const unmeasured = isCertification && r.mock_count === 0 && r.state === 'needs_evaluation';
+  const averageScore = r.recent_scores.length > 0
+    ? r.recent_scores.reduce((a, b) => a + b, 0) / r.recent_scores.length
+    : null;
+
+  const counts = summary?.per_subject.find((p) => p.subject_id === primary.id);
+  const unreviewed = counts?.unreviewed ?? 0;
+  const resumable = counts?.resumable ?? null;
+
+  const own = roadmaps.filter((m) => !m.is_archived && m.subject_id === primary.id);
+  const topicsProgressed = own.length > 0
+    ? own.reduce((n, m) => n + m.progress.completed_count + m.progress.in_progress_count, 0)
+    : null;
+  const activeRoadmap = chooseRoadmap(roadmaps, primary.id);
+  const description = primary.description?.trim().replace(/\.$/, '');
+
+  // Target roles based on subject
+  const targetRoles = isAdf
+    ? 'Azure Data Engineer · Enterprise ETL Architect'
+    : isDatabricks
+    ? 'Data Platform Engineer · Lakehouse Architect'
+    : isSystemDesign
+    ? 'Staff Engineer · Distributed Systems Architect'
+    : isKafka
+    ? 'Event Streaming Engineer · Kafka Developer'
+    : isAgenticAi
+    ? 'AI Systems Engineer · Agentic Workflow Architect'
+    : primary.id === 1
+    ? 'Scrum Master · Agile Coach · Delivery Lead'
+    : 'Technical Specialist · Systems Engineer';
+
+  const roleFocus = isAdf
+    ? 'ETL pipelines, concurrency limits, watermark CDC, fault tolerance'
+    : isDatabricks
+    ? 'Delta Lake ACID engine, Medallion architecture, pipeline couplings'
+    : isSystemDesign
+    ? 'Distributed consensus, partitioning, caching, outbox pattern'
+    : isKafka
+    ? 'Topic partitioning, consumer groups, exactly-once semantics'
+    : isAgenticAi
+    ? 'Tool use, multi-agent orchestration, structured outputs'
+    : primary.id === 1
+    ? 'Empirical process control, self-managing teams, backlog value'
+    : 'System architecture, trade-offs, and empirical validation';
+
+  const curriculumBaseline = isAdf
+    ? '60 Topics across 13 Phases · 21 Study Guide Chapters · 18 Scenarios'
+    : isDatabricks
+    ? 'Lakehouse System Lab · Station A Ingestion to Station C ACID'
+    : isSystemDesign
+    ? '32 Architecture Prompts · 10 Design Reviews · 188h Roadmap'
+    : isKafka
+    ? 'Kafka Mastery Roadmap (Roadmap 1) · 0 Exam Questions Loaded'
+    : isAgenticAi
+    ? 'Agentic AI Roadmap (Roadmap 5)'
+    : `${primary.question_count} Questions · ${own.length > 0 ? `${own[0].progress.total_topics} Topics` : 'Comprehensive Bank'}`;
+
+  // Top Action CTA
+  const isLabAvailable = capabilities.learningLabStatus === 'AVAILABLE';
+  const isLabPending = capabilities.learningLabStatus === 'INTEGRATION_PENDING';
+
+  const primaryCta = (() => {
+    if (isLabAvailable) {
+      return (
+        <Button
+          variant="contained"
+          component={RouterLink}
+          to={isDatabricks ? '/databricks-sandbox' : '/lab'}
+        >
+          {isDatabricks ? 'Open Lakehouse Lab' : 'Open Behaviour Lab'}
+        </Button>
+      );
+    }
+    if (isLabPending) {
+      return (
+        <Button
+          variant="contained"
+          disabled
+          aria-disabled="true"
+          title="ADF Behaviour Lab integration pending (Phase 5)"
+        >
+          Behaviour Lab (Integration Pending)
+        </Button>
+      );
+    }
+    if (isCertification) {
+      if (has0Questions) {
+        return (
+          <Button variant="contained" disabled title="Question bank required before launching exam">
+            0 Questions Loaded
+          </Button>
+        );
+      }
+      return (
+        <Button
+          variant="contained"
+          component={RouterLink}
+          to={`/exam-setup?subject=${primary.id}`}
+        >
+          Start Practice Exam
+        </Button>
+      );
+    }
+    if (capabilities.interview) {
+      return (
+        <Button variant="contained" component={RouterLink} to="/interview-practice">
+          Practice Interview
+        </Button>
+      );
+    }
+    return (
+      <Button variant="contained" component={RouterLink} to={`/subjects/${primary.id}`}>
+        Explore Preparation
+      </Button>
+    );
+  })();
+
+  return (
+    <Box>
+      <PageHead
+        eyebrow={(
+          <Box
+            component={RouterLink}
+            to={`/subjects/${primary.id}`}
+            sx={{
+              color: 'inherit', textDecoration: 'none',
+              '&:hover': { color: 'primary.main' },
+            }}
+          >
+            {primary.name}
+          </Box>
+        )}
+        title={unmeasured ? 'Not measured yet' : READINESS_LABELS[r.state]}
+        sub={`${description ? `${description}. ` : ''}Two things stay warm every day: certification readiness and interview readiness.`}
+        actions={
+          <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+            <Button variant="outlined" component={RouterLink} to={`/subjects/${primary.id}`}>
+              Subject Overview
+            </Button>
+            {primaryCta}
+          </Stack>
+        }
+      />
+
+      {goals && (
+        <Section>
+          <DailyGoals goals={goals} />
+        </Section>
+      )}
+
+      {/* QUESTION 1: What am I preparing for? */}
+      <Panel component="section" aria-labelledby="home-focus-title" sx={{ mb: (t) => t.typography.pxToRem(24) }}>
+        <PanelHead
+          title="1. What am I preparing for?"
+          titleId="home-focus-title"
+          aside={
+            <Pill tone={isCertification ? 'accent' : 'neutral'}>
+              Active Focus · {isCertification ? 'Certification Track' : 'Professional Skill Track'}
+            </Pill>
+          }
+        >
+          <Detail>The core subject anchoring your certification and professional interview goals.</Detail>
+        </PanelHead>
+        <Grid columns={3}>
+          <Box sx={{ p: (t) => t.typography.pxToRem(14), borderRadius: '8px', bgcolor: t.surface2, border: `1px solid ${t.line}` }}>
+            <Eyebrow>{isCertification ? 'Subject & Certification' : 'Subject & Skill Track'}</Eyebrow>
+            <Typography variant="h6" sx={{ fontWeight: 800, mt: '4px' }}>
+              {`Focus Track: ${primary.name}`}
+            </Typography>
+            <Typography variant="body2" sx={{ color: t.muted, mt: '2px' }}>
+              {primary.description || 'Professional capability preparation'}
+            </Typography>
+            <Detail sx={{ mt: (t) => t.typography.pxToRem(10) }}>
+              {isCertification
+                ? (has0Questions
+                  ? `Pass Mark: ${primary.pass_mark}% · 0 Questions loaded in current dataset`
+                  : `Pass Mark: ${primary.pass_mark}% · ${primary.question_count} Questions · ${primary.exam_minutes ?? 60} Minutes`)
+                : 'Skill Track · Continuous competency evaluation (no exam pass mark)'}
+            </Detail>
+          </Box>
+          <Box sx={{ p: (t) => t.typography.pxToRem(14), borderRadius: '8px', bgcolor: t.surface2, border: `1px solid ${t.line}` }}>
+            <Eyebrow>Target Professional Roles</Eyebrow>
+            <Typography variant="h6" sx={{ fontWeight: 800, mt: '4px' }}>
+              {targetRoles}
+            </Typography>
+            <Detail sx={{ mt: (t) => t.typography.pxToRem(10) }}>
+              Focus: {roleFocus}
+            </Detail>
+          </Box>
+          <Box sx={{ p: (t) => t.typography.pxToRem(14), borderRadius: '8px', bgcolor: t.surface2, border: `1px solid ${t.line}` }}>
+            <Eyebrow>Curriculum Baseline</Eyebrow>
+            <Typography variant="h6" sx={{ fontWeight: 800, mt: '4px' }}>
+              {curriculumBaseline}
+            </Typography>
+            <Detail sx={{ mt: (t) => t.typography.pxToRem(10) }}>
+              {activeRoadmap ? activeRoadmap.roadmap.title : 'Structured preparation roadmap & resources'}
+            </Detail>
+          </Box>
+        </Grid>
+      </Panel>
+
+      {/* QUESTION 2: Am I ready? (Formal Verdict vs Coaching Interpretation) */}
+      <Panel component="section" aria-labelledby="home-readiness-title" sx={{ mb: (t) => t.typography.pxToRem(24) }}>
+        <PanelHead
+          title="2. Am I ready?"
+          titleId="home-readiness-title"
+          aside={
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {isCertification ? (
+                has0Questions ? (
+                  <Pill tone="neutral">Verdict: DATA NOT AVAILABLE</Pill>
+                ) : r.mock_count === 0 ? (
+                  <Pill tone="neutral">Verdict: NOT MEASURED YET</Pill>
+                ) : r.state === 'ready' ? (
+                  <Pill tone="success">Verdict: READY</Pill>
+                ) : (
+                  <Pill tone="warning">Verdict: NOT READY</Pill>
+                )
+              ) : (
+                <Pill tone="accent">Status: SKILL COMPETENCY TRACKING</Pill>
+              )}
+              {isCertification && (
+                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700 }}>
+                  Coaching Note: {READINESS_LABELS[r.state]}
+                  {averageScore != null ? ` (${Math.round(averageScore)}% avg)` : ''}
+                </Typography>
+              )}
+            </Box>
+          }
+        >
+          <Detail>
+            {isCertification
+              ? 'Readiness for certifications is strictly calculated from verified qualifying mock exams—never from casual reading.'
+              : 'Readiness for skill tracks is demonstrated through completed behaviour experiments, technical artifacts, and verified scenarios.'}
+          </Detail>
+        </PanelHead>
+        <Grid columns={3}>
+          <Box>
+            <CurrentEvidence subject={primary} topicsProgressed={topicsProgressed} />
+          </Box>
+          <Box sx={{ gridColumn: { xs: 'span 1', md: 'span 2' } }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: '8px' }}>
+              {isCertification ? 'Domain Readiness Breakdown (Production Readiness API)' : 'Core Competency Dimensions'}
+            </Typography>
+            {isCertification && r.domains.length > 0 ? (
+              <Stack spacing={1.5}>
+                {r.domains.map((dom) => (
+                  <Box key={dom.domain}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: '4px' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {dom.domain} ({dom.answered} questions answered)
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: dom.state === 'solid' ? t.success : dom.state === 'developing' ? t.accent : t.danger,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {dom.score_pct != null ? `${Math.round(dom.score_pct)}%` : '—'} · {dom.state === 'solid' ? 'Solid' : dom.state === 'developing' ? 'Developing' : 'Needs work'}
+                        {r.blockers.some((b) => b.kind === 'weak_domain' && b.domain === dom.domain) ? ' (Under Floor)' : ''}
+                      </Typography>
+                    </Box>
+                    <Bar value={dom.score_pct || 0} label={dom.domain} />
+                  </Box>
+                ))}
+              </Stack>
+            ) : isAdf ? (
+              <Stack spacing={1.5}>
+                <Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: '4px' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      Concurrency, Parallelism &amp; Throttling (Lab 1)
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: t.success, fontWeight: 700 }}>
+                      Demonstrated · Lab &amp; Scenarios Active
+                    </Typography>
+                  </Box>
+                  <Bar value={100} label="Concurrency: Demonstrated" />
+                </Box>
+                <Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: '4px' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      Watermark Incremental Load &amp; Fault Tolerance (Lab 2)
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: t.success, fontWeight: 700 }}>
+                      Demonstrated · CDC Pipeline Architecture
+                    </Typography>
+                  </Box>
+                  <Bar value={100} label="Watermark: Demonstrated" />
+                </Box>
+                <Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: '4px' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      Trigger Behavior &amp; Backfill Windows (Lab 3)
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: t.accent, fontWeight: 700 }}>
+                      Active Study Plan
+                    </Typography>
+                  </Box>
+                  <Bar value={60} label="Triggers: Active" />
+                </Box>
+              </Stack>
+            ) : (
+              <Box sx={{ p: (t) => t.typography.pxToRem(24), textAlign: 'center', bgcolor: t.surface2, borderRadius: '8px' }}>
+                <Typography variant="body2" sx={{ color: t.muted }}>
+                  {has0Questions
+                    ? 'Question bank not loaded in current dataset (0 questions). Mock exam readiness cannot be evaluated until questions are imported.'
+                    : 'Readiness data appears as mock exams and technical assessments are completed.'}
+                </Typography>
+              </Box>
+            )}
+            <Sub sx={{ mt: (t) => t.typography.pxToRem(12) }}>
+              <b>Product Invariant:</b> Completing Learning Lab experiments builds technical comprehension, but does NOT alter certification readiness verdicts until verified through formal assessment.
+            </Sub>
+          </Box>
+        </Grid>
+      </Panel>
+
+      {/* QUESTION 3 & 4: What should I learn next? & What can I practice? */}
+      <Grid columns={2} sx={{ mb: (t) => t.typography.pxToRem(24) }}>
+        <NextUsefulAction subject={primary} unreviewed={unreviewed} resumable={resumable} />
+
+        <Panel component="section" aria-labelledby="home-practice-title">
+          <PanelHead title="4. What can I practice?" titleId="home-practice-title">
+            <Detail>Active recall, exam simulator, and formative evaluation options.</Detail>
+          </PanelHead>
+          <Box sx={{ display: 'grid', gap: '10px' }}>
+            {isCertification && (
+              <>
+                <Row
+                  title={`Question Bank (${primary.question_count} Questions)`}
+                  detail={`All ${primary.question_count} real questions with option breakdowns and explanations`}
+                  middle={<Pill tone="accent">{primary.question_count} Qs</Pill>}
+                  action={
+                    <Button size="small" variant="contained" component={RouterLink} to="/question-bank">
+                      Open Bank
+                    </Button>
+                  }
+                />
+                <Row
+                  title="Full Mock Exam Simulator"
+                  detail={`${primary.exam_question_count ?? 80} questions · ${primary.exam_minutes ?? 60} mins · ${primary.pass_mark}% pass threshold`}
+                  action={
+                    has0Questions ? (
+                      <Button size="small" variant="outlined" disabled>
+                        0 Qs Loaded
+                      </Button>
+                    ) : (
+                      <Button size="small" variant="outlined" component={RouterLink} to={`/exam-setup?subject=${primary.id}`}>
+                        Start Mock
+                      </Button>
+                    )
+                  }
+                />
+                <Row
+                  title="Spaced Repetition Queue"
+                  detail="Review misses and spaced repetition cards powered by SuperMemo SM-2 algorithm"
+                  action={
+                    <Button size="small" variant="outlined" component={RouterLink} to="/review">
+                      Review Queue
+                    </Button>
+                  }
+                />
+              </>
+            )}
+
+            {capabilities.learningLab && (
+              isLabAvailable ? (
+                <Row
+                  title={isDatabricks ? 'Lakehouse Simulation Lab' : 'ADF Behaviour Labs'}
+                  detail={isDatabricks ? 'Interactive Delta Lake & ADLS Gen2 pipeline sandbox' : 'Manipulate pipeline parameters, inject transient faults, and observe mechanistic causality'}
+                  action={
+                    <Button size="small" variant="contained" component={RouterLink} to={isDatabricks ? '/databricks-sandbox' : '/lab'}>
+                      {isDatabricks ? 'Open Lakehouse Lab' : 'Open Lab'}
+                    </Button>
+                  }
+                />
+              ) : (
+                <Row
+                  title="ADF Behaviour Labs"
+                  detail="Interactive pipeline simulation & fault injection (Scheduled for Phase 5)"
+                  middle={<Pill tone="warning">Phase 5</Pill>}
+                  action={
+                    <Button size="small" variant="outlined" disabled aria-disabled="true">
+                      Integration Pending
+                    </Button>
+                  }
+                />
+              )
+            )}
+
+            {capabilities.scenarios && (
+              <Row
+                title="Enterprise Production Scenarios"
+                detail="Real incident case studies: RACI bridges, SLA breaches, and production triage"
+                action={
+                  <Button size="small" variant="outlined" component={RouterLink} to="/scenarios">
+                    Explore Scenarios
+                  </Button>
+                }
+              />
+            )}
+
+            {capabilities.interview && (
+              <>
+                <Row
+                  title="System Design Studio"
+                  detail="Interactive architecture prompts: ingestion, partitioning, and service boundaries"
+                  action={
+                    <Button size="small" variant="outlined" component={RouterLink} to="/system-design">
+                      Open Studio
+                    </Button>
+                  }
+                />
+                <Row
+                  title="Verbal Interview Practice"
+                  detail="Speech-recorded diagnostic questions with automated AI rubric analysis"
+                  action={
+                    <Button size="small" variant="outlined" component={RouterLink} to="/interview-practice">
+                      Practice Rounds
+                    </Button>
+                  }
+                />
+              </>
+            )}
+          </Box>
+        </Panel>
+      </Grid>
+
+      {/* QUESTION 5: What can I experiment with? (Learning Lab) */}
+      <Panel component="section" aria-labelledby="home-lab-title" sx={{ mb: (t) => t.typography.pxToRem(24) }}>
+        <PanelHead
+          title="5. What can I experiment with? (Learning Lab)"
+          titleId="home-lab-title"
+          aside={
+            isLabAvailable ? (
+              <Button
+                variant="outlined"
+                size="small"
+                component={RouterLink}
+                to={isDatabricks ? '/databricks-sandbox' : '/lab'}
+              >
+                {isDatabricks ? 'Lakehouse Sandbox' : 'All Lab Sandboxes'}
+              </Button>
+            ) : isLabPending ? (
+              <Pill tone="warning">Integration Pending (Phase 5)</Pill>
+            ) : (
+              <Pill tone="neutral">Lab Unavailable</Pill>
+            )
+          }
+        >
+          <Detail>
+            The understanding engine of PrepBench: manipulate system variables, observe causality, formulate mechanistic explanations, and save artifacts.
+          </Detail>
+        </PanelHead>
+        {!capabilities.learningLab ? (
+          <Box sx={{ p: (t) => t.typography.pxToRem(24), textAlign: 'center', bgcolor: t.surface2, borderRadius: '8px', border: `1px solid ${t.line}` }}>
+            <FlaskConical size={32} color={t.muted} style={{ margin: '0 auto 8px' }} />
+            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+              Learning Lab Not Configured for {primary.name}
+            </Typography>
+            <Typography variant="body2" sx={{ color: t.muted, mt: '6px', maxWidth: 600, mx: 'auto' }}>
+              Interactive behavioural simulations and fault injection sandboxes are currently available for <b>Azure Data Factory</b> and <b>Databricks Lakehouse</b>. Preparation for {primary.name} is driven by its supported capabilities.
+            </Typography>
+            <Stack direction="row" spacing={1.5} sx={{ mt: (t) => t.typography.pxToRem(16), justifyContent: 'center' }}>
+              {isCertification && (
+                <Button variant="contained" component={RouterLink} to="/question-bank">
+                  Open Question Bank
+                </Button>
+              )}
+              {capabilities.interview && (
+                <Button variant="outlined" component={RouterLink} to="/interview-practice">
+                  Interview Practice
+                </Button>
+              )}
+            </Stack>
+          </Box>
+        ) : isLabPending ? (
+          <Box sx={{ p: (t) => t.typography.pxToRem(20), bgcolor: t.surface2, borderRadius: '8px', border: `1px solid ${t.line}` }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+              <Pill tone="warning">Integration Pending · Phase 5</Pill>
+              <Typography variant="caption" sx={{ color: t.muted, fontWeight: 600 }}>
+                Planned Architectural Capability
+              </Typography>
+            </Box>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+              ADF Behaviour Labs — Scheduled for Phase 5 Integration
+            </Typography>
+            <Typography variant="body2" sx={{ color: t.muted, mt: '6px', maxWidth: 720 }}>
+              ADF Behaviour Labs teach pipeline causality through structured experimentation (Predict &rarr; Manipulate &rarr; Observe &rarr; Explain). The following behavioural experiments are part of the target capability and will be integrated in Phase 5:
+            </Typography>
+            <Grid columns={2} sx={{ mt: 2 }}>
+              <Box sx={{ p: (t) => t.typography.pxToRem(14), borderRadius: '8px', border: `1px solid ${t.line}`, bgcolor: t.surface }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  Concurrency &amp; Parallelism Budget (Phase 5)
+                </Typography>
+                <Typography variant="body2" sx={{ color: t.muted, mt: '4px' }}>
+                  Manipulate ForEach batchCount, parallelCopies, and DIUs against source connection pool limits to observe throttling.
+                </Typography>
+                <Actions sx={{ mt: (t) => t.typography.pxToRem(12) }}>
+                  <Button size="small" variant="outlined" disabled aria-disabled="true">
+                    Scheduled for Phase 5
+                  </Button>
+                </Actions>
+              </Box>
+              <Box sx={{ p: (t) => t.typography.pxToRem(14), borderRadius: '8px', border: `1px solid ${t.line}`, bgcolor: t.surface }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  Watermark CDC &amp; Fault Tolerance (Phase 5)
+                </Typography>
+                <Typography variant="body2" sx={{ color: t.muted, mt: '4px' }}>
+                  Inject transient failures mid-copy. Compare updating watermark on completion vs success with Append vs Upsert sink.
+                </Typography>
+                <Actions sx={{ mt: (t) => t.typography.pxToRem(12) }}>
+                  <Button size="small" variant="outlined" disabled aria-disabled="true">
+                    Scheduled for Phase 5
+                  </Button>
+                </Actions>
+              </Box>
+            </Grid>
+          </Box>
+        ) : (
+          <Grid columns={3}>
+            {isDatabricks ? (
+              <Box sx={{ p: (t) => t.typography.pxToRem(14), borderRadius: '8px', border: `1px solid ${t.line}`, bgcolor: t.surface2 }}>
+                <Pill tone="accent">Lakehouse System Lab</Pill>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800, mt: '8px' }}>
+                  End-to-End Lakehouse Migration
+                </Typography>
+                <Typography variant="body2" sx={{ color: t.muted, mt: '4px' }}>
+                  Compose Station A (Ingestion) &rarr; Station B (Storage) &rarr; Station C (Delta Lake ACID engine) with telemetry.
+                </Typography>
+                <Actions sx={{ mt: (t) => t.typography.pxToRem(12) }}>
+                  <Button size="small" variant="contained" component={RouterLink} to="/databricks-sandbox">
+                    Open Lakehouse Lab
+                  </Button>
+                </Actions>
+              </Box>
+            ) : (
+              <>
+                <Box sx={{ p: (t) => t.typography.pxToRem(14), borderRadius: '8px', border: `1px solid ${t.line}`, bgcolor: t.surface2 }}>
+                  <Pill tone="accent">ADF Behaviour Lab</Pill>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800, mt: '8px' }}>
+                    Concurrency &amp; Parallelism Budget
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: t.muted, mt: '4px' }}>
+                    Manipulate ForEach batchCount, parallelCopies, and DIUs against source connection pool limits to observe throttling.
+                  </Typography>
+                  <Actions sx={{ mt: (t) => t.typography.pxToRem(12) }}>
+                    <Button size="small" variant="contained" component={RouterLink} to="/lab">
+                      Launch Experiment
+                    </Button>
+                  </Actions>
+                </Box>
+                <Box sx={{ p: (t) => t.typography.pxToRem(14), borderRadius: '8px', border: `1px solid ${t.line}`, bgcolor: t.surface2 }}>
+                  <Pill tone="accent">ADF Behaviour Lab</Pill>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800, mt: '8px' }}>
+                    Watermark CDC &amp; Fault Tolerance
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: t.muted, mt: '4px' }}>
+                    Inject transient failures mid-copy. Compare updating watermark on completion vs success with Append vs Upsert sink.
+                  </Typography>
+                  <Actions sx={{ mt: (t) => t.typography.pxToRem(12) }}>
+                    <Button size="small" variant="contained" component={RouterLink} to="/lab">
+                      Launch Experiment
+                    </Button>
+                  </Actions>
+                </Box>
+              </>
+            )}
+          </Grid>
+        )}
+      </Panel>
+
+      {/* Continuation & Other Preparations */}
+      <Section>
+        <InMotion
+          subject={primary}
+          resumable={resumable}
+          goals={goals}
+          unreviewed={unreviewed}
+          roadmap={activeRoadmap?.roadmap ?? null}
+        />
+      </Section>
+
+      <NeedsAttention subjects={subjects.filter((s) => s.id !== primary.id)} />
+
+      {(focus.length > 0 || other.length > 0) && (
+        <Section>
+          <Grid columns={2}>
+            {focus.length > 0 && <FocusTopics topics={focus} subject={primary} />}
+            {other.length > 0 && <OtherPreparationPanel items={other} />}
+          </Grid>
+        </Section>
+      )}
+    </Box>
+  );
+};

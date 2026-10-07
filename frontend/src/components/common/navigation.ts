@@ -6,6 +6,7 @@ import {
   Activity, BarChart3, BookOpen, Database, FileCheck2, FlaskConical, History, LayoutDashboard, Layers, Library,
   Map as RouteMap, Mic, Mic2, Network, PlayCircle, ScrollText, Settings, Workflow,
 } from 'lucide-react';
+import type { SubjectCapabilityProfile } from '../../types/capabilities';
 
 /**
  * The navigation, defined once.
@@ -90,6 +91,54 @@ const NAV_BY_KEY = Object.fromEntries(
   NAV_GROUPS.flatMap((group) => group.items).map((item) => [item.key, item]),
 ) as Record<NavKey, NavEntry>;
 
+/**
+ * Evaluates whether a navigation item is supported given the active subject
+ * and its capability profile. Unsupported items render in a disabled state
+ * with an explanatory tooltip rather than silently disappearing or navigating.
+ */
+export function isNavKeySupported(
+  key: NavKey,
+  capabilities?: SubjectCapabilityProfile,
+  subject?: { id?: number; name?: string } | null,
+): boolean {
+  if (!capabilities) return true;
+  switch (key) {
+    case 'home':
+    case 'settings':
+      return true;
+    case 'roadmaps':
+      return Boolean(capabilities.roadmap);
+    case 'learn':
+      return Boolean(capabilities.studyGuide || capabilities.roadmap);
+    case 'practice':
+    case 'review':
+    case 'exam':
+    case 'bank':
+      return Boolean(capabilities.certification);
+    case 'interview':
+    case 'recordings':
+      return Boolean(capabilities.interview);
+    case 'system-design':
+    case 'design-reviews':
+      return subject?.id === 3 || Boolean(capabilities.interview);
+    case 'insights':
+      return Boolean(capabilities.evidence);
+    case 'preparations':
+      return Boolean(capabilities.workspace);
+    case 'lab':
+      // Genuinely AVAILABLE in current production (Databricks Lakehouse Lab; ADF Behaviour Lab pending Phase 5)
+      return capabilities.learningLabStatus === 'AVAILABLE';
+    case 'agile-sandbox':
+      return subject?.id === 1 || capabilities.learningLabStatus === 'AVAILABLE';
+    case 'scenarios':
+      return Boolean(capabilities.scenarios);
+    case 'databricks-sandbox':
+      return subject?.id === 2;
+    default:
+      return true;
+  }
+}
+
 // Which rail entry a screen belongs to, first match wins. Where a screen is
 // reached from more than one place, it belongs where its work is: the spaced
 // review runner is review, whichever button opened it.
@@ -110,10 +159,11 @@ const SECTION_RULES: [RegExp, NavKey][] = [
   [/^\/databricks-sandbox(\/|$)/, 'databricks-sandbox'],
   [/^\/practice\/spaced(\/|$)/, 'review'],
   [/^\/practice(\/|$)/, 'practice'],
+  [/^\/certification(\/|$)/, 'practice'],
   [/^\/review(\/|$)/, 'review'],
   [/^\/(exam-setup|exam-review|exam)(\/|$)/, 'exam'],
   [/^\/question-bank(\/|$)/, 'bank'],
-  [/^\/interview-practice(\/|$)/, 'interview'],
+  [/^\/interview(-practice)?(\/|$)/, 'interview'],
   [/^\/recordings(\/|$)/, 'recordings'],
   [/^\/system-design(\/|$)/, 'system-design'],
   [/^\/design-reviews(\/|$)/, 'design-reviews'],

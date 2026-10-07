@@ -19,6 +19,7 @@ import { PreparationPicker } from './PreparationPicker';
 import { NotificationBell } from './NotificationBell';
 import { HeaderAction } from './HeaderAction';
 import { sectionFor } from './navigation';
+import { BrandLogo } from './BrandLogo';
 
 // There is deliberately no "100% Offline" badge here any more.
 //
@@ -93,12 +94,13 @@ export const Navbar: React.FC<NavbarProps> = ({ minimal = false }) => {
         {/* Only the focus screens name the product here; everywhere else the
             rail carries the name and the header names the screen. */}
         {minimal && (
-          <Typography
-            component="span"
-            sx={{ fontSize: (t) => t.typography.pxToRem(21), fontWeight: 820, letterSpacing: '-0.04em', color: t.text, flexShrink: 0 }}
-          >
-            PrepBench
-          </Typography>
+          <BrandLogo variant="full" size={28} />
+        )}
+
+        {!minimal && (
+          <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center', flexShrink: 0 }}>
+            <BrandLogo to="/" variant="mark" size={26} />
+          </Box>
         )}
 
         {!minimal && <PreparationPicker />}

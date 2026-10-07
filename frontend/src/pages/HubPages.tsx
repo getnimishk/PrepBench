@@ -265,24 +265,61 @@ const RecommendedPractice: React.FC<{
       </>
     );
   } else if (mockIsRecommendation && primary) {
-    // Nothing running and nothing under the floor. Not an absence of something
-    // to do -- the paper is what moves the verdict.
-    recommended = (
-      <>
-        <Typography variant="h5" component="h2" id="recommended-now">Ready for a mock</Typography>
-        <Sub sx={{ mb: 0 }}>
-          {primary.exam_question_count} questions, {primary.exam_minutes} minutes, timed. No domain is under the
-          floor, and nothing else changes your readiness.
-        </Sub>
-        {(() => {
-          const why = explainVerdict(primary.readiness);
-          return why ? <WhyThis explanation={why} sx={{ mt: 1 }} /> : null;
-        })()}
-        <Actions sx={{ mt: '15px' }}>
-          <Button variant="contained" component={RouterLink} to={mockHref}>Take a mock</Button>
-        </Actions>
-      </>
-    );
+    if (!primary.has_exam_profile) {
+      recommended = (
+        <>
+          <Typography variant="h5" component="h2" id="recommended-now">{primary.name} Practice</Typography>
+          <Sub sx={{ mb: 0 }}>
+            {primary.name} is tracked as a Professional Skill Track, evaluated through applied sandboxes, incident scenarios, and technical interviews.
+          </Sub>
+          <Actions sx={{ mt: '15px' }}>
+            {primary.id === 2 && (
+              <Button variant="contained" component={RouterLink} to="/databricks-sandbox">Open Lakehouse Lab</Button>
+            )}
+            {primary.id === 3 && (
+              <Button variant="contained" component={RouterLink} to="/system-design">Open System Design Studio</Button>
+            )}
+            {primary.id === 6 && (
+              <Button variant="contained" component={RouterLink} to="/scenarios">Explore Scenarios</Button>
+            )}
+            {primary.id !== 2 && primary.id !== 3 && primary.id !== 6 && (
+              <Button variant="contained" component={RouterLink} to={`/subjects/${primary.id}`}>Open Overview</Button>
+            )}
+          </Actions>
+        </>
+      );
+    } else if (primary.question_count === 0) {
+      recommended = (
+        <>
+          <Typography variant="h5" component="h2" id="recommended-now">Certification Configured (Questions Unavailable)</Typography>
+          <Sub sx={{ mb: 0 }}>
+            The credential profile for {primary.name} is configured ({primary.pass_mark}% pass threshold), but 0 questions are currently loaded in the database. Questions must be imported before starting a mock exam.
+          </Sub>
+          <Actions sx={{ mt: '15px' }}>
+            <Button variant="contained" component={RouterLink} to={`/question-bank?subject=${primary.id}`}>Open Question Bank</Button>
+          </Actions>
+        </>
+      );
+    } else {
+      // Nothing running and nothing under the floor. Not an absence of something
+      // to do -- the paper is what moves the verdict.
+      recommended = (
+        <>
+          <Typography variant="h5" component="h2" id="recommended-now">Ready for a mock</Typography>
+          <Sub sx={{ mb: 0 }}>
+            {primary.exam_question_count} questions, {primary.exam_minutes} minutes, timed. No domain is under the
+            floor, and nothing else changes your readiness.
+          </Sub>
+          {(() => {
+            const why = explainVerdict(primary.readiness);
+            return why ? <WhyThis explanation={why} sx={{ mt: 1 }} /> : null;
+          })()}
+          <Actions sx={{ mt: '15px' }}>
+            <Button variant="contained" component={RouterLink} to={mockHref}>Take a mock</Button>
+          </Actions>
+        </>
+      );
+    }
   } else {
     recommended = (
       <>

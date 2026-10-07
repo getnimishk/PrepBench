@@ -16,6 +16,8 @@ import { ExamSetupPage } from './pages/ExamSetupPage';
 import { ExamRunnerPage } from './pages/ExamRunnerPage';
 import { ExamReviewPage } from './pages/ExamReviewPage';
 import { QuestionBankPage } from './pages/QuestionBankPage';
+import { CertificationHubPage } from './pages/CertificationHubPage';
+import { InterviewHubPage } from './pages/InterviewHubPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { InsightsDomainPage } from './pages/InsightsDomainPage';
 import { SettingsHome } from './pages/settings/SettingsHome';
@@ -203,6 +205,8 @@ const App: React.FC = () => {
             <Route path="/preparations/roles/:roleId" element={<AppLayout><RolePreparationPage /></AppLayout>} />
             <Route path="/preparations/roles/:roleId/diagnostic" element={<AppLayout><RoleDiagnosticPage /></AppLayout>} />
             <Route path="/practice" element={<AppLayout><PracticeHubPage /></AppLayout>} />
+            <Route path="/certification" element={<AppLayout><CertificationHubPage /></AppLayout>} />
+            <Route path="/interview" element={<AppLayout><InterviewHubPage /></AppLayout>} />
             <Route path="/practice/spaced" element={<AppLayout><SpacedReviewPage /></AppLayout>} />
             <Route path="/learn" element={<AppLayout><StudyLibraryPage /></AppLayout>} />
             <Route path="/learn/guides/:packId" element={<AppLayout><GuidePage /></AppLayout>} />
