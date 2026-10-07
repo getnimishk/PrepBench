@@ -94,10 +94,18 @@ export const QuestionBankPage: React.FC = () => {
   // away for the jobs that genuinely span preparations: finding unowned questions
   // (the "General Prep" default carries none), checking what an import brought
   // in, and bulk clean-up.
-  const { selected: selectedPreparation } = usePreparation();
+  const { preparations, selected: selectedPreparation } = usePreparation();
   const [scope, setScope] = useState<'preparation' | 'all'>('preparation');
+  const urlSubjectParam = new URLSearchParams(location.search).get('subject');
+  const requestedSubjectId = urlSubjectParam ? Number(urlSubjectParam) : null;
+  const effectiveSubjectId = (requestedSubjectId && !Number.isNaN(requestedSubjectId))
+    ? requestedSubjectId
+    : selectedPreparation?.id;
+  const effectiveSubject = (requestedSubjectId && !Number.isNaN(requestedSubjectId))
+    ? (preparations.find((p) => p.id === requestedSubjectId) ?? selectedPreparation)
+    : selectedPreparation;
   const scopedSubjectId =
-    scope === 'preparation' && selectedPreparation ? selectedPreparation.id : undefined;
+    scope === 'preparation' && effectiveSubjectId ? effectiveSubjectId : undefined;
   const [reviewedFilter, setReviewedFilter] = useState<'' | 'true' | 'false'>('');
 
   const [filterOptions, setFilterOptions] = useState<{
@@ -420,7 +428,7 @@ export const QuestionBankPage: React.FC = () => {
     setEditorOpen(true);
   };
 
-  const scopeName = scope === 'preparation' && selectedPreparation ? selectedPreparation.name : 'All questions';
+  const scopeName = scope === 'preparation' ? (effectiveSubject?.name ?? 'Selected preparation') : 'All questions';
 
   return (
     <Box>
@@ -432,7 +440,7 @@ export const QuestionBankPage: React.FC = () => {
         sub={fetchError
           ? 'Question count unavailable.'
           : summary
-            ? `${summary.questions} questions ${scope === 'preparation' && selectedPreparation ? `in ${selectedPreparation.name}` : 'across every preparation'}. Search, filter, create and import without leaving this preparation.`
+            ? `${summary.questions} questions ${scope === 'preparation' && effectiveSubject ? `in ${effectiveSubject.name}` : 'across every preparation'}. Search, filter, create and import without leaving this preparation.`
             // Not a zero while the first count is on its way.
             : 'Counting questions…'}
         actions={(

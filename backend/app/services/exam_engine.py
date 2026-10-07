@@ -318,6 +318,8 @@ class ExamEngine:
             subject = SubjectRepository(self.db).get_by_id(req.subject_id)
             if subject is None:
                 raise ResourceNotFoundException("Subject", req.subject_id)
+        elif req.certification and req.certification.strip():
+            subject = SubjectRepository(self.db).get_by_certification(req.certification.strip())
 
         # A subject that was named is the scope. The client sends the subject
         # and the server resolves what that means, rather than the client
@@ -326,61 +328,18 @@ class ExamEngine:
         # it was not actually drawn from.
         certification = req.certification
 
-        # Two scoping paths, and the asymmetry between them is deliberate.
-        #
-        #   subject_id  -> precise. One indexed foreign key, nothing else.
-        #   certification string -> lenient. The old token/ILIKE match, kept
-        #                           only so existing callers keep working.
-        #
-        # The string match is how another preparation's questions reached a PSM
-        # I mock: it ORs an ILIKE for every token of the certification name
-        # across BOTH Question.certification AND Question.domain, so
-        # "PSM I - Professional Scrum Master" matches any question whose domain
-        # contains "Master". A word in common is not evidence of ownership.
-        #
-        # So a named subject no longer falls back to its certification string.
-        # It scopes by Question.subject_id, which the migration backfilled by
-        # exact certification equality. This also closes the second half of the
-        # same hole: a skill subject has no certification at all, which used to
-        # mean no filter was applied and a drill drew from every question in the
-        # database. Now it draws from the questions bound to it, and if there
-        # are none the refusal below says so rather than inventing a bank.
-        #
-        # Nothing in the frontend sends `certification` -- ExamSetupPage sends
-        # subject_id only -- so the lenient path is reached by tests and by any
-        # older client, and it is left exactly as it was.
         subject_scope_id = subject.id if subject is not None else None
 
         # Refused before a single question is fetched, because it is a fact
         # about the subject and not about the bank.
-        #
-        # This used to sit after selection, alongside the length check, and the
-        # ordering stopped being harmless once a named subject began scoping by
-        # subject_id: a skill subject owns no questions, so "no questions match
-        # those filters -- widen the selection" fired first and sent the learner
-        # off to change a filter when the real answer is that a skill has no
-        # pass mark and a mock of it could not measure anything. Same refusal,
-        # same status, but the message has to name the actual reason.
         self._refuse_mock_without_a_profile(req, subject)
 
         if subject_scope_id is None and certification and certification.strip():
             cert_val = certification.strip()
-            # Smart token extraction (e.g. "PSM I - Professional Scrum Master" -> tokens: PSM, Scrum, Master)
-            tokens = [t for t in re.split(r'[\s\-\—™:\(\)]+', cert_val) if len(t) > 1 and t.lower() not in ['and', 'the', 'for', 'prep', 'exam', 'practice', 'hard', 'easy', 'medium']]
-            
-            conditions = [
+            certification_conditions = [
                 Question.certification == cert_val,
-                Question.certification.ilike(f"%{cert_val}%"),
-                Question.domain.ilike(f"%{cert_val}%")
+                Question.certification.ilike(cert_val),
             ]
-            
-            if tokens:
-                # Add conditions for token matches
-                for t in tokens:
-                    conditions.append(Question.certification.ilike(f"%{t}%"))
-                    conditions.append(Question.domain.ilike(f"%{t}%"))
-
-            certification_conditions = conditions
 
         # Both of these modes are defined entirely by what they restrict to.
         # An empty restriction used to be dropped, which turned "practise my
@@ -438,20 +397,15 @@ class ExamEngine:
         # Silently widening scope is worse than failing, because the learner
         # cannot tell it happened.
         if not available_questions:
-            if self.question_repo.count() == 0:
-                raise InvalidExamStateException(
-                    "The question bank is empty. Import some questions first."
-                )
-            # "Widen the selection" is not advice a learner can act on when the
-            # preparation itself has no questions -- there is no filter to
-            # loosen, and the only thing that helps is importing a bank. Worth
-            # separating because it is the normal state of a newly added
-            # preparation, so it is the first thing many people will see.
             if subject is not None and self.question_repo.count_for_subject(subject.id) == 0:
                 raise InvalidExamStateException(
                     f"{subject.name} has no questions yet, so there is nothing to "
                     f"draw an exam from. Import a question bank for it, or switch "
                     f"to a preparation that has one."
+                )
+            if self.question_repo.count() == 0:
+                raise InvalidExamStateException(
+                    "The question bank is empty. Import some questions first."
                 )
             raise InvalidExamStateException(
                 "No questions match those filters: "

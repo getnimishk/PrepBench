@@ -127,7 +127,7 @@ class ReviewService:
         )
 
         def candidates(scope):
-            return (
+            q = (
                 self.db.query(Question)
                 .options(joinedload(Question.options))
                 .filter(
@@ -136,6 +136,11 @@ class ReviewService:
                     Question.id.notin_(already_used),
                 )
             )
+            if missed.subject_id is not None:
+                q = q.filter(Question.subject_id == missed.subject_id)
+            elif missed.certification:
+                q = q.filter(Question.certification == missed.certification)
+            return q
 
         # Narrowest first. Topics in this bank are written "Area: facets" --
         # "Sprint Retrospective: participants", "Definition of Done & Increment

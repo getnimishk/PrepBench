@@ -467,4 +467,14 @@ describe('QuestionBankPage', () => {
 
     expect(await screen.findByText('Question 42 not found')).toBeInTheDocument();
   });
+
+  it('respects URL ?subject= query parameter over context selectedPreparation', async () => {
+    mockGetQuestions.mockResolvedValue({ items: [], total: 0 });
+    renderPage('/question-bank?subject=4');
+
+    await waitFor(() => expect(mockGetQuestions).toHaveBeenCalledWith(
+      expect.objectContaining({ subject_id: 4 })
+    ));
+    expect(mockGetQuestionBankSummary).toHaveBeenCalledWith(4);
+  });
 });
