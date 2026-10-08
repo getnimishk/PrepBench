@@ -8,6 +8,7 @@ import { Alert, Box, Button, Tab, Tabs, Typography } from '@mui/material';
 import { getHomeSummary, getReviewCounts, getSubjects } from '../services/api';
 import { HomeSummary, Blocker, Resumable, Subject } from '../types/subject';
 import { usePreparation } from '../context/PreparationContext';
+import { getSubjectCapabilities } from '../services/capabilities';
 import {
   CustomPractice, FullMock, SpacedRepetition, WeakTopicFocus,
 } from '../components/practice/PracticeModes';
@@ -270,18 +271,9 @@ const RecommendedPractice: React.FC<{
             {primary.name} is tracked as a Professional Skill Track, evaluated through applied sandboxes, incident scenarios, and technical interviews.
           </Sub>
           <Actions sx={{ mt: '15px' }}>
-            {primary.id === 2 && (
-              <Button variant="contained" component={RouterLink} to="/databricks-sandbox">Open Lakehouse Lab</Button>
-            )}
-            {primary.id === 3 && (
-              <Button variant="contained" component={RouterLink} to="/system-design">Open System Design Studio</Button>
-            )}
-            {primary.id === 6 && (
-              <Button variant="contained" component={RouterLink} to="/scenarios">Explore Scenarios</Button>
-            )}
-            {primary.id !== 2 && primary.id !== 3 && primary.id !== 6 && (
-              <Button variant="contained" component={RouterLink} to={`/subjects/${primary.id}`}>Open Overview</Button>
-            )}
+            {skillActions(primary).map((a) => (
+              <Button key={a.to} variant="contained" component={RouterLink} to={a.to}>{a.label}</Button>
+            ))}
           </Actions>
         </>
       );
@@ -403,3 +395,20 @@ const RecommendedPractice: React.FC<{
     </>
   );
 };
+
+/**
+ * Where a skill preparation practises, read from what it can really do (Phase 7, WP
+ * 7.10) -- never from its id, so a preparation created with the same content gets
+ * the same doors. Its overview when it has none of them.
+ */
+function skillActions(primary: Parameters<typeof getSubjectCapabilities>[0]): { to: string; label: string }[] {
+  const caps = getSubjectCapabilities(primary);
+  const out: { to: string; label: string }[] = [];
+  if (caps.lakehouseLab) out.push({ to: '/databricks-sandbox', label: 'Open Lakehouse Lab' });
+  else if (caps.learningLabStatus === 'AVAILABLE') out.push({ to: '/lab', label: 'Open the Learning Lab' });
+  if (caps.scenarios) out.push({ to: '/scenarios', label: 'Explore Scenarios' });
+  if (caps.interview) out.push({ to: '/system-design', label: 'Open System Design Studio' });
+  const id = typeof primary === 'object' && primary ? (primary as { id?: number }).id : undefined;
+  if (out.length === 0 && id != null) out.push({ to: `/subjects/${id}`, label: 'Open Overview' });
+  return out;
+}

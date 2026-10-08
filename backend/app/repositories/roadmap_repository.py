@@ -19,11 +19,14 @@ class RoadmapRepository:
         self,
         include_archived: bool = False,
         subject_id: Optional[int] = None,
+        unassigned: bool = False,
     ) -> List[Roadmap]:
         query = self.db.query(Roadmap)
         if not include_archived:
             query = query.filter(Roadmap.is_archived.is_(False))
-        if subject_id is not None:
+        if unassigned:
+            query = query.filter(Roadmap.subject_id.is_(None))
+        elif subject_id is not None:
             query = query.filter(Roadmap.subject_id == subject_id)
         return query.order_by(Roadmap.created_at.desc(), Roadmap.id.desc()).all()
 

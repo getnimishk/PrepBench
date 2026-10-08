@@ -237,10 +237,11 @@ class RoadmapService:
         if phase_count is None:
             phase_count = len(roadmap.phases)
         from app.services import content_pack_service
-        linked_pack = content_pack_service.get_linked_pack_for_roadmap(self.db, roadmap)
+        linked_pack = content_pack_service.linked_pack_for_roadmap(self.db, roadmap)
         fields = self._summary_fields(roadmap)
         fields["linked_pack_id"] = linked_pack[0] if linked_pack else None
         fields["linked_pack_title"] = linked_pack[1] if linked_pack else None
+        fields["linked_pack_version"] = linked_pack[2] if linked_pack else None
         return RoadmapSummaryResponse(
             **fields,
             phase_count=phase_count,
@@ -250,21 +251,19 @@ class RoadmapService:
     def to_detail(self, roadmap: Roadmap) -> RoadmapDetailResponse:
         topics = self.repo.list_topics_ordered(roadmap.id)
         from app.services import content_pack_service
-        linked_pack = content_pack_service.get_linked_pack_for_roadmap(self.db, roadmap)
+        linked_pack = content_pack_service.linked_pack_for_roadmap(self.db, roadmap)
         pack_id = linked_pack[0] if linked_pack else None
         pack_title = linked_pack[1] if linked_pack else None
         alignments = (
-            content_pack_service.get_pack_roadmap_alignments(pack_id)
-            if pack_id
+            content_pack_service.get_pack_roadmap_alignments(pack_id, linked_pack[2])
+            if linked_pack
             else {}
         )
 
         def topic_to_response(t: RoadmapTopic) -> RoadmapTopicResponse:
             resp = RoadmapTopicResponse.model_validate(t)
-            if alignments:
-                norm_key = content_pack_service.normalize_topic_title(t.title)
-                mapped = alignments.get(norm_key) or alignments.get(str(t.order_index + 1)) or []
-                resp.mapped_chapters = mapped
+            # By title or the number the title states -- never by the topic's position.
+            resp.mapped_chapters = content_pack_service.chapters_for_topic_title(alignments, t.title)
             return resp
 
         phases = [
@@ -287,6 +286,7 @@ class RoadmapService:
         summary_fields = self._summary_fields(roadmap)
         summary_fields["linked_pack_id"] = pack_id
         summary_fields["linked_pack_title"] = pack_title
+        summary_fields["linked_pack_version"] = linked_pack[2] if linked_pack else None
         return RoadmapDetailResponse(
             **summary_fields,
             phase_count=len(phases),
@@ -325,6 +325,7 @@ class RoadmapService:
         self,
         include_archived: bool = False,
         subject_id: Optional[int] = None,
+        unassigned: bool = False,
     ) -> List[RoadmapSummaryResponse]:
         """Every roadmap, or only one preparation's.
 
@@ -335,7 +336,11 @@ class RoadmapService:
         attributing it to the current one is the same fabricated ownership that
         put another preparation's questions into a PSM I mock.
         """
-        roadmaps = self.repo.list_roadmaps(include_archived, subject_id=subject_id)
+        if unassigned and subject_id is not None:
+            raise InvalidExamStateException(
+                "Ask for one preparation's roadmaps or for the unassigned ones, not both."
+            )
+        roadmaps = self.repo.list_roadmaps(include_archived, subject_id=subject_id, unassigned=unassigned)
         if not roadmaps:
             return []
 

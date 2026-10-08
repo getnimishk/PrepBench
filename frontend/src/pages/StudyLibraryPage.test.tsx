@@ -28,7 +28,7 @@ const mockGetReferenceSheets = vi.fn();
 const mockPreparation = vi.fn();
 
 vi.mock('../services/api', () => ({
-  getRoadmaps: (...a: any[]) => mockGetRoadmaps(...a),
+  getScopedRoadmaps: (...a: any[]) => mockGetRoadmaps(...a),
   getRoadmap: (...a: any[]) => mockGetRoadmap(...a),
   getDomainDetail: (...a: any[]) => mockGetDomainDetail(...a),
   getContentPack: (...a: any[]) => mockGetContentPack(...a),

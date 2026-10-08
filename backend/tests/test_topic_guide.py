@@ -253,9 +253,19 @@ def test_deleting_a_topic_removes_its_guide(topic):
 # ---- 6. content pack study guide alignment -----------------------------
 
 
+def _adf_preparation() -> int:
+    import uuid
+    created = client.post("/api/v1/subjects", json={"name": f"ADF guide {uuid.uuid4().hex[:6]}", "kind": "skill"})
+    assert created.status_code == 201, created.text
+    sid = created.json()["id"]
+    assert client.post(f"/api/v1/subjects/{sid}/content-packs", json={"pack_id": "adf"}).status_code == 201
+    return sid
+
+
 def test_adf_topic_guide_includes_mapped_content_pack_chapters():
-    """An ADF roadmap topic links directly to its authoritative built-in study guide chapters."""
-    roadmap = client.post("/api/v1/roadmaps", json={"title": "ADF Master Roadmap"}).json()
+    """An ADF roadmap topic links directly to its authoritative built-in study guide chapters --
+    through the ADF pack attached to the roadmap's own preparation, never through its title."""
+    roadmap = client.post("/api/v1/roadmaps", json={"title": "ADF Master Roadmap", "subject_id": _adf_preparation()}).json()
     phase = client.post(f"/api/v1/roadmaps/{roadmap['id']}/phases", json={"name": "1. ADF Foundations"}).json()
     t1 = client.post(f"/api/v1/roadmaps/{roadmap['id']}/topics", json={
         "phase_id": phase["id"],
@@ -292,3 +302,45 @@ def test_adf_topic_guide_includes_mapped_content_pack_chapters():
     finally:
         client.delete(f"/api/v1/roadmaps/{roadmap['id']}")
 
+
+def test_a_roadmap_is_never_linked_to_a_pack_by_its_name_alone():
+    """Phase 7 (WP 7.9): no title, filename or topic-name guessing. A roadmap called
+    "ADF Master Roadmap" with ADF's own topic names, but no preparation with the ADF
+    pack attached, maps to no chapter at all."""
+    roadmap = client.post("/api/v1/roadmaps", json={"title": "ADF Master Roadmap"}).json()
+    phase = client.post(f"/api/v1/roadmaps/{roadmap['id']}/phases", json={"name": "1. ADF Foundations"}).json()
+    topic = client.post(f"/api/v1/roadmaps/{roadmap['id']}/topics", json={
+        "phase_id": phase["id"], "title": "What Azure Data Factory Is",
+    }).json()
+    try:
+        assert client.get(_base(roadmap["id"], topic["id"])).json()["mapped_chapters"] == []
+        detail = client.get(f"/api/v1/roadmaps/{roadmap['id']}").json()
+        assert detail["linked_pack_id"] is None
+        assert detail["phases"][0]["topics"][0]["mapped_chapters"] == []
+    finally:
+        client.delete(f"/api/v1/roadmaps/{roadmap['id']}")
+
+
+def test_a_topic_is_never_mapped_by_its_position():
+    """A topic whose title matches nothing in the pack maps to nothing -- not to the
+    pack's topic at the same position (the old order_index fallback)."""
+    roadmap = client.post("/api/v1/roadmaps", json={"title": "Plan", "subject_id": _adf_preparation()}).json()
+    phase = client.post(f"/api/v1/roadmaps/{roadmap['id']}/phases", json={"name": "1. ADF Foundations"}).json()
+    unrelated = client.post(f"/api/v1/roadmaps/{roadmap['id']}/topics", json={
+        "phase_id": phase["id"], "title": "Something the pack does not cover",
+    }).json()
+    numbered = client.post(f"/api/v1/roadmaps/{roadmap['id']}/topics", json={
+        "phase_id": phase["id"], "title": "32",
+    }).json()
+    three_d = client.post(f"/api/v1/roadmaps/{roadmap['id']}/topics", json={
+        "phase_id": phase["id"], "title": "3D Printing",
+    }).json()
+    try:
+        assert client.get(_base(roadmap["id"], unrelated["id"])).json()["mapped_chapters"] == []
+        # A title that states a number maps by that number (the pack's own key) ...
+        by_number = client.get(_base(roadmap["id"], numbered["id"])).json()["mapped_chapters"]
+        assert by_number and all(c["topic_number"] == 32 for c in by_number)
+        # ... but a number that merely starts a title is not one.
+        assert client.get(_base(roadmap["id"], three_d["id"])).json()["mapped_chapters"] == []
+    finally:
+        client.delete(f"/api/v1/roadmaps/{roadmap['id']}")

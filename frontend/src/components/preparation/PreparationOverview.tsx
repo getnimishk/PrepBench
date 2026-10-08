@@ -5,7 +5,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Box, Button, Typography } from '@mui/material';
-import { getQuestionBankSummary, getReviewCounts, getRoadmaps } from '../../services/api';
+import { getQuestionBankSummary, getReviewCounts, getScopedRoadmaps } from '../../services/api';
 import { chooseRoadmap } from '../../services/roadmapChoice';
 import { drillHref } from '../../services/recommendation';
 import { pct } from '../../services/readinessText';
@@ -47,7 +47,7 @@ export function useOverviewFacts(subjectId: number | null | undefined): Overview
     let cancelled = false;
     setFacts(null);
     Promise.all([
-      getRoadmaps().then((all) => chooseRoadmap(all, subjectId)).catch(() => null),
+      getScopedRoadmaps(subjectId).then((list) => chooseRoadmap(list, subjectId)).catch(() => null),
       getReviewCounts(subjectId).catch(() => null),
       getQuestionBankSummary(subjectId).catch(() => null),
     ]).then(([roadmap, counts, bank]) => {

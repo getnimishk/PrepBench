@@ -18,6 +18,9 @@ const mockGetOtherPreparation = vi.fn();
 const mockGetFocusTopics = vi.fn();
 const mockGetDailyGoals = vi.fn();
 const mockGetRoadmaps = vi.fn();
+const mockGetRoles = vi.fn();
+const mockGetRole = vi.fn();
+const mockGetEvidence = vi.fn();
 
 vi.mock('../services/api', () => ({
   getSubjects: (...a: unknown[]) => mockGetSubjects(...a),
@@ -26,7 +29,16 @@ vi.mock('../services/api', () => ({
   getFocusTopics: (...a: unknown[]) => mockGetFocusTopics(...a),
   getDailyGoals: (...a: unknown[]) => mockGetDailyGoals(...a),
   getRoadmaps: (...a: unknown[]) => mockGetRoadmaps(...a),
+  getRoles: (...a: unknown[]) => mockGetRoles(...a),
+  getRole: (...a: unknown[]) => mockGetRole(...a),
+  getEvidence: (...a: unknown[]) => mockGetEvidence(...a),
 }));
+
+// The learner's own roles: Home names a role only when one of its requirements is this preparation.
+const ROLES = [
+  { id: 11, name: 'Scrum Master', requirements: [{ subject_id: 1 }] },
+  { id: 12, name: 'Data Platform Lead', requirements: [{ subject_id: 2 }, { subject_id: 6 }] },
+];
 
 // Preparation context mock
 interface MockPrepContext {
@@ -234,6 +246,9 @@ const renderHomePage = () =>
 beforeEach(() => {
   vi.clearAllMocks();
   mockSelect.mockReset();
+  mockGetRoles.mockResolvedValue(ROLES.map(({ id, name }) => ({ id, name })));
+  mockGetRole.mockImplementation((id: number) => Promise.resolve(ROLES.find((r) => r.id === id)));
+  mockGetEvidence.mockResolvedValue({ items: [], counts: { activity: 0, completed: 0, demonstrated: 0, evidenced: 0 } });
   mockGetSubjects.mockResolvedValue(ALL_SUBJECTS);
   mockGetHomeSummary.mockResolvedValue({
     resumable: null,
@@ -274,7 +289,9 @@ describe('Phase 3 — Unified Home & Certification Readiness Integration', () =>
     const panel1 = screen.getByRole('region', { name: '1. What am I preparing for?' });
     expect(within(panel1).getByText('Active Focus · Certification Track')).toBeInTheDocument();
     expect(within(panel1).getByText(/Pass Mark:\s*85%/)).toBeInTheDocument();
-    expect(within(panel1).getByText(/Scrum Master · Agile Coach · Delivery Lead/)).toBeInTheDocument();
+    // Target roles are the learner's own roles that name this preparation -- never a list made up for it.
+    expect(await within(panel1).findByText('Scrum Master')).toBeInTheDocument();
+    expect(within(panel1).queryByText(/Data Platform Lead/)).not.toBeInTheDocument();
 
     // Section 2: Am I ready? Formal Verdict vs Coaching Note
     const panel2 = screen.getByRole('region', { name: '2. Am I ready?' });
@@ -372,7 +389,8 @@ describe('Phase 3 — Unified Home & Certification Readiness Integration', () =>
     // Section 1: Databricks details
     const panel1 = screen.getByRole('region', { name: '1. What am I preparing for?' });
     expect(within(panel1).getByText(/Databricks Lakehouse/)).toBeInTheDocument();
-    expect(within(panel1).getByText(/Data Platform Engineer · Lakehouse Architect/)).toBeInTheDocument();
+    expect(await within(panel1).findByText('Data Platform Lead')).toBeInTheDocument();
+    expect(within(panel1).queryByText(/Scrum Master/)).not.toBeInTheDocument();
 
     // Section 5: End-to-End Lakehouse Migration
     const panel5 = screen.getByRole('region', { name: '5. What can I experiment with? (Learning Lab)' });
@@ -407,7 +425,22 @@ describe('Phase 3 — Unified Home & Certification Readiness Integration', () =>
 
     const panel1 = await screen.findByRole('region', { name: '1. What am I preparing for?' });
     expect(within(panel1).getByText(/Focus Track:\s*Agentic AI/)).toBeInTheDocument();
-    expect(within(panel1).getByText(/AI Systems Engineer · Agentic Workflow Architect/)).toBeInTheDocument();
+    // No role of the learner's names Agentic AI: Home says so and offers to add one.
+    expect(await within(panel1).findByText('No target role linked yet')).toBeInTheDocument();
+    expect(within(panel1).queryByText(/AI Systems Engineer/)).not.toBeInTheDocument();
+  });
+
+  it('leaves the target roles unsaid when they could not be read', async () => {
+    mockContext.selectedId = 5;
+    mockContext.selected = AGENTIC_AI_SUBJECT;
+    mockContext.capabilities = getSubjectCapabilities(5);
+    mockGetRoles.mockRejectedValue(new Error('offline'));
+
+    renderHomePage();
+
+    const panel1 = await screen.findByRole('region', { name: '1. What am I preparing for?' });
+    await waitFor(() => expect(mockGetRoles).toHaveBeenCalled());
+    expect(within(panel1).queryByText('No target role linked yet')).not.toBeInTheDocument();
   });
 
   it('correctly renders Unassigned state when selectedId is null, without defaulting silently to PSM I or ADF', async () => {

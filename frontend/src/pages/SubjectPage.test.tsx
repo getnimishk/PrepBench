@@ -16,7 +16,7 @@ vi.mock('../services/api', () => ({
   getSubject: (...args: unknown[]) => mockGetSubject(...args),
   getSubjectCoverage: (...args: unknown[]) => mockGetSubjectCoverage(...args),
   // The overview's facts: none, so the page renders without them.
-  getRoadmaps: () => Promise.resolve([]),
+  getScopedRoadmaps: () => Promise.resolve([]),
   getReviewCounts: () => Promise.resolve(null),
   getQuestionBankSummary: () => Promise.resolve(null),
 }));

@@ -7,6 +7,7 @@ import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import {
   Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent,
   DialogTitle, Link, Stack, TextField, Typography,
+  Checkbox, FormControlLabel,
 } from '@mui/material';
 import { Plus, Sparkles } from 'lucide-react';
 import {
@@ -43,12 +44,14 @@ const EMPTY: TopicGuideSectionWrite = {
   title: '', body: '', example: '', common_mistake: '', check_question: '', check_answer: '',
 };
 
-/** Who wrote this section, told truthfully. */
+/** Who wrote this section, told truthfully: the learner, an AI draft, or course material
+ *  (Phase 7, D2). An AI draft or a course lesson stays one after an edit, and says so. */
 function provenance(section: TopicGuideSection): string {
   if (section.source === 'ai') {
     const by = section.generated_by ? ` (${section.generated_by})` : '';
     return section.edited_at ? `Drafted by AI${by}, edited by you` : `Drafted by AI${by} — check it against what you know`;
   }
+  if (section.source === 'course') return section.edited_at ? 'Course lesson, edited by you' : 'Course lesson';
   return 'Written by you';
 }
 
@@ -70,6 +73,9 @@ export const TopicGuidePage: React.FC = () => {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorTab, setEditorTab] = useState<'write' | 'preview'>('write');
   const [editing, setEditing] = useState<TopicGuideSection | null>(null);
+  // Whether the section being edited is a course lesson -- the learner can say so of one
+  // section at a time (or take it back). Never offered for an AI draft.
+  const [courseLesson, setCourseLesson] = useState(false);
   const [form, setForm] = useState<TopicGuideSectionWrite>(EMPTY);
   const [saving, setSaving] = useState(false);
 
@@ -132,6 +138,7 @@ export const TopicGuidePage: React.FC = () => {
 
   const openEditor = (section: TopicGuideSection | null) => {
     setEditing(section);
+    setCourseLesson(section?.source === 'course');
     setEditorTab('write');
     setForm(section ? {
       title: section.title,
@@ -153,6 +160,10 @@ export const TopicGuidePage: React.FC = () => {
       common_mistake: blankToNull(form.common_mistake),
       check_question: blankToNull(form.check_question),
       check_answer: blankToNull(form.check_answer),
+      // Sent only when the learner changed it: an edit otherwise keeps its source.
+      ...(editing && editing.source !== 'ai' && (editing.source === 'course') !== courseLesson
+        ? { source: courseLesson ? 'course' as const : 'learner' as const }
+        : {}),
     };
     try {
       const saved = editing
@@ -494,11 +505,13 @@ export const TopicGuidePage: React.FC = () => {
                 {active.check_question && (
                   <Section>
                     <Eyebrow>Check yourself</Eyebrow>
-                    <Typography variant="subtitle2" component="p" sx={{ mt: '4px' }}>{active.check_question}</Typography>
+                    <Typography variant="subtitle2" component="p" id="guide-check-question" sx={{ mt: '4px' }}>{active.check_question}</Typography>
                     <TextField
                       multiline
                       minRows={3}
                       fullWidth
+                      // The question is the box's label; the helper text only describes it.
+                      slotProps={{ htmlInput: { 'aria-labelledby': 'guide-check-question' } }}
                       value={checkAnswer}
                       disabled={checkRevealed}
                       onChange={(e) => setCheckAnswer(e.target.value)}
@@ -642,6 +655,13 @@ export const TopicGuidePage: React.FC = () => {
             <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
               This section was drafted by AI. After you save, it will show as drafted by AI and edited by you.
             </Typography>
+          )}
+          {editing && editing.source !== 'ai' && (
+            <FormControlLabel
+              sx={{ mt: 2 }}
+              control={<Checkbox checked={courseLesson} onChange={(e) => setCourseLesson(e.target.checked)} />}
+              label="This is a course lesson, not my own writing"
+            />
           )}
         </DialogContent>
         <DialogActions>

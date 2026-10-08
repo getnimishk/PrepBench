@@ -7,6 +7,13 @@ import type { Subject } from '../types/subject';
 import { adfLabStatus, hasAdfPack } from './adfLab/experiments';
 
 /**
+ * The slug of the preparation the Lakehouse Lab writes to (skills plan D11): the page
+ * finds its subject by this slug, so the capability does too. Kept equal to
+ * `SKILL_SLUG` in services/lakehouse/attempts.ts (a test holds them together).
+ */
+export const LAKEHOUSE_SLUG = 'databricks';
+
+/**
  * Unassigned / missing subject capabilities fallback profile.
  * When subject context is null, unselected, or invalid, capabilities strictly
  * resolve to unassigned defaults (all capability flags false, safe scratchpad defaults).
@@ -17,6 +24,7 @@ export const UNASSIGNED_CAPABILITIES: SubjectCapabilityProfile = Object.freeze({
   interview: false,
   learningLab: false,
   lab: false,
+  lakehouseLab: false,
   learningLabStatus: 'UNAVAILABLE',
   workspace: true,
   evidence: true,
@@ -60,6 +68,7 @@ const SUBJECT_CAPABILITY_PROFILES: Record<number, SubjectCapabilityProfile> = {
     interview: false,
     learningLab: false,
     lab: false,
+    lakehouseLab: false,
     learningLabStatus: 'UNAVAILABLE',
     workspace: true,
     evidence: true,
@@ -75,6 +84,7 @@ const SUBJECT_CAPABILITY_PROFILES: Record<number, SubjectCapabilityProfile> = {
     interview: false,
     learningLab: true,
     lab: true,
+    lakehouseLab: true,
     learningLabStatus: 'AVAILABLE', // Lakehouse simulation sandbox is live in current production
     workspace: true,
     evidence: true,
@@ -90,6 +100,7 @@ const SUBJECT_CAPABILITY_PROFILES: Record<number, SubjectCapabilityProfile> = {
     interview: true,
     learningLab: false,
     lab: false,
+    lakehouseLab: false,
     learningLabStatus: 'UNAVAILABLE',
     workspace: true,
     evidence: true,
@@ -105,6 +116,7 @@ const SUBJECT_CAPABILITY_PROFILES: Record<number, SubjectCapabilityProfile> = {
     interview: false,
     learningLab: false,
     lab: false,
+    lakehouseLab: false,
     learningLabStatus: 'UNAVAILABLE',
     workspace: true,
     evidence: true,
@@ -120,6 +132,7 @@ const SUBJECT_CAPABILITY_PROFILES: Record<number, SubjectCapabilityProfile> = {
     interview: false,
     learningLab: false,
     lab: false,
+    lakehouseLab: false,
     learningLabStatus: 'UNAVAILABLE',
     workspace: true,
     evidence: true,
@@ -135,6 +148,7 @@ const SUBJECT_CAPABILITY_PROFILES: Record<number, SubjectCapabilityProfile> = {
     interview: true, // Scenario Say-it questions saved under this subject (see the note above)
     learningLab: true, // The ADF Behaviour Lab (services/adfLab), five experiments
     lab: true,
+    lakehouseLab: false,
     // From the lab's own registry: AVAILABLE only while all five experiments are built
     // (adfLabStatus), INTEGRATION_PENDING the moment any one is not.
     learningLabStatus: adfLabStatus(),
@@ -305,7 +319,28 @@ function resolveSubjectId(
 }
 
 /** A preparation as the server sent it, rather than a bare id or slug. */
-type LiveSubject = Pick<Subject, 'id' | 'slug' | 'kind' | 'question_count'> & Pick<Subject, 'content_packs'>;
+type LiveSubject = Pick<Subject, 'id' | 'slug' | 'kind' | 'question_count'>
+  & Pick<Subject, 'content_packs' | 'roadmap_count'>;
+
+/**
+ * What a preparation's curriculum really is, from its own record (Phase 7):
+ *  - roadmap: an unarchived roadmap is linked to it (`roadmap_count`);
+ *  - studyGuide: an attached pack has chapters;
+ *  - scenarios: an attached pack has written scenarios -- so a guide-only pack such as
+ *    ADLS gives a study guide and never claims scenarios.
+ * A fact the record does not state (an older payload, a test fixture) is left to the
+ * caller's default rather than guessed.
+ */
+function liveCurriculum(s: LiveSubject): Partial<Pick<SubjectCapabilityProfile, 'roadmap' | 'studyGuide' | 'scenarios'>> {
+  const out: Partial<Pick<SubjectCapabilityProfile, 'roadmap' | 'studyGuide' | 'scenarios'>> = {};
+  if (typeof s.roadmap_count === 'number') out.roadmap = s.roadmap_count > 0;
+  const packs = s.content_packs;
+  if (packs && packs.every((p) => typeof p.chapter_count === 'number')) {
+    out.studyGuide = packs.some((p) => (p.chapter_count ?? 0) > 0);
+    out.scenarios = packs.some((p) => (p.written_scenario_count ?? 0) > 0);
+  }
+  return out;
+}
 
 function isLiveSubject(value: unknown): value is LiveSubject {
   return typeof value === 'object' && value !== null
@@ -341,12 +376,14 @@ function deriveCapabilities(s: LiveSubject): SubjectCapabilityProfile {
     interview: false,
     learningLab: adfLab,
     lab: adfLab,
+    lakehouseLab: s.slug === LAKEHOUSE_SLUG,
     learningLabStatus: adfLab ? adfLabStatus() : 'UNAVAILABLE',
     workspace: true,
     evidence: true,
     roadmap: true,
     studyGuide: packs > 0,
     scenarios: packs > 0,
+    ...liveCurriculum(s),
     questionAvailability: questions > 0,
     hasQuestionBank: questions > 0,
     questionCount: questions,
@@ -379,9 +416,17 @@ export function getSubjectCapabilities(
   const known = KNOWN_PRODUCTION_SUBJECTS.find((s) => s.id === id);
 
   if (profile && (!live || !live.slug || live.slug === known?.slug)) {
-    if (!live || live.question_count === profile.questionCount) return profile;
+    if (!live) return profile;
+    // The table says what each seeded preparation can do; its curriculum and its
+    // question count are read from the record, so a roadmap unlinked or a pack
+    // attached shows at once (Phase 7, D3/D5), as an imported bank does.
+    const curriculum = liveCurriculum(live);
+    const sameCurriculum = Object.entries(curriculum)
+      .every(([k, v]) => profile[k as keyof SubjectCapabilityProfile] === v);
+    if (live.question_count === profile.questionCount && sameCurriculum) return profile;
     return Object.freeze({
       ...profile,
+      ...curriculum,
       questionCount: live.question_count,
       questionAvailability: live.question_count > 0,
       hasQuestionBank: live.question_count > 0,

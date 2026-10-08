@@ -119,6 +119,9 @@ export interface Subject {
    *  test fixtures built before this field existed don't all need updating;
    *  the server always sends it. */
   content_packs?: SubjectContentPack[];
+  /** Unarchived roadmaps linked to this preparation. Whether it "has a roadmap" is
+   *  read from here, so the claim follows the real link (Phase 7, D3). */
+  roadmap_count?: number;
 }
 
 /** A built-in content pack as attached to one subject: the pinned version,
@@ -129,6 +132,10 @@ export interface SubjectContentPack {
   pack_version: number;
   latest_version: number;
   title: string;
+  /** What the pinned version holds: a guide when it has chapters, scenarios only
+   *  when some are written (ADLS has chapters and no scenarios). */
+  chapter_count?: number;
+  written_scenario_count?: number;
 }
 
 /** Create payload. No `slug`: the server derives it from the name.

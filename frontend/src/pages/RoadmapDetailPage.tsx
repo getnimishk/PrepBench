@@ -22,6 +22,7 @@ import { apiErrorMessage, loadFailed } from '../services/apiError';
 import { LoadingState } from '../components/common/States';
 import { Bar, BigFigure, Detail, Eyebrow, Grid, PageHead, Panel, Pill, Section } from '../components/ui/primitives';
 import { classifyResource } from '../utils/resourceClassification';
+import { RoadmapCurriculumTools } from '../components/roadmap/RoadmapCurriculumTools';
 import { MONO_STACK } from '../theme/tokens';
 
 /** What a tab shows. 'resources' is the single-sheet view's one tab holding every reference table. */
@@ -506,6 +507,10 @@ export const RoadmapDetailPage: React.FC = () => {
           ))}
         </Box>
       )}
+
+      <Section>
+        <RoadmapCurriculumTools roadmap={roadmap} onChanged={load} />
+      </Section>
 
       <Dialog open={!!notesTopic} onClose={() => setNotesTopic(null)} maxWidth="sm" fullWidth>
         <DialogTitle>Evidence & notes</DialogTitle>

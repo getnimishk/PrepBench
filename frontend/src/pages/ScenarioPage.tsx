@@ -11,6 +11,7 @@ import {
 import { getContentPack, getInterviewQuestions, saveInterviewQuestionFromSource } from '../services/api';
 import { apiErrorMessage } from '../services/apiError';
 import { usePreparation } from '../context/PreparationContext';
+import { useLinkedTopics } from '../hooks/useLinkedTopics';
 import {
   EXPLANATION_MAX, NOTE_MAX, ROLES, SAY_IT_MAX,
   answerCheck, commitCaseNotes, fetchPreparationAttempts, lastRole, lensTasks, saveCoverage, saveLensText,
@@ -123,6 +124,8 @@ export const ScenarioPage: React.FC = () => {
   const key: ScenarioKey | null = pack && subjectId != null
     ? { subjectId, packId: pack.pack_id, version: pack.version, scenarioId }
     : null;
+  // The topics of this preparation's own roadmaps whose study-guide chapter this scenario practises.
+  const linkedTopics = useLinkedTopics(subjectId ?? null, link ? packId : null, { chapter: scenario?.chapter ?? '' });
 
   // Open on the role last practised here.
   useEffect(() => {
@@ -334,6 +337,17 @@ export const ScenarioPage: React.FC = () => {
           <Detail>
             If that sentence isn&apos;t clear yet, read {chapterIndex >= 0 ? `chapter ${chapterIndex + 1}` : 'the chapter'} in the Study Library first.
           </Detail>
+          {linkedTopics.length > 0 && (
+            <Detail sx={{ mt: '6px' }}>
+              Roadmap topic{linkedTopics.length === 1 ? '' : 's'} this practises:{' '}
+              {linkedTopics.map((t, i) => (
+                <React.Fragment key={t.topicId}>
+                  {i > 0 && ' · '}
+                  <RouterLink to={`/roadmaps/${t.roadmapId}/topics/${t.topicId}`}>{t.title}</RouterLink>
+                </React.Fragment>
+              ))}
+            </Detail>
+          )}
         </Panel>
       </Section>
 

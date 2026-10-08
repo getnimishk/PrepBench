@@ -45,6 +45,15 @@ TRACKER_TOKENS = ("status", "progress", "start date", "started",
 
 DEFAULT_PHASE_NAME = "General"
 
+# A header that names a row's *number*: "#", "No.", "Num", "Number", or one of
+# those after a word ("Topic #", "Roadmap #", "Topic number"). It maps to the
+# number, never to the title -- see _column_map.
+NUMBER_HEADER_PATTERN = re.compile(
+    # "#" may follow a word directly ("Topic#"); the word forms need a space, so
+    # that "Piano" or "Casino" are not taken for "No.".
+    r"^(?:[a-z]+\s*)?#$|^(?:[a-z]+\s+)?(?:no\.?|num\.?|number|n°)$"
+)
+
 # A header that names one of these makes an extra sheet a *plan* sheet (hours,
 # status, dates -- things you track) rather than a *reference* sheet (things
 # you read). Matched as whole words, case-insensitively: "Est. Hours" and
@@ -145,6 +154,16 @@ def _parse_hours(value: Any) -> Optional[float]:
             return None
         hours = float(match.group())
     return hours if hours >= 0 else None
+
+
+def _topic_number(value: Any) -> Optional[str]:
+    """A topic-number cell as its digits: 7, 7.0 and "7" all read "7"; anything else None."""
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return str(int(value)) if float(value).is_integer() and value >= 0 else None
+    text = _clean(value)
+    return text if text and text.isdigit() else None
 
 
 def _parse_datetime(value: Any) -> Optional[datetime]:
@@ -303,6 +322,36 @@ class RoadmapImportService:
             ignored_sheets=ignored_sheets,
         )
 
+    def numbered_topics(self, filename: str, content: bytes) -> List[Tuple[str, str, str]]:
+        """Every (phase, topic number, topic title) in a workbook's syllabus sheets.
+
+        Read with the importer's own sheet classification and column map, so the
+        title repair (TopicTitleRepairService) cannot read a workbook differently
+        from an import. Only rows with both a number and a title are returned.
+        """
+        if not (filename or "").lower().endswith((".xlsx", ".xlsm")):
+            raise ImportValidationException("The repair reads the roadmap's Excel workbook (.xlsx).")
+        try:
+            workbook = openpyxl.load_workbook(io.BytesIO(content), data_only=True)
+        except Exception as exc:
+            raise ImportValidationException(f"Could not read the Excel file: {exc}")
+        out: List[Tuple[str, str, str]] = []
+        for worksheet in workbook.worksheets:
+            header_row, headers, kind = self._classify_sheet(worksheet)
+            if kind != "syllabus":
+                continue
+            columns = self._column_map(headers)
+            if "number" not in columns or "topic" not in columns:
+                continue
+            for row in worksheet.iter_rows(min_row=header_row + 1, values_only=True):
+                title = _clean(self._cell(row, columns.get("topic")))
+                number = _topic_number(self._cell(row, columns.get("number")))
+                if not title or number is None or self._is_summary_row(title, row, columns):
+                    continue
+                phase = _clean(self._cell(row, columns.get("phase"))) or DEFAULT_PHASE_NAME
+                out.append((phase, number, title))
+        return out
+
     @staticmethod
     def _workbook_title(workbook, default_title: str) -> str:
         return default_title or (workbook.worksheets[0].title if workbook.worksheets else "Imported Roadmap")
@@ -332,7 +381,7 @@ class RoadmapImportService:
         if first_row:
             first_headers = [_clean(cell) or "" for cell in first_row]
             populated = [h for h in first_headers if h]
-            if 2 <= len(populated) <= 4:
+            if 2 <= len(populated) <= 4 and not self._wider_table_below(worksheet, len(populated)):
                 syllabus_score = _score_header(first_headers, SYLLABUS_TOKENS)
                 tracker_score = _score_header(first_headers, TRACKER_TOKENS)
                 if tracker_score >= 3 and tracker_score > syllabus_score:
@@ -370,6 +419,23 @@ class RoadmapImportService:
         return 1, [], "ignored"
 
     @staticmethod
+    def _wider_table_below(worksheet, width: int) -> bool:
+        """Whether a row within the first ten is wider than row 1 and reads as a table
+        header -- a title block over a real table ("Azure Data Factory — Master
+        Roadmap | Roadmap Summary", then "Phase | Topic # | Topic | ..." on row 5).
+
+        A narrow reference sheet's body rows are as wide as its header, so they never
+        qualify: the rule that keeps those as reference sheets still holds.
+        """
+        for row in worksheet.iter_rows(min_row=2, max_row=10, values_only=True):
+            headers = [_clean(cell) or "" for cell in row]
+            if sum(1 for h in headers if h) <= width:
+                continue
+            if max(_score_header(headers, SYLLABUS_TOKENS), _score_header(headers, TRACKER_TOKENS)) >= 3:
+                return True
+        return False
+
+    @staticmethod
     def _column_map(headers: List[str]) -> Dict[str, int]:
         mapping: Dict[str, int] = {}
         for index, header in enumerate(headers):
@@ -378,6 +444,12 @@ class RoadmapImportService:
                 continue
             if "phase" in lowered or "module" in lowered or "section" in lowered:
                 mapping.setdefault("phase", index)
+            elif NUMBER_HEADER_PATTERN.match(lowered.strip()):
+                # "Topic #", "#", "No.", "Topic number": the topic's number, never its
+                # title. Checked before the title rule below, which would otherwise
+                # take "Topic #" for the title because it says "topic" -- the bug
+                # that imported ADF's 60 topics as "1", "2", "3".
+                mapping.setdefault("number", index)
             elif "objective" in lowered or "goal" in lowered:
                 mapping.setdefault("objective", index)
             elif "success" in lowered or "criteria" in lowered or "outcome" in lowered:

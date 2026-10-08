@@ -197,11 +197,11 @@ export const InterviewPracticeSetupPage: React.FC = () => {
         </Alert>
       )}
 
-      {selectedId === 6 && (
+      {selected && capabilities?.scenarios && (
         <Alert severity="info" sx={{ mt: 2, mb: 1 }}>
-          <b>Azure Data Factory Track:</b> Practicing incident communication? Say-it answers saved from{' '}
+          <b>{selected.name}:</b> Practicing incident communication? Say-it answers saved from{' '}
           <Box component={RouterLink} to="/scenarios" sx={{ color: 'primary.main', fontWeight: 600 }}>
-            ADF Production Scenarios
+            its scenarios
           </Box>{' '}
           are saved to this library.
         </Alert>

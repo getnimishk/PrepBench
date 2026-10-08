@@ -34,12 +34,13 @@ import type { PracticeRecording, RecordingAnalysis, RecordingAnalytics } from '.
 import type { CheckResult, ReviewCounts, ReviewItem, ReviewQueue } from './review';
 import type {
   RoadmapDetail, RoadmapPhase, RoadmapProgress, RoadmapResource, RoadmapSchedule, RoadmapSummary, RoadmapTopic,
-  TopicDemonstration, TopicDemonstrationResult, TopicGuide, TopicGuideSection,
+  CourseLessonRelabelPreview, CourseLessonRelabelResult, TopicDemonstration, TopicDemonstrationResult, TopicGuide,
+  TopicGuideSection, TopicTitleRepairPreview, TopicTitleRepairResult,
 } from './roadmap';
 import type { Role, RoleSummary } from './role';
 import type { SearchResponse } from './search';
 import type { EvidenceItem, EvidenceResponse, WorkspaceItem, WorkspaceResponse } from './portfolio';
-import type { Readiness, Subject } from './subject';
+import type { Readiness, Subject, SubjectContentPack } from './subject';
 
 type Schemas = components['schemas'];
 
@@ -81,6 +82,7 @@ function fits<Declared>(response: Widen<Declared>): void { void response; }
 
 export function apiContract(): void {
   fits<Subject>(api('SubjectWithReadiness'));
+  fits<SubjectContentPack>(api('SubjectContentPackResponse'));
   fits<Readiness>(api('ReadinessResponse'));
 
   fits<Question>(api('QuestionResponse'));
@@ -105,6 +107,11 @@ export function apiContract(): void {
   fits<TopicGuideSection>(api('TopicGuideSectionResponse'));
   fits<TopicDemonstration>(api('TopicDemonstrationResponse'));
   fits<TopicDemonstrationResult>(api('TopicDemonstrationResult'));
+  // Phase 7: the learner-triggered curriculum repairs.
+  fits<TopicTitleRepairPreview>(api('TopicTitleRepairPreview'));
+  fits<TopicTitleRepairResult>(api('TopicTitleRepairResult'));
+  fits<CourseLessonRelabelPreview>(api('CourseLessonRelabelPreview'));
+  fits<CourseLessonRelabelResult>(api('CourseLessonRelabelResult'));
 
   fits<ReviewQueue>(api('ReviewQueue'));
   fits<ReviewItem>(api('ReviewItem'));

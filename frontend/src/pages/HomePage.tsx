@@ -12,7 +12,9 @@ import {
 } from 'lucide-react';
 import {
   getSubjects, getHomeSummary, getOtherPreparation, getFocusTopics, getDailyGoals, getRoadmaps,
+  getEvidence, getRoles, getRole,
 } from '../services/api';
+import type { EvidenceResponse } from '../types/portfolio';
 import { DailyGoals } from '../components/home/DailyGoals';
 import { usePreparation } from '../context/PreparationContext';
 import {
@@ -584,6 +586,10 @@ export const HomePage: React.FC = () => {
   const [roadmaps, setRoadmaps] = useState<RoadmapSummary[]>([]);
   const [focus, setFocus] = useState<FocusTopic[]>([]);
   const [goals, setGoals] = useState<DailyGoalsData | null>(null);
+  // Read for the chosen preparation: what its work demonstrates (Phase 6 Evidence)
+  // and the learner's own target roles that use it. Null until read, or if the read failed.
+  const [evidence, setEvidence] = useState<EvidenceResponse | null>(null);
+  const [targetRoles, setTargetRoles] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -642,6 +648,36 @@ export const HomePage: React.FC = () => {
   useEffect(() => {
     if (primaryId == null) return undefined;
     let cancelled = false;
+    setEvidence(null);
+    Promise.resolve()
+      .then(() => getEvidence(primaryId))
+      .then((e) => { if (!cancelled) setEvidence(e); })
+      .catch(() => { if (!cancelled) setEvidence(null); });
+    return () => { cancelled = true; };
+  }, [primaryId]);
+
+  useEffect(() => {
+    if (primaryId == null) return undefined;
+    let cancelled = false;
+    setTargetRoles(null);
+    // A role names this preparation through one of its requirements; only the
+    // learner's own roles are shown, never a role invented for the subject.
+    Promise.resolve()
+      .then(() => getRoles())
+      .then((list) => Promise.all(list.map((r) => getRole(r.id))))
+      .then((roles) => {
+        if (cancelled) return;
+        setTargetRoles(roles
+          .filter((role) => role.requirements.some((req) => req.subject_id === primaryId))
+          .map((role) => role.name));
+      })
+      .catch(() => { if (!cancelled) setTargetRoles(null); });
+    return () => { cancelled = true; };
+  }, [primaryId]);
+
+  useEffect(() => {
+    if (primaryId == null) return undefined;
+    let cancelled = false;
     getDailyGoals(primaryId)
       .then((g) => { if (!cancelled) setGoals(g); })
       .catch(() => { if (!cancelled) setGoals(null); });
@@ -685,12 +721,9 @@ export const HomePage: React.FC = () => {
 
   const r = primary.readiness;
   const isCertification = primary.kind === 'certification' && capabilities.certification;
-  const isKafka = primary.id === 4;
-  const isAdf = primary.id === 6;
-  const isDatabricks = primary.id === 2;
-  const isSystemDesign = primary.id === 3;
-  const isAgenticAi = primary.id === 5;
-  const has0Questions = isKafka || (isCertification && primary.question_count === 0);
+  // Read from the record and its capabilities -- never from which id it has (Phase 7).
+  const has0Questions = isCertification && primary.question_count === 0;
+  const hasLakehouse = capabilities.lakehouseLab;
 
   const unmeasured = isCertification && r.mock_count === 0 && r.state === 'needs_evaluation';
   const averageScore = r.recent_scores.length > 0
@@ -708,46 +741,29 @@ export const HomePage: React.FC = () => {
   const activeRoadmap = chooseRoadmap(roadmaps, primary.id);
   const description = primary.description?.trim().replace(/\.$/, '');
 
-  // Target roles based on subject
-  const targetRoles = isAdf
-    ? 'Azure Data Engineer · Enterprise ETL Architect'
-    : isDatabricks
-    ? 'Data Platform Engineer · Lakehouse Architect'
-    : isSystemDesign
-    ? 'Staff Engineer · Distributed Systems Architect'
-    : isKafka
-    ? 'Event Streaming Engineer · Kafka Developer'
-    : isAgenticAi
-    ? 'AI Systems Engineer · Agentic Workflow Architect'
-    : primary.id === 1
-    ? 'Scrum Master · Agile Coach · Delivery Lead'
-    : 'Technical Specialist · Systems Engineer';
-
-  const roleFocus = isAdf
-    ? 'ETL pipelines, concurrency limits, watermark CDC, fault tolerance'
-    : isDatabricks
-    ? 'Delta Lake ACID engine, Medallion architecture, pipeline couplings'
-    : isSystemDesign
-    ? 'Distributed consensus, partitioning, caching, outbox pattern'
-    : isKafka
-    ? 'Topic partitioning, consumer groups, exactly-once semantics'
-    : isAgenticAi
-    ? 'Tool use, multi-agent orchestration, structured outputs'
-    : primary.id === 1
-    ? 'Empirical process control, self-managing teams, backlog value'
-    : 'System architecture, trade-offs, and empirical validation';
-
-  const curriculumBaseline = isAdf
-    ? '60 Topics across 13 Phases · 21 Study Guide Chapters · 18 Scenarios'
-    : isDatabricks
-    ? 'Lakehouse System Lab · Station A Ingestion to Station C ACID'
-    : isSystemDesign
-    ? '32 Architecture Prompts · 10 Design Reviews · 188h Roadmap'
-    : isKafka
-    ? 'Kafka Mastery Roadmap (Roadmap 1) · 0 Exam Questions Loaded'
-    : isAgenticAi
-    ? 'Agentic AI Roadmap (Roadmap 5)'
-    : `${primary.question_count} Questions · ${own.length > 0 ? `${own[0].progress.total_topics} Topics` : 'Comprehensive Bank'}`;
+  // What this preparation's curriculum is, from what is really linked and attached:
+  // its own roadmap, its attached packs, its question bank. A figure with no source
+  // is not shown (Phase 7, WP 7.4).
+  const linkedRoadmap = activeRoadmap?.linked ? activeRoadmap.roadmap : null;
+  const curriculumParts: string[] = [];
+  if (linkedRoadmap) {
+    const p = linkedRoadmap.progress;
+    const phases = linkedRoadmap.phase_count;
+    curriculumParts.push(
+      `${p.total_topics} topics`
+      + (phases ? ` across ${phases} phases` : '')
+      + (p.total_estimated_hours != null ? ` · ${Math.round(p.total_estimated_hours)}h planned` : ''),
+    );
+  }
+  for (const pack of primary.content_packs ?? []) {
+    const parts = [
+      pack.chapter_count ? `${pack.chapter_count} guide chapters` : null,
+      pack.written_scenario_count ? `${pack.written_scenario_count} scenarios` : null,
+    ].filter(Boolean);
+    curriculumParts.push(parts.length ? `${pack.title}: ${parts.join(', ')}` : pack.title);
+  }
+  if (isCertification) curriculumParts.push(`${primary.question_count} questions in the bank`);
+  const curriculumBaseline = curriculumParts.length ? curriculumParts.join(' · ') : 'No curriculum linked yet';
 
   // Top Action CTA
   const isLabAvailable = capabilities.learningLabStatus === 'AVAILABLE';
@@ -759,9 +775,9 @@ export const HomePage: React.FC = () => {
         <Button
           variant="contained"
           component={RouterLink}
-          to={isDatabricks ? '/databricks-sandbox' : '/lab/adf'}
+          to={hasLakehouse ? '/databricks-sandbox' : '/lab/adf'}
         >
-          {isDatabricks ? 'Open Lakehouse Lab' : 'Open Behaviour Lab'}
+          {hasLakehouse ? 'Open Lakehouse Lab' : 'Open Behaviour Lab'}
         </Button>
       );
     }
@@ -875,10 +891,12 @@ export const HomePage: React.FC = () => {
           <Box sx={{ p: (t) => t.typography.pxToRem(14), borderRadius: '8px', bgcolor: t.surface2, border: `1px solid ${t.line}` }}>
             <Eyebrow>Target Professional Roles</Eyebrow>
             <Typography variant="h6" component="p" sx={{ fontWeight: 800, mt: '4px' }}>
-              {targetRoles}
+              {targetRoles === null ? '—' : targetRoles.length ? targetRoles.join(' · ') : 'No target role linked yet'}
             </Typography>
             <Detail sx={{ mt: (t) => t.typography.pxToRem(10) }}>
-              Focus: {roleFocus}
+              {targetRoles?.length
+                ? 'Your roles that use this preparation'
+                : <Box component={RouterLink} to="/preparations/roles/new" sx={{ color: 'primary.main' }}>Add a role you are preparing for</Box>}
             </Detail>
           </Box>
           <Box sx={{ p: (t) => t.typography.pxToRem(14), borderRadius: '8px', bgcolor: t.surface2, border: `1px solid ${t.line}` }}>
@@ -887,7 +905,7 @@ export const HomePage: React.FC = () => {
               {curriculumBaseline}
             </Typography>
             <Detail sx={{ mt: (t) => t.typography.pxToRem(10) }}>
-              {activeRoadmap ? activeRoadmap.roadmap.title : 'Structured preparation roadmap & resources'}
+              {linkedRoadmap ? linkedRoadmap.title : 'Link or import a roadmap on the Roadmaps screen'}
             </Detail>
           </Box>
         </Grid>
@@ -959,48 +977,28 @@ export const HomePage: React.FC = () => {
                   </Box>
                 ))}
               </Stack>
-            ) : isAdf ? (
-              <Stack spacing={1.5}>
-                <Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: '4px' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      Concurrency, Parallelism &amp; Throttling (Lab 1)
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: t.success, fontWeight: 700 }}>
-                      Demonstrated · Lab &amp; Scenarios Active
-                    </Typography>
-                  </Box>
-                  <Bar value={100} label="Concurrency: Demonstrated" />
-                </Box>
-                <Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: '4px' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      Watermark Incremental Load &amp; Fault Tolerance (Lab 2)
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: t.success, fontWeight: 700 }}>
-                      Demonstrated · CDC Pipeline Architecture
-                    </Typography>
-                  </Box>
-                  <Bar value={100} label="Watermark: Demonstrated" />
-                </Box>
-                <Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: '4px' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      Trigger Behavior &amp; Backfill Windows (Lab 3)
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: t.accent, fontWeight: 700 }}>
-                      Active Study Plan
-                    </Typography>
-                  </Box>
-                  <Bar value={60} label="Triggers: Active" />
-                </Box>
-              </Stack>
+            ) : !isCertification && evidence && evidence.items.length > 0 ? (
+              <Box>
+                <MetricRow sx={{ mt: 0 }}>
+                  <Metric value={evidence.counts.evidenced} label="Evidenced" />
+                  <Metric value={evidence.counts.demonstrated} label="Demonstrated" />
+                  <Metric value={evidence.counts.completed} label="Completed" />
+                  <Metric value={evidence.counts.activity} label="Activity" />
+                </MetricRow>
+                <Detail sx={{ mt: '8px' }}>
+                  Read from the work you did in this preparation: each item graded against the model, a
+                  scenario's answer key or your own explanation.{' '}
+                  <Box component={RouterLink} to="/evidence" sx={{ color: 'primary.main' }}>See the evidence</Box>
+                </Detail>
+              </Box>
             ) : (
               <Box sx={{ p: (t) => t.typography.pxToRem(24), textAlign: 'center', bgcolor: t.surface2, borderRadius: '8px' }}>
                 <Typography variant="body2" sx={{ color: t.muted }}>
                   {has0Questions
                     ? 'Question bank not loaded in current dataset (0 questions). Mock exam readiness cannot be evaluated until questions are imported.'
-                    : 'Readiness data appears as mock exams and technical assessments are completed.'}
+                    : isCertification
+                      ? 'Readiness data appears as mock exams and technical assessments are completed.'
+                      : 'No evidence yet: it appears as you predict, run and explain experiments and answer scenario checks in this preparation.'}
                 </Typography>
               </Box>
             )}
@@ -1064,11 +1062,11 @@ export const HomePage: React.FC = () => {
             {capabilities.learningLab && (
               isLabAvailable ? (
                 <Row
-                  title={isDatabricks ? 'Lakehouse Simulation Lab' : 'ADF Behaviour Labs'}
-                  detail={isDatabricks ? 'Interactive Delta Lake & ADLS Gen2 pipeline sandbox' : 'Manipulate pipeline parameters, inject transient faults, and observe mechanistic causality'}
+                  title={hasLakehouse ? 'Lakehouse Simulation Lab' : 'ADF Behaviour Labs'}
+                  detail={hasLakehouse ? 'Interactive Delta Lake & ADLS Gen2 pipeline sandbox' : 'Manipulate pipeline parameters, inject transient faults, and observe mechanistic causality'}
                   action={
-                    <Button size="small" variant="contained" component={RouterLink} to={isDatabricks ? '/databricks-sandbox' : '/lab/adf'}>
-                      {isDatabricks ? 'Open Lakehouse Lab' : 'Open Behaviour Lab'}
+                    <Button size="small" variant="contained" component={RouterLink} to={hasLakehouse ? '/databricks-sandbox' : '/lab/adf'}>
+                      {hasLakehouse ? 'Open Lakehouse Lab' : 'Open Behaviour Lab'}
                     </Button>
                   }
                 />
@@ -1135,9 +1133,9 @@ export const HomePage: React.FC = () => {
                 variant="outlined"
                 size="small"
                 component={RouterLink}
-                to={isDatabricks ? '/databricks-sandbox' : '/lab/adf'}
+                to={hasLakehouse ? '/databricks-sandbox' : '/lab/adf'}
               >
-                {isDatabricks ? 'Lakehouse Sandbox' : 'All five experiments'}
+                {hasLakehouse ? 'Lakehouse Sandbox' : 'All five experiments'}
               </Button>
             ) : isLabPending ? (
               <Pill tone="warning">Integration Pending (Phase 5)</Pill>
@@ -1217,7 +1215,7 @@ export const HomePage: React.FC = () => {
           </Box>
         ) : (
           <Grid columns={3}>
-            {isDatabricks ? (
+            {hasLakehouse ? (
               <Box sx={{ p: (t) => t.typography.pxToRem(14), borderRadius: '8px', border: `1px solid ${t.line}`, bgcolor: t.surface2 }}>
                 <Pill tone="accent">Lakehouse System Lab</Pill>
                 <Typography variant="subtitle1" component="p" sx={{ fontWeight: 800, mt: '8px' }}>

@@ -116,7 +116,8 @@ describe('isNavKeySupported', () => {
     expect(isNavKeySupported('lab', dbrCaps, dbrSubj)).toBe(true);
     expect(isNavKeySupported('practice', dbrCaps, dbrSubj)).toBe(false);
     expect(isNavKeySupported('interview', dbrCaps, dbrSubj)).toBe(false);
-    expect(isNavKeySupported('roadmaps', dbrCaps, dbrSubj)).toBe(false);
+    // Roadmaps stay reachable with none linked: that is where a roadmap is linked to it (Phase 7, D3).
+    expect(isNavKeySupported('roadmaps', dbrCaps, dbrSubj)).toBe(true);
   });
 
   it('correctly handles Kafka CCDAK (Certification, Roadmap, but no interview or lab)', () => {
@@ -148,5 +149,38 @@ describe('isNavKeySupported', () => {
   it('falls back to true when capabilities is undefined for backward compatibility', () => {
     expect(isNavKeySupported('practice', undefined, null)).toBe(true);
     expect(isNavKeySupported('lab', undefined, null)).toBe(true);
+  });
+});
+
+describe('Study Library reachability (Phase 7)', () => {
+  const learner = (over: object) => getSubjectCapabilities({
+    id: 90, name: 'Mine', slug: 'mine', kind: 'certification', is_archived: false, display_order: 90,
+    has_exam_profile: true, question_count: 12, content_packs: [], roadmap_count: 0,
+    readiness: { state: 'needs_evaluation', mock_count: 0, recent_scores: [] },
+    ...over,
+  } as unknown as Parameters<typeof getSubjectCapabilities>[0]);
+
+  it('stays open for a certification with no roadmap linked: its practice lives there', () => {
+    const caps = learner({});
+    expect(caps.roadmap).toBe(false);
+    expect(isNavKeySupported('learn', caps, null)).toBe(true);
+  });
+
+  it('opens for a skill with a linked roadmap or an attached guide, and not for one with neither', () => {
+    expect(isNavKeySupported('learn', learner({ kind: 'skill', question_count: 0, roadmap_count: 1 }), null)).toBe(true);
+    expect(isNavKeySupported('learn', learner({
+      kind: 'skill', question_count: 0,
+      content_packs: [{ pack_id: 'adls', pack_version: 1, latest_version: 1, title: 'ADLS', chapter_count: 11, written_scenario_count: 0 }],
+    }), null)).toBe(true);
+    expect(isNavKeySupported('learn', learner({ kind: 'skill', question_count: 0 }), null)).toBe(false);
+  });
+});
+
+describe('Agile Metrics keeps its pre-Phase-7 scope', () => {
+  it('is open for PSM I and for a preparation whose Learning Lab is available, and not for others', () => {
+    expect(isNavKeySupported('agile-sandbox', getSubjectCapabilities(1), { id: 1 })).toBe(true);
+    expect(isNavKeySupported('agile-sandbox', getSubjectCapabilities(2), { id: 2 })).toBe(true); // Lakehouse Lab available
+    expect(isNavKeySupported('agile-sandbox', getSubjectCapabilities(4), { id: 4 })).toBe(false); // Kafka
+    expect(isNavKeySupported('agile-sandbox', getSubjectCapabilities(3), { id: 3 })).toBe(false); // System Design
   });
 });

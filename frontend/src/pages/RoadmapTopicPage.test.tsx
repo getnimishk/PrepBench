@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { RoadmapTopicPage } from './RoadmapTopicPage';
@@ -15,13 +15,18 @@ const api = {
   getRoadmap: vi.fn(),
   getTopicDemonstrations: vi.fn(),
   getTopicGuide: vi.fn(),
+  getContentPack: vi.fn(),
+  getEvidence: vi.fn(),
+  updateRoadmapTopic: vi.fn(),
 };
 
 vi.mock('../services/api', () => ({
   getRoadmap: (...a: any[]) => api.getRoadmap(...a),
   getTopicDemonstrations: (...a: any[]) => api.getTopicDemonstrations(...a),
   getTopicGuide: (...a: any[]) => api.getTopicGuide(...a),
-  updateRoadmapTopic: vi.fn(),
+  getContentPack: (...a: any[]) => api.getContentPack(...a),
+  getEvidence: (...a: any[]) => api.getEvidence(...a),
+  updateRoadmapTopic: (...a: any[]) => api.updateRoadmapTopic(...a),
   demonstrateTopic: vi.fn(),
 }));
 
@@ -168,3 +173,111 @@ describe('TopicDemonstratePage and TopicGuidePage when they cannot load', () => 
   });
 });
 
+// ---- Phase 7: a topic's curriculum links and its evidence (WP 7.7 / 7.8) -----------------------
+
+const WATERMARK_CHAPTER = {
+  pack_id: 'adf', pack_title: 'Azure Data Factory', chapter_id: 'incremental', chapter_number: 9,
+  chapter_title: 'Loading only new data', topic_number: 32, topic_title: 'Watermark Patterns', coverage: 'Partial',
+};
+
+const scenario = (id: string, number: number, chapter: string, written = true) => ({
+  id, number, title: `Scenario ${id}`, outcome: '', sources: '', chapter, content: written ? {} : null,
+});
+
+const ADF_PACK = {
+  pack_id: 'adf', version: 1, title: 'Azure Data Factory', summary: '', docs_url: '', source_notes: '',
+  chapters: [], diagnostic_questions: [],
+  scenario_levels: [{
+    name: 'Level 1', about: '', scenarios: [
+      scenario('late-rows', 4, 'incremental'),
+      scenario('planned-one', 5, 'incremental', false),
+      scenario('other-chapter', 6, 'triggers'),
+    ],
+  }],
+};
+
+const item = (id: string, kind: string, ref: Record<string, string>, title: string, level = 'demonstrated') => ({
+  id, source: kind === 'lab_stage' ? 'learning_lab' : 'scenarios', kind, level, assessed_by: 'answer_key', title,
+  demonstrates: null, basis: 'Answered the check correctly', href: '/somewhere', at: '2026-10-01T10:00:00', ref,
+});
+
+const adfRoadmap = (subjectId: number | null) => ({
+  id: 6, title: 'ADF Master Roadmap', subject_id: subjectId, linked_pack_id: 'adf', linked_pack_version: 1,
+  phases: [{ id: 1, name: '5. Incremental loads', topics: [topic({ id: 7, title: 'Watermark Patterns', mapped_chapters: [WATERMARK_CHAPTER] })] }],
+});
+
+describe('a topic\'s curriculum links and evidence', () => {
+  beforeEach(() => {
+    api.getContentPack.mockResolvedValue(ADF_PACK);
+    api.getEvidence.mockResolvedValue({
+      items: [
+        item('a', 'scenario_check', { pack_id: 'adf', scenario_id: 'late-rows', check: '0' }, 'Late rows'),
+        item('b', 'scenario_check', { pack_id: 'adf', scenario_id: 'other-chapter', check: '0' }, 'Another chapter'),
+        item('c', 'lab_stage', { track: 'watermark', run: '1', stage: 'apply' }, 'Watermark run'),
+        item('d', 'lab_stage', { track: 'triggers', run: '1', stage: 'apply' }, 'Triggers run'),
+        item('e', 'scenario_check', { pack_id: 'adls', scenario_id: 'late-rows', check: '0' }, 'Other pack'),
+      ],
+    });
+  });
+
+  it('links the mapped chapter, the scenarios written for it, and the experiments for its topic number', async () => {
+    api.getRoadmap.mockResolvedValue(adfRoadmap(6));
+    renderAt('/roadmaps/6/topics/7');
+
+    expect(await screen.findByRole('link', { name: 'Ch 9 · Loading only new data' })).toHaveAttribute('href', '/learn/guides/adf/incremental');
+    expect(screen.getByText('Partial Coverage')).toBeInTheDocument();
+    // The pack is read at the version the preparation pins.
+    expect(api.getContentPack).toHaveBeenCalledWith('adf', 1);
+    expect(await screen.findByRole('link', { name: 'Scenario 4 · Scenario late-rows' })).toHaveAttribute('href', '/scenarios/adf/late-rows');
+    // A planned (unwritten) scenario and another chapter's scenario are not linked.
+    expect(screen.queryByText(/Scenario planned-one/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Scenario other-chapter/)).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Explore in lab' }).nextElementSibling).toHaveTextContent('Watermark & Transient Failure');
+    expect(screen.getAllByRole('link', { name: 'Watermark & Transient Failure' })[0]).toHaveAttribute('href', '/lab/adf/watermark');
+    expect(screen.queryByRole('link', { name: 'Trigger Behaviour' })).not.toBeInTheDocument();
+  });
+
+  it('shows only its own preparation\'s evidence from the linked work, read-only', async () => {
+    api.getRoadmap.mockResolvedValue(adfRoadmap(6));
+    renderAt('/roadmaps/6/topics/7');
+
+    const section = await screen.findByRole('region', { name: 'Evidence for this topic' });
+    expect(await within(section).findByText('Late rows')).toBeInTheDocument();
+    // Lab work is titled from the lab's own registry, as on the Evidence page.
+    expect(within(section).getByRole('link', { name: 'Watermark & Transient Failure' })).toBeInTheDocument();
+    expect(within(section).queryByText('Another chapter')).not.toBeInTheDocument();
+    expect(within(section).queryByText(/Trigger Behaviour/)).not.toBeInTheDocument();
+    expect(within(section).queryByText('Other pack')).not.toBeInTheDocument();
+    expect(api.getEvidence).toHaveBeenCalledWith(6);
+    expect(api.getEvidence).not.toHaveBeenCalledWith(null);
+    // Evidence never moves the topic: the status is still the one it had.
+    expect(api.updateRoadmapTopic).not.toHaveBeenCalled();
+    expect(screen.getByRole('heading', { level: 2, name: 'Not started' })).toBeInTheDocument();
+  });
+
+  it('reads no evidence for a roadmap linked to no preparation', async () => {
+    api.getRoadmap.mockResolvedValue(adfRoadmap(null));
+    renderAt('/roadmaps/6/topics/7');
+
+    const section = await screen.findByRole('region', { name: 'Evidence for this topic' });
+    expect(within(section).getByText(/not linked to a preparation/)).toBeInTheDocument();
+    expect(api.getEvidence).not.toHaveBeenCalled();
+  });
+
+  it('says evidence could not be read rather than showing none', async () => {
+    api.getRoadmap.mockResolvedValue(adfRoadmap(6));
+    api.getEvidence.mockRejectedValue(UNREACHABLE);
+    renderAt('/roadmaps/6/topics/7');
+    const section = await screen.findByRole('region', { name: 'Evidence for this topic' });
+    expect(await within(section).findByText(/could not be read/)).toBeInTheDocument();
+  });
+
+  it('links nothing for a topic with no mapped chapter -- never by its position', async () => {
+    api.getRoadmap.mockResolvedValue({ ...adfRoadmap(6), phases: [{ id: 1, name: 'P', topics: [topic({ id: 7, title: '32', mapped_chapters: [] })] }] });
+    renderAt('/roadmaps/6/topics/7');
+    expect(await screen.findByRole('button', { name: 'Study guide' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Evidence for this topic' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Watermark/ })).not.toBeInTheDocument();
+    expect(api.getEvidence).not.toHaveBeenCalled();
+  });
+});

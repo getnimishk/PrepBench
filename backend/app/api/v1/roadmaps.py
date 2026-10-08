@@ -4,7 +4,7 @@
 
 from datetime import date
 from typing import Annotated, List, Optional
-from fastapi import APIRouter, Depends, File, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -16,10 +16,13 @@ from app.schemas.roadmap import (
     RoadmapSchedule, RoadmapImportPreview, RoadmapImportConfirm, RoadmapImportResult,
     TopicDemonstrationCreate, TopicDemonstrationResponse, TopicDemonstrationResult,
     TopicGuideDraftResult, TopicGuideResponse, TopicGuideSectionResponse, TopicGuideSectionWrite,
+    CourseLessonRelabelApply, CourseLessonRelabelPreview, CourseLessonRelabelRequest, CourseLessonRelabelResult,
+    TopicTitleRepairPreview, TopicTitleRepairResult,
 )
 from app.services.roadmap_service import RoadmapService
 from app.services.roadmap_import_service import RoadmapImportService
 from app.services.topic_guide_service import TopicGuideService
+from app.services.topic_title_repair_service import TopicTitleRepairService
 
 router = APIRouter(prefix="/roadmaps", tags=["Learning Roadmaps"])
 
@@ -68,10 +71,17 @@ def list_roadmaps(
             "unassigned."
         ),
     ),
+    unassigned: bool = Query(
+        False,
+        description=(
+            "Return only the roadmaps that belong to no preparation. A screen with no "
+            "preparation chosen asks for these, never for every preparation's."
+        ),
+    ),
     db: Session = Depends(get_db),
 ):
     return RoadmapService(db).list_roadmaps(
-        include_archived=include_archived, subject_id=subject_id
+        include_archived=include_archived, subject_id=subject_id, unassigned=unassigned
     )
 
 
@@ -197,6 +207,40 @@ def record_demonstration(
 
 
 # ---------------------------------------------------------- study guide
+
+# ------------------------------------------------- learner-triggered repairs
+# Each is a preview that changes nothing, then an apply the learner confirms. The
+# apply recomputes the plan and refuses if it is not the one previewed.
+
+@router.post("/{roadmap_id}/title-repair/preview", response_model=TopicTitleRepairPreview)
+async def preview_title_repair(roadmap_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """Topics titled with a bare number, and the names the roadmap's workbook gives them."""
+    return TopicTitleRepairService(db).preview(roadmap_id, file.filename, await file.read())
+
+
+@router.post("/{roadmap_id}/title-repair/apply", response_model=TopicTitleRepairResult)
+async def apply_title_repair(
+    roadmap_id: int,
+    file: UploadFile = File(...),
+    topic_ids: str = Form(..., description="The previewed topic ids, comma separated."),
+    db: Session = Depends(get_db),
+):
+    """Rename exactly the previewed topics. Only titles change."""
+    ids = [int(part) for part in topic_ids.split(",") if part.strip().isdigit()]
+    return TopicTitleRepairService(db).apply(roadmap_id, file.filename, await file.read(), ids)
+
+
+@router.post("/{roadmap_id}/guide/course-lessons/preview", response_model=CourseLessonRelabelPreview)
+def preview_course_lessons(roadmap_id: int, req: CourseLessonRelabelRequest, db: Session = Depends(get_db)):
+    """Which "Written by you" sections are, word for word, the course lessons supplied."""
+    return TopicGuideService(db).preview_course_relabel(roadmap_id, req)
+
+
+@router.post("/{roadmap_id}/guide/course-lessons/apply", response_model=CourseLessonRelabelResult)
+def apply_course_lessons(roadmap_id: int, req: CourseLessonRelabelApply, db: Session = Depends(get_db)):
+    """Relabel the confirmed matches as course lessons. Only their source changes."""
+    return TopicGuideService(db).apply_course_relabel(roadmap_id, req)
+
 
 @router.get("/{roadmap_id}/topics/{topic_id}/guide", response_model=TopicGuideResponse)
 def get_topic_guide(roadmap_id: int, topic_id: int, db: Session = Depends(get_db)):

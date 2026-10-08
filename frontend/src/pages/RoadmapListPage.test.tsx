@@ -14,12 +14,18 @@ const mockGetRoadmaps = vi.fn();
 const mockCreateRoadmap = vi.fn();
 const mockDeleteRoadmap = vi.fn();
 const mockUpdateRoadmap = vi.fn();
+const mockPreparation = vi.fn();
+const mockRefresh = vi.fn();
 
 vi.mock('../services/api', () => ({
-  getRoadmaps: (...args: any[]) => mockGetRoadmaps(...args),
+  getScopedRoadmaps: (...args: any[]) => mockGetRoadmaps(...args),
   createRoadmap: (...args: any[]) => mockCreateRoadmap(...args),
   deleteRoadmap: (...args: any[]) => mockDeleteRoadmap(...args),
   updateRoadmap: (...args: any[]) => mockUpdateRoadmap(...args),
+}));
+
+vi.mock('../context/PreparationContext', () => ({
+  usePreparation: () => mockPreparation(),
 }));
 
 vi.mock('../components/roadmap/RoadmapImportModal', () => ({
@@ -76,7 +82,12 @@ function renderPage() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockRefresh.mockResolvedValue(undefined);
+  mockPreparation.mockReturnValue({ selected: null, refresh: mockRefresh });
 });
+
+const DATABRICKS = { id: 2, name: 'Databricks', kind: 'skill' };
+const PSM = { id: 1, name: 'PSM I', kind: 'certification' };
 
 describe('RoadmapListPage', () => {
   it('shows an empty state listing the supported formats', async () => {
@@ -181,5 +192,69 @@ describe('RoadmapListPage', () => {
     mockGetRoadmaps.mockResolvedValue([]);
     await user.click(screen.getByRole('button', { name: /retry/i }));
     await waitFor(() => expect(screen.getByText(/No roadmaps yet/i)).toBeInTheDocument());
+  });
+
+  it('with no preparation chosen, asks only for roadmaps that belong to none', async () => {
+    mockGetRoadmaps.mockResolvedValue([makeRoadmap({ subject_id: null })]);
+    renderPage();
+    await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
+    expect(mockGetRoadmaps).toHaveBeenCalledWith(null);
+    expect(screen.queryByRole('button', { name: /unlink/i })).not.toBeInTheDocument();
+  });
+
+  it('asks for the chosen preparation\'s roadmaps, and unlinks one only after confirming', async () => {
+    const user = userEvent.setup();
+    mockPreparation.mockReturnValue({ selected: DATABRICKS, refresh: mockRefresh });
+    mockGetRoadmaps.mockResolvedValue([makeRoadmap({ id: 3, title: 'Storage FileSystems', subject_id: 2 })]);
+    mockUpdateRoadmap.mockResolvedValue({});
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText('Storage FileSystems')).toBeInTheDocument());
+    expect(mockGetRoadmaps).toHaveBeenCalledWith(2);
+    await user.click(screen.getByRole('button', { name: /unlink storage filesystems/i }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/will no longer belong to Databricks/i)).toBeInTheDocument();
+    expect(mockUpdateRoadmap).not.toHaveBeenCalled();
+
+    await user.click(within(dialog).getByRole('button', { name: /^unlink$/i }));
+    await waitFor(() => expect(mockUpdateRoadmap).toHaveBeenCalledWith(3, { subject_id: null }));
+    // The preparation's roadmap capability is re-read from the server, never assumed.
+    await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
+  });
+
+  it('cancelling the unlink changes nothing', async () => {
+    const user = userEvent.setup();
+    mockPreparation.mockReturnValue({ selected: DATABRICKS, refresh: mockRefresh });
+    mockGetRoadmaps.mockResolvedValue([makeRoadmap({ id: 3, title: 'Storage FileSystems', subject_id: 2 })]);
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText('Storage FileSystems')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /unlink storage filesystems/i }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: /cancel/i }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(mockUpdateRoadmap).not.toHaveBeenCalled();
+  });
+
+  it('shows the latest preparation\'s roadmaps when an earlier answer arrives late', async () => {
+    let releaseFirst: (v: RoadmapSummary[]) => void = () => {};
+    mockGetRoadmaps
+      .mockImplementationOnce(() => new Promise((r) => { releaseFirst = r; }))
+      .mockResolvedValueOnce([makeRoadmap({ id: 9, title: 'PSM plan', subject_id: 1 })]);
+    mockPreparation.mockReturnValue({ selected: DATABRICKS, refresh: mockRefresh });
+    const view = renderPage();
+    mockPreparation.mockReturnValue({ selected: PSM, refresh: mockRefresh });
+    view.rerender(
+      <MemoryRouter initialEntries={['/roadmaps']}>
+        <Routes>
+          <Route path="/roadmaps" element={<RoadmapListPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByText('PSM plan')).toBeInTheDocument());
+    releaseFirst([makeRoadmap({ id: 3, title: 'Storage FileSystems', subject_id: 2 })]);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByText('Storage FileSystems')).not.toBeInTheDocument();
+    expect(screen.getByText('PSM plan')).toBeInTheDocument();
   });
 });

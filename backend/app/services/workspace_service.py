@@ -156,18 +156,22 @@ class WorkspaceService:
         ).all()
         by_topic: Dict[int, dict] = {}
         for section, topic, roadmap in sections:
-            entry = by_topic.setdefault(topic.id, {"topic": topic, "roadmap": roadmap, "mine": 0, "ai": 0,
-                                                   "at": None, "first": None})
-            entry["mine" if section.source != "ai" else "ai"] += 1
+            entry = by_topic.setdefault(topic.id, {"topic": topic, "roadmap": roadmap, "learner": 0, "course": 0,
+                                                   "ai": 0, "at": None, "first": None})
+            # Each provenance counted as itself: a course lesson is not the learner's
+            # writing, and an AI draft is neither (Phase 7, D2).
+            entry[section.source if section.source in ("learner", "course", "ai") else "learner"] += 1
             entry["at"] = latest(entry["at"], section.updated_at, section.edited_at, section.created_at)
             entry["first"] = entry["first"] or section.title
         for topic_id, e in by_topic.items():
             parts = []
-            if e["mine"]:
-                parts.append(f"{e['mine']} written by you")
+            if e["learner"]:
+                parts.append(f"{e['learner']} written by you")
+            if e["course"]:
+                parts.append(f"{e['course']} course lesson{'' if e['course'] == 1 else 's'}")
             if e["ai"]:
                 parts.append(f"{e['ai']} AI draft{'' if e['ai'] == 1 else 's'}")
-            total = e["mine"] + e["ai"]
+            total = e["learner"] + e["course"] + e["ai"]
             out.append(WorkspaceItem(
                 id=f"topic_guide:{topic_id}", kind="topic_guide", source="roadmap",
                 title=e["topic"].title, context=e["roadmap"].title,

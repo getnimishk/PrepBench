@@ -529,6 +529,26 @@
         "title": "BlockerResponse",
         "type": "object"
       },
+      "Body_apply_title_repair_api_v1_roadmaps__roadmap_id__title_repair_apply_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "topic_ids": {
+            "description": "The previewed topic ids, comma separated.",
+            "title": "Topic Ids",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "topic_ids"
+        ],
+        "title": "Body_apply_title_repair_api_v1_roadmaps__roadmap_id__title_repair_apply_post",
+        "type": "object"
+      },
       "Body_import_file_api_v1_imports_file_post": {
         "properties": {
           "file": {
@@ -587,6 +607,20 @@
           "default_round_type"
         ],
         "title": "Body_import_questions_api_v1_interview_questions_import_post",
+        "type": "object"
+      },
+      "Body_preview_title_repair_api_v1_roadmaps__roadmap_id__title_repair_preview_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_preview_title_repair_api_v1_roadmaps__roadmap_id__title_repair_preview_post",
         "type": "object"
       },
       "Body_repair_file_import_api_v1_imports_repair_post": {
@@ -1404,6 +1438,230 @@
           "version"
         ],
         "title": "ContentPackUpgradeRequest",
+        "type": "object"
+      },
+      "CourseLesson": {
+        "properties": {
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/CourseLessonSection"
+            },
+            "minItems": 1,
+            "title": "Sections",
+            "type": "array"
+          },
+          "topic_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic Title"
+          }
+        },
+        "required": [
+          "sections"
+        ],
+        "title": "CourseLesson",
+        "type": "object"
+      },
+      "CourseLessonMatch": {
+        "properties": {
+          "section_id": {
+            "title": "Section Id",
+            "type": "integer"
+          },
+          "section_title": {
+            "title": "Section Title",
+            "type": "string"
+          },
+          "topic_id": {
+            "title": "Topic Id",
+            "type": "integer"
+          },
+          "topic_title": {
+            "title": "Topic Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section_id",
+          "topic_id",
+          "topic_title",
+          "section_title"
+        ],
+        "title": "CourseLessonMatch",
+        "type": "object"
+      },
+      "CourseLessonRelabelApply": {
+        "description": "The preview's matches the learner confirmed. Each is checked again before it is relabelled.",
+        "properties": {
+          "lessons": {
+            "items": {
+              "$ref": "#/components/schemas/CourseLesson"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Lessons",
+            "type": "array"
+          },
+          "section_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 1,
+            "title": "Section Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "lessons",
+          "section_ids"
+        ],
+        "title": "CourseLessonRelabelApply",
+        "type": "object"
+      },
+      "CourseLessonRelabelPreview": {
+        "description": "Which \"Written by you\" sections are, word for word, a lesson the learner supplied.\n\nOnly an exact match on all six fields is proposed. Anything else stays as it is;\none section can still be marked a course lesson on its own from its guide page.",
+        "properties": {
+          "ai_drafts": {
+            "title": "Ai Drafts",
+            "type": "integer"
+          },
+          "already_course": {
+            "title": "Already Course",
+            "type": "integer"
+          },
+          "matched": {
+            "items": {
+              "$ref": "#/components/schemas/CourseLessonMatch"
+            },
+            "title": "Matched",
+            "type": "array"
+          },
+          "roadmap_id": {
+            "title": "Roadmap Id",
+            "type": "integer"
+          },
+          "unmatched_written_by_you": {
+            "title": "Unmatched Written By You",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "roadmap_id",
+          "matched",
+          "unmatched_written_by_you",
+          "already_course",
+          "ai_drafts"
+        ],
+        "title": "CourseLessonRelabelPreview",
+        "type": "object"
+      },
+      "CourseLessonRelabelRequest": {
+        "description": "Lesson files the learner chose, to find which of a roadmap's sections are those lessons.",
+        "properties": {
+          "lessons": {
+            "items": {
+              "$ref": "#/components/schemas/CourseLesson"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Lessons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "lessons"
+        ],
+        "title": "CourseLessonRelabelRequest",
+        "type": "object"
+      },
+      "CourseLessonRelabelResult": {
+        "properties": {
+          "relabelled": {
+            "items": {
+              "$ref": "#/components/schemas/CourseLessonMatch"
+            },
+            "title": "Relabelled",
+            "type": "array"
+          },
+          "roadmap_id": {
+            "title": "Roadmap Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "roadmap_id",
+          "relabelled"
+        ],
+        "title": "CourseLessonRelabelResult",
+        "type": "object"
+      },
+      "CourseLessonSection": {
+        "description": "One section of a course lesson file (docs/research/agentic-ai/lessons/*.guide.json).",
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "check_answer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Check Answer"
+          },
+          "check_question": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Check Question"
+          },
+          "common_mistake": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Common Mistake"
+          },
+          "example": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Example"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "body"
+        ],
+        "title": "CourseLessonSection",
         "type": "object"
       },
       "CoverageItem": {
@@ -8711,6 +8969,17 @@
             ],
             "title": "Linked Pack Title"
           },
+          "linked_pack_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked Pack Version"
+          },
           "phase_count": {
             "default": 0,
             "title": "Phase Count",
@@ -9877,6 +10146,17 @@
               }
             ],
             "title": "Linked Pack Title"
+          },
+          "linked_pack_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked Pack Version"
           },
           "phase_count": {
             "default": 0,
@@ -11440,6 +11720,11 @@
       "SubjectContentPackResponse": {
         "description": "A pack as attached to one subject: the pinned version, and what's newer.",
         "properties": {
+          "chapter_count": {
+            "default": 0,
+            "title": "Chapter Count",
+            "type": "integer"
+          },
           "latest_version": {
             "title": "Latest Version",
             "type": "integer"
@@ -11455,6 +11740,11 @@
           "title": {
             "title": "Title",
             "type": "string"
+          },
+          "written_scenario_count": {
+            "default": 0,
+            "title": "Written Scenario Count",
+            "type": "integer"
           }
         },
         "required": [
@@ -11868,6 +12158,11 @@
           },
           "readiness": {
             "$ref": "#/components/schemas/ReadinessResponse"
+          },
+          "roadmap_count": {
+            "default": 0,
+            "title": "Roadmap Count",
+            "type": "integer"
           },
           "slug": {
             "title": "Slug",
@@ -12695,6 +12990,11 @@
             "title": "Read At"
           },
           "source": {
+            "enum": [
+              "learner",
+              "ai",
+              "course"
+            ],
             "title": "Source",
             "type": "string"
           },
@@ -12781,6 +13081,21 @@
               }
             ],
             "title": "Example"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "learner",
+                  "course"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
           },
           "title": {
             "maxLength": 200,
@@ -12886,6 +13201,105 @@
           "items"
         ],
         "title": "TopicResults",
+        "type": "object"
+      },
+      "TopicTitleRepairChange": {
+        "properties": {
+          "new_title": {
+            "title": "New Title",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "old_title": {
+            "title": "Old Title",
+            "type": "string"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "topic_id": {
+            "title": "Topic Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "topic_id",
+          "phase",
+          "number",
+          "old_title",
+          "new_title"
+        ],
+        "title": "TopicTitleRepairChange",
+        "type": "object"
+      },
+      "TopicTitleRepairPreview": {
+        "description": "What a title repair from the roadmap's workbook would change, before anything does.\n\nOnly topics whose title is a bare topic number are repaired, each matched to the\nworkbook by phase and number. Any problem blocks the whole repair.",
+        "properties": {
+          "already_named": {
+            "title": "Already Named",
+            "type": "integer"
+          },
+          "can_apply": {
+            "title": "Can Apply",
+            "type": "boolean"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/TopicTitleRepairChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Problems",
+            "type": "array"
+          },
+          "roadmap_id": {
+            "title": "Roadmap Id",
+            "type": "integer"
+          },
+          "source_filename": {
+            "title": "Source Filename",
+            "type": "string"
+          }
+        },
+        "required": [
+          "roadmap_id",
+          "source_filename",
+          "changes",
+          "already_named",
+          "problems",
+          "can_apply"
+        ],
+        "title": "TopicTitleRepairPreview",
+        "type": "object"
+      },
+      "TopicTitleRepairResult": {
+        "properties": {
+          "repaired": {
+            "items": {
+              "$ref": "#/components/schemas/TopicTitleRepairChange"
+            },
+            "title": "Repaired",
+            "type": "array"
+          },
+          "roadmap_id": {
+            "title": "Roadmap Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "roadmap_id",
+          "repaired"
+        ],
+        "title": "TopicTitleRepairResult",
         "type": "object"
       },
       "VacuumOp": {
@@ -18465,6 +18879,18 @@
               "description": "Return only this preparation's roadmaps. Omit for all of them, which is the default so that no existing caller's results change. Roadmaps with no preparation are never folded into a filtered result -- they belong to none, and the list screen shows them as unassigned.",
               "title": "Subject Id"
             }
+          },
+          {
+            "description": "Return only the roadmaps that belong to no preparation. A screen with no preparation chosen asks for these, never for every preparation's.",
+            "in": "query",
+            "name": "unassigned",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Return only the roadmaps that belong to no preparation. A screen with no preparation chosen asks for these, never for every preparation's.",
+              "title": "Unassigned",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -18789,6 +19215,112 @@
           }
         },
         "summary": "Update Roadmap",
+        "tags": [
+          "Learning Roadmaps"
+        ]
+      }
+    },
+    "/api/v1/roadmaps/{roadmap_id}/guide/course-lessons/apply": {
+      "post": {
+        "description": "Relabel the confirmed matches as course lessons. Only their source changes.",
+        "operationId": "apply_course_lessons_api_v1_roadmaps__roadmap_id__guide_course_lessons_apply_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "roadmap_id",
+            "required": true,
+            "schema": {
+              "title": "Roadmap Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CourseLessonRelabelApply"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseLessonRelabelResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Apply Course Lessons",
+        "tags": [
+          "Learning Roadmaps"
+        ]
+      }
+    },
+    "/api/v1/roadmaps/{roadmap_id}/guide/course-lessons/preview": {
+      "post": {
+        "description": "Which \"Written by you\" sections are, word for word, the course lessons supplied.",
+        "operationId": "preview_course_lessons_api_v1_roadmaps__roadmap_id__guide_course_lessons_preview_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "roadmap_id",
+            "required": true,
+            "schema": {
+              "title": "Roadmap Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CourseLessonRelabelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseLessonRelabelPreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Course Lessons",
         "tags": [
           "Learning Roadmaps"
         ]
@@ -19148,6 +19680,112 @@
           }
         },
         "summary": "Get Roadmap Schedule",
+        "tags": [
+          "Learning Roadmaps"
+        ]
+      }
+    },
+    "/api/v1/roadmaps/{roadmap_id}/title-repair/apply": {
+      "post": {
+        "description": "Rename exactly the previewed topics. Only titles change.",
+        "operationId": "apply_title_repair_api_v1_roadmaps__roadmap_id__title_repair_apply_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "roadmap_id",
+            "required": true,
+            "schema": {
+              "title": "Roadmap Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_apply_title_repair_api_v1_roadmaps__roadmap_id__title_repair_apply_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopicTitleRepairResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Apply Title Repair",
+        "tags": [
+          "Learning Roadmaps"
+        ]
+      }
+    },
+    "/api/v1/roadmaps/{roadmap_id}/title-repair/preview": {
+      "post": {
+        "description": "Topics titled with a bare number, and the names the roadmap's workbook gives them.",
+        "operationId": "preview_title_repair_api_v1_roadmaps__roadmap_id__title_repair_preview_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "roadmap_id",
+            "required": true,
+            "schema": {
+              "title": "Roadmap Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_preview_title_repair_api_v1_roadmaps__roadmap_id__title_repair_preview_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TopicTitleRepairPreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Title Repair",
         "tags": [
           "Learning Roadmaps"
         ]
