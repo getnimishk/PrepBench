@@ -51,3 +51,8 @@ class SubjectContentPackResponse(BaseModel):
     pack_version: int
     latest_version: int
     title: str
+    # What the pinned version holds, so a preparation's capabilities can be read from
+    # what is really attached: a guide when it has chapters, scenarios only when some
+    # are written (a pack can have chapters and no scenarios, as ADLS does).
+    chapter_count: int = 0
+    written_scenario_count: int = 0

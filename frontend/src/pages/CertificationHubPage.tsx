@@ -215,8 +215,6 @@ export const CertificationHubPage: React.FC = () => {
   };
 
   // Authoritative data truth
-  const isPsm = targetSubject.id === 1;
-  const isKafka = targetSubject.id === 4;
   const hasQuestions = targetCapabilities.questionAvailability && targetSubject.question_count > 0;
   const questionCount = targetSubject.question_count ?? targetCapabilities.questionCount ?? 0;
   // The exam profile as the preparation states it. A missing figure is said to

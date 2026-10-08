@@ -13,6 +13,7 @@ import { ErrorState, LoadingState } from '../common/States';
 import { CouplingLedger } from '../lakehouse/CouplingLedger';
 import { LoopSteps } from '../lakehouse/LoopSteps';
 import { IntegrationNotice, SimulationNotice } from './AdfLabGate';
+import { useLinkedTopics } from '../../hooks/useLinkedTopics';
 import { apiErrorMessage } from '../../services/apiError';
 import {
   answerStage, commitPrediction, fetchAdfLabAttempts, latestRun, openPredict, openStage, recordObservation, runAttempts,
@@ -97,6 +98,9 @@ export const ExperimentRunner = <C,>({ prep, def, experiment, modeSwitch, titleS
     () => Object.fromEntries(def.predict.options.map((o) => [o.id, o.text])) as Record<string, string>,
     [def],
   );
+
+  // The topics of this preparation's own ADF roadmap that the experiment's topic numbers map to.
+  const linkedTopics = useLinkedTopics(prep.id, 'adf', { topicNumbers: experiment.topics.map((t) => t.number) });
 
   // ---- what the model needs -------------------------------------------------------------------
   const [context, setContext] = useState<{ value: C } | null>(null);
@@ -248,7 +252,21 @@ export const ExperimentRunner = <C,>({ prep, def, experiment, modeSwitch, titleS
               <RouterLink to={`/learn/guides/adf/${ch.id}`}>{ch.title}</RouterLink>
             </React.Fragment>
           ))}
-          . Roadmap topics: {experiment.topics.map((t) => `${t.number} ${t.title}`).join('; ')}.
+          .{' '}
+          {linkedTopics.length > 0 ? (
+            <>
+              Your roadmap topics:{' '}
+              {linkedTopics.map((t, i) => (
+                <React.Fragment key={t.topicId}>
+                  {i > 0 && ' · '}
+                  <RouterLink to={`/roadmaps/${t.roadmapId}/topics/${t.topicId}`}>{t.title}</RouterLink>
+                </React.Fragment>
+              ))}
+              .
+            </>
+          ) : (
+            <>Roadmap topics: {experiment.topics.map((t) => `${t.number} ${t.title}`).join('; ')}.</>
+          )}
         </Detail>
         {stage === 0 && (
           <Actions sx={{ mt: '12px' }}>

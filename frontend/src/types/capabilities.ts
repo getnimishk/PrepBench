@@ -30,6 +30,12 @@ export interface SubjectCapabilityProfile {
   /** Direct alias for learningLab */
   lab: boolean;
   /**
+   * The Lakehouse Lab (/databricks-sandbox). Its attempts belong to the seeded
+   * `databricks` skill (skills plan D11), so it is that preparation's, read from the
+   * record's slug -- never from its id.
+   */
+  lakehouseLab: boolean;
+  /**
    * Current production availability status for Learning Lab:
    * - 'AVAILABLE': Fully implemented and active in current production (e.g. Databricks Lakehouse Lab)
    * - 'INTEGRATION_PENDING': Target capability in architecture, but production experiments scheduled for future integration phase (e.g. ADF Behaviour Labs scheduled for Phase 5)

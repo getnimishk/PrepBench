@@ -109,6 +109,8 @@ export interface RoadmapSummary {
   progress: RoadmapProgress;
   linked_pack_id?: string | null;
   linked_pack_title?: string | null;
+  /** The pinned version its chapters and scenarios come from. */
+  linked_pack_version?: number | null;
 }
 
 export interface RoadmapDetail extends RoadmapSummary {
@@ -302,9 +304,10 @@ export interface TopicGuideSection {
   common_mistake?: string | null;
   check_question?: string | null;
   check_answer?: string | null;
-  /** Who originally wrote it. An AI draft stays "ai" after you edit it --
-   *  `edited_at` records the edit -- so its origin is never hidden. */
-  source: 'ai' | 'learner';
+  /** Who originally wrote it: the learner, an AI draft, or course material. An AI
+   *  draft or a course lesson keeps its source after you edit it -- `edited_at`
+   *  records the edit -- so its origin is never hidden (Phase 7, D2). */
+  source: 'ai' | 'learner' | 'course';
   generated_by?: string | null;
   edited_at?: string | null;
   /** Reading is recorded, but it is not evidence: a topic is completed only by
@@ -329,6 +332,10 @@ export interface TopicGuideSectionWrite {
   common_mistake?: string | null;
   check_question?: string | null;
   check_answer?: string | null;
+  /** Omitted: a new section is yours and an edit keeps its source. "course" marks
+   *  course material -- the learner confirming that one section is a course lesson.
+   *  Never "ai": only a provider's draft is an AI draft. */
+  source?: 'learner' | 'course' | null;
 }
 
 /** "drafted" saved sections; "unavailable" and "failed" saved nothing. */
@@ -336,4 +343,66 @@ export interface TopicGuideDraftResult {
   status: 'drafted' | 'unavailable' | 'failed';
   message: string;
   guide: TopicGuide;
+}
+
+// ---- learner-triggered curriculum repairs (Phase 7, D1 / D2) ----
+
+/** One topic a title repair would rename: matched by its phase and the number that is its title now. */
+export interface TopicTitleRepairChange {
+  topic_id: number;
+  phase: string;
+  number: string;
+  old_title: string;
+  new_title: string;
+}
+
+/** What a repair from the roadmap's workbook would change. Any problem blocks it. */
+export interface TopicTitleRepairPreview {
+  roadmap_id: number;
+  source_filename: string;
+  changes: TopicTitleRepairChange[];
+  already_named: number;
+  problems: string[];
+  can_apply: boolean;
+}
+
+export interface TopicTitleRepairResult {
+  roadmap_id: number;
+  repaired: TopicTitleRepairChange[];
+}
+
+/** One section of a course lesson file, the six fields a guide section is made of. */
+export interface CourseLessonSection {
+  title: string;
+  body: string;
+  example?: string | null;
+  common_mistake?: string | null;
+  check_question?: string | null;
+  check_answer?: string | null;
+}
+
+export interface CourseLesson {
+  topic_title?: string | null;
+  sections: CourseLessonSection[];
+}
+
+export interface CourseLessonMatch {
+  section_id: number;
+  topic_id: number;
+  topic_title: string;
+  section_title: string;
+}
+
+/** "Written by you" sections that are, word for word, a lesson supplied. Nothing changes until confirmed. */
+export interface CourseLessonRelabelPreview {
+  roadmap_id: number;
+  matched: CourseLessonMatch[];
+  unmatched_written_by_you: number;
+  already_course: number;
+  ai_drafts: number;
+}
+
+export interface CourseLessonRelabelResult {
+  roadmap_id: number;
+  relabelled: CourseLessonMatch[];
 }

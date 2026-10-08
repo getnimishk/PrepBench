@@ -5,8 +5,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { Alert, Box, Button, Link, TextField, Typography } from '@mui/material';
-import { getRoadmap, getTopicDemonstrations, updateRoadmapTopic } from '../services/api';
+import { getContentPack, getEvidence, getRoadmap, getTopicDemonstrations, updateRoadmapTopic } from '../services/api';
 import { apiErrorMessage, loadFailed } from '../services/apiError';
+import { evidenceForTopic, topicLinks } from '../services/curriculumLinks';
+import { ASSESSED_BY_LABEL, LEVEL, shortDate as evidenceDate, titleOf } from '../services/portfolio';
+import type { ContentPackDetail } from '../types/contentPack';
+import type { EvidenceItem } from '../types/portfolio';
 import type {
   RoadmapDetail, RoadmapTopic, RoadmapTopicStatus, TopicDemonstration,
 } from '../types/roadmap';
@@ -56,6 +60,10 @@ export const RoadmapTopicPage: React.FC = () => {
   const [savingNotes, setSavingNotes] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
   const [busyStatus, setBusyStatus] = useState(false);
+  // The roadmap's linked pack at the version its preparation pins, for the topic's scenarios.
+  const [pack, setPack] = useState<ContentPackDetail | null>(null);
+  // The roadmap's own preparation's Evidence; null until read, 'failed' when it could not be.
+  const [evidence, setEvidence] = useState<EvidenceItem[] | null | 'failed'>(null);
 
   const load = useCallback(async () => {
     try {
@@ -80,6 +88,36 @@ export const RoadmapTopicPage: React.FC = () => {
   const index = ordered.findIndex((x) => x.topic.id === tid);
   const current = index >= 0 ? ordered[index] : null;
   const topic: RoadmapTopic | null = current?.topic ?? null;
+
+  const packId = roadmap?.linked_pack_id ?? null;
+  const packVersion = roadmap?.linked_pack_version ?? undefined;
+  useEffect(() => {
+    let live = true;
+    setPack(null);
+    if (packId) {
+      getContentPack(packId, packVersion).then((p) => { if (live) setPack(p); }).catch(() => { if (live) setPack(null); });
+    }
+    return () => { live = false; };
+  }, [packId, packVersion]);
+
+  // Evidence is read for the roadmap's own preparation only -- never another's, and none
+  // for a roadmap linked to no preparation. Read-only: it never changes the topic's status.
+  const links = useMemo(() => topicLinks(topic?.mapped_chapters, pack), [topic?.mapped_chapters, pack]);
+  const ownerId = roadmap ? (roadmap.subject_id ?? null) : undefined;
+  const linkedPack = links.packId;
+  useEffect(() => {
+    let live = true;
+    setEvidence(null);
+    if (ownerId != null && linkedPack) {
+      getEvidence(ownerId).then((r) => { if (live) setEvidence(r.items); }).catch(() => { if (live) setEvidence('failed'); });
+    }
+    return () => { live = false; };
+  }, [ownerId, linkedPack]);
+
+  const topicEvidence = useMemo(
+    () => (Array.isArray(evidence) ? evidenceForTopic(evidence, links) : []),
+    [evidence, links],
+  );
 
   useEffect(() => {
     if (topic) setNotes(topic.evidence_notes ?? '');
@@ -243,23 +281,47 @@ export const RoadmapTopicPage: React.FC = () => {
               </Sub>
             </Section>
 
-            {topic.mapped_chapters && topic.mapped_chapters.length > 0 ? (
-              <Box sx={{ mt: '16px', pt: '14px', borderTop: '1px solid', borderColor: 'divider' }}>
-                <Eyebrow>Study Guide</Eyebrow>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', mt: '4px' }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    Ch {topic.mapped_chapters[0].chapter_number} · {topic.mapped_chapters[0].chapter_title}
-                    {topic.mapped_chapters.length > 1 && ` (+${topic.mapped_chapters.length - 1} more)`}
-                  </Typography>
-                  <Pill tone="success">{topic.mapped_chapters[0].coverage || 'Full'} Coverage</Pill>
+            {links.chapters.length > 0 ? (
+              <Box component="section" aria-labelledby="topic-curriculum" sx={{ mt: '16px', pt: '14px', borderTop: '1px solid', borderColor: 'divider' }}>
+                <Eyebrow component="h3" id="topic-curriculum">Study guide{links.chapters.length > 1 ? ' chapters' : ''}</Eyebrow>
+                <Box component="ul" sx={{ listStyle: 'none', p: 0, m: '4px 0 0' }}>
+                  {links.chapters.map((c) => (
+                    <Box component="li" key={c.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', py: '4px' }}>
+                      <Link component={RouterLink} to={`/learn/guides/${links.packId}/${c.id}`} sx={{ fontWeight: 600 }}>
+                        Ch {c.number} · {c.title}
+                      </Link>
+                      {c.coverage && <Pill tone={c.coverage.toLowerCase() === 'full' ? 'success' : 'warning'}>{c.coverage} Coverage</Pill>}
+                    </Box>
+                  ))}
                 </Box>
+                {links.scenarios.length > 0 && (
+                  <>
+                    <Eyebrow component="h3" sx={{ mt: '12px' }}>Practise</Eyebrow>
+                    <Box component="ul" sx={{ listStyle: 'none', p: 0, m: '4px 0 0' }}>
+                      {links.scenarios.map((sc) => (
+                        <Box component="li" key={sc.id} sx={{ py: '4px' }}>
+                          <Link component={RouterLink} to={`/scenarios/${links.packId}/${sc.id}`}>
+                            Scenario {sc.number} · {sc.title}
+                          </Link>
+                        </Box>
+                      ))}
+                    </Box>
+                  </>
+                )}
+                {links.experiments.length > 0 && (
+                  <>
+                    <Eyebrow component="h3" sx={{ mt: '12px' }}>Explore in lab</Eyebrow>
+                    <Box component="ul" sx={{ listStyle: 'none', p: 0, m: '4px 0 0' }}>
+                      {links.experiments.map((e) => (
+                        <Box component="li" key={e.slug} sx={{ py: '4px' }}>
+                          <Link component={RouterLink} to={e.href}>{e.title}</Link>
+                        </Box>
+                      ))}
+                    </Box>
+                  </>
+                )}
                 <Actions sx={{ mt: '12px' }}>
-                  <Button
-                    variant="contained"
-                    color="ink"
-                    component={RouterLink}
-                    to={`/learn/guides/${topic.mapped_chapters[0].pack_id}/${topic.mapped_chapters[0].chapter_id}`}
-                  >
+                  <Button variant="contained" color="ink" component={RouterLink} to={`/learn/guides/${links.packId}/${links.chapters[0].id}`}>
                     Read Study Guide
                   </Button>
                   <Button variant="outlined" onClick={() => navigate(`/roadmaps/${rid}/topics/${topic.id}/guide`)}>
@@ -397,6 +459,44 @@ export const RoadmapTopicPage: React.FC = () => {
           )}
         </Panel>
       </Section>
+
+      {links.packId && (
+        <Section>
+          <Panel component="section" aria-labelledby="topic-evidence">
+            <Eyebrow component="h2" id="topic-evidence">Evidence for this topic</Eyebrow>
+            <Sub sx={{ mt: '6px', mb: '6px' }}>
+              Your work in the scenarios and lab experiments linked above, as the Evidence page records it. It does not
+              change this topic&apos;s status — only a demonstration completes a topic.
+            </Sub>
+            {roadmap.subject_id == null ? (
+              <Detail>This roadmap is not linked to a preparation, so no scenario or lab work belongs to it.</Detail>
+            ) : evidence === 'failed' ? (
+              <Alert severity="warning">Evidence could not be read. Nothing is shown rather than a guess.</Alert>
+            ) : evidence === null ? (
+              <Detail>Reading your evidence…</Detail>
+            ) : topicEvidence.length === 0 ? (
+              <Detail>
+                {links.scenarios.length + links.experiments.length === 0
+                  ? 'No scenario or lab experiment is linked to this topic yet.'
+                  : 'Nothing yet — work through a linked scenario or experiment and it will appear here.'}
+              </Detail>
+            ) : (
+              topicEvidence.map((item) => {
+                const title = titleOf(item);
+                const when = evidenceDate(item.at);
+                return (
+                  <Row
+                    key={item.id}
+                    title={<Link component={RouterLink} to={item.href}>{title}{item.demonstrates ? ` · ${item.demonstrates}` : ''}</Link>}
+                    detail={[item.basis, ASSESSED_BY_LABEL[item.assessed_by], when].filter(Boolean).join(' · ')}
+                    middle={<Pill tone={LEVEL[item.level].tone}>{LEVEL[item.level].label}</Pill>}
+                  />
+                );
+              })
+            )}
+          </Panel>
+        </Section>
+      )}
 
       <Section>
         <Panel component="section" aria-labelledby="topic-siblings">

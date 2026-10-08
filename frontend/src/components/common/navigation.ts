@@ -99,6 +99,10 @@ const NAV_BY_KEY = Object.fromEntries(
  * Evaluates whether a navigation item is supported given the active subject
  * and its capability profile. Unsupported items render in a disabled state
  * with an explanatory tooltip rather than silently disappearing or navigating.
+ *
+ * Curriculum entries are decided by capability, not subject id (Phase 7, WP 7.10):
+ * a learner-created preparation with the same content gets the same entries as a
+ * seeded one. Agile Metrics keeps its original, Scrum-specific scope.
  */
 export function isNavKeySupported(
   key: NavKey,
@@ -111,9 +115,15 @@ export function isNavKeySupported(
     case 'settings':
       return true;
     case 'roadmaps':
-      return Boolean(capabilities.roadmap);
+      // Always reachable: the Roadmaps screen is where a preparation's roadmap is
+      // created, imported or linked. `capabilities.roadmap` says whether one is
+      // linked now, and governs what is claimed elsewhere -- not whether the screen opens.
+      return true;
     case 'learn':
-      return Boolean(capabilities.studyGuide || capabilities.roadmap);
+      // The Study Library holds a preparation's guides, its roadmap's progress, its
+      // scenarios and -- for a certification -- its practice. Open when any of them
+      // applies; `roadmap` is the live link now (Phase 7), so it is not the only door.
+      return Boolean(capabilities.studyGuide || capabilities.roadmap || capabilities.scenarios || capabilities.certification);
     case 'practice':
     case 'review':
     case 'exam':
@@ -124,7 +134,7 @@ export function isNavKeySupported(
       return Boolean(capabilities.interview);
     case 'system-design':
     case 'design-reviews':
-      return subject?.id === 3 || Boolean(capabilities.interview);
+      return Boolean(capabilities.interview);
     case 'evidence':
     case 'insights':
       return Boolean(capabilities.evidence);
@@ -133,14 +143,15 @@ export function isNavKeySupported(
     case 'preparations':
       return Boolean(capabilities.workspace);
     case 'lab':
-      // Genuinely AVAILABLE in current production (Databricks Lakehouse Lab; ADF Behaviour Lab pending Phase 5)
       return capabilities.learningLabStatus === 'AVAILABLE';
     case 'agile-sandbox':
+      // Unchanged by Phase 7: Agile Metrics is for Scrum (PSM I), or a preparation
+      // whose Learning Lab is available.
       return subject?.id === 1 || capabilities.learningLabStatus === 'AVAILABLE';
     case 'scenarios':
       return Boolean(capabilities.scenarios);
     case 'databricks-sandbox':
-      return subject?.id === 2;
+      return Boolean(capabilities.lakehouseLab);
     default:
       return true;
   }

@@ -23,17 +23,22 @@ rewrite any of them. Three rules keep that honest:
 Its own service rather than more of RoadmapService: that one owns progress and
 the schedule, and this is content.
 """
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import ResourceNotFoundException
+from app.core.exceptions import InvalidExamStateException, ResourceNotFoundException
 from app.core.logging_config import logger
 from app.core.timeutils import utc_now_naive
 from app.llm.gateway import LLMGateway
 from app.llm.types import LLMTask
-from app.models.roadmap import RoadmapTopic, TopicGuideSection
+from app.models.roadmap import Roadmap, RoadmapTopic, TopicGuideSection
 from app.schemas.roadmap import (
+    CourseLessonMatch,
+    CourseLessonRelabelApply,
+    CourseLessonRelabelPreview,
+    CourseLessonRelabelRequest,
+    CourseLessonRelabelResult,
     TopicGuideDraftResult,
     TopicGuideResponse,
     TopicGuideSectionResponse,
@@ -44,6 +49,10 @@ from app.schemas.roadmap import (
 # this many; the parser accepts fewer and refuses more than it can use.
 TARGET_SECTIONS = 4
 MAX_SECTIONS = 8
+
+# The six fields a section's content is made of. A course lesson matches a section
+# only when every one of them is identical.
+CONTENT_FIELDS = ("title", "body", "example", "common_mistake", "check_question", "check_answer")
 
 
 class TopicGuideService:
@@ -201,11 +210,13 @@ Respond with JSON only, in exactly this shape:
 
     def add_section(self, roadmap_id: int, topic_id: int, req: TopicGuideSectionWrite) -> TopicGuideSectionResponse:
         self._require_topic(roadmap_id, topic_id)
+        content = req.model_dump(exclude={"source"})
         section = TopicGuideSection(
             topic_id=topic_id,
             order_index=self._next_order(topic_id),
-            source="learner",
-            **req.model_dump(),
+            # The learner's own unless it is course material loaded as such.
+            source=req.source or "learner",
+            **content,
         )
         self.db.add(section)
         self.db.commit()
@@ -217,14 +228,29 @@ Respond with JSON only, in exactly this shape:
     ) -> TopicGuideSectionResponse:
         """Edit a section.
 
-        An AI draft keeps source "ai" and gains `edited_at`, so the page can say
-        "drafted by AI, edited by you" -- which is the true history. Rewriting it
-        does not launder the origin away.
+        An AI draft keeps source "ai" and a course lesson keeps "course", and either
+        gains `edited_at` when its content changes, so the page can say "drafted by
+        AI, edited by you" or "course lesson, edited by you" -- the true history.
+        Rewriting it does not launder the origin away.
+
+        `source` changes only when the learner says so, and only between their own
+        writing and a course lesson: confirming one section at a time is how a
+        section that matches no lesson file word for word becomes a course lesson.
+        An AI draft cannot be relabelled, and nothing becomes an AI draft here.
         """
         section = self._require_section(roadmap_id, topic_id, section_id)
-        for field, value in req.model_dump().items():
+        content = req.model_dump(exclude={"source"})
+        changed = any(getattr(section, field) != value for field, value in content.items())
+        if req.source is not None and req.source != section.source:
+            if section.source == "ai":
+                raise InvalidExamStateException(
+                    "An AI draft stays an AI draft: it can be edited, not relabelled."
+                )
+            section.source = req.source
+        for field, value in content.items():
             setattr(section, field, value)
-        section.edited_at = utc_now_naive()
+        if changed:
+            section.edited_at = utc_now_naive()
         self.db.commit()
         self.db.refresh(section)
         return TopicGuideSectionResponse.model_validate(section)
@@ -241,6 +267,78 @@ Respond with JSON only, in exactly this shape:
         self.db.commit()
         self.db.refresh(section)
         return TopicGuideSectionResponse.model_validate(section)
+
+    # ---- course lessons ----------------------------------------------------
+
+    def preview_course_relabel(self, roadmap_id: int, req: CourseLessonRelabelRequest) -> CourseLessonRelabelPreview:
+        """Which of this roadmap's "Written by you" sections are, field for field, a lesson.
+
+        Nothing is changed. A section is proposed only when all six content fields
+        equal a section of a lesson file the learner supplied; a near match (edited
+        after it was loaded, say) is not proposed and stays as it is.
+        """
+        rows = self._roadmap_sections(roadmap_id)
+        lessons = self._lesson_keys(req)
+        mine = [(section, topic) for section, topic in rows if section.source == "learner"]
+        return CourseLessonRelabelPreview(
+            roadmap_id=roadmap_id,
+            matched=[self._match(section, topic) for section, topic in mine if self._key(section) in lessons],
+            unmatched_written_by_you=sum(1 for section, _ in mine if self._key(section) not in lessons),
+            already_course=sum(1 for section, _ in rows if section.source == "course"),
+            ai_drafts=sum(1 for section, _ in rows if section.source == "ai"),
+        )
+
+    def apply_course_relabel(self, roadmap_id: int, req: CourseLessonRelabelApply) -> CourseLessonRelabelResult:
+        """Relabel the confirmed sections as course lessons -- each one checked again.
+
+        Every requested section must still be one of this roadmap's "Written by you"
+        sections and still match a lesson exactly; otherwise nothing is changed. Only
+        `source` is written: the content, `edited_at` and `read_at` are left alone.
+        """
+        rows = {section.id: (section, topic) for section, topic in self._roadmap_sections(roadmap_id)}
+        lessons = self._lesson_keys(req)
+        wanted = list(dict.fromkeys(req.section_ids))
+        refused = [
+            sid for sid in wanted
+            if sid not in rows or rows[sid][0].source != "learner" or self._key(rows[sid][0]) not in lessons
+        ]
+        if refused:
+            raise InvalidExamStateException(
+                f"{len(refused)} of the confirmed sections no longer match a lesson exactly, or are not "
+                "'Written by you' sections of this roadmap. Nothing was changed; preview again."
+            )
+        relabelled = []
+        for sid in wanted:
+            section, topic = rows[sid]
+            section.source = "course"
+            relabelled.append(self._match(section, topic))
+        self.db.commit()
+        return CourseLessonRelabelResult(roadmap_id=roadmap_id, relabelled=relabelled)
+
+    def _roadmap_sections(self, roadmap_id: int) -> List[Tuple[TopicGuideSection, RoadmapTopic]]:
+        if self.db.query(Roadmap.id).filter(Roadmap.id == roadmap_id).first() is None:
+            raise ResourceNotFoundException("Roadmap", roadmap_id)
+        return (
+            self.db.query(TopicGuideSection, RoadmapTopic)
+            .join(RoadmapTopic, TopicGuideSection.topic_id == RoadmapTopic.id)
+            .filter(RoadmapTopic.roadmap_id == roadmap_id)
+            .order_by(RoadmapTopic.id, TopicGuideSection.order_index, TopicGuideSection.id)
+            .all()
+        )
+
+    @staticmethod
+    def _key(section) -> Tuple[Optional[str], ...]:
+        return tuple(getattr(section, field) for field in CONTENT_FIELDS)
+
+    @classmethod
+    def _lesson_keys(cls, req: CourseLessonRelabelRequest) -> set:
+        return {cls._key(section) for lesson in req.lessons for section in lesson.sections}
+
+    @staticmethod
+    def _match(section: TopicGuideSection, topic: RoadmapTopic) -> CourseLessonMatch:
+        return CourseLessonMatch(
+            section_id=section.id, topic_id=topic.id, topic_title=topic.title, section_title=section.title,
+        )
 
     # ---- helpers ---------------------------------------------------------
 

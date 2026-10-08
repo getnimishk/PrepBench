@@ -2,13 +2,13 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, TextField, Tooltip, Typography,
 } from '@mui/material';
-import { Archive, Link2, Trash2 } from 'lucide-react';
-import { getRoadmaps, createRoadmap, deleteRoadmap, updateRoadmap } from '../services/api';
+import { Archive, Link2, Trash2, Unlink } from 'lucide-react';
+import { getScopedRoadmaps, createRoadmap, deleteRoadmap, updateRoadmap } from '../services/api';
 import { RoadmapSummary } from '../types/roadmap';
 import { RoadmapImportModal } from '../components/roadmap/RoadmapImportModal';
 import { formatPercentage } from '../components/roadmap/progressDisplay';
@@ -37,12 +37,13 @@ const hours = (h: number) => (Number.isInteger(h) ? `${h}h` : `${h.toFixed(1)}h`
  *
  * Unlinked roadmaps are shown rather than hidden because the learner imported
  * them, and losing them from view would be worse than saying plainly that they
- * are not linked yet. Outside a PreparationProvider nothing is selected, so
- * everything is shown.
+ * are not linked yet. With no preparation chosen, only the unassigned ones are
+ * asked for and shown -- never every preparation's (Phase 7, WP 7.6).
  */
 export const RoadmapListPage: React.FC = () => {
   const navigate = useNavigate();
-  const { selected: preparation } = usePreparation();
+  const { selected: preparation, refresh: refreshPreparations } = usePreparation();
+  const preparationId = preparation?.id ?? null;
   const [roadmaps, setRoadmaps] = useState<RoadmapSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -53,22 +54,30 @@ export const RoadmapListPage: React.FC = () => {
   const [newTitle, setNewTitle] = useState('');
   const [creating, setCreating] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<RoadmapSummary | null>(null);
+  // A change of which preparation owns a roadmap, shown before it is made (Phase 7, D3).
+  const [linkChange, setLinkChange] = useState<{ roadmap: RoadmapSummary; to: 'link' | 'unlink' } | null>(null);
+  const seq = useRef(0);
 
-  const fetchRoadmaps = () => {
+  // Only this preparation's roadmaps and the unassigned ones are asked for -- with
+  // none chosen, only the unassigned ones. Another preparation's never reach the
+  // page. A late answer for a preparation no longer chosen is dropped.
+  const fetchRoadmaps = useCallback(() => {
+    const mine = ++seq.current;
     setLoading(true);
     setFetchError(null);
-    getRoadmaps()
-      .then(setRoadmaps)
+    getScopedRoadmaps(preparationId)
+      .then((list) => { if (mine === seq.current) setRoadmaps(list); })
       .catch((err) => {
+        if (mine !== seq.current) return;
         console.error(err);
         setFetchError(loadFailed('Could not load your roadmaps', err));
       })
-      .finally(() => setLoading(false));
-  };
+      .finally(() => { if (mine === seq.current) setLoading(false); });
+  }, [preparationId]);
 
   useEffect(() => {
     fetchRoadmaps();
-  }, []);
+  }, [fetchRoadmaps]);
 
   const handleCreate = async () => {
     if (!newTitle.trim()) return;
@@ -111,24 +120,32 @@ export const RoadmapListPage: React.FC = () => {
     try {
       await updateRoadmap(roadmap.id, { is_archived: true });
       fetchRoadmaps();
+      await refreshPreparations();
     } catch (err) {
       setActionError(apiErrorMessage(err, 'Failed to archive roadmap.'));
     }
   };
 
-  const handleLink = async (roadmap: RoadmapSummary) => {
-    if (!preparation) return;
+  /** Link or unlink, after the learner has seen what changes. Only the roadmap's
+   *  owner changes: its topics, progress, notes, demonstrations and guides stay. */
+  const confirmLinkChange = async () => {
+    if (!linkChange) return;
+    const { roadmap, to } = linkChange;
+    if (to === 'link' && !preparation) return;
     setActionError(null);
     try {
-      await updateRoadmap(roadmap.id, { subject_id: preparation.id });
+      await updateRoadmap(roadmap.id, { subject_id: to === 'link' ? preparation!.id : null });
+      setLinkChange(null);
       fetchRoadmaps();
+      // The preparation's roadmap claim (its capabilities) follows the link.
+      await refreshPreparations();
     } catch (err) {
-      setActionError(apiErrorMessage(err, `Failed to link ${roadmap.title}.`));
+      setActionError(apiErrorMessage(err, `Failed to ${to} ${roadmap.title}.`));
     }
   };
 
-  const mine = preparation ? roadmaps.filter((r) => r.subject_id === preparation.id) : roadmaps;
-  const unlinked = preparation ? roadmaps.filter((r) => r.subject_id == null) : [];
+  const mine = preparation ? roadmaps.filter((r) => r.subject_id === preparation.id) : [];
+  const unlinked = roadmaps.filter((r) => r.subject_id == null);
   const visible = [...mine, ...unlinked];
   const active = chooseRoadmap(roadmaps, preparation?.id ?? null);
 
@@ -185,8 +202,15 @@ export const RoadmapListPage: React.FC = () => {
           <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
             {isUnlinked && preparation && (
               <Tooltip title={`Link to ${preparation.name}`}>
-                <IconButton size="small" onClick={() => handleLink(roadmap)} aria-label={`Link ${roadmap.title} to ${preparation.name}`}>
+                <IconButton size="small" onClick={() => setLinkChange({ roadmap, to: 'link' })} aria-label={`Link ${roadmap.title} to ${preparation.name}`}>
                   <Link2 size={16} />
+                </IconButton>
+              </Tooltip>
+            )}
+            {!isUnlinked && preparation && (
+              <Tooltip title={`Unlink from ${preparation.name}`}>
+                <IconButton size="small" onClick={() => setLinkChange({ roadmap, to: 'unlink' })} aria-label={`Unlink ${roadmap.title} from ${preparation.name}`}>
+                  <Unlink size={16} />
                 </IconButton>
               </Tooltip>
             )}
@@ -257,6 +281,15 @@ export const RoadmapListPage: React.FC = () => {
         )}
       />
 
+      {!preparation && (
+        <Section>
+          <Note>
+            No preparation is chosen, so only roadmaps that belong to no preparation are listed. Choose one in the
+            header to see its roadmaps.
+          </Note>
+        </Section>
+      )}
+
       {visible.length === 0 ? (
         <Section>
           <Note>
@@ -280,7 +313,9 @@ export const RoadmapListPage: React.FC = () => {
             <Section component="section" aria-labelledby="unlinked-heading">
               <Eyebrow component="h2" id="unlinked-heading">Not linked to a preparation</Eyebrow>
               <Detail sx={{ mb: '12px' }}>
-                These belong to no preparation yet. Link one to {preparation?.name} to track it there.
+                {preparation
+                  ? `These belong to no preparation yet. Link one to ${preparation.name} to track it there.`
+                  : 'These belong to no preparation yet. Choose a preparation to link one to it.'}
               </Detail>
               <Grid columns={2}>{unlinked.map((r) => card(r, true))}</Grid>
             </Section>
@@ -356,6 +391,28 @@ export const RoadmapListPage: React.FC = () => {
           <Button variant="outlined" onClick={() => setCreateOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleCreate} disabled={!newTitle.trim() || creating}>
             {creating ? 'Creating…' : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!linkChange} onClose={() => setLinkChange(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>
+          {linkChange?.to === 'unlink' ? 'Unlink this roadmap?' : 'Link this roadmap?'}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1">
+            {linkChange?.to === 'unlink'
+              ? <><strong>{linkChange?.roadmap.title}</strong> will no longer belong to {preparation?.name}. It moves to “Not linked to a preparation”, where it can be linked to another one.</>
+              : <><strong>{linkChange?.roadmap.title}</strong> will belong to {preparation?.name}, and count as its roadmap.</>}
+          </Typography>
+          <Detail sx={{ mt: '10px' }}>
+            Only its owner changes. Its topics, progress, notes, demonstrations and guides are kept as they are.
+          </Detail>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" onClick={() => setLinkChange(null)}>Cancel</Button>
+          <Button variant="contained" onClick={confirmLinkChange}>
+            {linkChange?.to === 'unlink' ? 'Unlink' : 'Link'}
           </Button>
         </DialogActions>
       </Dialog>

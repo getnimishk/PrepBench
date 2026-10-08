@@ -33,10 +33,11 @@ const mockApi = {
   getContentPack: vi.fn(),
   getReferenceSheets: vi.fn(),
   getQuestions: vi.fn(),
+  getEvidence: vi.fn(),
 };
 
 vi.mock('../services/api', () => ({
-  getRoadmaps: (...a: any[]) => mockApi.getRoadmaps(...a),
+  getScopedRoadmaps: (...a: any[]) => mockApi.getRoadmaps(...a),
   getRoadmap: (...a: any[]) => mockApi.getRoadmap(...a),
   getRoadmapSchedule: (...a: any[]) => mockApi.getRoadmapSchedule(...a),
   updateRoadmapTopic: (...a: any[]) => mockApi.updateRoadmapTopic(...a),
@@ -49,6 +50,7 @@ vi.mock('../services/api', () => ({
   getContentPack: (...a: any[]) => mockApi.getContentPack(...a),
   getReferenceSheets: (...a: any[]) => mockApi.getReferenceSheets(...a),
   getQuestions: (...a: any[]) => mockApi.getQuestions(...a),
+  getEvidence: (...a: any[]) => mockApi.getEvidence(...a),
   createRoadmap: vi.fn(),
   deleteRoadmap: vi.fn(),
 }));
@@ -186,6 +188,7 @@ beforeEach(() => {
   currentPreparation = mockPreparationSubject;
   mockApi.getRoadmaps.mockResolvedValue([mockSummary]);
   mockApi.getRoadmap.mockResolvedValue(mockRoadmapDetail);
+  mockApi.getEvidence.mockResolvedValue({ items: [] });
   mockApi.getRoadmapSchedule.mockResolvedValue(mockSchedule);
   mockApi.getTopicDemonstrations.mockResolvedValue([]);
   mockApi.getTopicGuide.mockResolvedValue({

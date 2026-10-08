@@ -11,8 +11,10 @@ import {
   isCapabilityAvailable,
   isTargetCapability,
   KNOWN_PRODUCTION_SUBJECTS,
+  LAKEHOUSE_SLUG,
   UNASSIGNED_CAPABILITIES,
 } from './capabilities';
+import { SKILL_SLUG } from './lakehouse/attempts';
 import type { Subject } from '../types/subject';
 
 describe('Subject Capabilities Foundation (Phase 1)', () => {
@@ -356,5 +358,52 @@ describe('Capabilities read from the preparation itself', () => {
 
   it('still knows nothing about a bare id it does not describe', () => {
     expect(getSubjectCapabilities(42)).toBe(UNASSIGNED_CAPABILITIES);
+  });
+});
+
+describe('Curriculum capabilities follow the live record (Phase 7)', () => {
+  const pack = (pack_id: string, chapter_count: number, written_scenario_count: number) =>
+    ({ pack_id, pack_version: 1, latest_version: 1, title: pack_id, chapter_count, written_scenario_count });
+  const seeded = (id: number, over: Partial<Subject> = {}): Subject => {
+    const known = KNOWN_PRODUCTION_SUBJECTS.find((s) => s.id === id)!;
+    return {
+      id, name: known.name, slug: known.slug, kind: known.kind, is_archived: false, display_order: id,
+      has_exam_profile: false, question_count: getSubjectCapabilities(id).questionCount, content_packs: [],
+      readiness: { state: 'needs_evaluation', mock_count: 0, recent_scores: [] } as unknown as Subject['readiness'],
+      ...over,
+    } as Subject;
+  };
+
+  it('claims a roadmap only while one is linked: PSM I and System Design lose it when theirs is unlinked (D3)', () => {
+    expect(getSubjectCapabilities(seeded(1, { roadmap_count: 1 })).roadmap).toBe(true);
+    expect(getSubjectCapabilities(seeded(1, { roadmap_count: 0 })).roadmap).toBe(false);
+    expect(getSubjectCapabilities(seeded(3, { roadmap_count: 0 })).roadmap).toBe(false);
+    // ...and Databricks gains one when the lakehouse roadmap is linked to it.
+    expect(getSubjectCapabilities(seeded(2, { roadmap_count: 1 })).roadmap).toBe(true);
+  });
+
+  it('claims a study guide from attached packs, and scenarios only from written ones (D5)', () => {
+    const adls = getSubjectCapabilities(seeded(2, { content_packs: [pack('adls', 11, 0)] as Subject['content_packs'] }));
+    expect(adls.studyGuide).toBe(true);
+    expect(adls.scenarios).toBe(false);
+    const none = getSubjectCapabilities(seeded(2, { content_packs: [] }));
+    expect(none.studyGuide).toBe(false);
+    const adf = getSubjectCapabilities(seeded(6, { content_packs: [pack('adf', 21, 18)] as Subject['content_packs'] }));
+    expect(adf.studyGuide && adf.scenarios).toBe(true);
+  });
+
+  it('leaves a fact the record does not state to the table, never guessing it', () => {
+    // An older payload without the counts: the table stands.
+    const caps = getSubjectCapabilities(seeded(6, { content_packs: [{ pack_id: 'adf', pack_version: 1 }] as unknown as Subject['content_packs'] }));
+    expect(caps.studyGuide).toBe(getSubjectCapabilities(6).studyGuide);
+  });
+
+  it('gives the Lakehouse Lab to the Databricks preparation by its slug, the one the lab keeps its work under', () => {
+    expect(LAKEHOUSE_SLUG).toBe(SKILL_SLUG);
+    expect(getSubjectCapabilities(seeded(2)).lakehouseLab).toBe(true);
+    expect(getSubjectCapabilities(seeded(6)).lakehouseLab).toBe(false);
+    const learnerSkill = { ...seeded(2), id: 77, slug: 'my-spark-skill' };
+    expect(getSubjectCapabilities(learnerSkill).lakehouseLab).toBe(false);
+    expect(UNASSIGNED_CAPABILITIES.lakehouseLab).toBe(false);
   });
 });

@@ -1975,6 +1975,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/roadmaps/{roadmap_id}/guide/course-lessons/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Course Lessons
+         * @description Relabel the confirmed matches as course lessons. Only their source changes.
+         */
+        post: operations["apply_course_lessons_api_v1_roadmaps__roadmap_id__guide_course_lessons_apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/roadmaps/{roadmap_id}/guide/course-lessons/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Course Lessons
+         * @description Which "Written by you" sections are, word for word, the course lessons supplied.
+         */
+        post: operations["preview_course_lessons_api_v1_roadmaps__roadmap_id__guide_course_lessons_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/roadmaps/{roadmap_id}/phases": {
         parameters: {
             query?: never;
@@ -2064,6 +2104,46 @@ export interface paths {
         get: operations["get_roadmap_schedule_api_v1_roadmaps__roadmap_id__schedule_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/roadmaps/{roadmap_id}/title-repair/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Title Repair
+         * @description Rename exactly the previewed topics. Only titles change.
+         */
+        post: operations["apply_title_repair_api_v1_roadmaps__roadmap_id__title_repair_apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/roadmaps/{roadmap_id}/title-repair/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Title Repair
+         * @description Topics titled with a bare number, and the names the roadmap's workbook gives them.
+         */
+        post: operations["preview_title_repair_api_v1_roadmaps__roadmap_id__title_repair_preview_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3114,6 +3194,16 @@ export interface components {
             /** Value */
             value?: number | null;
         };
+        /** Body_apply_title_repair_api_v1_roadmaps__roadmap_id__title_repair_apply_post */
+        Body_apply_title_repair_api_v1_roadmaps__roadmap_id__title_repair_apply_post: {
+            /** File */
+            file: string;
+            /**
+             * Topic Ids
+             * @description The previewed topic ids, comma separated.
+             */
+            topic_ids: string;
+        };
         /** Body_import_file_api_v1_imports_file_post */
         Body_import_file_api_v1_imports_file_post: {
             /** File */
@@ -3128,6 +3218,11 @@ export interface components {
             file?: string | null;
             /** Text */
             text?: string | null;
+        };
+        /** Body_preview_title_repair_api_v1_roadmaps__roadmap_id__title_repair_preview_post */
+        Body_preview_title_repair_api_v1_roadmaps__roadmap_id__title_repair_preview_post: {
+            /** File */
+            file: string;
         };
         /** Body_repair_file_import_api_v1_imports_repair_post */
         Body_repair_file_import_api_v1_imports_repair_post: {
@@ -3444,6 +3539,86 @@ export interface components {
         ContentPackUpgradeRequest: {
             /** Version */
             version: number;
+        };
+        /** CourseLesson */
+        CourseLesson: {
+            /** Sections */
+            sections: components["schemas"]["CourseLessonSection"][];
+            /** Topic Title */
+            topic_title?: string | null;
+        };
+        /** CourseLessonMatch */
+        CourseLessonMatch: {
+            /** Section Id */
+            section_id: number;
+            /** Section Title */
+            section_title: string;
+            /** Topic Id */
+            topic_id: number;
+            /** Topic Title */
+            topic_title: string;
+        };
+        /**
+         * CourseLessonRelabelApply
+         * @description The preview's matches the learner confirmed. Each is checked again before it is relabelled.
+         */
+        CourseLessonRelabelApply: {
+            /** Lessons */
+            lessons: components["schemas"]["CourseLesson"][];
+            /** Section Ids */
+            section_ids: number[];
+        };
+        /**
+         * CourseLessonRelabelPreview
+         * @description Which "Written by you" sections are, word for word, a lesson the learner supplied.
+         *
+         *     Only an exact match on all six fields is proposed. Anything else stays as it is;
+         *     one section can still be marked a course lesson on its own from its guide page.
+         */
+        CourseLessonRelabelPreview: {
+            /** Ai Drafts */
+            ai_drafts: number;
+            /** Already Course */
+            already_course: number;
+            /** Matched */
+            matched: components["schemas"]["CourseLessonMatch"][];
+            /** Roadmap Id */
+            roadmap_id: number;
+            /** Unmatched Written By You */
+            unmatched_written_by_you: number;
+        };
+        /**
+         * CourseLessonRelabelRequest
+         * @description Lesson files the learner chose, to find which of a roadmap's sections are those lessons.
+         */
+        CourseLessonRelabelRequest: {
+            /** Lessons */
+            lessons: components["schemas"]["CourseLesson"][];
+        };
+        /** CourseLessonRelabelResult */
+        CourseLessonRelabelResult: {
+            /** Relabelled */
+            relabelled: components["schemas"]["CourseLessonMatch"][];
+            /** Roadmap Id */
+            roadmap_id: number;
+        };
+        /**
+         * CourseLessonSection
+         * @description One section of a course lesson file (docs/research/agentic-ai/lessons/*.guide.json).
+         */
+        CourseLessonSection: {
+            /** Body */
+            body: string;
+            /** Check Answer */
+            check_answer?: string | null;
+            /** Check Question */
+            check_question?: string | null;
+            /** Common Mistake */
+            common_mistake?: string | null;
+            /** Example */
+            example?: string | null;
+            /** Title */
+            title: string;
         };
         /** CoverageItem */
         CoverageItem: {
@@ -6071,6 +6246,8 @@ export interface components {
             linked_pack_id?: string | null;
             /** Linked Pack Title */
             linked_pack_title?: string | null;
+            /** Linked Pack Version */
+            linked_pack_version?: number | null;
             /**
              * Phase Count
              * @default 0
@@ -6483,6 +6660,8 @@ export interface components {
             linked_pack_id?: string | null;
             /** Linked Pack Title */
             linked_pack_title?: string | null;
+            /** Linked Pack Version */
+            linked_pack_version?: number | null;
             /**
              * Phase Count
              * @default 0
@@ -7024,6 +7203,11 @@ export interface components {
          * @description A pack as attached to one subject: the pinned version, and what's newer.
          */
         SubjectContentPackResponse: {
+            /**
+             * Chapter Count
+             * @default 0
+             */
+            chapter_count: number;
             /** Latest Version */
             latest_version: number;
             /** Pack Id */
@@ -7032,6 +7216,11 @@ export interface components {
             pack_version: number;
             /** Title */
             title: string;
+            /**
+             * Written Scenario Count
+             * @default 0
+             */
+            written_scenario_count: number;
         };
         /** SubjectCounts */
         SubjectCounts: {
@@ -7182,6 +7371,11 @@ export interface components {
              */
             question_count: number;
             readiness: components["schemas"]["ReadinessResponse"];
+            /**
+             * Roadmap Count
+             * @default 0
+             */
+            roadmap_count: number;
             /** Slug */
             slug: string;
             /** Target Exam Date */
@@ -7514,8 +7708,11 @@ export interface components {
             order_index: number;
             /** Read At */
             read_at?: string | null;
-            /** Source */
-            source: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "learner" | "ai" | "course";
             /** Title */
             title: string;
             /** Topic Id */
@@ -7541,6 +7738,8 @@ export interface components {
             common_mistake?: string | null;
             /** Example */
             example?: string | null;
+            /** Source */
+            source?: ("learner" | "course") | null;
             /** Title */
             title: string;
         };
@@ -7578,6 +7777,47 @@ export interface components {
             items: components["schemas"]["TopicHit"][];
             /** Total */
             total: number;
+        };
+        /** TopicTitleRepairChange */
+        TopicTitleRepairChange: {
+            /** New Title */
+            new_title: string;
+            /** Number */
+            number: string;
+            /** Old Title */
+            old_title: string;
+            /** Phase */
+            phase: string;
+            /** Topic Id */
+            topic_id: number;
+        };
+        /**
+         * TopicTitleRepairPreview
+         * @description What a title repair from the roadmap's workbook would change, before anything does.
+         *
+         *     Only topics whose title is a bare topic number are repaired, each matched to the
+         *     workbook by phase and number. Any problem blocks the whole repair.
+         */
+        TopicTitleRepairPreview: {
+            /** Already Named */
+            already_named: number;
+            /** Can Apply */
+            can_apply: boolean;
+            /** Changes */
+            changes: components["schemas"]["TopicTitleRepairChange"][];
+            /** Problems */
+            problems: string[];
+            /** Roadmap Id */
+            roadmap_id: number;
+            /** Source Filename */
+            source_filename: string;
+        };
+        /** TopicTitleRepairResult */
+        TopicTitleRepairResult: {
+            /** Repaired */
+            repaired: components["schemas"]["TopicTitleRepairChange"][];
+            /** Roadmap Id */
+            roadmap_id: number;
         };
         /** VacuumOp */
         VacuumOp: {
@@ -11113,6 +11353,8 @@ export interface operations {
                 include_archived?: boolean;
                 /** @description Return only this preparation's roadmaps. Omit for all of them, which is the default so that no existing caller's results change. Roadmaps with no preparation are never folded into a filtered result -- they belong to none, and the list screen shows them as unassigned. */
                 subject_id?: number | null;
+                /** @description Return only the roadmaps that belong to no preparation. A screen with no preparation chosen asks for these, never for every preparation's. */
+                unassigned?: boolean;
             };
             header?: never;
             path?: never;
@@ -11366,6 +11608,76 @@ export interface operations {
             };
         };
     };
+    apply_course_lessons_api_v1_roadmaps__roadmap_id__guide_course_lessons_apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roadmap_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseLessonRelabelApply"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseLessonRelabelResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_course_lessons_api_v1_roadmaps__roadmap_id__guide_course_lessons_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roadmap_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseLessonRelabelRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseLessonRelabelPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     add_phase_api_v1_roadmaps__roadmap_id__phases_post: {
         parameters: {
             query?: never;
@@ -11561,6 +11873,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RoadmapSchedule"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_title_repair_api_v1_roadmaps__roadmap_id__title_repair_apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roadmap_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_apply_title_repair_api_v1_roadmaps__roadmap_id__title_repair_apply_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopicTitleRepairResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_title_repair_api_v1_roadmaps__roadmap_id__title_repair_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roadmap_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_preview_title_repair_api_v1_roadmaps__roadmap_id__title_repair_preview_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopicTitleRepairPreview"];
                 };
             };
             /** @description Validation Error */

@@ -251,6 +251,8 @@ class RoadmapSummaryResponse(BaseModel):
     progress: RoadmapProgress
     linked_pack_id: Optional[str] = None
     linked_pack_title: Optional[str] = None
+    # The version the preparation pins: the one its chapters and scenarios are read from.
+    linked_pack_version: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -431,6 +433,15 @@ class TopicDemonstrationResult(BaseModel):
 
 # ----------------------------------------------------------- study guide
 
+# Who wrote a section, as the page tells it:
+#   learner  written by the learner ("Written by you")
+#   ai       drafted by an AI provider ("AI draft"; edited_at once the learner edits it)
+#   course   course material loaded into the guide ("Course lesson"; edited_at once edited)
+# A section never changes provenance on its own: editing a course lesson or an AI draft
+# keeps its source and records edited_at.
+GuideSectionSource = Literal["learner", "ai", "course"]
+
+
 class TopicGuideSectionResponse(BaseModel):
     id: int
     topic_id: int
@@ -441,7 +452,7 @@ class TopicGuideSectionResponse(BaseModel):
     common_mistake: Optional[str] = None
     check_question: Optional[str] = None
     check_answer: Optional[str] = None
-    source: str
+    source: GuideSectionSource
     generated_by: Optional[str] = None
     edited_at: Optional[datetime] = None
     read_at: Optional[datetime] = None
@@ -460,6 +471,95 @@ class TopicGuideSectionWrite(BaseModel):
     common_mistake: Optional[str] = Field(default=None, max_length=20000)
     check_question: Optional[str] = Field(default=None, max_length=4000)
     check_answer: Optional[str] = Field(default=None, max_length=20000)
+    # Omitted: a new section is the learner's own, and an edit keeps its source.
+    # "course" marks course material: when it is loaded, or when the learner
+    # confirms that one existing section is a course lesson. "ai" is never written
+    # here -- only a draft produced by a provider is an AI draft.
+    source: Optional[Literal["learner", "course"]] = None
+
+
+class CourseLessonSection(BaseModel):
+    """One section of a course lesson file (docs/research/agentic-ai/lessons/*.guide.json)."""
+
+    title: str
+    body: str
+    example: Optional[str] = None
+    common_mistake: Optional[str] = None
+    check_question: Optional[str] = None
+    check_answer: Optional[str] = None
+
+
+class CourseLesson(BaseModel):
+    topic_title: Optional[str] = None
+    sections: List[CourseLessonSection] = Field(min_length=1)
+
+
+class CourseLessonRelabelRequest(BaseModel):
+    """Lesson files the learner chose, to find which of a roadmap's sections are those lessons."""
+
+    lessons: List[CourseLesson] = Field(min_length=1, max_length=500)
+
+
+class CourseLessonRelabelApply(CourseLessonRelabelRequest):
+    """The preview's matches the learner confirmed. Each is checked again before it is relabelled."""
+
+    section_ids: List[int] = Field(min_length=1)
+
+
+class CourseLessonMatch(BaseModel):
+    section_id: int
+    topic_id: int
+    topic_title: str
+    section_title: str
+
+
+class CourseLessonRelabelPreview(BaseModel):
+    """Which "Written by you" sections are, word for word, a lesson the learner supplied.
+
+    Only an exact match on all six fields is proposed. Anything else stays as it is;
+    one section can still be marked a course lesson on its own from its guide page.
+    """
+
+    roadmap_id: int
+    matched: List[CourseLessonMatch]
+    unmatched_written_by_you: int
+    already_course: int
+    ai_drafts: int
+
+
+class CourseLessonRelabelResult(BaseModel):
+    roadmap_id: int
+    relabelled: List[CourseLessonMatch]
+
+
+# ------------------------------------------------------- title repair (D1)
+
+class TopicTitleRepairChange(BaseModel):
+    topic_id: int
+    phase: str
+    number: str
+    old_title: str
+    new_title: str
+
+
+class TopicTitleRepairPreview(BaseModel):
+    """What a title repair from the roadmap's workbook would change, before anything does.
+
+    Only topics whose title is a bare topic number are repaired, each matched to the
+    workbook by phase and number. Any problem blocks the whole repair.
+    """
+
+    roadmap_id: int
+    source_filename: str
+    changes: List[TopicTitleRepairChange]
+    already_named: int
+    problems: List[str]
+    can_apply: bool
+
+
+class TopicTitleRepairResult(BaseModel):
+    roadmap_id: int
+    repaired: List[TopicTitleRepairChange]
 
 
 class TopicGuideResponse(BaseModel):

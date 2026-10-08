@@ -5,9 +5,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Box, Button, Typography } from '@mui/material';
-import { getContentPack, getDomainDetail, getReferenceSheets, getRoadmap, getRoadmaps } from '../services/api';
+import { getContentPack, getDomainDetail, getReferenceSheets, getRoadmap, getScopedRoadmaps } from '../services/api';
 import { apiErrorMessage } from '../services/apiError';
 import { usePreparation } from '../context/PreparationContext';
+import { getSubjectCapabilities } from '../services/capabilities';
 import type { DomainDetail } from '../types/analytics';
 import type { ContentPackDetail } from '../types/contentPack';
 import type {
@@ -327,7 +328,7 @@ const RelevantGuideSection: React.FC<{
               >
                 <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
                   <Box sx={{ flex: 1, minWidth: 260 }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                    <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 700 }}>
                       Chapter {ch.chapter_number} · {ch.chapter_title}
                     </Typography>
                     {ch.chapter_summary && (
@@ -448,14 +449,62 @@ const ReferenceSheetsSection: React.FC<{ preparation: Subject | null }> = ({ pre
 
 // ---- 5. Practice ---------------------------------------------------------
 
+const PracticeCard: React.FC<{ to: string; eyebrow: string; title: string; detail: string }> = ({
+  to, eyebrow, title, detail,
+}) => (
+  <Box
+    component={RouterLink}
+    to={to}
+    sx={{
+      display: 'block', textDecoration: 'none', color: 'text.primary', minWidth: 0,
+      bgcolor: 'surfaceContainerHigh.main', border: '1px solid', borderColor: 'divider', borderRadius: '13px', p: '18px',
+      '&:hover': { borderColor: 'primary.main' },
+    }}
+  >
+    <Eyebrow>{eyebrow}</Eyebrow>
+    <Typography variant="h6" component="h3" sx={{ mt: '4px', fontSize: (t) => t.typography.pxToRem(15) }}>
+      {title}
+    </Typography>
+    <Detail sx={{ mt: '6px' }}>{detail}</Detail>
+  </Box>
+);
+
+/**
+ * What this preparation can really practise (Phase 7, WP 7.5). Exam practice -- drill,
+ * spaced review, question bank, mock -- only for a certification whose bank has
+ * questions; a skill gets its scenarios and its lab when it has them. Nothing is
+ * offered because a route exists: ADF, Databricks and Agentic AI are never offered a
+ * mock, and a certification with an empty bank (Kafka) is told why it has none.
+ */
 const PracticeSection: React.FC<{
   preparation: Subject | null;
   weakestArea?: string | null;
 }> = ({ preparation, weakestArea }) => {
   if (!preparation) return null;
-  const drillHref = weakestArea
-    ? `/exam-setup?kind=drill&subject=${preparation.id}&domain=${encodeURIComponent(weakestArea)}`
-    : `/exam-setup?kind=drill&subject=${preparation.id}`;
+  const caps = getSubjectCapabilities(preparation);
+  const exam = caps.certification && caps.questionAvailability;
+  const cards: { to: string; eyebrow: string; title: string; detail: string }[] = [];
+  if (exam) {
+    cards.push({
+      to: weakestArea
+        ? `/exam-setup?kind=drill&subject=${preparation.id}&domain=${encodeURIComponent(weakestArea)}`
+        : `/exam-setup?kind=drill&subject=${preparation.id}`,
+      eyebrow: 'Targeted Drill',
+      title: weakestArea ? `Drill ${weakestArea}` : 'Weak area drill',
+      detail: 'Focus on questions in your lowest-scoring area',
+    });
+    cards.push({ to: '/practice/spaced', eyebrow: 'Memory Retrieval', title: 'Spaced Review', detail: 'Review questions scheduled for memory retention' });
+    cards.push({ to: '/question-bank', eyebrow: 'Question Bank', title: 'Browse by Topic', detail: 'Filter questions by curriculum topics and keywords' });
+    cards.push({ to: `/exam-setup?kind=mock&subject=${preparation.id}`, eyebrow: 'Full Simulation', title: 'Mock Exam', detail: 'Simulate full exam conditions and update readiness' });
+  }
+  if (caps.scenarios) {
+    cards.push({ to: '/scenarios', eyebrow: 'Scenarios', title: 'Work a scenario', detail: 'Answer its checks and write your case notes' });
+  }
+  if (caps.lakehouseLab) {
+    cards.push({ to: '/databricks-sandbox', eyebrow: 'Learning Lab', title: 'Lakehouse Lab', detail: 'Predict, run and explain against the Delta engine' });
+  } else if (caps.learningLabStatus === 'AVAILABLE') {
+    cards.push({ to: '/lab', eyebrow: 'Learning Lab', title: 'Run an experiment', detail: 'Predict, change a lever, observe and explain' });
+  }
 
   return (
     <Section>
@@ -464,72 +513,23 @@ const PracticeSection: React.FC<{
           eyebrow="Practice"
           title="Practise what you are learning"
           titleId="study-practice-title"
-          aside={<Button variant="outlined" component={RouterLink} to="/practice">All practice formats</Button>}
+          aside={exam ? <Button variant="outlined" component={RouterLink} to="/practice">All practice formats</Button> : undefined}
         >
-          <Detail>Test recall and understanding against exam questions and spaced reviews.</Detail>
+          <Detail>
+            {exam
+              ? 'Test recall and understanding against exam questions and spaced reviews.'
+              : caps.certification
+                ? `${preparation.name} has no questions loaded yet, so there is no drill or mock to take. Import a question bank to open them.`
+                : `What ${preparation.name} can practise: what it really has, nothing else.`}
+          </Detail>
         </PanelHead>
-        <Grid columns={4} sx={{ mt: '14px' }}>
-          <Box
-            component={RouterLink}
-            to={drillHref}
-            sx={{
-              display: 'block', textDecoration: 'none', color: 'text.primary', minWidth: 0,
-              bgcolor: 'surfaceContainerHigh.main', border: '1px solid', borderColor: 'divider', borderRadius: '13px', p: '18px',
-              '&:hover': { borderColor: 'primary.main' },
-            }}
-          >
-            <Eyebrow>Targeted Drill</Eyebrow>
-            <Typography variant="h6" component="h3" sx={{ mt: '4px', fontSize: (t) => t.typography.pxToRem(15) }}>
-              {weakestArea ? `Drill ${weakestArea}` : 'Weak area drill'}
-            </Typography>
-            <Detail sx={{ mt: '6px' }}>Focus on questions in your lowest-scoring area</Detail>
-          </Box>
-          <Box
-            component={RouterLink}
-            to="/practice/spaced"
-            sx={{
-              display: 'block', textDecoration: 'none', color: 'text.primary', minWidth: 0,
-              bgcolor: 'surfaceContainerHigh.main', border: '1px solid', borderColor: 'divider', borderRadius: '13px', p: '18px',
-              '&:hover': { borderColor: 'primary.main' },
-            }}
-          >
-            <Eyebrow>Memory Retrieval</Eyebrow>
-            <Typography variant="h6" component="h3" sx={{ mt: '4px', fontSize: (t) => t.typography.pxToRem(15) }}>
-              Spaced Review
-            </Typography>
-            <Detail sx={{ mt: '6px' }}>Review questions scheduled for memory retention</Detail>
-          </Box>
-          <Box
-            component={RouterLink}
-            to="/question-bank"
-            sx={{
-              display: 'block', textDecoration: 'none', color: 'text.primary', minWidth: 0,
-              bgcolor: 'surfaceContainerHigh.main', border: '1px solid', borderColor: 'divider', borderRadius: '13px', p: '18px',
-              '&:hover': { borderColor: 'primary.main' },
-            }}
-          >
-            <Eyebrow>Question Bank</Eyebrow>
-            <Typography variant="h6" component="h3" sx={{ mt: '4px', fontSize: (t) => t.typography.pxToRem(15) }}>
-              Browse by Topic
-            </Typography>
-            <Detail sx={{ mt: '6px' }}>Filter questions by curriculum topics and keywords</Detail>
-          </Box>
-          <Box
-            component={RouterLink}
-            to={`/exam-setup?kind=mock&subject=${preparation.id}`}
-            sx={{
-              display: 'block', textDecoration: 'none', color: 'text.primary', minWidth: 0,
-              bgcolor: 'surfaceContainerHigh.main', border: '1px solid', borderColor: 'divider', borderRadius: '13px', p: '18px',
-              '&:hover': { borderColor: 'primary.main' },
-            }}
-          >
-            <Eyebrow>Full Simulation</Eyebrow>
-            <Typography variant="h6" component="h3" sx={{ mt: '4px', fontSize: (t) => t.typography.pxToRem(15) }}>
-              Mock Exam
-            </Typography>
-            <Detail sx={{ mt: '6px' }}>Simulate full exam conditions and update readiness</Detail>
-          </Box>
-        </Grid>
+        {cards.length > 0 ? (
+          <Grid columns={4} sx={{ mt: '14px' }}>
+            {cards.map((c) => <PracticeCard key={c.to} {...c} />)}
+          </Grid>
+        ) : !caps.certification ? (
+          <Detail sx={{ mt: '10px' }}>Nothing to practise here yet: this preparation has no scenarios or lab.</Detail>
+        ) : null}
       </Panel>
     </Section>
   );
@@ -708,7 +708,7 @@ export const StudyLibraryPage: React.FC = () => {
     setRoadmapError(null);
     (async () => {
       try {
-        const pick = chooseRoadmap(await getRoadmaps(), subjectId);
+        const pick = chooseRoadmap(await getScopedRoadmaps(subjectId), subjectId);
         const full = pick ? await getRoadmap(pick.roadmap.id) : null;
         if (cancelled) return;
         setChosen(pick);

@@ -65,6 +65,10 @@ def _to_response(link: SubjectContentPack) -> SubjectContentPackResponse:
         pack_version=link.pack_version,
         latest_version=latest_pack.version if latest_pack else link.pack_version,
         title=(pack or latest_pack).title if (pack or latest_pack) else link.pack_id,
+        chapter_count=len(pack.chapters) if pack else 0,
+        written_scenario_count=(
+            sum(1 for level in pack.scenario_levels for s in level.scenarios if s.content) if pack else 0
+        ),
     )
 
 
@@ -219,53 +223,71 @@ def get_pack_roadmap_alignments(pack_id: str, version: Optional[int] = None) -> 
     return mapping
 
 
-def get_linked_pack_for_roadmap(db: Session, roadmap: Roadmap) -> Optional[Tuple[str, str]]:
-    """Determine the associated built-in content pack (pack_id, pack_title) for a roadmap.
+# A topic's own number, when its title states one: a bare "12", or "Topic 12" with
+# or without a name after it. Anything else -- "3D Printing", "10 Things" -- is a
+# title, not a number, and is never read as one.
+_TOPIC_NUMBER = re.compile(r"^\s*(?:topic\s+(\d+)\b.*|(\d+))\s*$", re.IGNORECASE)
 
-    Checks:
-    1. subject_content_packs if roadmap is linked to a subject
-    2. Roadmap title / source_filename keyword matching ('adf' -> 'adf', 'adls' -> 'adls')
-    3. Topic matching against available packs
+
+def linked_pack_for_roadmap(db: Session, roadmap: Roadmap) -> Optional[Tuple[str, str, int]]:
+    """The content pack a roadmap's topics are mapped against: (pack_id, title, version).
+
+    Only a pack attached to the roadmap's own preparation, at the version that
+    preparation pinned, and only one whose chapters carry "Roadmap alignment" blocks.
+    Nothing is guessed: a roadmap with no preparation, or one whose preparation has
+    no aligned pack, maps to nothing -- never to a pack whose name happens to appear
+    in its title, filename or topics.
     """
-    if roadmap.subject_id is not None:
-        links = db.query(SubjectContentPack).filter(SubjectContentPack.subject_id == roadmap.subject_id).all()
-        for link in links:
-            pack = pack_store.get(link.pack_id, link.pack_version)
-            if pack:
-                return (pack.pack_id, pack.title)
-
-    title_lower = (roadmap.title or "").lower()
-    source_lower = (roadmap.source_filename or "").lower()
-
-    if "adf" in title_lower or "data factory" in title_lower or "adf" in source_lower:
-        pack = pack_store.latest("adf")
-        if pack:
-            return (pack.pack_id, pack.title)
-
-    if "adls" in title_lower or "data lake" in title_lower or "adls" in source_lower:
-        pack = pack_store.latest("adls")
-        if pack:
-            return (pack.pack_id, pack.title)
-
-    # Fallback: check if the roadmap's first few topics match any known pack
-    for pack in pack_store.all_latest():
-        alignments = get_pack_roadmap_alignments(pack.pack_id, pack.version)
-        if alignments and any(normalize_topic_title(t.title) in alignments for t in getattr(roadmap, "topics", [])[:5]):
-            return (pack.pack_id, pack.title)
-
+    if roadmap.subject_id is None:
+        return None
+    links = (
+        db.query(SubjectContentPack)
+        .filter(SubjectContentPack.subject_id == roadmap.subject_id)
+        .order_by(SubjectContentPack.id)
+        .all()
+    )
+    for link in links:
+        pack = pack_store.get(link.pack_id, link.pack_version)
+        if pack and get_pack_roadmap_alignments(pack.pack_id, pack.version):
+            return (pack.pack_id, pack.title, pack.version)
     return None
+
+
+def get_linked_pack_for_roadmap(db: Session, roadmap: Roadmap) -> Optional[Tuple[str, str]]:
+    """(pack_id, pack_title) of the pack linked_pack_for_roadmap finds, or None."""
+    linked = linked_pack_for_roadmap(db, roadmap)
+    return (linked[0], linked[1]) if linked else None
+
+
+def chapters_for_topic_title(
+    alignments: Dict[str, List[MappedGuideChapter]], title: str
+) -> List[MappedGuideChapter]:
+    """A topic's chapters, from the pack's own alignment: by its title, or by the
+    number its title explicitly states. Never by position."""
+    if not alignments:
+        return []
+    by_title = alignments.get(normalize_topic_title(title or ""))
+    if by_title:
+        return by_title
+    m = _TOPIC_NUMBER.match(title or "")
+    if m:
+        return alignments.get(m.group(1) or m.group(2), [])
+    return []
 
 
 def find_mapped_chapters_for_topic(
     db: Session, roadmap_id: int, topic: RoadmapTopic
 ) -> List[MappedGuideChapter]:
-    """Find built-in study guide chapters mapped to a specific roadmap topic."""
+    """Built-in study guide chapters mapped to one roadmap topic, or none."""
     roadmap = getattr(topic, "roadmap", None)
     if not roadmap:
-        from app.models.roadmap import Roadmap
         roadmap = db.query(Roadmap).filter(Roadmap.id == roadmap_id).first()
     if not roadmap:
         return []
+    linked = linked_pack_for_roadmap(db, roadmap)
+    if not linked:
+        return []
+    return chapters_for_topic_title(get_pack_roadmap_alignments(linked[0], linked[2]), topic.title)
 
     linked = get_linked_pack_for_roadmap(db, roadmap)
     if not linked:

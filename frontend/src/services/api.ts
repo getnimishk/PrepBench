@@ -101,6 +101,11 @@ import {
   TopicGuideDraftResult,
   TopicGuideSection,
   TopicGuideSectionWrite,
+  TopicTitleRepairPreview,
+  TopicTitleRepairResult,
+  CourseLesson,
+  CourseLessonRelabelPreview,
+  CourseLessonRelabelResult,
 } from '../types/roadmap';
 
 const API_BASE = '/api/v1';
@@ -781,6 +786,59 @@ export const importInterviewQuestions = async (req: ImportInterviewQuestionsRequ
 export const getRoadmaps = async (includeArchived = false) => {
   const res = await api.get<RoadmapSummary[]>(`/roadmaps`, {
     params: { include_archived: includeArchived },
+  });
+  return res.data;
+};
+
+/**
+ * The roadmaps a screen scoped to one preparation may show (Phase 7, WP 7.6): that
+ * preparation's own, plus those that belong to no preparation. With none chosen, only
+ * the unassigned ones -- never another preparation's.
+ */
+export const getScopedRoadmaps = async (subjectId: number | null, includeArchived = false) => {
+  const get = async (params: Record<string, unknown>) =>
+    (await api.get<RoadmapSummary[]>('/roadmaps', { params: { include_archived: includeArchived, ...params } })).data;
+  const unassigned = await get({ unassigned: true });
+  return subjectId === null ? unassigned : [...(await get({ subject_id: subjectId })), ...unassigned];
+};
+
+// ---- learner-triggered curriculum repairs (Phase 7): preview first, apply only on confirmation ----
+
+const workbookForm = (file: File, extra: Record<string, string> = {}) => {
+  const form = new FormData();
+  form.append('file', file);
+  for (const [k, v] of Object.entries(extra)) form.append(k, v);
+  return form;
+};
+
+/** Topics titled with a bare number, and the names the roadmap's workbook gives them. Changes nothing. */
+export const previewTitleRepair = async (roadmapId: number, file: File) => {
+  const res = await api.post<TopicTitleRepairPreview>(`/roadmaps/${roadmapId}/title-repair/preview`, workbookForm(file), {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return res.data;
+};
+
+/** Rename exactly the previewed topics; only titles change. Refused if the plan changed since the preview. */
+export const applyTitleRepair = async (roadmapId: number, file: File, topicIds: number[]) => {
+  const res = await api.post<TopicTitleRepairResult>(
+    `/roadmaps/${roadmapId}/title-repair/apply`,
+    workbookForm(file, { topic_ids: topicIds.join(',') }),
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
+  return res.data;
+};
+
+/** Which "Written by you" sections are, word for word, the course lessons given. Changes nothing. */
+export const previewCourseLessons = async (roadmapId: number, lessons: CourseLesson[]) => {
+  const res = await api.post<CourseLessonRelabelPreview>(`/roadmaps/${roadmapId}/guide/course-lessons/preview`, { lessons });
+  return res.data;
+};
+
+/** Relabel the confirmed matches as course lessons; each is checked again, only their source changes. */
+export const applyCourseLessons = async (roadmapId: number, lessons: CourseLesson[], sectionIds: number[]) => {
+  const res = await api.post<CourseLessonRelabelResult>(`/roadmaps/${roadmapId}/guide/course-lessons/apply`, {
+    lessons, section_ids: sectionIds,
   });
   return res.data;
 };
