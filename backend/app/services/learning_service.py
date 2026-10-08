@@ -28,7 +28,7 @@ from typing import List, Optional
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import InvalidExamStateException, ResourceNotFoundException
+from app.core.exceptions import ConflictException, InvalidExamStateException, ResourceNotFoundException
 from app.models.learning_attempt import LearningAttempt
 from app.repositories.learning_attempt_repository import LearningAttemptRepository
 from app.schemas.learning import (
@@ -72,8 +72,8 @@ class LearningService:
             for a in self.repo.list_attempts(subject_id=subject_id, concept_id=concept_id)
         ]
 
-    def get_attempt(self, attempt_uid: str) -> LearningAttemptResponse:
-        return LearningAttemptResponse.model_validate(self._require(attempt_uid))
+    def get_attempt(self, attempt_uid: str, subject_id: Optional[int]) -> LearningAttemptResponse:
+        return LearningAttemptResponse.model_validate(self._require(attempt_uid, subject_id))
 
     # ---- writes ---------------------------------------------------------
 
@@ -89,10 +89,15 @@ class LearningService:
         retry is not a conflict, it is the same request arriving twice. What it
         must NOT do is overwrite: an existing attempt's progress is left exactly
         as it is.
+
+        It is only a retry when it comes from the attempt's own preparation. A
+        uid another preparation holds (typically a deleted one's, whose subject
+        id SQLite has reused) is a 409 that carries none of that attempt, so the
+        client steps to another id rather than reading someone else's answers.
         """
         existing = self.repo.get_by_uid(req.attempt_uid)
         if existing is not None:
-            return LearningAttemptResponse.model_validate(existing)
+            return self._retried(existing, req.subject_id)
 
         attempt = LearningAttempt(
             attempt_uid=req.attempt_uid,
@@ -117,13 +122,21 @@ class LearningService:
             existing = self.repo.get_by_uid(req.attempt_uid)
             if existing is None:
                 raise
-            return LearningAttemptResponse.model_validate(existing)
+            return self._retried(existing, req.subject_id)
 
     def update_attempt(
-        self, attempt_uid: str, req: LearningAttemptUpdate
+        self, attempt_uid: str, req: LearningAttemptUpdate, subject_id: Optional[int] = None
     ) -> LearningAttemptResponse:
-        attempt = self._require(attempt_uid)
+        attempt = self._require(attempt_uid, subject_id)
         changes = req.model_dump(exclude_unset=True)
+
+        # An attempt stays with the preparation it was started in. Moving it would
+        # carry one preparation's evidence into another -- and would let anyone
+        # who can name a uid take a row into a preparation they can then read.
+        if changes.get("subject_id") is not None and changes["subject_id"] != attempt.subject_id:
+            raise InvalidExamStateException(
+                "An attempt stays with the preparation it was started in; it cannot be moved."
+            )
 
         if "prediction" in changes and changes["prediction"] is not None:
             self._commit_prediction(attempt, changes["prediction"], changes.get("committed_at"))
@@ -151,9 +164,6 @@ class LearningService:
         for field in ("explanation_mechanisms", "selected_alternative_ids", "rubric_coverage"):
             if field in changes and changes[field] is not None:
                 setattr(attempt, field, changes[field])
-
-        if changes.get("subject_id") is not None:
-            attempt.subject_id = changes["subject_id"]
 
         if changes.get("duration_ms") is not None:
             attempt.duration_ms = changes["duration_ms"]
@@ -250,8 +260,28 @@ class LearningService:
         attempt.correct = correct
         attempt.transfer = transfer
 
-    def _require(self, attempt_uid: str) -> LearningAttempt:
-        attempt = self.repo.get_by_uid(attempt_uid)
+    # ---- whose attempt it is ---------------------------------------------
+    #
+    # One rule for every request that reaches a single attempt by its uid: the
+    # attempt's preparation must be the one asking. `subject_id` None asks as no
+    # preparation, and reaches only attempts with none (the Chart Sandbox's, and
+    # those of a deleted preparation) -- never "any preparation".
+
+    def _require(self, attempt_uid: str, subject_id: Optional[int]) -> LearningAttempt:
+        """This preparation's attempt, or the same 404 an unknown uid gets: the
+        reply does not reveal that the uid exists under another preparation."""
+        attempt = self.repo.get_in_scope(attempt_uid, subject_id)
         if attempt is None:
             raise ResourceNotFoundException("LearningAttempt", attempt_uid)
         return attempt
+
+    def _retried(self, existing: LearningAttempt, subject_id: Optional[int]) -> LearningAttemptResponse:
+        """A create for a uid that is already stored: the same attempt arriving
+        again is answered with it; a uid another preparation holds is refused,
+        with nothing of that attempt in the reply."""
+        if existing.subject_id != subject_id:
+            raise ConflictException(
+                "This attempt id is already in use by another preparation's attempt. Open it "
+                "under a different id."
+            )
+        return LearningAttemptResponse.model_validate(existing)

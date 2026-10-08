@@ -242,10 +242,10 @@ export const ScenarioPage: React.FC = () => {
   const sayItTooLong = lensText(sayIt).length > EXPLANATION_MAX;
 
   const saveSayIt = async () => {
-    if (!committed) return;
+    if (!committed || subjectId == null) return;
     const text = sayIt.trim();
     if (text !== committed.sayIt.trim()) {
-      const saved = await saveLensText(committed.attemptUid, lensText(sayIt));
+      const saved = await saveLensText(subjectId, committed.attemptUid, lensText(sayIt));
       setAttempts((prev) => upsert(prev ?? [], saved));
     }
     setSavedSay((prev) => ({ ...prev, [activeRole]: text }));
@@ -256,14 +256,15 @@ export const ScenarioPage: React.FC = () => {
   // whole map, so they go one after another -- two in flight could land out of
   // order and leave the server holding the older one.
   const onToggle = (i: number, on: boolean) => {
-    if (!committed) return;
+    if (!committed || subjectId == null) return;
     const next = on ? [...covered, i].sort((x, y) => x - y) : covered.filter((x) => x !== i);
     const forRole = activeRole;
     const uid = committed.attemptUid;
+    const forPreparation = subjectId;
     setCoverDrafts((prev) => ({ ...prev, [forRole]: next }));
     coverageQueue.current = coverageQueue.current.then(async () => {
       try {
-        const saved = await saveCoverage(uid, next, lens.sayIt.points.length);
+        const saved = await saveCoverage(forPreparation, uid, next, lens.sayIt.points.length);
         setAttempts((prev) => upsert(prev ?? [], saved));
       } catch (err) {
         setCoverDrafts((prev) => ({ ...prev, [forRole]: undefined }));

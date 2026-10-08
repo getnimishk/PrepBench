@@ -4,6 +4,7 @@
 
 import type { WireLearningAttempt } from '../../types/learning';
 import { getLearningAttempts, patchLearningAttempt, startLearningAttempt } from '../api';
+import { isAttemptIdTaken } from '../apiError';
 import type { AdfLabSlug } from './experiments';
 
 /**
@@ -29,6 +30,9 @@ import type { AdfLabSlug } from './experiments';
  *
  * A finished run cannot be reopened -- its predictions are on the record -- so "start again"
  * is the next run number, never an edit.
+ *
+ * Every write names the preparation (the server reaches only that preparation's attempts), and
+ * a run whose ids a deleted preparation's attempts already hold is skipped -- see openPredict.
  */
 
 export const ADF_LAB_PREFIX = 'adf.lab.';
@@ -103,9 +107,31 @@ export function openStage(k: RunKey, stage: StageAttempt, model: string): Promis
   });
 }
 
+/** Runs tried before giving up; a real install never needs more than one or two. */
+const MAX_RUN_STEPS = 20;
+
+/**
+ * Open the Predict attempt that starts a run, at this run or the first free one after it.
+ *
+ * The ids name the preparation's id, and SQLite gives a deleted preparation's id out again: its
+ * attempts stay (subject_id NULL) under the same ids, and the server refuses to open them for this
+ * preparation (409). Then the run is taken -- step to the next. A run whose Predict is free has
+ * none of its other stages taken either, because every run opens Predict first.
+ */
+export async function openPredict(k: RunKey, model: string): Promise<{ run: number; attempt: WireLearningAttempt }> {
+  for (let run = k.run; run < k.run + MAX_RUN_STEPS; run += 1) {
+    try {
+      return { run, attempt: await openStage({ ...k, run }, 'predict', model) };
+    } catch (err) {
+      if (!isAttemptIdTaken(err)) throw err;
+    }
+  }
+  throw new Error('Could not start a new run of this experiment. Reload the page and try again.');
+}
+
 /** Commit the Predict stage's prediction. The server refuses a second, different one. */
-export function commitPrediction(uid: string, prediction: string): Promise<WireLearningAttempt> {
-  return patchLearningAttempt(uid, { prediction });
+export function commitPrediction(subjectId: number, uid: string, prediction: string): Promise<WireLearningAttempt> {
+  return patchLearningAttempt(uid, { prediction }, subjectId);
 }
 
 /** A lever change, from the scenario's setting to the learner's. Values are the model's own. */
@@ -117,16 +143,18 @@ export type LeverChange = Record<string, { from: string | number | null; to: str
  * refuses the record before the commit, and keeps each field write-once.
  */
 export function recordObservation(
-  uid: string, manipulation: LeverChange, observed: Record<string, unknown>, correct: boolean,
+  subjectId: number, uid: string, manipulation: LeverChange, observed: Record<string, unknown>, correct: boolean,
 ): Promise<WireLearningAttempt> {
-  return patchLearningAttempt(uid, { manipulation, observed: { ...observed, source: 'simulation' }, completed: true, correct });
+  return patchLearningAttempt(
+    uid, { manipulation, observed: { ...observed, source: 'simulation' }, completed: true, correct }, subjectId,
+  );
 }
 
 /**
  * Answer a stage that is chosen and graded at once (Reason, Apply, Retrieve): commit the
  * choice, record anything the model worked out for it, and close it with the grade.
  */
-export function answerStage(uid: string, body: {
+export function answerStage(subjectId: number, uid: string, body: {
   prediction: string;
   correct: boolean;
   transfer?: boolean;
@@ -142,10 +170,10 @@ export function answerStage(uid: string, body: {
     completed: true,
     correct: body.correct,
     ...(body.transfer !== undefined ? { transfer: body.transfer } : {}),
-  });
+  }, subjectId);
 }
 
 /** The learner's own explanation, on the Predict attempt. Their words; never graded. */
-export function saveExplanation(uid: string, text: string): Promise<WireLearningAttempt> {
-  return patchLearningAttempt(uid, { explanation_text: text });
+export function saveExplanation(subjectId: number, uid: string, text: string): Promise<WireLearningAttempt> {
+  return patchLearningAttempt(uid, { explanation_text: text }, subjectId);
 }

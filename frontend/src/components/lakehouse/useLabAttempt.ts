@@ -2,11 +2,12 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { WireLearningAttempt } from '../../types/learning';
 import { apiErrorMessage } from '../../services/apiError';
 import {
-  commitLabPrediction, completeLabSimulation, fetchLabAttempts, labAttemptUid, openLabAttempt, saveLabExplanation,
+  commitLabPrediction, completeLabSimulation, fetchLabAttempts, findLabAttempt, labAttemptUid, openLabAttempt,
+  saveLabExplanation,
   type LabChallengeRef,
 } from '../../services/lakehouse/attempts';
 
@@ -28,16 +29,21 @@ export function useLabAttempt(
   const [committing, setCommitting] = useState(false);
   const [commitError, setCommitError] = useState<string | null>(null);
 
-  const uid = labAttemptUid({ subjectId, packId: pack.id, packVersion: pack.version, challenge });
+  const key = useMemo(
+    () => ({ subjectId, packId: pack.id, packVersion: pack.version, challenge }),
+    [subjectId, pack.id, pack.version, challenge],
+  );
+  // The id the attempt really has: a later generation when a deleted preparation's attempt held the first.
+  const uid = attempt?.attempt_uid ?? labAttemptUid(key);
 
   useEffect(() => {
     let cancelled = false;
     setLoadError(null);
     fetchLabAttempts(subjectId)
-      .then((list) => { if (!cancelled) setAttempt(list.find((a) => a.attempt_uid === uid) ?? null); })
+      .then((list) => { if (!cancelled) setAttempt(findLabAttempt(list, key) ?? null); })
       .catch((err) => { if (!cancelled) setLoadError(apiErrorMessage(err, 'Could not load your lab attempts.')); });
     return () => { cancelled = true; };
-  }, [subjectId, uid, reload]);
+  }, [subjectId, key, reload]);
 
   /**
    * Commit the prediction, then close the attempt with the outcome. The two are separate
@@ -50,9 +56,9 @@ export function useLabAttempt(
     setCommitting(true);
     setCommitError(null);
     try {
-      await openLabAttempt({ subjectId, packId: pack.id, packVersion: pack.version, challenge });
-      await commitLabPrediction(uid, prediction);
-      setAttempt(await completeLabSimulation(uid, outcome.correct, outcome.observed));
+      const opened = await openLabAttempt(key);
+      await commitLabPrediction(subjectId, opened.attempt_uid, prediction);
+      setAttempt(await completeLabSimulation(subjectId, opened.attempt_uid, outcome.correct, outcome.observed));
       return true;
     } catch (err) {
       setCommitError(apiErrorMessage(err, 'Your prediction could not be saved.'));
@@ -61,12 +67,12 @@ export function useLabAttempt(
     } finally {
       setCommitting(false);
     }
-  }, [subjectId, pack.id, pack.version, challenge, uid]);
+  }, [subjectId, key]);
 
   /** The learner's own acceptance criteria. Their words, never graded. */
   const saveCriteria = useCallback(async (text: string) => {
-    setAttempt(await saveLabExplanation(uid, text));
-  }, [uid]);
+    setAttempt(await saveLabExplanation(subjectId, uid, text));
+  }, [subjectId, uid]);
 
   return {
     uid, attempt, loadError, retry: () => setReload((n) => n + 1),

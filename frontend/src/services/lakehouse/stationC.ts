@@ -289,9 +289,17 @@ export function applyResult(states: TableStates, result: LabOperationResult): Ta
   return { ...states, [table]: { version: result.version, rows: result.rows ?? prev?.rows ?? null } };
 }
 
-/** A template as a request: the pack, and the attempt once its prediction is committed. */
-export function buildOperation(packId: string, template: OpTemplate, attemptUid?: string): LabOperation {
-  return { ...template, pack_id: packId, ...(attemptUid ? { attempt_uid: attemptUid } : {}) } as LabOperation;
+/**
+ * A template as a request: the pack, and the attempt once its prediction is committed --
+ * named with its preparation, since only that preparation's prediction counts.
+ */
+export function buildOperation(
+  packId: string, template: OpTemplate, attemptUid?: string, subjectId?: number,
+): LabOperation {
+  const attempt = attemptUid
+    ? { attempt_uid: attemptUid, ...(subjectId !== undefined ? { subject_id: subjectId } : {}) }
+    : {};
+  return { ...template, pack_id: packId, ...attempt } as LabOperation;
 }
 
 /** Whether `a` is the same request as `b`, ignoring the pack and the attempt. */

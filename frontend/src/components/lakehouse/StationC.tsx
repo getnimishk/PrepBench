@@ -9,7 +9,7 @@ import type { EngineStatus, LabPackDetail } from '../../types/lakehouse';
 import { getLakehouseNotebook, resetLakehousePack } from '../../services/api';
 import { apiErrorMessage } from '../../services/apiError';
 import {
-  commitLabPrediction, completeLabAttempt, fetchLabAttempts, labAttemptUid, openLabAttempt, runOperation,
+  commitLabPrediction, completeLabAttempt, fetchLabAttempts, findLabAttempt, labAttemptUid, openLabAttempt, runOperation,
   saveLabExplanation, type RunOutcome,
 } from '../../services/lakehouse/attempts';
 import {
@@ -99,8 +99,10 @@ export const StationC: React.FC<{
   // learner moved to another challenge belongs to a screen that is gone.
   const runSeq = useRef(0);
 
-  const uid = labAttemptUid({ subjectId, packId: pack.id, packVersion: pack.version, challenge });
-  const attempt = attempts?.[uid];
+  const key = { subjectId, packId: pack.id, packVersion: pack.version, challenge };
+  const attempt = attempts ? findLabAttempt(Object.values(attempts), key) : undefined;
+  // The id the attempt really has: a later generation when a deleted preparation's attempt held the first.
+  const uid = attempt?.attempt_uid ?? labAttemptUid(key);
   const committed = Boolean(attempt?.committed_at);
   const completed = Boolean(attempt?.completed_at);
 
@@ -140,9 +142,9 @@ export const StationC: React.FC<{
     setCommitting(true);
     setCommitError(null);
     try {
-      await openLabAttempt({ subjectId, packId: pack.id, packVersion: pack.version, challenge });
-      const saved = await commitLabPrediction(uid, picked);
-      setAttempts((all) => ({ ...(all ?? {}), [uid]: saved }));
+      const opened = await openLabAttempt(key);
+      const saved = await commitLabPrediction(subjectId, opened.attempt_uid, picked);
+      setAttempts((all) => ({ ...(all ?? {}), [saved.attempt_uid]: saved }));
     } catch (err) {
       setCommitError(apiErrorMessage(err, 'Your prediction could not be saved.'));
       setReload((n) => n + 1); // What the server holds is what counts.
@@ -157,7 +159,7 @@ export const StationC: React.FC<{
     setRecordError(null);
     const tableName = 'table' in t ? t.table : t.left;
     const before = tables[tableName];
-    const out = await runOperation(buildOperation(pack.id, t, uid));
+    const out = await runOperation(buildOperation(pack.id, t, uid, subjectId));
     if (mine !== runSeq.current) return null; // Superseded.
     setRunning(false);
     setOutcome(out);
@@ -171,13 +173,13 @@ export const StationC: React.FC<{
     if (reading && attempt && !attempt.completed_at) {
       try {
         const done = await completeLabAttempt(attempt, reading, out.result);
-        if (mine === runSeq.current) setAttempts((all) => ({ ...(all ?? {}), [uid]: done }));
+        if (mine === runSeq.current) setAttempts((all) => ({ ...(all ?? {}), [done.attempt_uid]: done }));
       } catch (err) {
         if (mine === runSeq.current) setRecordError(apiErrorMessage(err, 'The result could not be recorded against your attempt.'));
       }
     }
     return out;
-  }, [attempt, challenge, onJournalChange, pack.id, tables, uid]);
+  }, [attempt, challenge, onJournalChange, pack.id, subjectId, tables, uid]);
 
   const run = () => execute(template, isSameOperation(template, challenge.designated));
   const runFollowUp = (t: OpTemplate) => { setTemplate(t); return execute(t, isSameOperation(t, challenge.designated)); };
@@ -188,7 +190,7 @@ export const StationC: React.FC<{
     for (let i = 0; i < challenge.setup.length; i += 1) {
       const mine = ++runSeq.current;
       setSetup((s) => s.map((v, k) => (k === i ? 'running' : v)));
-      const out = await runOperation(buildOperation(pack.id, challenge.setup[i].op, uid));
+      const out = await runOperation(buildOperation(pack.id, challenge.setup[i].op, uid, subjectId));
       if (mine !== runSeq.current) return;
       if (out.kind === 'result' && out.result.ok) {
         setTables((s) => applyResult(s, out.result));
@@ -209,8 +211,8 @@ export const StationC: React.FC<{
   const saveCriteria = async () => {
     setSaveState('saving');
     try {
-      const saved = await saveLabExplanation(uid, criteria);
-      setAttempts((all) => ({ ...(all ?? {}), [uid]: saved }));
+      const saved = await saveLabExplanation(subjectId, uid, criteria);
+      setAttempts((all) => ({ ...(all ?? {}), [saved.attempt_uid]: saved }));
       setSaveState('saved');
     } catch {
       setSaveState('failed');
@@ -285,7 +287,7 @@ export const StationC: React.FC<{
         onChange={(e) => { const next = challenges.find((c) => c.id === e.target.value); if (next) choose(next); }}
       >
         {challenges.map((c, i) => {
-          const a = attempts[labAttemptUid({ subjectId, packId: pack.id, packVersion: pack.version, challenge: c })];
+          const a = findLabAttempt(Object.values(attempts), { subjectId, packId: pack.id, packVersion: pack.version, challenge: c });
           const status = a?.completed_at ? ' (done)' : a?.committed_at ? ' (predicted)' : '';
           return <MenuItem key={c.id} value={c.id}>{`${i + 1} · ${c.title}${status}`}</MenuItem>;
         })}

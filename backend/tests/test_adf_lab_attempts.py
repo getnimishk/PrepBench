@@ -50,7 +50,8 @@ def _open(subject_id: int, stage: str, run: int = 1, slug: str = "watermark", mo
 
 
 def _patch(uid: str, body: dict):
-    return client.patch(f"{BASE}/{uid}", json=body)
+    """As the preparation the lab's uid names (ab:<subjectId>:...), as the lab does."""
+    return client.patch(f"{BASE}/{uid}", params={"subject_id": int(uid.split(":")[1])}, json=body)
 
 
 def test_the_predict_stage_keeps_its_prediction_write_once():
@@ -61,7 +62,7 @@ def test_the_predict_stage_keeps_its_prediction_write_once():
     assert _patch(uid, {"prediction": "missing"}).status_code == 200  # a retry, not an amendment
     changed = _patch(uid, {"prediction": "complete"})
     assert changed.status_code == 400
-    assert client.get(f"{BASE}/{uid}").json()["prediction"] == "missing"
+    assert client.get(f"{BASE}/{uid}", params={"subject_id": sid}).json()["prediction"] == "missing"
 
 
 def test_nothing_about_the_run_is_recorded_before_the_prediction():
@@ -77,7 +78,7 @@ def test_nothing_about_the_run_is_recorded_before_the_prediction():
     ):
         assert _patch(uid, body).status_code == 400, body
 
-    after = client.get(f"{BASE}/{uid}").json()
+    after = client.get(f"{BASE}/{uid}", params={"subject_id": sid}).json()
     assert after["manipulation"] is None and after["observed"] is None and after["completed_at"] is None
 
 

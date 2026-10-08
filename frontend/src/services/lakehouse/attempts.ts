@@ -4,7 +4,7 @@
 
 import type { WireLearningAttempt } from '../../types/learning';
 import type { LabOperation, LabOperationResult } from '../../types/lakehouse';
-import { apiErrorMessage } from '../apiError';
+import { apiErrorMessage, isAttemptIdTaken } from '../apiError';
 import { getLearningAttempts, patchLearningAttempt, runLakehouseOperation, startLearningAttempt } from '../api';
 /** Every lab challenge id starts here; Station C's are `lakehouse.c.…`, Station F's `lakehouse.f.…`. */
 export const LAB_PREFIX = 'lakehouse.';
@@ -37,13 +37,37 @@ export interface ChallengeKey {
   challenge: LabChallengeRef;
 }
 
-/** Stable and short enough for the server's 64 characters. */
-export function labAttemptUid(key: ChallengeKey): string {
+/**
+ * Stable and short enough for the server's 64 characters.
+ *
+ * `generation` exists because a subject id is not forever: SQLite gives a deleted preparation's
+ * id out again, and that preparation's attempts stay (subject_id NULL) under ids naming it. The
+ * server refuses to open one of those for this preparation (409); the next generation is tried.
+ */
+export function labAttemptUid(key: ChallengeKey, generation = 0): string {
   // Station C's ids keep their original short form, so attempts made before Station F existed still match.
   const slug = key.challenge.id.startsWith('lakehouse.c.')
     ? key.challenge.id.slice('lakehouse.c.'.length)
     : key.challenge.id.slice(LAB_PREFIX.length).replace('.', '-');
-  return `lk:${key.subjectId ?? 0}:${key.packId}@${key.packVersion}:${slug}`.slice(0, 64);
+  const uid = `lk:${key.subjectId ?? 0}:${key.packId}@${key.packVersion}:${slug}`.slice(0, 64);
+  if (generation === 0) return uid;
+  const suffix = `~${generation}`;
+  return `${uid.slice(0, 64 - suffix.length)}${suffix}`;
+}
+
+/** Generations tried before giving up; a real install never needs more than one or two. */
+const MAX_GENERATIONS = 20;
+
+/** The preparation an attempt is written as: none (null) when the lab runs without one. */
+const scopeOf = (subjectId: number | undefined): number | null => subjectId ?? null;
+
+/**
+ * This preparation's attempt at a challenge, from a list of attempts: under any generation of its
+ * id, and only if it is this preparation's (the list is unfiltered when there is no preparation).
+ */
+export function findLabAttempt(attempts: WireLearningAttempt[], key: ChallengeKey): WireLearningAttempt | undefined {
+  const uids = new Set(Array.from({ length: MAX_GENERATIONS }, (_, g) => labAttemptUid(key, g)));
+  return attempts.find((a) => uids.has(a.attempt_uid) && (a.subject_id ?? null) === scopeOf(key.subjectId));
 }
 
 export const labFingerprint = (packId: string, packVersion: number) => `pack=${packId}@${packVersion}`;
@@ -51,22 +75,35 @@ export const labFingerprint = (packId: string, packVersion: number) => `pack=${p
 /** Is this attempt one of the lab's? Told apart by id, never by guessing. */
 export const isLabAttempt = (a: Pick<WireLearningAttempt, 'challenge_id'>) => a.challenge_id.startsWith(LAB_PREFIX);
 
-/** Open the challenge's attempt, or reach the one already open. Idempotent on the id. */
-export function openLabAttempt(key: ChallengeKey): Promise<WireLearningAttempt> {
-  return startLearningAttempt({
-    attempt_uid: labAttemptUid(key),
-    challenge_id: key.challenge.id,
-    concept_id: key.challenge.conceptId,
-    scenario_fingerprint: labFingerprint(key.packId, key.packVersion),
-    mode: 'guided',
-    hint_count: 0,
-    ...(key.subjectId !== undefined ? { subject_id: key.subjectId } : {}),
-  });
+/**
+ * Open the challenge's attempt, or reach the one already open. Idempotent on the id: every tab
+ * walks the same generations, so they all land on the same attempt and the server's lock holds.
+ * An id another preparation's attempt holds is refused by the server: try the next generation.
+ */
+export async function openLabAttempt(key: ChallengeKey): Promise<WireLearningAttempt> {
+  for (let generation = 0; generation < MAX_GENERATIONS; generation += 1) {
+    try {
+      return await startLearningAttempt({
+        attempt_uid: labAttemptUid(key, generation),
+        challenge_id: key.challenge.id,
+        concept_id: key.challenge.conceptId,
+        scenario_fingerprint: labFingerprint(key.packId, key.packVersion),
+        mode: 'guided',
+        hint_count: 0,
+        ...(key.subjectId !== undefined ? { subject_id: key.subjectId } : {}),
+      });
+    } catch (err) {
+      if (!isAttemptIdTaken(err)) throw err;
+    }
+  }
+  throw new Error('Could not open an attempt for this challenge. Reload the page and try again.');
 }
 
 /** Commit the prediction. Once only: the server refuses a second, different one. */
-export function commitLabPrediction(attemptUid: string, optionId: string): Promise<WireLearningAttempt> {
-  return patchLearningAttempt(attemptUid, { prediction: optionId });
+export function commitLabPrediction(
+  subjectId: number | undefined, attemptUid: string, optionId: string,
+): Promise<WireLearningAttempt> {
+  return patchLearningAttempt(attemptUid, { prediction: optionId }, scopeOf(subjectId));
 }
 
 /**
@@ -80,7 +117,7 @@ export function completeLabAttempt(
     completed: true,
     correct: attempt.prediction === readAs,
     observed: { result: readAs, ok: result.ok, version: result.version ?? null, rows: result.rows ?? null },
-  });
+  }, attempt.subject_id ?? null);
 }
 
 /**
@@ -89,14 +126,18 @@ export function completeLabAttempt(
  * mistaken for an engine result.
  */
 export function completeLabSimulation(
-  attemptUid: string, correct: boolean, observed: Record<string, unknown>,
+  subjectId: number | undefined, attemptUid: string, correct: boolean, observed: Record<string, unknown>,
 ): Promise<WireLearningAttempt> {
-  return patchLearningAttempt(attemptUid, { completed: true, correct, observed: { ...observed, source: 'simulation' } });
+  return patchLearningAttempt(
+    attemptUid, { completed: true, correct, observed: { ...observed, source: 'simulation' } }, scopeOf(subjectId),
+  );
 }
 
 /** The learner's own acceptance criteria. Their words; never graded. */
-export function saveLabExplanation(attemptUid: string, text: string): Promise<WireLearningAttempt> {
-  return patchLearningAttempt(attemptUid, { explanation_text: text });
+export function saveLabExplanation(
+  subjectId: number | undefined, attemptUid: string, text: string,
+): Promise<WireLearningAttempt> {
+  return patchLearningAttempt(attemptUid, { explanation_text: text }, scopeOf(subjectId));
 }
 
 /** This lab's attempts for a preparation, from the shared table. */

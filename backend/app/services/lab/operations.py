@@ -83,11 +83,12 @@ def _require_table(pack: LabPack, table: str) -> Path:
     return lab_path(pack.manifest.id, table)
 
 
-def _check_attempt(db: Session, attempt_uid: Optional[str]) -> None:
-    """Predict before manipulate: an op tied to an attempt needs its prediction committed."""
+def _check_attempt(db: Session, attempt_uid: Optional[str], subject_id: Optional[int]) -> None:
+    """Predict before manipulate: an op tied to an attempt needs its prediction committed --
+    and it must be the asking preparation's attempt, not one another preparation committed."""
     if not attempt_uid:
         return
-    attempt = LearningAttemptRepository(db).get_by_uid(attempt_uid)
+    attempt = LearningAttemptRepository(db).get_in_scope(attempt_uid, subject_id)
     if attempt is None:
         raise _misuse(f"No learning attempt {attempt_uid!r}. Start the attempt and commit a prediction first.")
     if attempt.committed_at is None:
@@ -446,7 +447,7 @@ def run(db: Session, op) -> LabOperationResult:
     else:
         paths = [_require_table(pack, op.table)]
         table_label = op.table
-    _check_attempt(db, op.attempt_uid)
+    _check_attempt(db, op.attempt_uid, op.subject_id)
     if not engine.status().available:
         raise _engine_missing()
 

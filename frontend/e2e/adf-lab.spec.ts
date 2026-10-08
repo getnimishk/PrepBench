@@ -154,8 +154,11 @@ test('Watermark & Transient Failure: every stage, a reload mid-run, all on the s
   expect(rows.find((a) => a.challenge_id === 'adf.lab.watermark.retrieve')).toMatchObject({ mode: 'retrieval', prediction: '0', correct: true });
 
   // The lock is the server's: a second, different prediction is refused.
-  const refused = await request.patch(`/api/v1/learning/attempts/${encodeURIComponent(predict.attempt_uid)}`, { data: { prediction: 'complete' } });
-  expect(refused.ok()).toBe(false);
+  const refused = await request.patch(
+    `/api/v1/learning/attempts/${encodeURIComponent(predict.attempt_uid)}`,
+    { params: { subject_id: prep.id }, data: { prediction: 'complete' } },
+  );
+  expect(refused.status()).toBe(400);
 
   // A reload of a finished run shows it finished, and the hub agrees.
   await page.reload();

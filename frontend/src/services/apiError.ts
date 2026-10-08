@@ -53,6 +53,14 @@ export function isUnreachable(err: unknown): boolean {
 }
 
 /**
+ * A create refused because another preparation's attempt already holds that id (409) --
+ * typically a deleted preparation's, whose id SQLite gave out again. Step to another id.
+ */
+export function isAttemptIdTaken(err: unknown): boolean {
+  return (err as ErrorShape | undefined)?.response?.status === 409;
+}
+
+/**
  * Pydantic prefixes anything raised from a custom validator, so a message
  * written to be read by a person arrives as "Value error, Say what you would
  * ask." The prefix is an implementation detail of the validation library and

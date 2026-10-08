@@ -15,7 +15,7 @@ import { LoopSteps } from '../lakehouse/LoopSteps';
 import { IntegrationNotice, SimulationNotice } from './AdfLabGate';
 import { apiErrorMessage } from '../../services/apiError';
 import {
-  answerStage, commitPrediction, fetchAdfLabAttempts, latestRun, openStage, recordObservation, runAttempts,
+  answerStage, commitPrediction, fetchAdfLabAttempts, latestRun, openPredict, openStage, recordObservation, runAttempts,
   saveExplanation, type RunKey,
 } from '../../services/adfLab/attempts';
 import { COMPLETE, STAGES, stageOf } from '../../services/adfLab/stages';
@@ -174,32 +174,34 @@ export const ExperimentRunner = <C,>({ prep, def, experiment, modeSwitch, titleS
   };
 
   const commit = () => write(async () => {
-    const opened = await openStage(key, 'predict', def.model);
-    await commitPrediction(opened.attempt_uid, picked);
+    // A run a deleted preparation's attempts still hold is skipped, so this run may be a later one.
+    const opened = await openPredict(key, def.model);
+    if (opened.run !== key.run) setRunNo(opened.run);
+    await commitPrediction(prep.id, opened.attempt.attempt_uid, picked);
   });
   const runModel = () => setMine({ levers, run: def.run(c, levers) });
   const record = () => mine && predictRow && write(() => recordObservation(
-    predictRow.attempt_uid, changes, observationOf(preset, mine.run), predictRow.prediction === preset.outcome,
+    prep.id, predictRow.attempt_uid, changes, observationOf(preset, mine.run), predictRow.prediction === preset.outcome,
   ));
   const answerReason = () => write(async () => {
     const opened = await openStage(key, 'reason', def.model);
-    await answerStage(opened.attempt_uid, { prediction: reason, correct: causesOf(preset).includes(reason), mechanisms: [reason] });
+    await answerStage(prep.id, opened.attempt_uid, { prediction: reason, correct: causesOf(preset).includes(reason), mechanisms: [reason] });
   });
   const answerApply = () => write(async () => {
     const i = def.apply.options.findIndex((o) => o.id === apply);
     const option = def.apply.options[i];
     const right = applyCorrect(i);
     const opened = await openStage(key, 'apply', def.model);
-    await answerStage(opened.attempt_uid, {
+    await answerStage(prep.id, opened.attempt_uid, {
       prediction: apply, correct: right, transfer: right,
       manipulation: changesFrom(def.preset, option.levers),
       observed: observationOf(preset, applyRuns[i]),
     });
   });
-  const explain = () => predictRow && write(() => saveExplanation(predictRow.attempt_uid, (explanation ?? '').trim()));
+  const explain = () => predictRow && write(() => saveExplanation(prep.id, predictRow.attempt_uid, (explanation ?? '').trim()));
   const answerRetrieve = () => write(async () => {
     const opened = await openStage(key, 'retrieve', def.model);
-    await answerStage(opened.attempt_uid, { prediction: retrieve, correct: retrieve === def.retrieve.answer });
+    await answerStage(prep.id, opened.attempt_uid, { prediction: retrieve, correct: retrieve === def.retrieve.answer });
   });
   const startAgain = () => {
     setRunNo(runNo + 1);

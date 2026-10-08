@@ -435,5 +435,12 @@ implementation choice.
   maps a topic number to a learner's roadmap rows. Every pair is checked against the pack in a test.
 - One recorded observation per run: `manipulation` and `observed` are write-once, so only the run
   the learner records is kept.
-- `GET /learning/attempts/{uid}` is not subject-guarded (pre-existing). The lab reads only the
-  subject-filtered list, and also checks the subject in each uid.
+- Every request that reaches one learning attempt by uid is scoped to a preparation since the
+  pre-Phase-6 hardening (2026-10-08): `GET` and `PATCH /learning/attempts/{uid}?subject_id=`, a
+  retried `POST` (a uid another preparation holds is a 409 with none of its data), and the
+  Lakehouse op gate. Another preparation's attempt answers as an unknown uid; omitted, the scope is
+  "no preparation", never "any"; an attempt cannot be moved between preparations
+  (`backend/tests/test_learning_attempt_isolation.py`). Because SQLite reuses a deleted
+  preparation's id, the lab steps past a run whose ids that preparation's attempts still hold
+  (`openPredict`). The lab reads only the subject-filtered list, and also checks the subject in
+  each uid.

@@ -5,6 +5,7 @@
 import type { Scenario, ScenarioContent, ScenarioRole } from '../../types/contentPack';
 import type { WireLearningAttempt } from '../../types/learning';
 import { getLearningAttempts, patchLearningAttempt, startLearningAttempt } from '../api';
+import { isAttemptIdTaken } from '../apiError';
 
 // A scenario's progress, kept as learning attempts (skills plan D7).
 //
@@ -259,10 +260,11 @@ const MAX_GENERATIONS = 20;
  * Open (or reach) this preparation's attempt for one check question or lens.
  *
  * Opening is idempotent on the id, so an attempt that already exists comes
- * back as it is. One that comes back belonging to another preparation -- a
- * deleted one whose id this preparation now reuses -- isn't ours: step to the
- * next generation of the id. Every tab walks the same sequence, so they all
- * land on the same attempt and the server's lock still holds.
+ * back as it is. An id another preparation's attempt holds -- a deleted one
+ * whose id this preparation now reuses -- is refused by the server (409, with
+ * none of that attempt in it): step to the next generation of the id. Every
+ * tab walks the same sequence, so they all land on the same attempt and the
+ * server's lock still holds.
  */
 async function openAttempt(
   key: ScenarioKey,
@@ -271,12 +273,15 @@ async function openAttempt(
 ): Promise<string> {
   for (let generation = 0; generation < MAX_GENERATIONS; generation += 1) {
     const uid = scenarioAttemptUid(key, part, generation);
-    const attempt = await startLearningAttempt({
-      attempt_uid: uid, ...body, mode: 'guided', hint_count: 0, subject_id: key.subjectId,
-    });
-    // A new row carries our subject; an orphan (subject NULL) or another
-    // preparation's row carries someone else's answers.
-    if (attempt.subject_id === key.subjectId) return uid;
+    try {
+      const attempt = await startLearningAttempt({
+        attempt_uid: uid, ...body, mode: 'guided', hint_count: 0, subject_id: key.subjectId,
+      });
+      // The server answers only with this preparation's own row; checked again here.
+      if (attempt.subject_id === key.subjectId) return uid;
+    } catch (err) {
+      if (!isAttemptIdTaken(err)) throw err;
+    }
   }
   throw new Error('Could not open an attempt for this question. Reload the page and try again.');
 }
@@ -297,7 +302,7 @@ export async function answerCheck(
     concept_id: scenarioConceptId(key.packId, chapterId),
     scenario_fingerprint: checkFingerprint(key.version),
   });
-  return patchLearningAttempt(uid, { prediction: String(chosen), completed: true, correct });
+  return patchLearningAttempt(uid, { prediction: String(chosen), completed: true, correct }, key.subjectId);
 }
 
 /**
@@ -320,15 +325,15 @@ export async function commitCaseNotes(
     prediction: CASE_NOTES_COMMITTED,
     explanation_text: text,
     completed: true,
-  });
+  }, key.subjectId);
 }
 
 /** After the debrief: the notes plus the Say-it answer, on the lens's own attempt. */
-export const saveLensText = (attemptUid: string, text: string) =>
-  patchLearningAttempt(attemptUid, { explanation_text: text });
+export const saveLensText = (subjectId: number, attemptUid: string, text: string) =>
+  patchLearningAttempt(attemptUid, { explanation_text: text }, subjectId);
 
 /** Which Say-it points the learner says they covered. Their own reading; never graded. */
-export const saveCoverage = (attemptUid: string, covered: number[], total: number) =>
+export const saveCoverage = (subjectId: number, attemptUid: string, covered: number[], total: number) =>
   patchLearningAttempt(attemptUid, {
     rubric_coverage: Object.fromEntries(Array.from({ length: total }, (_, i) => [String(i), covered.includes(i)])),
-  });
+  }, subjectId);

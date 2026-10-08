@@ -1166,6 +1166,9 @@ export interface paths {
          *     that already exists rather than creating a second one or failing. A retry is
          *     the same request arriving twice, not a conflict -- and a duplicate row would
          *     inflate every count derived from this table.
+         *
+         *     A uid another preparation holds is refused with 409, carrying none of that
+         *     attempt.
          */
         post: operations["start_attempt_api_v1_learning_attempts_post"];
         delete?: never;
@@ -1181,7 +1184,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Attempt */
+        /**
+         * Get Attempt
+         * @description One attempt, read from one preparation.
+         *
+         *     Read from any other preparation it is answered exactly like an unknown uid,
+         *     so the reply does not reveal that the uid exists elsewhere.
+         */
         get: operations["get_attempt_api_v1_learning_attempts__attempt_uid__get"];
         put?: never;
         post?: never;
@@ -1198,6 +1207,9 @@ export interface paths {
          *
          *     Sending a second `prediction` is refused with 400, not merged. That refusal
          *     is the point of the endpoint.
+         *
+         *     Scoped like the read: another preparation's attempt is not found, so it can
+         *     be neither changed nor read back through the response.
          */
         patch: operations["update_attempt_api_v1_learning_attempts__attempt_uid__patch"];
         trace?: never;
@@ -3018,6 +3030,8 @@ export interface components {
              * @default false
              */
             small_files: boolean;
+            /** Subject Id */
+            subject_id?: number | null;
             /** Table */
             table: string;
             /**
@@ -3262,6 +3276,8 @@ export interface components {
             op: "compact";
             /** Pack Id */
             pack_id: string;
+            /** Subject Id */
+            subject_id?: number | null;
             /** Table */
             table: string;
             /** Z Order */
@@ -3282,6 +3298,8 @@ export interface components {
             pack_id: string;
             /** Right */
             right: string;
+            /** Subject Id */
+            subject_id?: number | null;
             /** Through Batch */
             through_batch?: number | null;
             /**
@@ -3411,6 +3429,8 @@ export interface components {
             op: "create_table";
             /** Pack Id */
             pack_id: string;
+            /** Subject Id */
+            subject_id?: number | null;
             /** Table */
             table: string;
         };
@@ -4222,6 +4242,8 @@ export interface components {
             op: "history";
             /** Pack Id */
             pack_id: string;
+            /** Subject Id */
+            subject_id?: number | null;
             /** Table */
             table: string;
         };
@@ -4906,6 +4928,8 @@ export interface components {
             op: "merge_cdc";
             /** Pack Id */
             pack_id: string;
+            /** Subject Id */
+            subject_id?: number | null;
             /** Table */
             table: string;
         };
@@ -5579,6 +5603,8 @@ export interface components {
              * @default 5
              */
             sample: number;
+            /** Subject Id */
+            subject_id?: number | null;
             /** Table */
             table: string;
             /** Version */
@@ -5782,6 +5808,8 @@ export interface components {
             op: "restore";
             /** Pack Id */
             pack_id: string;
+            /** Subject Id */
+            subject_id?: number | null;
             /** Table */
             table: string;
             /** Version */
@@ -7459,6 +7487,8 @@ export interface components {
             pack_id: string;
             /** Retention Hours */
             retention_hours: number;
+            /** Subject Id */
+            subject_id?: number | null;
             /** Table */
             table: string;
         };
@@ -9595,7 +9625,10 @@ export interface operations {
     };
     get_attempt_api_v1_learning_attempts__attempt_uid__get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The preparation asking. Another preparation's attempt is answered as an unknown uid. Omitted, only attempts with no preparation are reached. */
+                subject_id?: number | null;
+            };
             header?: never;
             path: {
                 attempt_uid: string;
@@ -9626,7 +9659,10 @@ export interface operations {
     };
     update_attempt_api_v1_learning_attempts__attempt_uid__patch: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The preparation asking. Another preparation's attempt is answered as an unknown uid. Omitted, only attempts with no preparation are reached. */
+                subject_id?: number | null;
+            };
             header?: never;
             path: {
                 attempt_uid: string;

@@ -126,7 +126,7 @@ describe('the eight-stage loop', () => {
     expect(api.startLearningAttempt).toHaveBeenCalledWith(expect.objectContaining({
       attempt_uid: 'ab:6:watermark:r1:predict', challenge_id: 'adf.lab.watermark.predict', subject_id: 6, mode: 'guided',
     }));
-    expect(api.patchLearningAttempt).toHaveBeenLastCalledWith('ab:6:watermark:r1:predict', { prediction: 'missing' });
+    expect(api.patchLearningAttempt).toHaveBeenLastCalledWith('ab:6:watermark:r1:predict', { prediction: 'missing' }, 6);
 
     // Manipulate: the levers open, and the prediction is locked.
     expect(await screen.findByRole('heading', { level: 2, name: 'Manipulate' })).toBeInTheDocument();
@@ -156,7 +156,7 @@ describe('the eight-stage loop', () => {
     await user.click(screen.getByRole('button', { name: 'Submit your diagnosis' }));
     expect(api.patchLearningAttempt).toHaveBeenLastCalledWith('ab:6:watermark:r1:reason', {
       prediction: 'watermark-timing', explanation_mechanisms: ['watermark-timing'], completed: true, correct: true,
-    });
+    }, 6);
     expect(await screen.findByText('That is the mechanism the model found.')).toBeInTheDocument();
 
     // Apply: a changed constraint, graded by running the model; transfer recorded.
@@ -165,7 +165,7 @@ describe('the eight-stage loop', () => {
     await user.click(screen.getByRole('button', { name: 'Submit your change' }));
     expect(lastPatch()).toEqual(['ab:6:watermark:r1:apply', expect.objectContaining({
       prediction: 'retry-upsert', correct: true, transfer: true, completed: true,
-    })]);
+    }), 6]);
 
     // Explain: separate from Reason, the learner's own words on the run's Predict attempt.
     expect(await screen.findByRole('heading', { level: 2, name: 'Explain' })).toBeInTheDocument();
@@ -174,7 +174,7 @@ describe('the eight-stage loop', () => {
     await user.click(screen.getByRole('button', { name: 'Save your explanation' }));
     expect(api.patchLearningAttempt).toHaveBeenLastCalledWith('ab:6:watermark:r1:predict', {
       explanation_text: 'The completion exit ran on failure, so the watermark skipped rows.',
-    });
+    }, 6);
 
     // Retrieve: a recall check, recorded as its own retrieval attempt, with no schedule.
     expect(await screen.findByRole('heading', { level: 2, name: 'Retrieve' })).toBeInTheDocument();

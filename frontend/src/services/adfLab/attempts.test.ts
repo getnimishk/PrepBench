@@ -13,7 +13,7 @@ vi.mock('../api', () => ({
 
 import * as api from '../api';
 import {
-  answerStage, commitPrediction, fetchAdfLabAttempts, isAdfLabAttempt, latestRun, openStage, parseStageUid,
+  answerStage, commitPrediction, fetchAdfLabAttempts, isAdfLabAttempt, latestRun, openPredict, openStage, parseStageUid,
   recordObservation, runAttempts, runFingerprint, runPrefix, saveExplanation, stageChallenge, stageUid,
 } from './attempts';
 
@@ -88,28 +88,48 @@ describe('every write goes through LearningService, on the chosen preparation', 
   });
 
   it('commits a prediction alone, then records the run and the grade in one write', async () => {
-    await commitPrediction('u', 'missing');
-    expect(api.patchLearningAttempt).toHaveBeenLastCalledWith('u', { prediction: 'missing' });
-    await recordObservation('u', { retries: { from: 0, to: 1 } }, { missed: { before: 1, after: 0 } }, true);
+    await commitPrediction(7, 'u', 'missing');
+    expect(api.patchLearningAttempt).toHaveBeenLastCalledWith('u', { prediction: 'missing' }, 7);
+    await recordObservation(7, 'u', { retries: { from: 0, to: 1 } }, { missed: { before: 1, after: 0 } }, true);
     expect(api.patchLearningAttempt).toHaveBeenLastCalledWith('u', {
       manipulation: { retries: { from: 0, to: 1 } },
       observed: { missed: { before: 1, after: 0 }, source: 'simulation' },
       completed: true,
       correct: true,
-    });
+    }, 7);
   });
 
   it('answers a graded stage in one write, with transfer only where it applies', async () => {
-    await answerStage('u', { prediction: 'retry-upsert', correct: true, transfer: true });
+    await answerStage(7, 'u', { prediction: 'retry-upsert', correct: true, transfer: true });
     expect(api.patchLearningAttempt).toHaveBeenLastCalledWith('u', {
       prediction: 'retry-upsert', completed: true, correct: true, transfer: true,
-    });
-    await answerStage('v', { prediction: 'watermark-timing', correct: true, mechanisms: ['watermark-timing'] });
+    }, 7);
+    await answerStage(7, 'v', { prediction: 'watermark-timing', correct: true, mechanisms: ['watermark-timing'] });
     expect(api.patchLearningAttempt).toHaveBeenLastCalledWith('v', {
       prediction: 'watermark-timing', explanation_mechanisms: ['watermark-timing'], completed: true, correct: true,
+    }, 7);
+    await saveExplanation(7, 'u', 'Because');
+    expect(api.patchLearningAttempt).toHaveBeenLastCalledWith('u', { explanation_text: 'Because' }, 7);
+  });
+
+  it('starts a run at the first run whose ids no other preparation holds', async () => {
+    // A deleted preparation with this id left runs 2 and 3 behind: the server refuses those (409).
+    const taken = new Set(['ab:7:watermark:r2:predict', 'ab:7:watermark:r3:predict']);
+    vi.mocked(api.startLearningAttempt).mockImplementation(async (b) => {
+      if (taken.has(b.attempt_uid)) throw { response: { status: 409, data: { detail: 'taken' } } };
+      return wire({ ...b });
     });
-    await saveExplanation('u', 'Because');
-    expect(api.patchLearningAttempt).toHaveBeenLastCalledWith('u', { explanation_text: 'Because' });
+    const opened = await openPredict(K, 'semiconductor-v1');
+    expect(opened.run).toBe(4);
+    expect(opened.attempt.attempt_uid).toBe('ab:7:watermark:r4:predict');
+    expect(opened.attempt.scenario_fingerprint).toBe('adf-lab=watermark;run=4;model=semiconductor-v1');
+  });
+
+  it('keeps the run it was given when that run is free, and does not step past any other failure', async () => {
+    expect((await openPredict(K, 'semiconductor-v1')).run).toBe(2);
+    vi.mocked(api.startLearningAttempt).mockRejectedValue({ response: { status: 500, data: { detail: 'down' } } });
+    await expect(openPredict(K, 'semiconductor-v1')).rejects.toMatchObject({ response: { status: 500 } });
+    expect(api.startLearningAttempt).toHaveBeenCalledTimes(2);
   });
 
   it('reads only this preparation’s ADF lab attempts, even if the server sent more', async () => {

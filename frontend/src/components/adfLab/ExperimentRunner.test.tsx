@@ -13,21 +13,24 @@ import type { SourceRow } from '../../services/lakehouse/adfModel';
 
 // ---- a LearningService stand-in that keeps the server's rules ------------------------------------
 const store: WireLearningAttempt[] = [];
-const refuse = (detail: string) => Promise.reject({ isAxiosError: true, response: { status: 400, data: { detail } } });
+const refuse = (detail: string, status = 400) => Promise.reject({ isAxiosError: true, response: { status, data: { detail } } });
+const owner = (a: WireLearningAttempt) => a.subject_id ?? null;
 vi.mock('../../services/api', () => ({
   getLakehousePack: vi.fn(async () => ({ id: 'semiconductor-v1', version: 1, pipeline })),
   getLearningAttempts: vi.fn(async (p?: { subject_id?: number }) =>
     store.filter((a) => p?.subject_id === undefined || a.subject_id === p.subject_id).map((a) => ({ ...a }))),
   startLearningAttempt: vi.fn(async (b: Record<string, unknown>) => {
     const existing = store.find((a) => a.attempt_uid === b.attempt_uid);
+    // A uid another preparation (or a deleted one) holds is refused, with none of its attempt.
+    if (existing && owner(existing) !== (b.subject_id ?? null)) return refuse('id in use', 409);
     if (existing) return { ...existing };
     const row = { ...b, started_at: '2026-10-07T10:00:00' } as unknown as WireLearningAttempt;
     store.push(row);
     return { ...row };
   }),
-  patchLearningAttempt: vi.fn(async (uid: string, body: Record<string, unknown>) => {
-    const a = store.find((x) => x.attempt_uid === uid);
-    if (!a) return refuse('no such attempt');
+  patchLearningAttempt: vi.fn(async (uid: string, body: Record<string, unknown>, subjectId: number | null) => {
+    const a = store.find((x) => x.attempt_uid === uid && owner(x) === subjectId);
+    if (!a) return refuse('no such attempt', 404);
     if (body.prediction !== undefined) {
       if (a.committed_at && a.prediction !== body.prediction) return refuse('prediction is write-once');
       a.prediction = body.prediction as string;
@@ -176,6 +179,36 @@ describe('all five experiments, every fault mode', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Fault Tolerance: Dependency failure paths' })).toBeInTheDocument();
     expect(await screen.findByRole('heading', { level: 2, name: 'Manipulate' })).toBeInTheDocument();
   });
+
+  it('starts on the next run when a deleted preparation with this id left run 1 behind', async () => {
+    // SQLite gave this preparation's id out again; the old run 1 stays, subject NULL.
+    const orphan = {
+      attempt_uid: 'ab:6:watermark:r1:predict', challenge_id: 'adf.lab.watermark.predict', concept_id: 'adf.lab.watermark',
+      scenario_fingerprint: '', mode: 'guided', started_at: '', hint_count: 0, subject_id: null,
+      prediction: 'someone-elses', committed_at: '2026-10-07T09:01:00',
+    } as WireLearningAttempt;
+    store.push(orphan);
+    const user = userEvent.setup();
+    const def = DEFINITIONS.watermark![0];
+    const preset = def.run(await loadPipelineContext(), def.preset);
+    render(
+      <MemoryRouter initialEntries={['/lab/adf/watermark']}>
+        <Routes><Route path="/lab/adf/:slug" element={<AdfExperimentPage />} /></Routes>
+      </MemoryRouter>,
+    );
+    await user.click(await screen.findByRole('button', { name: 'Continue to Predict' }));
+    await user.click(screen.getByRole('radio', { name: def.predict.options.find((o) => o.id === preset.outcome)!.text }));
+    await user.click(screen.getByRole('button', { name: 'Commit prediction' }));
+
+    // The prediction lands on run 2, on this preparation, and the run carries on from there.
+    expect(await screen.findByRole('heading', { level: 2, name: 'Manipulate' })).toBeInTheDocument();
+    expect(screen.queryByText(/not saved/i)).not.toBeInTheDocument();
+    const mine = store.filter((a) => a.subject_id === 6);
+    expect(mine.map((a) => a.attempt_uid)).toEqual(['ab:6:watermark:r2:predict']);
+    expect(mine[0]).toMatchObject({ prediction: preset.outcome, scenario_fingerprint: 'adf-lab=watermark;run=2;model=semiconductor-v1' });
+    // The deleted preparation's answer is neither shown nor touched.
+    expect(orphan.prediction).toBe('someone-elses');
+  }, 60_000);
 
   it('never offers a timeout lever anywhere in the lab', () => {
     for (const { def } of CASES) {
