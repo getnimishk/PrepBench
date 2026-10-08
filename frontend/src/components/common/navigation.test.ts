@@ -7,13 +7,13 @@ import { NAV_GROUPS, isNavKeySupported, sectionFor } from './navigation';
 import { getSubjectCapabilities, UNASSIGNED_CAPABILITIES } from '../../services/capabilities';
 
 describe('the navigation table', () => {
-  it("is the prototype's rail: six groups, seventeen destinations, in its order", () => {
+  it("is the prototype's rail: six groups, twenty destinations, in its order", () => {
     expect(NAV_GROUPS.map((g) => [g.heading, g.items.map((i) => i.label)])).toEqual([
       ['Today', ['Home']],
       ['Certification', ['Roadmaps', 'Study Library', 'Practice', 'Review Queue', 'Mock Exam', 'Question Bank']],
       ['Interview', ['Rounds', 'System Design', 'Design Reviews', 'Recordings']],
-      ['Evidence', ['Insights']],
-      ['Workspace', ['My Preparations', 'Settings']],
+      ['Evidence', ['Evidence', 'Insights']],
+      ['Workspace', ['Workspace', 'My Preparations', 'Settings']],
       ['Learning Lab', ['All Sandboxes', 'Agile Metrics', 'Scenarios', 'Lakehouse Lab']],
     ]);
   });
@@ -45,6 +45,8 @@ describe('the navigation table', () => {
     ['/system-design/attempts/2', 'system-design', 'System Design'],
     ['/design-reviews/9', 'design-reviews', 'Design Reviews'],
     ['/analytics/area', 'insights', 'Insights'],
+    ['/evidence', 'evidence', 'Evidence'],
+    ['/workspace', 'workspace', 'Workspace'],
     ['/subjects/2', 'preparations', 'My Preparations'],
     ['/preparations/new', 'preparations', 'My Preparations'],
     ['/settings/data', 'settings', 'Settings'],
@@ -90,6 +92,11 @@ describe('isNavKeySupported', () => {
     expect(isNavKeySupported('scenarios', adfCaps, adfSubj)).toBe(true);
     expect(isNavKeySupported('insights', adfCaps, adfSubj)).toBe(true);
     expect(isNavKeySupported('preparations', adfCaps, adfSubj)).toBe(true);
+    expect(isNavKeySupported('workspace', adfCaps, adfSubj)).toBe(true);
+    expect(isNavKeySupported('evidence', adfCaps, adfSubj)).toBe(true);
+    // Workspace and Evidence follow their own capability flags, nothing else.
+    expect(isNavKeySupported('workspace', { ...adfCaps, workspace: false }, adfSubj)).toBe(false);
+    expect(isNavKeySupported('evidence', { ...adfCaps, evidence: false }, adfSubj)).toBe(false);
 
     // The Behaviour Lab is live (all five experiments built), so the lab entry is supported:
     expect(adfCaps.learningLabStatus).toBe('AVAILABLE');

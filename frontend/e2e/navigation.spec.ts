@@ -91,7 +91,7 @@ test('every screen opens with no console errors, and no link on any of them lead
     '/certification', '/interview', '/lab/adf', '/lab/adf/watermark', '/lab/adf/triggers', '/lab/adf/concurrency', '/lab/adf/copy-perf',
     '/lab/adf/fault-tolerance', '/lab/adf/fault-tolerance?mode=bad-rows',
     '/learn', '/learn/guides/adf', '/learn/guides/adf/pitfalls', '/review', '/exam-setup', '/exam-setup?kind=drill', `/exam-review/${mock}`,
-    '/question-bank', '/analytics', `/analytics/area?subject=${prep.id}&domain=${encodeURIComponent(area)}`,
+    '/question-bank', '/analytics', '/workspace', '/evidence', `/analytics/area?subject=${prep.id}&domain=${encodeURIComponent(area)}`,
     '/roadmaps', `/roadmaps/${roadmap.id}`,
     `/roadmaps/${sheets.roadmapId}`, `/roadmaps/${sheets.roadmapId}?resource=${sheets.referenceId}`,
     `/roadmaps/${sheets.roadmapId}?resource=${sheets.planId}`, `/roadmaps/${roadmap.id}/edit`, `/roadmaps/${roadmap.id}/topics/${topic.id}`,

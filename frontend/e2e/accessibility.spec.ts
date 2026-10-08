@@ -99,7 +99,7 @@ const ROUTES = (prepId: number, roadmapId: number, roleId: number, topicId: numb
   '/certification', '/interview', '/lab/adf', '/lab/adf/watermark', '/lab/adf/triggers', '/lab/adf/concurrency', '/lab/adf/copy-perf',
   '/lab/adf/fault-tolerance', '/lab/adf/fault-tolerance?mode=bad-rows',
   '/learn/guides/adf', '/learn/guides/adf/pitfalls', '/scenarios', '/scenarios/adf/1',
-  '/review', '/exam-setup', '/question-bank', '/analytics', `/analytics/area?subject=${prepId}&domain=Accessible%20Area`,
+  '/review', '/exam-setup', '/question-bank', '/analytics', '/workspace', '/evidence', `/analytics/area?subject=${prepId}&domain=Accessible%20Area`,
   '/roadmaps', `/roadmaps/${roadmapId}/edit`,
   // A multi-sheet roadmap: its first tab, a reference sheet's tab, a plan sheet's tab.
   `/roadmaps/${sheets.roadmapId}`, `/roadmaps/${sheets.roadmapId}?resource=${sheets.referenceId}`,

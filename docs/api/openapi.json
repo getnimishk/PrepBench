@@ -2770,6 +2770,176 @@
         "title": "EngineStatus",
         "type": "object"
       },
+      "EvidenceCounts": {
+        "properties": {
+          "activity": {
+            "default": 0,
+            "title": "Activity",
+            "type": "integer"
+          },
+          "completed": {
+            "default": 0,
+            "title": "Completed",
+            "type": "integer"
+          },
+          "demonstrated": {
+            "default": 0,
+            "title": "Demonstrated",
+            "type": "integer"
+          },
+          "evidenced": {
+            "default": 0,
+            "title": "Evidenced",
+            "type": "integer"
+          }
+        },
+        "title": "EvidenceCounts",
+        "type": "object"
+      },
+      "EvidenceItem": {
+        "properties": {
+          "assessed_by": {
+            "enum": [
+              "model",
+              "answer_key",
+              "exam",
+              "self",
+              "ai",
+              "not_assessed"
+            ],
+            "title": "Assessed By",
+            "type": "string"
+          },
+          "at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "basis": {
+            "title": "Basis",
+            "type": "string"
+          },
+          "demonstrates": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Demonstrates"
+          },
+          "href": {
+            "title": "Href",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "lab_stage",
+              "lakehouse_challenge",
+              "scenario_check",
+              "scenario_lens",
+              "sandbox_prediction",
+              "learning_attempt",
+              "topic_demonstration",
+              "mock_exam",
+              "recording",
+              "system_design",
+              "design_review"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "level": {
+            "enum": [
+              "activity",
+              "completed",
+              "demonstrated",
+              "evidenced"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "ref": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "title": "Ref",
+            "type": "object"
+          },
+          "source": {
+            "enum": [
+              "learning_lab",
+              "scenarios",
+              "roadmap",
+              "certification",
+              "interview"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "kind",
+          "level",
+          "assessed_by",
+          "title",
+          "basis",
+          "href"
+        ],
+        "title": "EvidenceItem",
+        "type": "object"
+      },
+      "EvidenceResponse": {
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/EvidenceCounts"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "subject_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Id"
+          }
+        },
+        "required": [
+          "counts",
+          "items"
+        ],
+        "title": "EvidenceResponse",
+        "type": "object"
+      },
       "ExamAnswerResponse": {
         "properties": {
           "confidence_level": {
@@ -13012,6 +13182,137 @@
         ],
         "title": "WeakestContentCategory",
         "type": "object"
+      },
+      "WorkspaceItem": {
+        "properties": {
+          "context": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "excerpt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Excerpt"
+          },
+          "href": {
+            "title": "Href",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "lab_run",
+              "lakehouse_challenge",
+              "scenario_notes",
+              "interview_answer",
+              "recording",
+              "topic_guide",
+              "topic_note",
+              "system_design_answer",
+              "design_review_call",
+              "sandbox_run"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "ref": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "title": "Ref",
+            "type": "object"
+          },
+          "source": {
+            "enum": [
+              "learning_lab",
+              "scenarios",
+              "interview",
+              "roadmap"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "source",
+          "title",
+          "href"
+        ],
+        "title": "WorkspaceItem",
+        "type": "object"
+      },
+      "WorkspaceResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "subject_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Id"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "WorkspaceResponse",
+        "type": "object"
       }
     }
   },
@@ -13777,6 +14078,58 @@
         "summary": "Get Latest Attempt",
         "tags": [
           "Design Review"
+        ]
+      }
+    },
+    "/api/v1/evidence": {
+      "get": {
+        "description": "What the record shows was demonstrated in one scope, each item graded\nactivity, completed, demonstrated or evidenced -- never a readiness verdict.",
+        "operationId": "get_evidence_api_v1_evidence_get",
+        "parameters": [
+          {
+            "description": "The preparation asking. Omitted, only work that belongs to no preparation is returned -- never every preparation's.",
+            "in": "query",
+            "name": "subject_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The preparation asking. Omitted, only work that belongs to no preparation is returned -- never every preparation's.",
+              "title": "Subject Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Evidence",
+        "tags": [
+          "Workspace & Evidence"
         ]
       }
     },
@@ -21189,6 +21542,58 @@
         "summary": "Get Storage",
         "tags": [
           "System"
+        ]
+      }
+    },
+    "/api/v1/workspace": {
+      "get": {
+        "description": "The learner's own work in one scope: lab runs, case notes, prepared answers,\nrecordings, topic guides and notes -- each linked to where it lives.",
+        "operationId": "get_workspace_api_v1_workspace_get",
+        "parameters": [
+          {
+            "description": "The preparation asking. Omitted, only work that belongs to no preparation is returned -- never every preparation's.",
+            "in": "query",
+            "name": "subject_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The preparation asking. Omitted, only work that belongs to no preparation is returned -- never every preparation's.",
+              "title": "Subject Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Workspace",
+        "tags": [
+          "Workspace & Evidence"
         ]
       }
     }

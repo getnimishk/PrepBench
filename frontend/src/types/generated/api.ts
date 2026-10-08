@@ -309,6 +309,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Evidence
+         * @description What the record shows was demonstrated in one scope, each item graded
+         *     activity, completed, demonstrated or evidenced -- never a readiness verdict.
+         */
+        get: operations["get_evidence_api_v1_evidence_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/exams": {
         parameters: {
             query?: never;
@@ -2845,6 +2866,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/workspace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Workspace
+         * @description The learner's own work in one scope: lab runs, case notes, prepared answers,
+         *     recordings, topic guides and notes -- each linked to where it lives.
+         */
+        get: operations["get_workspace_api_v1_workspace_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3900,6 +3942,79 @@ export interface components {
             install_command: string;
             /** Version */
             version?: string | null;
+        };
+        /** EvidenceCounts */
+        EvidenceCounts: {
+            /**
+             * Activity
+             * @default 0
+             */
+            activity: number;
+            /**
+             * Completed
+             * @default 0
+             */
+            completed: number;
+            /**
+             * Demonstrated
+             * @default 0
+             */
+            demonstrated: number;
+            /**
+             * Evidenced
+             * @default 0
+             */
+            evidenced: number;
+        };
+        /** EvidenceItem */
+        EvidenceItem: {
+            /**
+             * Assessed By
+             * @enum {string}
+             */
+            assessed_by: "model" | "answer_key" | "exam" | "self" | "ai" | "not_assessed";
+            /** At */
+            at?: string | null;
+            /** Basis */
+            basis: string;
+            /** Demonstrates */
+            demonstrates?: string | null;
+            /** Href */
+            href: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "lab_stage" | "lakehouse_challenge" | "scenario_check" | "scenario_lens" | "sandbox_prediction" | "learning_attempt" | "topic_demonstration" | "mock_exam" | "recording" | "system_design" | "design_review";
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "activity" | "completed" | "demonstrated" | "evidenced";
+            /**
+             * Ref
+             * @default {}
+             */
+            ref: {
+                [key: string]: string;
+            };
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "learning_lab" | "scenarios" | "roadmap" | "certification" | "interview";
+            /** Title */
+            title: string;
+        };
+        /** EvidenceResponse */
+        EvidenceResponse: {
+            counts: components["schemas"]["EvidenceCounts"];
+            /** Items */
+            items: components["schemas"]["EvidenceItem"][];
+            /** Subject Id */
+            subject_id?: number | null;
         };
         /** ExamAnswerResponse */
         ExamAnswerResponse: {
@@ -7574,6 +7689,47 @@ export interface components {
             /** Round Label */
             round_label: string;
         };
+        /** WorkspaceItem */
+        WorkspaceItem: {
+            /** Context */
+            context?: string | null;
+            /** Detail */
+            detail?: string | null;
+            /** Excerpt */
+            excerpt?: string | null;
+            /** Href */
+            href: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "lab_run" | "lakehouse_challenge" | "scenario_notes" | "interview_answer" | "recording" | "topic_guide" | "topic_note" | "system_design_answer" | "design_review_call" | "sandbox_run";
+            /**
+             * Ref
+             * @default {}
+             */
+            ref: {
+                [key: string]: string;
+            };
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "learning_lab" | "scenarios" | "interview" | "roadmap";
+            /** Title */
+            title: string;
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /** WorkspaceResponse */
+        WorkspaceResponse: {
+            /** Items */
+            items: components["schemas"]["WorkspaceItem"][];
+            /** Subject Id */
+            subject_id?: number | null;
+        };
     };
     responses: never;
     parameters: never;
@@ -8050,6 +8206,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DesignReviewAttemptResponse"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_evidence_api_v1_evidence_get: {
+        parameters: {
+            query?: {
+                /** @description The preparation asking. Omitted, only work that belongs to no preparation is returned -- never every preparation's. */
+                subject_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvidenceResponse"];
                 };
             };
             /** @description Validation Error */
@@ -12961,6 +13149,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StorageReport"];
+                };
+            };
+        };
+    };
+    get_workspace_api_v1_workspace_get: {
+        parameters: {
+            query?: {
+                /** @description The preparation asking. Omitted, only work that belongs to no preparation is returned -- never every preparation's. */
+                subject_id?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

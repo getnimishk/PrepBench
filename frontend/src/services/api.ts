@@ -64,6 +64,7 @@ import {
 import { CheckResult, ReviewCounts, ReviewQueue } from '../types/review';
 import type { SearchResponse } from '../types/search';
 import type { Profile, ProfileUpdate } from '../types/profile';
+import type { EvidenceResponse, WorkspaceResponse } from '../types/portfolio';
 import { PracticeRecording, RecordingAnalysis, ProviderInfo, RecordingAnalytics } from '../types/recording';
 import type {
   InterviewSession, InterviewSessionCreate, InterviewSessionReport, PlannedQuestion,
@@ -685,6 +686,23 @@ export const patchLearningAttempt = async (
     `/learning/attempts/${encodeURIComponent(attemptUid)}`, body,
     subjectId === null ? undefined : { params: { subject_id: subjectId } },
   );
+  return res.data;
+};
+
+// ---- workspace and evidence: read models over the rows above and others ----
+
+const portfolioScope = (subjectId: number | null) =>
+  subjectId === null ? undefined : { params: { subject_id: subjectId } };
+
+/** The learner's own work in one scope. null asks for work that belongs to no preparation, never all. */
+export const getWorkspace = async (subjectId: number | null) => {
+  const res = await api.get<WorkspaceResponse>('/workspace', portfolioScope(subjectId));
+  return res.data;
+};
+
+/** What the record shows was demonstrated in one scope. null: work that belongs to no preparation. */
+export const getEvidence = async (subjectId: number | null) => {
+  const res = await api.get<EvidenceResponse>('/evidence', portfolioScope(subjectId));
   return res.data;
 };
 

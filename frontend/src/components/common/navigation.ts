@@ -3,8 +3,8 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import {
-  Activity, BarChart3, BookOpen, Database, FileCheck2, FlaskConical, History, LayoutDashboard, Layers, Library,
-  Map as RouteMap, Mic, Mic2, Network, PlayCircle, ScrollText, Settings, Workflow,
+  Activity, BarChart3, BookOpen, Database, FileCheck2, FlaskConical, FolderOpen, History, LayoutDashboard, Layers,
+  Library, Map as RouteMap, Mic, Mic2, Network, PlayCircle, ScrollText, Settings, ShieldCheck, Workflow,
 } from 'lucide-react';
 import type { SubjectCapabilityProfile } from '../../types/capabilities';
 
@@ -22,7 +22,7 @@ import type { SubjectCapabilityProfile } from '../../types/capabilities';
 export type NavKey =
   | 'home' | 'roadmaps' | 'learn' | 'practice' | 'review' | 'exam' | 'bank'
   | 'interview' | 'system-design' | 'design-reviews' | 'recordings'
-  | 'insights' | 'preparations' | 'settings'
+  | 'evidence' | 'insights' | 'workspace' | 'preparations' | 'settings'
   // Learning Lab: the hub and each sandbox as it goes live.
   | 'lab' | 'agile-sandbox' | 'scenarios' | 'databricks-sandbox';
 
@@ -60,11 +60,15 @@ export const NAV_GROUPS: { heading: string; items: NavEntry[] }[] = [
   },
   {
     heading: 'Evidence',
-    items: [{ key: 'insights', label: 'Insights', path: '/analytics', icon: BarChart3 }],
+    items: [
+      { key: 'evidence', label: 'Evidence', path: '/evidence', icon: ShieldCheck },
+      { key: 'insights', label: 'Insights', path: '/analytics', icon: BarChart3 },
+    ],
   },
   {
     heading: 'Workspace',
     items: [
+      { key: 'workspace', label: 'Workspace', path: '/workspace', icon: FolderOpen },
       { key: 'preparations', label: 'My Preparations', path: '/preparations', icon: Layers },
       { key: 'settings', label: 'Settings', path: '/settings', icon: Settings },
     ],
@@ -121,8 +125,11 @@ export function isNavKeySupported(
     case 'system-design':
     case 'design-reviews':
       return subject?.id === 3 || Boolean(capabilities.interview);
+    case 'evidence':
     case 'insights':
       return Boolean(capabilities.evidence);
+    case 'workspace':
+      return Boolean(capabilities.workspace);
     case 'preparations':
       return Boolean(capabilities.workspace);
     case 'lab':
@@ -168,6 +175,8 @@ const SECTION_RULES: [RegExp, NavKey][] = [
   [/^\/system-design(\/|$)/, 'system-design'],
   [/^\/design-reviews(\/|$)/, 'design-reviews'],
   [/^\/analytics(\/|$)/, 'insights'],
+  [/^\/evidence(\/|$)/, 'evidence'],
+  [/^\/workspace(\/|$)/, 'workspace'],
   [/^\/(preparations|subjects)(\/|$)/, 'preparations'],
   [/^\/settings(\/|$)/, 'settings'],
 ];
