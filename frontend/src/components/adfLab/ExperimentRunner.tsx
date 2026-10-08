@@ -198,7 +198,10 @@ export const ExperimentRunner = <C,>({ prep, def, experiment, modeSwitch, titleS
       observed: observationOf(preset, applyRuns[i]),
     });
   });
-  const explain = () => predictRow && write(() => saveExplanation(prep.id, predictRow.attempt_uid, (explanation ?? '').trim()));
+  // What the box shows is what is saved: the learner's edit, or else the explanation already on record.
+  // Saving the untouched box after a reload must keep that explanation, never send an empty one.
+  const shownExplanation = explanation ?? predictRow?.explanation_text ?? '';
+  const explain = () => predictRow && write(() => saveExplanation(prep.id, predictRow.attempt_uid, shownExplanation.trim()));
   const answerRetrieve = () => write(async () => {
     const opened = await openStage(key, 'retrieve', def.model);
     await answerStage(prep.id, opened.attempt_uid, { prediction: retrieve, correct: retrieve === def.retrieve.answer });
@@ -383,7 +386,7 @@ export const ExperimentRunner = <C,>({ prep, def, experiment, modeSwitch, titleS
           <TextField
             label={def.explainLabel}
             multiline minRows={3} fullWidth
-            value={explanation ?? predictRow?.explanation_text ?? ''}
+            value={shownExplanation}
             onChange={(e) => setExplanation(e.target.value)}
             slotProps={{ htmlInput: { maxLength: 4000 } }}
           />
@@ -391,7 +394,7 @@ export const ExperimentRunner = <C,>({ prep, def, experiment, modeSwitch, titleS
           <Actions sx={{ mt: '10px' }}>
             <Button
               variant="contained" onClick={explain}
-              disabled={saving || !(explanation ?? predictRow?.explanation_text ?? '').trim()}
+              disabled={saving || !shownExplanation.trim()}
             >
               Save your explanation
             </Button>

@@ -210,6 +210,38 @@ describe('all five experiments, every fault mode', () => {
     expect(orphan.prediction).toBe('someone-elses');
   }, 60_000);
 
+  it('keeps a saved explanation when it is saved again, untouched, after a reload', async () => {
+    // A run reloaded at Retrieve: its explanation is on the server, the page holds no edit of it.
+    const row = (stage: string, extra: Partial<WireLearningAttempt> = {}) => ({
+      attempt_uid: `ab:6:watermark:r1:${stage}`, challenge_id: `adf.lab.watermark.${stage}`, concept_id: 'adf.lab.watermark',
+      scenario_fingerprint: 'adf-lab=watermark;run=1;model=semiconductor-v1', mode: 'guided', started_at: '', hint_count: 0,
+      subject_id: 6, prediction: 'x', committed_at: '2026-10-07T09:01:00', completed_at: '2026-10-07T09:02:00', correct: true,
+      ...extra,
+    } as WireLearningAttempt);
+    store.push(
+      row('predict', { explanation_text: 'The completion exit ran on failure.' }),
+      row('reason'), row('apply'),
+    );
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={['/lab/adf/watermark']}>
+        <Routes><Route path="/lab/adf/:slug" element={<AdfExperimentPage />} /></Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole('heading', { level: 2, name: 'Retrieve' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox')).toHaveValue('The completion exit ran on failure.');
+
+    await user.click(screen.getByRole('button', { name: 'Save your explanation' }));
+
+    // The same words were sent, nothing was erased, and the run did not fall back to Explain.
+    const api = await import('../../services/api');
+    const calls = vi.mocked(api.patchLearningAttempt).mock.calls;
+    expect(calls[calls.length - 1]).toEqual(['ab:6:watermark:r1:predict', { explanation_text: 'The completion exit ran on failure.' }, 6]);
+    expect(store.find((a) => a.attempt_uid === 'ab:6:watermark:r1:predict')!.explanation_text)
+      .toBe('The completion exit ran on failure.');
+    expect(await screen.findByRole('heading', { level: 2, name: 'Retrieve' })).toBeInTheDocument();
+  }, 60_000);
+
   it('never offers a timeout lever anywhere in the lab', () => {
     for (const { def } of CASES) {
       for (const l of def.levers) {
