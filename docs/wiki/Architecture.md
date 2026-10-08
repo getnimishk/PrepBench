@@ -151,6 +151,8 @@ Route-level pages worth knowing:
 | `/practice` · `/learn` | Two hubs — a list of doors, not a dashboard |
 | `/review` | A bounded review session: the newest unread misses one at a time, then the timeline |
 | `/design-reviews` · `/design-reviews/:id` | The design review bank and one review |
+| `/workspace` | Workspace: the learner's own work in the chosen preparation (lab runs, case notes, prepared answers, recordings, topic guides and notes), read from the rows the features keep. `GET /api/v1/workspace?subject_id=` |
+| `/evidence` | Evidence: what that work demonstrates, each item graded activity / completed / demonstrated / evidenced with its basis. Not readiness. `GET /api/v1/evidence?subject_id=`. Rules in `docs/implementation/PHASE-6-CONTRACT.md` |
 | `/dashboard` · `/history` · `/system-design/history` | Redirects. The analytics-style dashboard and the two per-format history pages were deleted; the routes stay so old bookmarks land somewhere real |
 
 ## What CI enforces

@@ -21,19 +21,37 @@ class LearningAttemptRepository:
             .first()
         )
 
-    def get_in_scope(self, attempt_uid: str, subject_id: Optional[int]) -> Optional[LearningAttempt]:
-        """The attempt only if it is this preparation's -- or, with no preparation,
-        only if it has none. Scoped in the query, so another preparation's row is
-        never loaded, let alone returned."""
-        owner = (
+    @staticmethod
+    def _owned_by(subject_id: Optional[int]):
+        """This preparation's attempts -- or, with no preparation, those with none."""
+        return (
             LearningAttempt.subject_id.is_(None)
             if subject_id is None
             else LearningAttempt.subject_id == subject_id
         )
+
+    def get_in_scope(self, attempt_uid: str, subject_id: Optional[int]) -> Optional[LearningAttempt]:
+        """The attempt only if it is this preparation's -- or, with no preparation,
+        only if it has none. Scoped in the query, so another preparation's row is
+        never loaded, let alone returned."""
         return (
             self.db.query(LearningAttempt)
-            .filter(LearningAttempt.attempt_uid == attempt_uid, owner)
+            .filter(LearningAttempt.attempt_uid == attempt_uid, self._owned_by(subject_id))
             .first()
+        )
+
+    def list_in_scope(self, subject_id: Optional[int], limit: int = 5000) -> List[LearningAttempt]:
+        """Every attempt in one scope, newest first: the scope `get_in_scope` uses.
+
+        Unlike `list_attempts`, None here means "no preparation", not "every
+        preparation" -- the Workspace and Evidence read models never mix scopes.
+        """
+        return (
+            self.db.query(LearningAttempt)
+            .filter(self._owned_by(subject_id))
+            .order_by(LearningAttempt.started_at.desc(), LearningAttempt.id.desc())
+            .limit(limit)
+            .all()
         )
 
     def list_attempts(

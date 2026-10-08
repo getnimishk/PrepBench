@@ -40,7 +40,7 @@ test('the header says where you are and reaches search, import and the profile f
   await expect(page.getByRole('heading', { name: 'Profile', level: 1 })).toBeVisible();
 });
 
-test("the rail has the prototype's fourteen destinations plus the four Learning Lab entries (eighteen total), and Review Queue counts what the review page will ask for", async ({ page, request }) => {
+test("the rail has the prototype's fourteen destinations, the four Learning Lab entries, Workspace and Evidence (twenty total), and Review Queue counts what the review page will ask for", async ({ page, request }) => {
   const prep = await createCertification(request, 'Rail');
   await completedMockWithMisses(request, prep, 3, 'Rail Area');
   const counts = await (await request.get(`/api/v1/review/counts?subject_id=${prep.id}`)).json();
@@ -49,7 +49,8 @@ test("the rail has the prototype's fourteen destinations plus the four Learning 
   await page.goto('/');
   await pickPreparation(page, prep.name);
   const nav = page.getByRole('navigation', { name: 'Main' });
-  // 14 prototype destinations + 4 Learning Lab entries (All Sandboxes, Agile Metrics, Scenarios, Lakehouse Lab) = 18.
+  // 14 prototype destinations + 4 Learning Lab entries (All Sandboxes, Agile Metrics, Scenarios, Lakehouse Lab)
+  // + Workspace and Evidence (Phase 6) = 20.
   // The rail is capability-aware: for a certification preparation, the entries it
   // has no capability for stay on the rail as disabled buttons that say why, rather
   // than links that open a screen with nothing for it.
@@ -57,7 +58,9 @@ test("the rail has the prototype's fourteen destinations plus the four Learning 
     'Rounds', 'System Design', 'Design Reviews', 'Recordings',
     'All Sandboxes', 'Agile Metrics', 'Scenarios', 'Lakehouse Lab',
   ];
-  await expect(nav.getByRole('link')).toHaveCount(18 - unavailable.length);
+  await expect(nav.getByRole('link')).toHaveCount(20 - unavailable.length);
+  await expect(nav.getByRole('link', { name: 'Workspace' })).toHaveAttribute('href', '/workspace');
+  await expect(nav.getByRole('link', { name: 'Evidence' })).toHaveAttribute('href', '/evidence');
   for (const label of unavailable) {
     const entry = nav.getByRole('button', { name: `${label} (Not configured for ${prep.name})` });
     await expect(entry, `${label} is on the rail, disabled`).toBeDisabled();

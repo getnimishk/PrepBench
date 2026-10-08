@@ -47,6 +47,8 @@ import { RoadmapDetailPage } from './pages/RoadmapDetailPage';
 import { ChartSandboxPage } from './pages/ChartSandboxPage';
 import { DatabricksSandboxPage } from './pages/DatabricksSandboxPage';
 import { AdfLabPage } from './pages/AdfLabPage';
+import { WorkspacePage } from './pages/WorkspacePage';
+import { EvidencePage } from './pages/EvidencePage';
 import { AdfExperimentPage } from './pages/AdfExperimentPage';
 import { ScenarioPage } from './pages/ScenarioPage';
 import { RoleDiagnosticPage } from './pages/RoleDiagnosticPage';
@@ -218,6 +220,8 @@ const App: React.FC = () => {
             <Route path="/exam-review/:sessionId" element={<AppLayout><ExamReviewPage /></AppLayout>} />
             <Route path="/question-bank" element={<AppLayout><QuestionBankPage /></AppLayout>} />
             <Route path="/analytics" element={<AppLayout><AnalyticsPage /></AppLayout>} />
+            <Route path="/workspace" element={<AppLayout><WorkspacePage /></AppLayout>} />
+            <Route path="/evidence" element={<AppLayout><EvidencePage /></AppLayout>} />
             <Route path="/analytics/area" element={<AppLayout><InsightsDomainPage /></AppLayout>} />
             {/* /history and /system-design/history are both folded into
                 Review, which is the only page that answers "what have I been

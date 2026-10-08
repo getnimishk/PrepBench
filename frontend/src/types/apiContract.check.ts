@@ -38,6 +38,7 @@ import type {
 } from './roadmap';
 import type { Role, RoleSummary } from './role';
 import type { SearchResponse } from './search';
+import type { EvidenceItem, EvidenceResponse, WorkspaceItem, WorkspaceResponse } from './portfolio';
 import type { Readiness, Subject } from './subject';
 
 type Schemas = components['schemas'];
@@ -148,4 +149,9 @@ export function apiContract(): void {
   fits<LLMProvider>(api('ProviderResponse'));
   fits<LLMTaskBinding>(api('TaskBindingInfo'));
   fits<SystemInfo>(api('SystemInfo'));
+
+  fits<WorkspaceItem>(api('WorkspaceItem'));
+  fits<WorkspaceResponse>(api('WorkspaceResponse'));
+  fits<EvidenceItem>(api('EvidenceItem'));
+  fits<EvidenceResponse>(api('EvidenceResponse'));
 }

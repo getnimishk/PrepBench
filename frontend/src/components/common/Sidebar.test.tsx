@@ -67,10 +67,14 @@ describe('Sidebar', () => {
 
     // Written in title case and set in capitals by CSS, as the prototype's .navgroup is.
     for (const heading of ['Today', 'Certification', 'Interview', 'Evidence', 'Workspace', 'Learning Lab']) {
-      expect(within(nav).getByText(heading)).toBeInTheDocument();
+      // Exactly one heading -- not a link: Evidence and Workspace are also destinations' names.
+      expect(within(nav).getAllByText(heading).filter((el) => !el.closest('a'))).toHaveLength(1);
     }
-    // 14 original destinations + 4 Learning Lab entries (All Sandboxes, Agile Metrics, Scenarios, Lakehouse Lab) = 18.
-    expect(within(nav).getAllByRole('link')).toHaveLength(18);
+    // 14 original destinations + 4 Learning Lab entries (All Sandboxes, Agile Metrics, Scenarios, Lakehouse Lab)
+    // + Workspace and Evidence (Phase 6) = 20.
+    expect(within(nav).getAllByRole('link')).toHaveLength(20);
+    expect(within(nav).getByRole('link', { name: 'Workspace' })).toHaveAttribute('href', '/workspace');
+    expect(within(nav).getByRole('link', { name: 'Evidence' })).toHaveAttribute('href', '/evidence');
     expect(within(nav).getByRole('link', { name: 'Roadmaps' })).toHaveAttribute('href', '/roadmaps');
     expect(within(nav).getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings');
     expect(within(nav).getByRole('link', { name: 'All Sandboxes' })).toHaveAttribute('href', '/lab');
