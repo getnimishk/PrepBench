@@ -393,6 +393,17 @@
             "title": "Small Files",
             "type": "boolean"
           },
+          "subject_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Id"
+          },
           "table": {
             "title": "Table",
             "type": "string"
@@ -1082,6 +1093,17 @@
             "title": "Pack Id",
             "type": "string"
           },
+          "subject_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Id"
+          },
           "table": {
             "title": "Table",
             "type": "string"
@@ -1136,6 +1158,17 @@
           "right": {
             "title": "Right",
             "type": "string"
+          },
+          "subject_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Id"
           },
           "through_batch": {
             "anyOf": [
@@ -1436,6 +1469,17 @@
             "pattern": "^[a-z0-9][a-z0-9_-]{0,99}$",
             "title": "Pack Id",
             "type": "string"
+          },
+          "subject_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Id"
           },
           "table": {
             "title": "Table",
@@ -3634,6 +3678,17 @@
             "title": "Pack Id",
             "type": "string"
           },
+          "subject_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Id"
+          },
           "table": {
             "title": "Table",
             "type": "string"
@@ -5506,6 +5561,17 @@
             "pattern": "^[a-z0-9][a-z0-9_-]{0,99}$",
             "title": "Pack Id",
             "type": "string"
+          },
+          "subject_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Id"
           },
           "table": {
             "title": "Table",
@@ -7463,6 +7529,17 @@
             "title": "Sample",
             "type": "integer"
           },
+          "subject_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Id"
+          },
           "table": {
             "title": "Table",
             "type": "string"
@@ -8031,6 +8108,17 @@
             "pattern": "^[a-z0-9][a-z0-9_-]{0,99}$",
             "title": "Pack Id",
             "type": "string"
+          },
+          "subject_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Id"
           },
           "table": {
             "title": "Table",
@@ -12672,6 +12760,17 @@
             "title": "Retention Hours",
             "type": "integer"
           },
+          "subject_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Id"
+          },
           "table": {
             "title": "Table",
             "type": "string"
@@ -15995,7 +16094,7 @@
         ]
       },
       "post": {
-        "description": "Open an attempt.\n\nIdempotent on `attempt_uid`: posting the same uid twice returns the attempt\nthat already exists rather than creating a second one or failing. A retry is\nthe same request arriving twice, not a conflict -- and a duplicate row would\ninflate every count derived from this table.",
+        "description": "Open an attempt.\n\nIdempotent on `attempt_uid`: posting the same uid twice returns the attempt\nthat already exists rather than creating a second one or failing. A retry is\nthe same request arriving twice, not a conflict -- and a duplicate row would\ninflate every count derived from this table.\n\nA uid another preparation holds is refused with 409, carrying none of that\nattempt.",
         "operationId": "start_attempt_api_v1_learning_attempts_post",
         "requestBody": {
           "content": {
@@ -16037,6 +16136,7 @@
     },
     "/api/v1/learning/attempts/{attempt_uid}": {
       "get": {
+        "description": "One attempt, read from one preparation.\n\nRead from any other preparation it is answered exactly like an unknown uid,\nso the reply does not reveal that the uid exists elsewhere.",
         "operationId": "get_attempt_api_v1_learning_attempts__attempt_uid__get",
         "parameters": [
           {
@@ -16046,6 +16146,24 @@
             "schema": {
               "title": "Attempt Uid",
               "type": "string"
+            }
+          },
+          {
+            "description": "The preparation asking. Another preparation's attempt is answered as an unknown uid. Omitted, only attempts with no preparation are reached.",
+            "in": "query",
+            "name": "subject_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The preparation asking. Another preparation's attempt is answered as an unknown uid. Omitted, only attempts with no preparation are reached.",
+              "title": "Subject Id"
             }
           }
         ],
@@ -16077,7 +16195,7 @@
         ]
       },
       "patch": {
-        "description": "Commit a prediction, record hints and reasoning, or complete the attempt.\n\nPATCH rather than PUT because the client sends one transition at a time, and\na full-representation contract would let a later write clobber a prediction\nthat is supposed to be immutable.\n\nSending a second `prediction` is refused with 400, not merged. That refusal\nis the point of the endpoint.",
+        "description": "Commit a prediction, record hints and reasoning, or complete the attempt.\n\nPATCH rather than PUT because the client sends one transition at a time, and\na full-representation contract would let a later write clobber a prediction\nthat is supposed to be immutable.\n\nSending a second `prediction` is refused with 400, not merged. That refusal\nis the point of the endpoint.\n\nScoped like the read: another preparation's attempt is not found, so it can\nbe neither changed nor read back through the response.",
         "operationId": "update_attempt_api_v1_learning_attempts__attempt_uid__patch",
         "parameters": [
           {
@@ -16087,6 +16205,24 @@
             "schema": {
               "title": "Attempt Uid",
               "type": "string"
+            }
+          },
+          {
+            "description": "The preparation asking. Another preparation's attempt is answered as an unknown uid. Omitted, only attempts with no preparation are reached.",
+            "in": "query",
+            "name": "subject_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The preparation asking. Another preparation's attempt is answered as an unknown uid. Omitted, only attempts with no preparation are reached.",
+              "title": "Subject Id"
             }
           }
         ],

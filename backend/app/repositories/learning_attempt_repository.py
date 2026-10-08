@@ -21,6 +21,21 @@ class LearningAttemptRepository:
             .first()
         )
 
+    def get_in_scope(self, attempt_uid: str, subject_id: Optional[int]) -> Optional[LearningAttempt]:
+        """The attempt only if it is this preparation's -- or, with no preparation,
+        only if it has none. Scoped in the query, so another preparation's row is
+        never loaded, let alone returned."""
+        owner = (
+            LearningAttempt.subject_id.is_(None)
+            if subject_id is None
+            else LearningAttempt.subject_id == subject_id
+        )
+        return (
+            self.db.query(LearningAttempt)
+            .filter(LearningAttempt.attempt_uid == attempt_uid, owner)
+            .first()
+        )
+
     def list_attempts(
         self,
         subject_id: Optional[int] = None,

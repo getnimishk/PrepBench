@@ -671,9 +671,20 @@ export const startLearningAttempt = async (body: {
   return res.data;
 };
 
-/** One transition at a time. A second prediction is refused by the server. */
-export const patchLearningAttempt = async (attemptUid: string, body: Record<string, unknown>) => {
-  const res = await api.patch<WireLearningAttempt>(`/learning/attempts/${encodeURIComponent(attemptUid)}`, body);
+/**
+ * One transition at a time. A second prediction is refused by the server.
+ *
+ * `subjectId` is the preparation the attempt belongs to -- null for one that has none (the
+ * Chart Sandbox's). Required, so no caller leaves it out by accident: the server answers
+ * another preparation's attempt as not found.
+ */
+export const patchLearningAttempt = async (
+  attemptUid: string, body: Record<string, unknown>, subjectId: number | null,
+) => {
+  const res = await api.patch<WireLearningAttempt>(
+    `/learning/attempts/${encodeURIComponent(attemptUid)}`, body,
+    subjectId === null ? undefined : { params: { subject_id: subjectId } },
+  );
   return res.data;
 };
 

@@ -33,7 +33,7 @@ const UID = 'lk:2:semiconductor-v1@1:schema-enforcement';
 
 const wire = (over: Partial<WireLearningAttempt> = {}): WireLearningAttempt => ({
   attempt_uid: UID, challenge_id: 'lakehouse.c.schema-enforcement', concept_id: 'lakehouse.c.schema-enforcement',
-  scenario_fingerprint: '', mode: 'guided', started_at: '2026-10-02T00:00:00', hint_count: 0, ...over,
+  scenario_fingerprint: '', mode: 'guided', started_at: '2026-10-02T00:00:00', hint_count: 0, subject_id: 2, ...over,
 });
 const result = (over: Partial<LabOperationResult> = {}): LabOperationResult => ({
   ok: true, op: 'create_table', table: 'bronze.defects', version: 0, rows: 1000, files: 1, data: {}, journal_uid: 'j', ...over,
@@ -78,7 +78,7 @@ describe('StationC without the engine', () => {
     expect(api.startLearningAttempt).toHaveBeenCalledWith(expect.objectContaining({
       attempt_uid: UID, challenge_id: 'lakehouse.c.schema-enforcement', subject_id: 2,
     }));
-    expect(api.patchLearningAttempt).toHaveBeenCalledWith(UID, { prediction: 'refused' });
+    expect(api.patchLearningAttempt).toHaveBeenCalledWith(UID, { prediction: 'refused' }, 2);
     expect(screen.getByRole('button', { name: 'Run on engine' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Set up the tables' })).toBeDisabled();
     expect(screen.getByText('Real engine not installed')).toBeInTheDocument();
@@ -100,7 +100,7 @@ describe('StationC without the engine', () => {
     expect(screen.getByText('Structure checks, not a quality grade')).toBeInTheDocument();
     expect(screen.getAllByText('Present').length).toBeGreaterThanOrEqual(3);
     await user.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(api.patchLearningAttempt).toHaveBeenCalledWith(UID, { explanation_text: expect.stringContaining('Given a new column') }));
+    await waitFor(() => expect(api.patchLearningAttempt).toHaveBeenCalledWith(UID, { explanation_text: expect.stringContaining('Given a new column') }, 2));
   });
 });
 
@@ -128,7 +128,7 @@ describe('StationC with the engine', () => {
     expect(screen.getByText('Cannot cast schema, number of fields does not match: 9 vs 8')).toBeInTheDocument();
     expect(opsRun()[2]).toMatchObject({ op: 'append_batch', batch: 3, write: 'append', schema_mode: 'enforce', attempt_uid: UID });
     expect(await screen.findByText('Your prediction was right.')).toBeInTheDocument();
-    expect(api.patchLearningAttempt).toHaveBeenCalledWith(UID, expect.objectContaining({ completed: true, correct: true }));
+    expect(api.patchLearningAttempt).toHaveBeenCalledWith(UID, expect.objectContaining({ completed: true, correct: true }), 2);
     expect(onJournal).toHaveBeenCalled();
   });
 
@@ -139,7 +139,7 @@ describe('StationC with the engine', () => {
     vi.mocked(api.runLakehouseOperation).mockResolvedValue(result({ ok: false, op: 'append_batch', error: 'boom' }));
     await user.click(screen.getByRole('button', { name: 'Run on engine' }));
     expect(await screen.findByText(/Not what you predicted/)).toBeInTheDocument();
-    expect(api.patchLearningAttempt).toHaveBeenCalledWith(UID, expect.objectContaining({ completed: true, correct: false }));
+    expect(api.patchLearningAttempt).toHaveBeenCalledWith(UID, expect.objectContaining({ completed: true, correct: false }), 2);
   });
 
   it('does not mark the prediction when the table was never set up', async () => {

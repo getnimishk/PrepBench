@@ -42,7 +42,7 @@ const UID = 'lk:2:semiconductor-v1@1:f-tiering';
 
 const wire = (over: Partial<WireLearningAttempt> = {}): WireLearningAttempt => ({
   attempt_uid: UID, challenge_id: 'lakehouse.f.tiering', concept_id: 'lakehouse.f.tiering', scenario_fingerprint: '',
-  mode: 'guided', started_at: '2026-10-02T00:00:00', hint_count: 0, ...over,
+  mode: 'guided', started_at: '2026-10-02T00:00:00', hint_count: 0, subject_id: 2, ...over,
 });
 
 let stored: WireLearningAttempt;
@@ -167,7 +167,7 @@ describe('StationF: the tiering prediction', () => {
     renderF();
     await waitFor(() => expect(api.patchLearningAttempt).toHaveBeenCalledWith(UID, expect.objectContaining({
       completed: true, correct: true, observed: expect.objectContaining({ right: 12, total: 12, source: 'simulation' }),
-    })));
+    }), 2));
     expect(await screen.findByText('All 12 right.')).toBeInTheDocument();
   });
 
@@ -297,7 +297,7 @@ describe('StationF: the plan', () => {
     expect(screen.getByText('Structure checks, not a quality grade')).toBeInTheDocument();
     expect(screen.getAllByText('Present')).toHaveLength(4);
     await user.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(api.patchLearningAttempt).toHaveBeenCalledWith(UID, { explanation_text: expect.stringContaining('Given the yield waves') }));
+    await waitFor(() => expect(api.patchLearningAttempt).toHaveBeenCalledWith(UID, { explanation_text: expect.stringContaining('Given the yield waves') }, 2));
   });
 });
 

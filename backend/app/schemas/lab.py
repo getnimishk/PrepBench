@@ -196,6 +196,9 @@ class _Op(BaseModel):
     pack_id: str = Field(pattern=r"^[a-z0-9][a-z0-9_-]{0,99}$")
     # Optional: with one, the attempt's prediction must already be committed.
     attempt_uid: Optional[str] = Field(default=None, min_length=8, max_length=64)
+    # The preparation the attempt belongs to. Another preparation's attempt does
+    # not count: omitted, only an attempt with no preparation does.
+    subject_id: Optional[int] = None
 
     model_config = ConfigDict(extra="forbid")
 

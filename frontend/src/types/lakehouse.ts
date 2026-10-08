@@ -66,6 +66,8 @@ export interface LabPackDetail extends LabPackSummary {
 interface OpBase {
   pack_id: string;
   attempt_uid?: string;
+  /** The preparation the attempt belongs to: another preparation's attempt does not count. */
+  subject_id?: number;
 }
 
 export type LabOperation =

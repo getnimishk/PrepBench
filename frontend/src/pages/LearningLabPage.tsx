@@ -21,7 +21,7 @@
 import React from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Box, Button, Card, CardContent, Chip, Stack, Typography, alpha, useTheme } from '@mui/material';
-import { Activity, Database, Workflow } from 'lucide-react';
+import { Activity, Database, FlaskConical, Workflow } from 'lucide-react';
 import { PageHead, Eyebrow } from '../components/ui/primitives';
 
 interface SandboxCard {
@@ -84,6 +84,21 @@ const SANDBOXES: SandboxCard[] = [
     live: true,
     icon: <Database size={22} aria-hidden />,
     iconBgKey: 'warning',
+  },
+  {
+    // Databricks' lab is the Lakehouse Lab; this one is ADF's, and only ever called the Behaviour Lab.
+    id: 'adf-behaviour',
+    label: 'ADF Behaviour Lab',
+    domain: 'Azure Data Factory pipeline behaviour',
+    description:
+      'Predict how a pipeline behaves, change it, and watch a teaching model respond: watermarks and failures, triggers, '
+      + 'concurrency, copy performance and fault tolerance. Works in a preparation with the ADF guide attached.',
+    metricFamilies: ['Watermark & failure', 'Triggers', 'Concurrency', 'Copy performance', 'Fault tolerance'],
+    familiesLabel: 'Five experiments',
+    path: '/lab/adf',
+    live: true,
+    icon: <FlaskConical size={22} aria-hidden />,
+    iconBgKey: 'primary',
   },
   {
     id: 'finance',

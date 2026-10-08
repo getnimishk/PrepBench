@@ -55,7 +55,7 @@ describe('the attempt encoding', () => {
       hint_count: 0,
       subject_id: 7,
     });
-    expect(api.patchLearningAttempt).toHaveBeenCalledWith('s7:adf@1:1:c2', { prediction: '1', completed: true, correct: true });
+    expect(api.patchLearningAttempt).toHaveBeenCalledWith('s7:adf@1:1:c2', { prediction: '1', completed: true, correct: true }, 7);
   });
 
   it('commits the case notes, their text and the debrief in one request per role', async () => {
@@ -70,15 +70,15 @@ describe('the attempt encoding', () => {
     }));
     expect(api.patchLearningAttempt).toHaveBeenCalledWith('s7:adf@1:1:lens:dm', {
       prediction: CASE_NOTES_COMMITTED, explanation_text: 'a) Q\nnotes', completed: true,
-    });
+    }, 7);
   });
 
   it('records ticked Say-it points as binary rubric coverage, one key per point', async () => {
     vi.mocked(api.patchLearningAttempt).mockResolvedValue(wire({}));
-    await saveCoverage('s7:adf@1:1:lens:po', [0, 3], 5);
+    await saveCoverage(7, 's7:adf@1:1:lens:po', [0, 3], 5);
     expect(api.patchLearningAttempt).toHaveBeenCalledWith('s7:adf@1:1:lens:po', {
       rubric_coverage: { 0: true, 1: false, 2: false, 3: true, 4: false },
-    });
+    }, 7);
   });
 
   it('gives the same question the same attempt id every time, so the server sees a second answer', () => {
@@ -100,16 +100,25 @@ describe('the attempt encoding', () => {
   });
 
   it('steps past an orphaned attempt of a deleted preparation whose subject id is reused', async () => {
-    // SQLite reuses the highest id after a delete; the old attempts stay, subject NULL.
-    vi.mocked(api.startLearningAttempt).mockImplementation(async (b) => wire({
-      ...b, subject_id: b.attempt_uid === 's7:adf@1:1:c0' ? null : b.subject_id, prediction: null,
-    }));
+    // SQLite reuses the highest id after a delete; the old attempts stay, subject NULL, and the
+    // server refuses to open one for this preparation (409, with none of that attempt in it).
+    vi.mocked(api.startLearningAttempt).mockImplementation(async (b) => {
+      if (b.attempt_uid === 's7:adf@1:1:c0') throw { response: { status: 409, data: { detail: 'taken' } } };
+      return wire({ ...b, prediction: null });
+    });
     vi.mocked(api.patchLearningAttempt).mockResolvedValue(wire({}));
 
     await answerCheck(KEY, 'incremental', 0, 1, true);
 
     expect(vi.mocked(api.startLearningAttempt).mock.calls.map(([b]) => b.attempt_uid)).toEqual(['s7:adf@1:1:c0', 's7:adf@1:1:c0~1']);
-    expect(api.patchLearningAttempt).toHaveBeenCalledWith('s7:adf@1:1:c0~1', expect.objectContaining({ prediction: '1' }));
+    expect(api.patchLearningAttempt).toHaveBeenCalledWith('s7:adf@1:1:c0~1', expect.objectContaining({ prediction: '1' }), 7);
+  });
+
+  it('does not step past a failure that is not a taken id', async () => {
+    vi.mocked(api.startLearningAttempt).mockRejectedValue({ response: { status: 500, data: { detail: 'down' } } });
+    await expect(answerCheck(KEY, 'incremental', 0, 1, true)).rejects.toMatchObject({ response: { status: 500 } });
+    expect(api.startLearningAttempt).toHaveBeenCalledTimes(1);
+    expect(api.patchLearningAttempt).not.toHaveBeenCalled();
   });
 
   it('keeps the real attempt id of each lens in its progress, for the saves after the debrief', () => {

@@ -85,9 +85,10 @@ test('a scenario is worked end to end as a Product Owner and its Say-it question
 
   // A second, different answer to a locked check is refused by the server.
   const refused = await request.patch(
-    `/api/v1/learning/attempts/${encodeURIComponent(`s${prep.id}:adf@1:1:c0`)}`, { data: { prediction: '1' } },
+    `/api/v1/learning/attempts/${encodeURIComponent(`s${prep.id}:adf@1:1:c0`)}`,
+    { params: { subject_id: prep.id }, data: { prediction: '1' } },
   );
-  expect(refused.ok()).toBe(false);
+  expect(refused.status()).toBe(400);
 
   // Saving again updates the same question, not a copy.
   await page.getByRole('button', { name: 'Update it in my interview question library' }).click();

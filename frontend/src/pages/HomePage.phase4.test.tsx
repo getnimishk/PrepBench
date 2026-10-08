@@ -239,24 +239,28 @@ describe('HomePage — Phase 4 Certification, Interview & Terminology Integratio
       expect(screen.queryByText(/Behaviour Lab/)).not.toBeInTheDocument();
     });
 
-    it('ADF continues to use "Behaviour Lab" with "Integration Pending — Phase 5"', async () => {
+    it('ADF uses "Behaviour Lab": live now, and pending whenever an experiment is not built', async () => {
       mockContext.selectedId = 6;
       mockContext.selected = ADF_SUBJECT;
       mockContext.capabilities = getSubjectCapabilities(6);
 
-      renderHomePage();
+      const { unmount } = renderHomePage();
 
-      // Top Primary CTA is disabled "Behaviour Lab (Integration Pending)"
-      const topCta = await screen.findByRole('button', { name: 'Behaviour Lab (Integration Pending)' });
-      expect(topCta).toBeInTheDocument();
-      expect(topCta).toBeDisabled();
-
-      // Section 4 shows ADF Behaviour Labs as pending
+      // Live: the Top Primary CTA opens the Behaviour Lab, never the Lakehouse Lab
+      const live = await screen.findAllByRole('link', { name: 'Open Behaviour Lab' });
+      expect(live[0]).toHaveAttribute('href', '/lab/adf');
+      expect(screen.queryByText(/Lakehouse Lab/)).not.toBeInTheDocument();
       const panel4 = screen.getByRole('region', { name: '4. What can I practice?' });
       expect(within(panel4).getByText('ADF Behaviour Labs')).toBeInTheDocument();
-      expect(within(panel4).getByRole('button', { name: 'Integration Pending' })).toBeDisabled();
+      unmount();
 
-      // Section 5 shows scheduled for Phase 5 integration
+      // Pending (an incomplete registry): the same name, disabled, scheduled
+      mockContext.capabilities = { ...getSubjectCapabilities(6), learningLabStatus: 'INTEGRATION_PENDING' };
+      renderHomePage();
+      const topCta = await screen.findByRole('button', { name: 'Behaviour Lab (Integration Pending)' });
+      expect(topCta).toBeDisabled();
+      const pending4 = screen.getByRole('region', { name: '4. What can I practice?' });
+      expect(within(pending4).getByRole('button', { name: 'Integration Pending' })).toBeDisabled();
       const panel5 = screen.getByRole('region', { name: '5. What can I experiment with? (Learning Lab)' });
       expect(within(panel5).getByText(/ADF Behaviour Labs — Scheduled for Phase 5 Integration/)).toBeInTheDocument();
     });

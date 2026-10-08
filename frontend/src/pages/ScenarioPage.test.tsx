@@ -108,7 +108,7 @@ describe('ScenarioPage', () => {
     await user.click(within(group).getByRole('radio', { name: C1.check[0].options[C1.check[0].answer] }));
 
     await waitFor(() => expect(api.patchLearningAttempt).toHaveBeenCalledWith(
-      's7:adf@1:1:c0', { prediction: String(C1.check[0].answer), completed: true, correct: true },
+      's7:adf@1:1:c0', { prediction: String(C1.check[0].answer), completed: true, correct: true }, 7,
     ));
     expect(api.startLearningAttempt).toHaveBeenCalledWith(expect.objectContaining({ subject_id: 7, challenge_id: 'adf/1/check/0' }));
     await waitFor(() => within(checkGroup(0)).getAllByRole('radio').forEach((r) => expect(r).toBeDisabled()));
@@ -148,7 +148,7 @@ describe('ScenarioPage', () => {
 
     await waitFor(() => expect(api.patchLearningAttempt).toHaveBeenCalledWith('s7:adf@1:1:lens:po', expect.objectContaining({
       prediction: 'case-notes', completed: true, explanation_text: expect.stringContaining(`a) ${tasks[0]}\nnote 0`),
-    })));
+    }), 7));
     expect(await screen.findByRole('heading', { name: '4 · Debrief' })).toBeInTheDocument();
     // The notes are what the debrief is compared with: they no longer change.
     expect(screen.getByLabelText(`a) ${tasks[0]}`)).toHaveAttribute('readonly');

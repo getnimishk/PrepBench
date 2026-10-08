@@ -11,6 +11,7 @@ const KIND: Record<FactoryCouplingType, { label: string; tone: 'neutral' | 'warn
   arithmetic: { label: 'Arithmetic', tone: 'neutral' },
   assumption: { label: 'Assumption', tone: 'warning' },
   convention: { label: 'Convention', tone: 'accent' },
+  fact: { label: 'From the ADF guide', tone: 'neutral' },
 };
 
 /**

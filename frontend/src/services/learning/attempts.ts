@@ -192,6 +192,12 @@ export function fromWire(w: WireLearningAttempt): Attempt {
 export const isChartSandboxAttempt = (attempt: Pick<Attempt, 'conceptId'>): boolean =>
   Object.prototype.hasOwnProperty.call(CONCEPTS, attempt.conceptId);
 
+/**
+ * The Chart Sandbox's attempts belong to no preparation: it opens them with no subject_id,
+ * and writes to them as no preparation (the server reaches only attempts with none that way).
+ */
+const CHART_SANDBOX_SCOPE = null;
+
 /** The Chart Sandbox's recorded attempts, from the server. Nothing else's. */
 export async function fetchAttempts(): Promise<Attempt[]> {
   return (await getLearningAttempts()).map(fromWire).filter(isChartSandboxAttempt);
@@ -236,12 +242,12 @@ export async function recordAttempt(attempt: Attempt): Promise<Attempt> {
   if (attempt.selectedAlternativeIds) patch.selected_alternative_ids = attempt.selectedAlternativeIds;
   if (attempt.rubricCoverage) patch.rubric_coverage = attempt.rubricCoverage;
 
-  return fromWire(await patchLearningAttempt(attempt.attemptId, patch));
+  return fromWire(await patchLearningAttempt(attempt.attemptId, patch, CHART_SANDBOX_SCOPE));
 }
 
 /** The learner's own explanation, after seeing what happened. Their words can be reworded. */
 export async function saveExplanation(attemptId: string, text: string): Promise<Attempt> {
-  return fromWire(await patchLearningAttempt(attemptId, { explanation_text: text }));
+  return fromWire(await patchLearningAttempt(attemptId, { explanation_text: text }, CHART_SANDBOX_SCOPE));
 }
 
 /**

@@ -39,9 +39,25 @@ def list_attempts(
     return LearningService(db).list_attempts(subject_id=subject_id, concept_id=concept_id)
 
 
+# The preparation asking, on every request that reaches one attempt by its uid.
+# Omitted, it asks as no preparation -- never as any preparation.
+_SCOPE = Query(
+    None,
+    description=(
+        "The preparation asking. Another preparation's attempt is answered as an unknown uid. "
+        "Omitted, only attempts with no preparation are reached."
+    ),
+)
+
+
 @router.get("/attempts/{attempt_uid}", response_model=LearningAttemptResponse)
-def get_attempt(attempt_uid: str, db: Session = Depends(get_db)):
-    return LearningService(db).get_attempt(attempt_uid)
+def get_attempt(attempt_uid: str, subject_id: Optional[int] = _SCOPE, db: Session = Depends(get_db)):
+    """One attempt, read from one preparation.
+
+    Read from any other preparation it is answered exactly like an unknown uid,
+    so the reply does not reveal that the uid exists elsewhere.
+    """
+    return LearningService(db).get_attempt(attempt_uid, subject_id=subject_id)
 
 
 @router.post(
@@ -56,13 +72,19 @@ def start_attempt(req: LearningAttemptCreate, db: Session = Depends(get_db)):
     that already exists rather than creating a second one or failing. A retry is
     the same request arriving twice, not a conflict -- and a duplicate row would
     inflate every count derived from this table.
+
+    A uid another preparation holds is refused with 409, carrying none of that
+    attempt.
     """
     return LearningService(db).start_attempt(req)
 
 
 @router.patch("/attempts/{attempt_uid}", response_model=LearningAttemptResponse)
 def update_attempt(
-    attempt_uid: str, req: LearningAttemptUpdate, db: Session = Depends(get_db)
+    attempt_uid: str,
+    req: LearningAttemptUpdate,
+    subject_id: Optional[int] = _SCOPE,
+    db: Session = Depends(get_db),
 ):
     """Commit a prediction, record hints and reasoning, or complete the attempt.
 
@@ -72,5 +94,8 @@ def update_attempt(
 
     Sending a second `prediction` is refused with 400, not merged. That refusal
     is the point of the endpoint.
+
+    Scoped like the read: another preparation's attempt is not found, so it can
+    be neither changed nor read back through the response.
     """
-    return LearningService(db).update_attempt(attempt_uid, req)
+    return LearningService(db).update_attempt(attempt_uid, req, subject_id=subject_id)

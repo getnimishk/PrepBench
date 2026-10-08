@@ -46,6 +46,8 @@ import { RoadmapListPage } from './pages/RoadmapListPage';
 import { RoadmapDetailPage } from './pages/RoadmapDetailPage';
 import { ChartSandboxPage } from './pages/ChartSandboxPage';
 import { DatabricksSandboxPage } from './pages/DatabricksSandboxPage';
+import { AdfLabPage } from './pages/AdfLabPage';
+import { AdfExperimentPage } from './pages/AdfExperimentPage';
 import { ScenarioPage } from './pages/ScenarioPage';
 import { RoleDiagnosticPage } from './pages/RoleDiagnosticPage';
 import { RolePreparationNewPage } from './pages/RolePreparationNewPage';
@@ -237,6 +239,9 @@ const App: React.FC = () => {
             <Route path="/system-design/attempts/:attemptId" element={<AppLayout><SystemDesignResultsPage /></AppLayout>} />
             <Route path="/roadmaps" element={<AppLayout><RoadmapListPage /></AppLayout>} />
             <Route path="/lab" element={<AppLayout><LearningLabPage /></AppLayout>} />
+            {/* The ADF Behaviour Lab: reachable by address while INTEGRATION_PENDING; nothing links to it until live. */}
+            <Route path="/lab/adf" element={<AppLayout><AdfLabPage /></AppLayout>} />
+            <Route path="/lab/adf/:slug" element={<AppLayout><AdfExperimentPage /></AppLayout>} />
             <Route path="/chart-sandbox" element={<AppLayout><ChartSandboxPage /></AppLayout>} />
             <Route path="/databricks-sandbox" element={<AppLayout><DatabricksSandboxPage /></AppLayout>} />
             <Route path="/scenarios" element={<AppLayout><ScenarioSandboxPage /></AppLayout>} />

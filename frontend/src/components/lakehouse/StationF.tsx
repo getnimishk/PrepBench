@@ -13,7 +13,8 @@ import type { LabPackDetail } from '../../types/lakehouse';
 import { addLakehouseJournalEntry } from '../../services/api';
 import { apiErrorMessage } from '../../services/apiError';
 import {
-  commitLabPrediction, completeLabSimulation, fetchLabAttempts, labAttemptUid, openLabAttempt, saveLabExplanation,
+  commitLabPrediction, completeLabSimulation, fetchLabAttempts, findLabAttempt, labAttemptUid, openLabAttempt,
+  saveLabExplanation,
 } from '../../services/lakehouse/attempts';
 import {
   decodeGuesses, defaultPlan, encodeGuesses, fmt, monthOf, parseFactory, runFactory, scoreTiering, tierJob, TIERING_CHALLENGE,
@@ -70,16 +71,17 @@ export const StationF: React.FC<{
   const [saveState, setSaveState] = useState<SaveState>('idle');
 
   const key = { subjectId, packId: pack.id, packVersion: pack.version, challenge: TIERING_CHALLENGE };
-  const uid = labAttemptUid(key);
+  // The id the attempt really has: a later generation when a deleted preparation's attempt held the first.
+  const uid = attempt?.attempt_uid ?? labAttemptUid(key);
 
   useEffect(() => {
     let cancelled = false;
     setLoadError(null);
     fetchLabAttempts(subjectId)
-      .then((list) => { if (!cancelled) setAttempt(list.find((a) => a.attempt_uid === uid) ?? null); })
+      .then((list) => { if (!cancelled) setAttempt(findLabAttempt(list, key) ?? null); })
       .catch((err) => { if (!cancelled) setLoadError(apiErrorMessage(err, 'Could not load your lab attempts.')); });
     return () => { cancelled = true; };
-    // `uid` is derived from subjectId and the pack, which are what the effect is keyed on.
+    // `key` is derived from subjectId and the pack, which are what the effect is keyed on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subjectId, pack.id, pack.version, reload]);
 
@@ -91,7 +93,7 @@ export const StationF: React.FC<{
   useEffect(() => {
     if (!config || !pendingPrediction) return;
     const result = scoreTiering(config, decodeGuesses(config, pendingPrediction));
-    completeLabSimulation(uid, result.right === result.total, { right: result.right, total: result.total })
+    completeLabSimulation(subjectId, uid, result.right === result.total, { right: result.right, total: result.total })
       .then(setAttempt)
       .catch(() => undefined); // Still open; the next load tries again.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -123,9 +125,9 @@ export const StationF: React.FC<{
   const hasRun = ranKey === planKey;
   const loop = config.loop;
 
-  const log = async (op: string, result: Record<string, unknown>) => {
+  const log = async (op: string, result: Record<string, unknown>, attemptUid = uid) => {
     try {
-      await addLakehouseJournalEntry({ pack_id: pack.id, station: 'f', source: 'simulation', op, result, attempt_uid: committed || op === 'factory_tiering' ? uid : undefined });
+      await addLakehouseJournalEntry({ pack_id: pack.id, station: 'f', source: 'simulation', op, result, attempt_uid: committed || op === 'factory_tiering' ? attemptUid : undefined });
       setJournalNote(null);
       onJournalChange();
     } catch (err) {
@@ -138,12 +140,12 @@ export const StationF: React.FC<{
     setCommitting(true);
     setCommitError(null);
     try {
-      await openLabAttempt(key);
-      await commitLabPrediction(uid, encodeGuesses(config, guesses));
+      const opened = await openLabAttempt(key);
+      await commitLabPrediction(subjectId, opened.attempt_uid, encodeGuesses(config, guesses));
       const result = scoreTiering(config, guesses);
-      const done = await completeLabSimulation(uid, result.right === result.total, { right: result.right, total: result.total });
+      const done = await completeLabSimulation(subjectId, opened.attempt_uid, result.right === result.total, { right: result.right, total: result.total });
       setAttempt(done);
-      await log('factory_tiering', { right: result.right, total: result.total });
+      await log('factory_tiering', { right: result.right, total: result.total }, done.attempt_uid);
     } catch (err) {
       setCommitError(apiErrorMessage(err, 'Your tiering could not be saved.'));
       setReload((n) => n + 1);
@@ -170,7 +172,7 @@ export const StationF: React.FC<{
   const saveCriteria = async () => {
     setSaveState('saving');
     try {
-      setAttempt(await saveLabExplanation(uid, criteria));
+      setAttempt(await saveLabExplanation(subjectId, uid, criteria));
       setSaveState('saved');
     } catch {
       setSaveState('failed');

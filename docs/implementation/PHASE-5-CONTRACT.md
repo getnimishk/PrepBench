@@ -1,8 +1,10 @@
 # Phase 5 contract: the ADF Behaviour Lab
 
-**Status: not started. Scope frozen 2026-10-07: five experiments.** This is the contract a Phase 5
-implementation must satisfy. Nothing here is built. ADF's `learningLabStatus` stays
-`INTEGRATION_PENDING` until [section 5](#5-when-adfs-lab-becomes-available) is met.
+**Status: implemented 2026-10-07 on `feat/phase-5-adf-learning-lab`, not yet merged. Scope:
+five experiments.** All five meet section 3's completion criteria, so ADF's `learningLabStatus` is
+`AVAILABLE`. It is derived from the lab's registry, not set by hand: `adfLabStatus()` in
+`frontend/src/services/adfLab/experiments.ts` returns `INTEGRATION_PENDING` the moment any
+experiment is marked not built. Section 8 records how it was built.
 
 Sources examined: the unified prototype (`prototypes/unified-prototype/`, local only:
 `src/data/labDefinitions.ts` and the five `Adf*ExperimentPage.tsx` files); the production Lakehouse
@@ -370,3 +372,75 @@ One working experiment does not make the lab AVAILABLE.
 None block Phase 5. S1-S4 settled the scope decisions that were previously open. Changing any of
 them, or adding an experiment, is a scope change and needs a decision from the product owner, not an
 implementation choice.
+
+---
+
+## 8. Implementation record (2026-10-07)
+
+### Where it lives
+
+| Piece | Path (under `frontend/src/`) |
+|---|---|
+| Registry: five experiments, models, stages, tracks, persistence, status | `services/adfLab/experiments.ts` |
+| Definitions, by slug (Fault Tolerance has two) | `services/adfLab/definitions.ts` |
+| Definition contract the runner reads | `services/adfLab/definition.ts` |
+| Attempts: run correlation, every write via LearningService | `services/adfLab/attempts.ts` |
+| Stage from the server's rows | `services/adfLab/stages.ts` |
+| E2 Watermark, E3 Triggers (the Lakehouse ADF model, `runPipeline`) | `services/adfLab/watermark.ts`, `triggers.ts`, `semiconductor.ts` |
+| E1 Concurrency (new model) | `services/adfLab/concurrencyModel.ts`, `concurrency.ts` |
+| E4 Copy Performance (new model) | `services/adfLab/copyPerfModel.ts`, `copyPerf.ts` |
+| E5 Fault Tolerance (new model, two modes) | `services/adfLab/faultToleranceModel.ts`, `faultTolerance.ts` |
+| The one runner for all eight stages | `components/adfLab/ExperimentRunner.tsx` |
+| Eligibility gate and notices | `components/adfLab/AdfLabGate.tsx` |
+| Routes `/lab/adf`, `/lab/adf/:slug` (`?mode=` for Fault Tolerance) | `pages/AdfLabPage.tsx`, `pages/AdfExperimentPage.tsx` |
+
+### Decisions taken while building
+
+- **One runner, many definitions.** 5A's page became `ExperimentRunner`, driven by a definition
+  per experiment (or per fault mode). The runner grades only from the model: Predict against the
+  scenario run's `outcome`, Reason against its `problem` findings, and Apply by
+  `apply.correct(run, allRuns)`. 5A's tests passed unchanged across the refactor.
+- **Fault Tolerance's modes are tracks.** `attempt_uid` is `ab:<subject>:<track>:r<run>:<stage>`,
+  and a track is the slug, or `fault-tolerance.dependency` / `fault-tolerance.bad-rows`.
+  `concept_id` stays `adf.lab.fault-tolerance`. The experiment counts as complete only when both
+  modes are.
+- **Ledger kind `fact`.** The shared `FactoryCouplingType` gained `'fact'` ("From the ADF guide"),
+  so a statement the pack makes is not shown as a model assumption. The Lakehouse stations are
+  unaffected.
+- **Eligibility is the pack.** `hasAdfPack(selected)` gates every lab route. The derived
+  capability profile (learner-created preparations) turns the lab on when the `adf` pack is
+  attached, with the same registry-derived status as the seeded ADF preparation.
+- **Mode A uses the pack's own table.** Pipeline status when the main step fails comes from the
+  monitoring chapter's table (try-catch → Succeeded, do-if-else → Failed, do-if-skip-else →
+  Succeeded). With no handler, the guide's rule ("succeeds only if every [last step] succeeded")
+  gives Failed. A recovered step showing Succeeded under every pattern is a labelled model
+  assumption, because the table covers only the failing case.
+- **Mode B leaves partial rows unmodelled.** The guide says the copy "stops and fails"; how many
+  rows landed is shown as "Not modelled", never as a number. Row counts are labelled teaching
+  constants.
+- **Copy Performance has no price.** Cost is DIU-hours, the unit; no rate is assumed. Every
+  throughput figure is a labelled teaching constant.
+- **Excluded on purpose:** the pack's own "DIUs: 2 to 256 per copy" diagram range (contract C3),
+  any timeout simulation (S2), any backfill or `maxConcurrency` (S3), and any SM-2 scheduling
+  (S4). Tests assert each of these exclusions.
+- **Home and the hub.** Home's existing AVAILABLE branch was kept: only its link targets changed
+  (`/lab/adf`, and `/lab/adf/<slug>` for its two featured experiments, which now have accessible
+  names), and one card title changed to match the registry. The Learning Lab hub gained an
+  "ADF Behaviour Lab" card. The sidebar is unchanged; its existing `lab` rule lights up with
+  `AVAILABLE`.
+
+### Known limitations
+
+- Roadmap topics are named on each experiment, not linked: no API exposes the alignment index or
+  maps a topic number to a learner's roadmap rows. Every pair is checked against the pack in a test.
+- One recorded observation per run: `manipulation` and `observed` are write-once, so only the run
+  the learner records is kept.
+- Every request that reaches one learning attempt by uid is scoped to a preparation since the
+  pre-Phase-6 hardening (2026-10-08): `GET` and `PATCH /learning/attempts/{uid}?subject_id=`, a
+  retried `POST` (a uid another preparation holds is a 409 with none of its data), and the
+  Lakehouse op gate. Another preparation's attempt answers as an unknown uid; omitted, the scope is
+  "no preparation", never "any"; an attempt cannot be moved between preparations
+  (`backend/tests/test_learning_attempt_isolation.py`). Because SQLite reuses a deleted
+  preparation's id, the lab steps past a run whose ids that preparation's attempts still hold
+  (`openPredict`). The lab reads only the subject-filtered list, and also checks the subject in
+  each uid.
