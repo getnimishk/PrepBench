@@ -142,6 +142,19 @@ describe('RoadmapCurriculumTools -- course lessons (D2)', () => {
     expect(onChanged).toHaveBeenCalledTimes(1);
   });
 
+  it('says a roadmap with no guide sections has nothing to label, rather than "0 match"', async () => {
+    const user = userEvent.setup();
+    api.previewCourseLessons.mockResolvedValue({ roadmap_id: 6, matched: [], unmatched_written_by_you: 0, already_course: 0, ai_drafts: 0 });
+    render(<RoadmapCurriculumTools roadmap={roadmap(['Agents'])} onChanged={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: /label course lessons/i }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(fileInput(dialog), { target: { files: [lessonFile('a.json', { sections: [{ title: 'T', body: 'B' }] })] } });
+    expect(await within(dialog).findByText(/ADF Master Roadmap has no guide sections yet, so there is nothing to label/)).toBeInTheDocument();
+    expect(within(dialog).queryByText(/match a lesson word for word/)).not.toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Label' })).toBeDisabled();
+    expect(api.applyCourseLessons).not.toHaveBeenCalled();
+  });
+
   it('offers nothing to label when no section matches', async () => {
     const user = userEvent.setup();
     api.previewCourseLessons.mockResolvedValue({ roadmap_id: 6, matched: [], unmatched_written_by_you: 3, already_course: 0, ai_drafts: 0 });
