@@ -93,8 +93,12 @@ test('a scenario is worked end to end as a Product Owner and its Say-it question
   // Saving again updates the same question, not a copy.
   await page.getByRole('button', { name: 'Update it in my interview question library' }).click();
   await expect(page.getByText(/Updated in your interview question library/)).toBeVisible();
-  const saved = await (await request.get(`/api/v1/interview-questions?source_ref=${encodeURIComponent('adf@1/scenario/1/lens/po')}`)).json();
+  // It is this preparation's question: asked for by its preparation, it is there once;
+  // the shared library (no preparation) never lists it (Phase 8).
+  const ref = encodeURIComponent('adf@1/scenario/1/lens/po');
+  const saved = await (await request.get(`/api/v1/interview-questions?source_ref=${ref}&subject_id=${prep.id}`)).json();
   expect(saved.total).toBe(1);
+  expect((await (await request.get(`/api/v1/interview-questions?source_ref=${ref}`)).json()).total).toBe(0);
   expect(saved.items[0].round_type).toBe('technical');
   expect(saved.items[0].subject_id).toBe(prep.id);
 

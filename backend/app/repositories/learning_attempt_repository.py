@@ -67,9 +67,14 @@ class LearningAttemptRepository:
         limit and no offset. The limit exists so a pathological history cannot
         take the page down, not to paginate.
         """
+        # A preparation's attempts, or -- with none given -- the attempts that belong to
+        # no preparation (the Chart Sandbox's). Never every preparation's (Phase 8): the
+        # same rule as reading one attempt by uid, Workspace and Evidence.
         query = self.db.query(LearningAttempt)
         if subject_id is not None:
             query = query.filter(LearningAttempt.subject_id == subject_id)
+        else:
+            query = query.filter(LearningAttempt.subject_id.is_(None))
         if concept_id:
             query = query.filter(LearningAttempt.concept_id == concept_id)
         return (

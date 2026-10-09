@@ -73,7 +73,10 @@ const startReview = async () => {
 beforeEach(() => {
   vi.clearAllMocks();
   mockQueue.mockResolvedValue({ items: [item()], remaining: 89, total_unreviewed: 90, spaced_due: 0 });
-  mockPreparation.mockReturnValue({ selectedId: null, selected: null });
+  // A preparation with mocks sat: review is always one preparation's queue (Phase 8).
+  mockPreparation.mockReturnValue({
+    selectedId: 1, selected: { id: 1, name: 'Scrum / PSM I', has_exam_profile: true, readiness: { mock_count: 3 } },
+  });
   mockActivity.mockResolvedValue([]);
   mockMarkReviewed.mockResolvedValue({ status: 'ok' });
   mockSubmitCheck.mockResolvedValue({
@@ -358,5 +361,34 @@ describe('ReviewPage', () => {
       expect(await screen.findByText(/Nothing to review/)).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Review from memory' })).not.toBeInTheDocument();
     });
+  });
+});
+
+describe('ReviewPage with no preparation chosen (Phase 8)', () => {
+  it("asks for a preparation and reads no queue -- never every preparation's mistakes", async () => {
+    mockPreparation.mockReturnValue({ selectedId: null, selected: null });
+    render(<MemoryRouter><ReviewPage /></MemoryRouter>);
+    expect(await screen.findByText(/No preparation is chosen/)).toBeInTheDocument();
+    expect(mockQueue).not.toHaveBeenCalled();
+    expect(mockActivity).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Start review' })).not.toBeInTheDocument();
+  });
+
+  it('says the preparations could not be read, rather than asking to choose one, and retries', async () => {
+    const refresh = vi.fn().mockResolvedValue(undefined);
+    mockPreparation.mockReturnValue({ selectedId: null, selected: null, loading: false, error: 'offline', refresh });
+    render(<MemoryRouter><ReviewPage /></MemoryRouter>);
+    expect(await screen.findByText(/Could not load your preparations/)).toBeInTheDocument();
+    expect(screen.queryByText(/No preparation is chosen/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(refresh).toHaveBeenCalled();
+    expect(mockQueue).not.toHaveBeenCalled();
+  });
+
+  it('waits while the preparations are still loading', async () => {
+    mockPreparation.mockReturnValue({ selectedId: null, selected: null, loading: true, error: null });
+    render(<MemoryRouter><ReviewPage /></MemoryRouter>);
+    expect(await screen.findByText('Loading your review queue…')).toBeInTheDocument();
+    expect(screen.queryByText(/No preparation is chosen/)).not.toBeInTheDocument();
   });
 });

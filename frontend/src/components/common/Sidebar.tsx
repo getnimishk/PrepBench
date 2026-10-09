@@ -40,6 +40,12 @@ function useReviewWaiting(): { unreviewed: number; spacedDue: number } | null {
 
   useEffect(() => {
     if (loading || !online) return undefined;
+    // No preparation, no badge: the counts are always one preparation's, never every
+    // preparation's added together (Phase 8).
+    if (selectedId == null) {
+      setCounts(null);
+      return undefined;
+    }
     let cancelled = false;
     getReviewCounts(selectedId)
       .then((c) => { if (!cancelled) setCounts({ unreviewed: c.unreviewed, spacedDue: c.spaced_due }); })

@@ -23,8 +23,13 @@ class InterviewQuestionRepository:
             query = query.filter(InterviewQuestion.round_type == filter_params.round_type)
         if filter_params.category:
             query = query.filter(InterviewQuestion.category == filter_params.category)
+        # A preparation's own questions, or -- with none given -- the shared library: the
+        # questions that belong to no preparation. Never every preparation's (Phase 8): a
+        # question ADF saved from a scenario is ADF's, not PSM I's or System Design's.
         if filter_params.subject_id is not None:
             query = query.filter(InterviewQuestion.subject_id == filter_params.subject_id)
+        else:
+            query = query.filter(InterviewQuestion.subject_id.is_(None))
         if filter_params.source_ref:
             query = query.filter(InterviewQuestion.source_ref == filter_params.source_ref)
         if filter_params.keyword:

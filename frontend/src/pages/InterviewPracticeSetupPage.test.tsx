@@ -8,6 +8,8 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route, useParams } from 'react-router-dom';
 import { InterviewPracticeSetupPage } from './InterviewPracticeSetupPage';
+import { getSubjectCapabilities, UNASSIGNED_CAPABILITIES } from '../services/capabilities';
+import type { Subject } from '../types/subject';
 
 // userEvent.setup({ delay: null }) throughout: the default per-keystroke await
 // makes each character its own async tick plus a React re-render.
@@ -23,6 +25,10 @@ vi.mock('../services/api', () => ({
   generateInterviewQuestion: (...args: any[]) => mockGenerate(...args),
   getRecordings: (...args: any[]) => mockGetRecordings(...args),
 }));
+
+// The preparation context, as the bare default unless a test sets one.
+let mockPreparation: Record<string, unknown> = { selected: null, selectedId: null, capabilities: UNASSIGNED_CAPABILITIES };
+vi.mock('../context/PreparationContext', () => ({ usePreparation: () => mockPreparation }));
 
 const RecordStub = () => <div>Record Page {useParams().questionId}</div>;
 
@@ -180,5 +186,48 @@ describe('InterviewPracticeSetupPage when the server does not answer', () => {
     renderPage();
     await screen.findByRole('article', { name: 'Why us?' });
     expect(screen.getByRole('link', { name: 'Recordings library' })).toBeInTheDocument();
+  });
+});
+
+describe('InterviewPracticeSetupPage: the System Design track follows the capability, not the id (Phase 8)', () => {
+  const record = (id: number, slug: string) => ({
+    id, name: 'Prep', slug, kind: 'skill', is_archived: false, display_order: id, has_exam_profile: false,
+    question_count: 0, content_packs: [], readiness: { state: 'needs_evaluation', mock_count: 0, recent_scores: [] },
+  }) as unknown as Subject;
+  afterEach(() => { mockPreparation = { selected: null, selectedId: null, capabilities: UNASSIGNED_CAPABILITIES }; });
+
+  it('points the System Design preparation at the studio and design reviews', async () => {
+    const sd = record(3, 'system-design');
+    mockPreparation = { selected: sd, selectedId: 3, capabilities: getSubjectCapabilities(sd) };
+    renderPage();
+    expect(await screen.findByText('System Design Track:')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'System Design Studio' })).toHaveAttribute('href', '/system-design');
+  });
+
+  it('opens on the System Design tab once it exists, never on a tab that is not there', async () => {
+    const sd = record(3, 'system-design');
+    mockPreparation = { selected: sd, selectedId: 3, capabilities: getSubjectCapabilities(sd) };
+    let releaseRounds: (v: unknown) => void = () => {};
+    const rounds = await mockGetRoundTypes();
+    mockGetRoundTypes.mockImplementationOnce(() => new Promise((r) => { releaseRounds = r; }));
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      renderPage();
+      // Before the round tabs load, "All questions" is the tab on screen.
+      expect(await screen.findByRole('tab', { name: /All questions/ })).toHaveAttribute('aria-selected', 'true');
+      releaseRounds(rounds);
+      await waitFor(() => expect(screen.getByRole('tab', { name: /^System Design/ })).toHaveAttribute('aria-selected', 'true'));
+      expect(errors.mock.calls.some((args) => String(args[0]).includes('Tabs component is invalid'))).toBe(false);
+    } finally {
+      errors.mockRestore();
+    }
+  });
+
+  it('does not treat a learner preparation that reuses id 3 as System Design', async () => {
+    const mine = record(3, 'my-own-skill');
+    mockPreparation = { selected: mine, selectedId: 3, capabilities: getSubjectCapabilities(mine) };
+    renderPage();
+    await screen.findByRole('article', { name: 'Why us?' });
+    expect(screen.queryByText('System Design Track:')).not.toBeInTheDocument();
   });
 });

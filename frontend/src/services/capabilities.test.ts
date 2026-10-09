@@ -407,3 +407,22 @@ describe('Curriculum capabilities follow the live record (Phase 7)', () => {
     expect(UNASSIGNED_CAPABILITIES.lakehouseLab).toBe(false);
   });
 });
+
+describe('System Design Studio ownership is read from the slug, never the id (Phase 8)', () => {
+  const rec = (id: number, slug: string): Subject => ({
+    id, name: 'x', slug, kind: 'skill', is_archived: false, display_order: id, has_exam_profile: false,
+    question_count: 0, content_packs: [],
+    readiness: { state: 'needs_evaluation', mock_count: 0, recent_scores: [] } as unknown as Subject['readiness'],
+  } as Subject);
+
+  it('belongs to the system-design preparation', () => {
+    expect(getSubjectCapabilities(rec(3, 'system-design')).systemDesignStudio).toBe(true);
+    expect(getSubjectCapabilities(3).systemDesignStudio).toBe(true);
+  });
+
+  it('is not given to a learner preparation that reuses id 3, nor to any other', () => {
+    expect(getSubjectCapabilities(rec(3, 'my-own-skill')).systemDesignStudio).toBe(false);
+    for (const id of [1, 2, 4, 5, 6]) expect(getSubjectCapabilities(id).systemDesignStudio).toBe(false);
+    expect(UNASSIGNED_CAPABILITIES.systemDesignStudio).toBe(false);
+  });
+});

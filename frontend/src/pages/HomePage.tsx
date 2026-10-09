@@ -579,6 +579,7 @@ export const HomePage: React.FC = () => {
     capabilities: ctxCapabilities,
     select,
     loading: ctxLoading,
+    provided,
   } = usePreparation();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [summary, setSummary] = useState<HomeSummary | null>(null);
@@ -613,17 +614,20 @@ export const HomePage: React.FC = () => {
   // Determine active primary subject:
   // 1. If selectedId is explicitly specified, find the matching subject.
   // 2. If selectedId is null in a loaded PreparationContext (!ctxLoading), render the Unassigned view.
-  // 3. Fallback to first subject with exam profile for standalone / unwrapped tests.
+  // 3. Fallback to first subject with exam profile for standalone / unwrapped tests --
+  //    never inside a provider: there, nothing chosen (or not yet loaded) is no subject,
+  //    and a still-loading provider is waited for, not guessed at as PSM I.
+  const waitingForProvider = provided && ctxLoading && ctxSelectedId === null;
   const primary: Subject | null = useMemo(() => {
     if (subjects.length === 0) return null;
-    if (ctxSelectedId === null && ctxLoading === false && typeof select === 'function') {
+    if (ctxSelectedId === null && (provided || (ctxLoading === false && typeof select === 'function'))) {
       return null;
     }
     if (ctxSelectedId != null) {
       return subjects.find((s) => s.id === ctxSelectedId) ?? null;
     }
     return subjects.find((s) => s.has_exam_profile) ?? subjects[0];
-  }, [subjects, ctxSelectedId, ctxLoading, select]);
+  }, [subjects, ctxSelectedId, ctxLoading, select, provided]);
 
   const primaryId = primary?.id ?? null;
   const capabilities = useMemo(() => {
@@ -684,7 +688,7 @@ export const HomePage: React.FC = () => {
     return () => { cancelled = true; };
   }, [primaryId]);
 
-  if (loading) {
+  if (loading || waitingForProvider) {
     return <LoadingState label="Loading your progress…" />;
   }
 

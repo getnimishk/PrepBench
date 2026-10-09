@@ -227,7 +227,7 @@ def test_saving_the_same_source_again_updates_that_row(client):
     assert body["question"]["key_talking_points"] == ["One point now"]
     assert body["question"]["category"] == "My ADF prep"
 
-    matches = client.get("/api/v1/interview-questions", params={"source_ref": ref}).json()
+    matches = client.get("/api/v1/interview-questions", params={"source_ref": ref, "subject_id": skill["id"]}).json()
     assert matches["total"] == 1
 
 
@@ -240,12 +240,21 @@ def test_the_library_filters_by_source_and_by_preparation(client):
     by_subject = client.get("/api/v1/interview-questions", params={"subject_id": skill["id"]}).json()
     assert [q["id"] for q in by_subject["items"]] == [mine["id"]]
 
-    by_ref = client.get("/api/v1/interview-questions", params={"source_ref": mine["source_ref"]}).json()
+    by_ref = client.get("/api/v1/interview-questions",
+                        params={"source_ref": mine["source_ref"], "subject_id": skill["id"]}).json()
     assert [q["id"] for q in by_ref["items"]] == [mine["id"]]
 
-    # The round filter the library's tabs use still sees it.
-    technical = client.get("/api/v1/interview-questions", params={"round_type": "technical", "limit": 500}).json()
+    # The round filter the library's tabs use still sees it, in its own preparation.
+    technical = client.get("/api/v1/interview-questions",
+                           params={"round_type": "technical", "limit": 500, "subject_id": skill["id"]}).json()
     assert mine["id"] in {q["id"] for q in technical["items"]}
+
+    # With no preparation the library is the shared one -- never a preparation's own
+    # questions (Phase 8): neither skill's saved question is listed there.
+    shared = client.get("/api/v1/interview-questions", params={"limit": 500}).json()
+    assert all(q["subject_id"] is None for q in shared["items"])
+    assert mine["id"] not in {q["id"] for q in shared["items"]}
+    assert client.get("/api/v1/interview-questions", params={"source_ref": mine["source_ref"]}).json()["total"] == 0
 
 
 def test_an_unknown_preparation_is_refused(client):

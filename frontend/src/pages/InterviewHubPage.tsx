@@ -191,7 +191,9 @@ export const InterviewHubPage: React.FC = () => {
     return <CapabilityUnavailablePage capability="Interview" subject={targetSubject} />;
   }
 
-  const isSystemDesignSubject = targetSubject.id === 3;
+  // Whether the System Design Studio and design reviews are this preparation's: a capability
+  // read from its record (the `system-design` slug), never its id.
+  const isSystemDesignSubject = targetCapabilities.systemDesignStudio;
 
   // This hub can show a preparation other than the one in the header: its own
   // track chooser and CapabilityUnavailablePage link here with ?subject=. The

@@ -9188,6 +9188,7 @@ export interface operations {
                 round_type?: components["schemas"]["InterviewRoundType"] | null;
                 category?: string | null;
                 keyword?: string | null;
+                /** @description This preparation's own questions. Omitted: the shared library -- the questions that belong to no preparation, never every preparation's. */
                 subject_id?: number | null;
                 source_ref?: string | null;
             };
@@ -9987,7 +9988,7 @@ export interface operations {
     list_attempts_api_v1_learning_attempts_get: {
         parameters: {
             query?: {
-                /** @description Only this preparation's attempts. */
+                /** @description This preparation's attempts. Omitted: the attempts that belong to no preparation -- never every preparation's. */
                 subject_id?: number | null;
                 /** @description Only attempts at this concept. */
                 concept_id?: string | null;

@@ -90,7 +90,9 @@ const SCREENS: { route: string; failure: RegExp }[] = [
   { route: '/preparations', failure: /Could not load your preparations/ },
   { route: '/exam-setup', failure: /Could not load your preparations/ },
   { route: '/practice', failure: /Could not load your preparations/ },
-  { route: '/review', failure: /Could not load your review queue/ },
+  // Nothing is chosen in this spec, so Review asks for no queue (Phase 8: never every
+  // preparation's) -- what it could not read is the preparations themselves.
+  { route: '/review', failure: /Could not load your preparations/ },
   { route: '/interview-practice', failure: /Could not load the interview rounds/ },
   { route: '/interview-practice/library', failure: /Could not load the question library/ },
   { route: '/settings/ai', failure: /Could not load your AI providers/ },

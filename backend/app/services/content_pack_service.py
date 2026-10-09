@@ -253,12 +253,6 @@ def linked_pack_for_roadmap(db: Session, roadmap: Roadmap) -> Optional[Tuple[str
     return None
 
 
-def get_linked_pack_for_roadmap(db: Session, roadmap: Roadmap) -> Optional[Tuple[str, str]]:
-    """(pack_id, pack_title) of the pack linked_pack_for_roadmap finds, or None."""
-    linked = linked_pack_for_roadmap(db, roadmap)
-    return (linked[0], linked[1]) if linked else None
-
-
 def chapters_for_topic_title(
     alignments: Dict[str, List[MappedGuideChapter]], title: str
 ) -> List[MappedGuideChapter]:
@@ -288,36 +282,4 @@ def find_mapped_chapters_for_topic(
     if not linked:
         return []
     return chapters_for_topic_title(get_pack_roadmap_alignments(linked[0], linked[2]), topic.title)
-
-    linked = get_linked_pack_for_roadmap(db, roadmap)
-    if not linked:
-        # Check all latest packs for title match
-        for pack in pack_store.all_latest():
-            alignments = get_pack_roadmap_alignments(pack.pack_id, pack.version)
-            norm = normalize_topic_title(topic.title)
-            if norm in alignments:
-                return alignments[norm]
-        return []
-
-    pack_id, _ = linked
-    alignments = get_pack_roadmap_alignments(pack_id)
-    if not alignments:
-        return []
-
-    # 1. Match by normalized topic title
-    norm_title = normalize_topic_title(topic.title)
-    if norm_title in alignments:
-        return alignments[norm_title]
-
-    # 2. Match by topic number extracted from title (e.g. "Topic 1: ...")
-    num_match = re.search(r"^(?:topic\s*)?(\d+)", topic.title.strip(), re.IGNORECASE)
-    if num_match and num_match.group(1) in alignments:
-        return alignments[num_match.group(1)]
-
-    # 3. Match by 1-based order_index if title doesn't match
-    order_key = str(topic.order_index + 1)
-    if order_key in alignments:
-        return alignments[order_key]
-
-    return []
 

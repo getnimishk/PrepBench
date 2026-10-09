@@ -44,6 +44,9 @@ export interface PreparationContextValue {
   error: string | null;
   /** Authoritative capability profile for current subject */
   capabilities: SubjectCapabilityProfile;
+  /** True when a PreparationProvider supplies this value; false for the bare default.
+   *  Lets a screen wait for the provider instead of guessing a preparation while it loads. */
+  provided: boolean;
 }
 
 const PreparationContext = createContext<PreparationContextValue>({
@@ -55,6 +58,7 @@ const PreparationContext = createContext<PreparationContextValue>({
   loading: true,
   error: null,
   capabilities: UNASSIGNED_CAPABILITIES,
+  provided: false,
 });
 
 export const usePreparation = () => useContext(PreparationContext);
@@ -161,6 +165,7 @@ export const PreparationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     loading,
     error,
     capabilities,
+    provided: true,
   }), [preparations, selected, selectedId, select, load, loading, error, capabilities]);
 
   return (

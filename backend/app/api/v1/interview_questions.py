@@ -77,7 +77,11 @@ def list_questions(
     round_type: Optional[InterviewRoundType] = None,
     category: Optional[str] = None,
     keyword: Optional[str] = None,
-    subject_id: Optional[int] = None,
+    subject_id: Optional[int] = Query(
+        None,
+        description="This preparation's own questions. Omitted: the shared library -- the questions that belong "
+                    "to no preparation, never every preparation's.",
+    ),
     source_ref: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
