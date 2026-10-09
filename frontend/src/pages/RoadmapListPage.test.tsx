@@ -258,3 +258,52 @@ describe('RoadmapListPage', () => {
     expect(screen.getByText('PSM plan')).toBeInTheDocument();
   });
 });
+
+describe('RoadmapListPage: archived roadmaps can be restored', () => {
+  const archivedFor = (subjectId: number | null) => makeRoadmap({ id: 4, title: 'Old plan', subject_id: subjectId, is_archived: true });
+
+  it('reads archived roadmaps only when asked, in the same scope, and restores one', async () => {
+    const user = userEvent.setup();
+    mockPreparation.mockReturnValue({ selected: DATABRICKS, refresh: mockRefresh });
+    mockGetRoadmaps.mockImplementation((_sid: number | null, includeArchived?: boolean) => Promise.resolve(
+      includeArchived ? [makeRoadmap({ id: 3, title: 'Live plan', subject_id: 2 }), archivedFor(2)] : [makeRoadmap({ id: 3, title: 'Live plan', subject_id: 2 })],
+    ));
+    mockUpdateRoadmap.mockResolvedValue({});
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText('Live plan')).toBeInTheDocument());
+    // Not read until asked for: the page's own request is unchanged.
+    expect(mockGetRoadmaps).toHaveBeenCalledTimes(1);
+    expect(mockGetRoadmaps).toHaveBeenCalledWith(2);
+
+    await user.click(screen.getByRole('button', { name: 'Show archived roadmaps' }));
+    const section = screen.getByRole('region', { name: 'Archived roadmaps' });
+    expect(await within(section).findByText('Old plan')).toBeInTheDocument();
+    expect(within(section).queryByText('Live plan')).not.toBeInTheDocument();
+    expect(mockGetRoadmaps).toHaveBeenCalledWith(2, true);
+
+    await user.click(within(section).getByRole('button', { name: 'Restore Old plan' }));
+    await waitFor(() => expect(mockUpdateRoadmap).toHaveBeenCalledWith(4, { is_archived: false }));
+    // The preparation's roadmap claim follows the restore.
+    await waitFor(() => expect(mockRefresh).toHaveBeenCalled());
+  });
+
+  it('says when there is nothing archived', async () => {
+    const user = userEvent.setup();
+    mockGetRoadmaps.mockResolvedValue([]);
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: 'Show archived roadmaps' }));
+    expect(await screen.findByText('No archived roadmaps belong to no preparation.')).toBeInTheDocument();
+    expect(mockGetRoadmaps).toHaveBeenCalledWith(null, true);
+  });
+
+  it('says a restore that failed changed nothing', async () => {
+    const user = userEvent.setup();
+    mockGetRoadmaps.mockImplementation((_sid: number | null, includeArchived?: boolean) => Promise.resolve(includeArchived ? [archivedFor(null)] : []));
+    mockUpdateRoadmap.mockRejectedValue(new Error('offline'));
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: 'Show archived roadmaps' }));
+    await user.click(await screen.findByRole('button', { name: 'Restore Old plan' }));
+    expect(await screen.findByText(/Failed to restore Old plan\. Nothing was changed\./)).toBeInTheDocument();
+  });
+});

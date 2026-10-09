@@ -16,7 +16,7 @@ import { apiErrorMessage, loadFailed } from '../services/apiError';
 import { usePreparation } from '../context/PreparationContext';
 import { LoadingState } from '../components/common/States';
 import {
-  Bar, Detail, Eyebrow, Grid, Metric, MetricRow, Note, PageHead, Panel, PanelHead, Section,
+  Bar, Detail, Eyebrow, Grid, Metric, MetricRow, Note, PageHead, Panel, PanelHead, Row, Section,
 } from '../components/ui/primitives';
 import { chooseRoadmap } from '../services/roadmapChoice';
 
@@ -57,6 +57,12 @@ export const RoadmapListPage: React.FC = () => {
   // A change of which preparation owns a roadmap, shown before it is made (Phase 7, D3).
   const [linkChange, setLinkChange] = useState<{ roadmap: RoadmapSummary; to: 'link' | 'unlink' } | null>(null);
   const seq = useRef(0);
+  // Archived roadmaps, read only when asked for: null = not shown. The same scope as the
+  // list above -- this preparation's and the unassigned ones, never another preparation's.
+  const [archived, setArchived] = useState<RoadmapSummary[] | null>(null);
+  const [archivedLoading, setArchivedLoading] = useState(false);
+  const [archivedError, setArchivedError] = useState<string | null>(null);
+  const archivedSeq = useRef(0);
 
   // Only this preparation's roadmaps and the unassigned ones are asked for -- with
   // none chosen, only the unassigned ones. Another preparation's never reach the
@@ -78,6 +84,26 @@ export const RoadmapListPage: React.FC = () => {
   useEffect(() => {
     fetchRoadmaps();
   }, [fetchRoadmaps]);
+
+  const loadArchived = useCallback(() => {
+    const mine = ++archivedSeq.current;
+    setArchivedLoading(true);
+    setArchivedError(null);
+    getScopedRoadmaps(preparationId, true)
+      .then((list) => { if (mine === archivedSeq.current) setArchived(list.filter((r) => r.is_archived)); })
+      .catch((err) => {
+        if (mine === archivedSeq.current) setArchivedError(loadFailed('Could not load your archived roadmaps', err));
+      })
+      .finally(() => { if (mine === archivedSeq.current) setArchivedLoading(false); });
+  }, [preparationId]);
+
+  // Another preparation, another set of archived roadmaps: hidden again until asked for.
+  useEffect(() => {
+    archivedSeq.current += 1;
+    setArchived(null);
+    setArchivedError(null);
+    setArchivedLoading(false);
+  }, [preparationId]);
 
   const handleCreate = async () => {
     if (!newTitle.trim()) return;
@@ -120,9 +146,24 @@ export const RoadmapListPage: React.FC = () => {
     try {
       await updateRoadmap(roadmap.id, { is_archived: true });
       fetchRoadmaps();
+      if (archived !== null) loadArchived();
       await refreshPreparations();
     } catch (err) {
       setActionError(apiErrorMessage(err, 'Failed to archive roadmap.'));
+    }
+  };
+
+  /** Undo an archive. The roadmap comes back exactly as it was: same owner, topics and
+   *  progress -- and, if it belongs to this preparation, its roadmap claim with it. */
+  const handleRestore = async (roadmap: RoadmapSummary) => {
+    setActionError(null);
+    try {
+      await updateRoadmap(roadmap.id, { is_archived: false });
+      fetchRoadmaps();
+      loadArchived();
+      await refreshPreparations();
+    } catch (err) {
+      setActionError(apiErrorMessage(err, `Failed to restore ${roadmap.title}. Nothing was changed.`));
     }
   };
 
@@ -322,6 +363,50 @@ export const RoadmapListPage: React.FC = () => {
           )}
         </>
       )}
+
+      <Section component="section" aria-labelledby="archived-heading">
+        <Eyebrow component="h2" id="archived-heading">Archived roadmaps</Eyebrow>
+        <Detail sx={{ mb: '10px' }}>
+          An archived roadmap keeps its topics and progress, and is hidden from the lists above. Restore one to bring it
+          back as it was.
+        </Detail>
+        {archived === null ? (
+          <>
+            {archivedError && (
+              <Alert severity="error" sx={{ mb: '10px' }}>{archivedError}</Alert>
+            )}
+            <Button variant="outlined" onClick={loadArchived} disabled={archivedLoading}>
+              {archivedLoading ? 'Loading…' : archivedError ? 'Try again' : 'Show archived roadmaps'}
+            </Button>
+          </>
+        ) : archived.length === 0 ? (
+          <Detail>
+            {preparation
+              ? `No archived roadmaps belong to ${preparation.name} or to no preparation.`
+              : 'No archived roadmaps belong to no preparation.'}
+          </Detail>
+        ) : (
+          <Box>
+            {archived.map((r) => (
+              <Row
+                key={r.id}
+                title={r.title}
+                detail={`${r.subject_id == null ? 'Not linked to a preparation' : `Belongs to ${preparation?.name ?? 'this preparation'}`}`
+                  + ` · ${r.progress.total_topics} topic${r.progress.total_topics === 1 ? '' : 's'}`
+                  + (r.progress.completed_count + r.progress.in_progress_count > 0
+                    ? ` · ${r.progress.completed_count} complete, ${r.progress.in_progress_count} in progress`
+                    : '')}
+                columns="minmax(0,1fr) auto"
+                action={(
+                  <Button variant="outlined" size="small" onClick={() => void handleRestore(r)} aria-label={`Restore ${r.title}`}>
+                    Restore
+                  </Button>
+                )}
+              />
+            ))}
+          </Box>
+        )}
+      </Section>
 
       <Section>
         <Grid columns={2}>

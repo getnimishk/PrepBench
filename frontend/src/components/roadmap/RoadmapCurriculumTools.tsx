@@ -238,7 +238,14 @@ const CourseLessonsDialog: React.FC<{ roadmap: RoadmapDetail; onClose: () => voi
             </Button>
             {skipped > 0 && <Detail sx={{ mt: '8px' }}>{skipped} file{skipped === 1 ? ' was' : 's were'} not a lesson file and {skipped === 1 ? 'was' : 'were'} skipped.</Detail>}
             {error && <Alert severity="error" sx={{ mt: '12px' }}>{error}</Alert>}
-            {preview && (
+            {preview && preview.matched.length + preview.unmatched_written_by_you + preview.already_course + preview.ai_drafts === 0 && (
+              // Nothing to compare against: say why, rather than a bare "0 match".
+              <Detail sx={{ mt: '14px' }}>
+                {roadmap.title} has no guide sections yet, so there is nothing to label. Nothing was changed. Course
+                lessons are labelled on the roadmap whose topics hold them.
+              </Detail>
+            )}
+            {preview && preview.matched.length + preview.unmatched_written_by_you + preview.already_course + preview.ai_drafts > 0 && (
               <Box sx={{ mt: '14px' }}>
                 <Detail>
                   {n} section{n === 1 ? '' : 's'} match a lesson word for word and would be labelled “Course lesson”.

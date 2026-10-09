@@ -168,3 +168,27 @@ test('the topic page and roadmap list pass axe in both themes and fit a 390px ph
     await request.put('/api/v1/settings', { data: { theme: 'light' } });
   }
 });
+
+test('an archived roadmap can be restored from the Roadmaps page, with its preparation claim', async ({ page, request }) => {
+  await trackApi(page);
+  const prep = await createSkillWithPack(request, 'Curriculum Shelf', 'adls');
+  const { rid, title } = await adfRoadmap(request, prep.id);
+  const count = async () => (await (await request.get(`/api/v1/subjects/${prep.id}`)).json()).roadmap_count as number;
+
+  await page.goto('/');
+  await pickPreparation(page, prep.name);
+  await page.goto('/roadmaps');
+  await page.getByRole('button', { name: `Archive ${title}` }).click();
+  await expect(page.getByRole('link', { name: title, exact: true })).toHaveCount(0);
+  expect(await count()).toBe(0);
+
+  const archived = page.getByRole('region', { name: 'Archived roadmaps' });
+  await archived.getByRole('button', { name: 'Show archived roadmaps' }).click();
+  await archived.getByRole('button', { name: `Restore ${title}` }).click();
+  await expect(page.getByRole('link', { name: title, exact: true })).toBeVisible();
+  await expect(archived.getByText(title)).toHaveCount(0);
+  expect(await count()).toBe(1);
+  const detail = await (await request.get(`/api/v1/roadmaps/${rid}`)).json();
+  expect(detail.is_archived).toBe(false);
+  expect(detail.subject_id).toBe(prep.id);
+});
