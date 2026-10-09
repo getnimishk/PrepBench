@@ -5,6 +5,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link as RouterLink, useParams } from 'react-router-dom';
 import { Alert, Box, Button } from '@mui/material';
+import { usePreparation } from '../context/PreparationContext';
 import { getInterviewSessionReport } from '../services/api';
 import { loadFailed } from '../services/apiError';
 import { formatClock, WINDOW_FIT_LABEL, windowFit } from '../services/interviewText';
@@ -34,16 +35,18 @@ const STATUS_LABEL: Record<string, string> = {
 export const InterviewSessionReportPage: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const sid = Number(sessionId);
+  // Read as the chosen preparation: a session of its own questions is reachable only as it.
+  const { selectedId } = usePreparation();
   const [report, setReport] = useState<InterviewSessionReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
 
   useEffect(() => {
     setError(null);
-    getInterviewSessionReport(sid)
+    getInterviewSessionReport(sid, selectedId ?? null)
       .then(setReport)
       .catch((err) => setError(loadFailed('Could not load this session report', err)));
-  }, [sid, loadAttempt]);
+  }, [sid, loadAttempt, selectedId]);
 
   if (error) {
     return (

@@ -284,3 +284,144 @@ def test_the_session_api_plans_creates_reports_and_finishes(db, client):
     assert client.post(f"/api/v1/interview-sessions/{session['id']}/finish").json()["ended_at"] is not None
     assert client.get("/api/v1/interview-sessions/424242").status_code == 404
     assert client.post("/api/v1/interview-sessions", json={"round_type": "hr_screening"}).status_code == 400
+
+
+# ---- a session is read only by the preparation its questions belong to --------------------
+#
+# A session has no owner column; its questions do. One holding a question a preparation owns is
+# that preparation's: another preparation, or none, gets the same 404 as an unknown session --
+# for the session, its report, and ending it -- so private question text never leaves it. A
+# session of shared questions only is the shared library's and reads anywhere. The fixtures fix
+# the session's questions directly, so nothing depends on which questions a planner would pick.
+
+def _subject(db, stem):
+    from app.models.subject import Subject, SubjectKind
+
+    s = Subject(name=f"{stem} {uuid.uuid4().hex[:6]}", slug=f"{stem.lower()}-{uuid.uuid4().hex[:6]}", kind=SubjectKind.SKILL)
+    db.add(s)
+    db.commit()
+    return s
+
+
+def _owned(db, subject, text):
+    q = InterviewQuestion(round_type=InterviewRoundType.TECHNICAL, question_text=text, category="Private", subject_id=subject.id)
+    db.add(q)
+    db.commit()
+    return q
+
+
+def _session_of(db, *questions):
+    from app.models.interview_session import InterviewSession
+
+    s = InterviewSession(round_type="technical", question_ids=[q.id for q in questions], thinking_seconds=0, created_at=utc_now_naive())
+    db.add(s)
+    db.commit()
+    return s
+
+
+def _scoped(sid):
+    return {} if sid is None else {"subject_id": sid}
+
+
+SECRET = "PRIVATE-A: how would you recover our customer's failed nightly load?"
+
+
+def _a_session_with_a_private_question(db):
+    a, b = _subject(db, "Alpha"), _subject(db, "Beta")
+    shared = _question(db, round_type=InterviewRoundType.TECHNICAL)
+    private = _owned(db, a, SECRET)
+    session = _session_of(db, shared, private)
+    _take(db, private, session_id=session.id, analysis=_analysed([("Depth", 8)], [("Clarity", 7)]))
+    return a, b, shared, private, session
+
+
+def test_a_session_with_a_private_question_reads_under_its_own_preparation(client, db):
+    a, _b, shared, private, session = _a_session_with_a_private_question(db)
+    got = client.get(f"/api/v1/interview-sessions/{session.id}", params=_scoped(a.id))
+    assert got.status_code == 200, got.text
+    assert [q["id"] for q in got.json()["questions"]] == [shared.id, private.id]
+    assert SECRET in got.text
+    report = client.get(f"/api/v1/interview-sessions/{session.id}/report", params=_scoped(a.id))
+    assert report.status_code == 200 and report.json()["answered"] == 1
+
+
+@pytest.mark.parametrize("asker", ["other", "none"])
+def test_another_preparation_or_none_gets_the_unknown_session_404_and_no_question_text(client, db, asker):
+    from app.models.interview_session import InterviewSession
+
+    _a, b, _shared, _private, session = _a_session_with_a_private_question(db)
+    sid = b.id if asker == "other" else None
+    unknown = client.get("/api/v1/interview-sessions/987654", params=_scoped(sid))
+    assert unknown.status_code == 404
+
+    for path in (f"/api/v1/interview-sessions/{session.id}", f"/api/v1/interview-sessions/{session.id}/report"):
+        r = client.get(path, params=_scoped(sid))
+        assert r.status_code == 404, (path, r.text)
+        assert SECRET not in r.text
+        # Exactly what an unknown id gets: knowing the id grants nothing, not even that it exists.
+        assert r.json() == {"detail": unknown.json()["detail"].replace("987654", str(session.id))}
+
+    ended = client.post(f"/api/v1/interview-sessions/{session.id}/finish", params=_scoped(sid))
+    assert ended.status_code == 404 and SECRET not in ended.text
+    db.expire_all()
+    assert db.get(InterviewSession, session.id).ended_at is None  # nothing changed
+
+
+def test_a_take_cannot_be_filed_into_another_preparations_session(client, db):
+    _a, b, shared, _private, session = _a_session_with_a_private_question(db)
+    before = db.query(PracticeRecording).count()
+    for sid in (b.id, None):
+        data = {"interview_question_id": str(shared.id), "session_id": str(session.id), **({"subject_id": str(sid)} if sid else {})}
+        r = client.post("/api/v1/recordings", data=data, files={"file": ("t.webm", b"abc", "audio/webm")})
+        assert r.status_code == 404, r.text
+    db.expire_all()
+    assert db.query(PracticeRecording).count() == before
+
+
+def test_its_own_preparation_can_still_end_it_and_file_a_take(client, db):
+    a, _b, shared, _private, session = _a_session_with_a_private_question(db)
+    data = {"interview_question_id": str(shared.id), "session_id": str(session.id), "subject_id": str(a.id)}
+    r = client.post("/api/v1/recordings", data=data, files={"file": ("t.webm", b"abc", "audio/webm")})
+    assert r.status_code == 201, r.text
+    ended = client.post(f"/api/v1/interview-sessions/{session.id}/finish", params=_scoped(a.id))
+    assert ended.status_code == 200 and ended.json()["ended_at"] is not None
+
+
+def test_a_session_of_shared_questions_reads_under_any_preparation_or_none(client, db):
+    a, b = _subject(db, "Alpha"), _subject(db, "Beta")
+    session = _session_of(db, _question(db), _question(db))
+    for sid in (a.id, b.id, None):
+        r = client.get(f"/api/v1/interview-sessions/{session.id}", params=_scoped(sid))
+        assert r.status_code == 200 and len(r.json()["questions"]) == 2
+
+
+def test_an_older_session_mixing_two_preparations_shows_each_only_its_own_and_the_shared(client, db):
+    # Sessions created before questions were scoped could mix two preparations' questions.
+    a, c = _subject(db, "Alpha"), _subject(db, "Gamma")
+    shared = _question(db, round_type=InterviewRoundType.TECHNICAL)
+    mine, theirs = _owned(db, a, SECRET), _owned(db, c, "PRIVATE-C: Gamma's question")
+    session = _session_of(db, shared, mine, theirs)
+    as_a = client.get(f"/api/v1/interview-sessions/{session.id}", params=_scoped(a.id))
+    assert [q["id"] for q in as_a.json()["questions"]] == [shared.id, mine.id]
+    assert "PRIVATE-C" not in as_a.text
+    as_c = client.get(f"/api/v1/interview-sessions/{session.id}", params=_scoped(c.id))
+    assert [q["id"] for q in as_c.json()["questions"]] == [shared.id, theirs.id]
+    assert SECRET not in as_c.text
+    assert client.get(f"/api/v1/interview-sessions/{session.id}").status_code == 404
+
+
+def test_an_unknown_preparation_is_refused_rather_than_read_as_none(client, db):
+    session = _session_of(db, _question(db))
+    r = client.get(f"/api/v1/interview-sessions/{session.id}", params={"subject_id": 987654})
+    assert r.status_code == 404 and "Subject" in r.json()["detail"]
+
+
+def test_a_session_created_for_a_preparation_carries_its_private_question_and_is_its_own(client, db):
+    a, b = _subject(db, "Alpha"), _subject(db, "Beta")
+    private = _owned(db, a, SECRET)
+    made = client.post("/api/v1/interview-sessions", json={
+        "round_type": "technical", "category": "Private", "question_count": 1, "thinking": False, "subject_id": a.id,
+    })
+    assert made.status_code == 201, made.text
+    assert [q["id"] for q in made.json()["questions"]] == [private.id]
+    assert client.get(f"/api/v1/interview-sessions/{made.json()['id']}", params=_scoped(b.id)).status_code == 404

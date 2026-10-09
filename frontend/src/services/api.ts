@@ -730,18 +730,23 @@ export const createInterviewSession = async (body: InterviewSessionCreate) => {
   return res.data;
 };
 
-export const getInterviewSession = async (id: number) => {
-  const res = await api.get<InterviewSession>(`/interview-sessions/${id}`);
+/** The scope is required: a session holding a preparation's own question is reachable only as
+ *  that preparation; one of shared questions only, as any or none. Otherwise a 404, like an
+ *  unknown session. */
+const sessionScope = (subjectId: number | null) => (subjectId == null ? undefined : { subject_id: subjectId });
+
+export const getInterviewSession = async (id: number, subjectId: number | null) => {
+  const res = await api.get<InterviewSession>(`/interview-sessions/${id}`, { params: sessionScope(subjectId) });
   return res.data;
 };
 
-export const finishInterviewSession = async (id: number) => {
-  const res = await api.post<InterviewSession>(`/interview-sessions/${id}/finish`);
+export const finishInterviewSession = async (id: number, subjectId: number | null) => {
+  const res = await api.post<InterviewSession>(`/interview-sessions/${id}/finish`, undefined, { params: sessionScope(subjectId) });
   return res.data;
 };
 
-export const getInterviewSessionReport = async (id: number) => {
-  const res = await api.get<InterviewSessionReport>(`/interview-sessions/${id}/report`);
+export const getInterviewSessionReport = async (id: number, subjectId: number | null) => {
+  const res = await api.get<InterviewSessionReport>(`/interview-sessions/${id}/report`, { params: sessionScope(subjectId) });
   return res.data;
 };
 

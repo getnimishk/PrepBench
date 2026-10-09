@@ -119,22 +119,51 @@ class InterviewSessionService:
         self.db.add(session)
         self.db.commit()
         self.db.refresh(session)
-        return self.get(session.id)
+        return self.get(session.id, subject_id)
 
     # ---- reading one ---------------------------------------------------------------
 
-    def _session(self, session_id: int) -> InterviewSession:
+    def reachable_session(self, session_id: int, subject_id: Optional[int] = None) -> InterviewSession:
+        """The session, if the asking preparation may reach it; otherwise the unknown-id 404.
+
+        A session has no owner of its own; its questions do. One that holds a question a
+        preparation owns is that preparation's, so another preparation -- or none -- is told
+        it does not exist, exactly as for an unknown id: its question text never leaves it,
+        and it cannot be ended or answered from outside. A session of shared questions only
+        is the shared library's and reads anywhere. A session made before questions were
+        scoped can mix two preparations' questions; each of them reaches it, and sees only
+        its own and the shared ones (`_questions`).
+        """
+        if subject_id is not None:
+            from app.models.subject import Subject
+
+            if self.db.get(Subject, subject_id) is None:
+                raise ResourceNotFoundException("Subject", subject_id)
         session = self.db.query(InterviewSession).filter(InterviewSession.id == session_id).first()
         if session is None:
             raise ResourceNotFoundException("InterviewSession", session_id)
+        ids = list(session.question_ids or [])
+        owners = {
+            owner for (owner,) in self.db.query(InterviewQuestion.subject_id)
+            .filter(InterviewQuestion.id.in_(ids), InterviewQuestion.subject_id.is_not(None))
+            .distinct()
+        } if ids else set()
+        if owners and subject_id not in owners:
+            raise ResourceNotFoundException("InterviewSession", session_id)
         return session
 
-    def get(self, session_id: int) -> dict:
-        session = self._session(session_id)
+    def _questions(self, session: InterviewSession, subject_id: Optional[int]) -> dict:
+        """The session's questions this preparation may see, by id: the shared ones and its own."""
         ids = list(session.question_ids or [])
-        questions = {
-            q.id: q for q in self.db.query(InterviewQuestion).filter(InterviewQuestion.id.in_(ids)).all()
-        } if ids else {}
+        if not ids:
+            return {}
+        found = self.db.query(InterviewQuestion).filter(InterviewQuestion.id.in_(ids)).all()
+        return {q.id: q for q in found if q.subject_id is None or q.subject_id == subject_id}
+
+    def get(self, session_id: int, subject_id: Optional[int] = None) -> dict:
+        session = self.reachable_session(session_id, subject_id)
+        ids = list(session.question_ids or [])
+        questions = self._questions(session, subject_id)
         counts = practice_counts(self.db, ids)
         takes = (
             self.db.query(PracticeRecording)
@@ -148,8 +177,9 @@ class InterviewSessionService:
         for qid in ids:
             q = questions.get(qid)
             if q is None:
-                # Deleted from the library since the session began. Its takes
-                # keep the recording; the question itself cannot be shown.
+                # Deleted from the library since the session began, or another
+                # preparation's (an older, mixed session). Its takes keep the
+                # recording; the question itself cannot be shown here.
                 continue
             taken, last = counts.get(qid, (0, None))
             out_questions.append({
@@ -190,17 +220,17 @@ class InterviewSessionService:
             "delivery_percent": RecordingAnalysisService._avg_pct(analysis.communication_scores or []) if analysed else None,
         }
 
-    def finish(self, session_id: int) -> dict:
-        session = self._session(session_id)
+    def finish(self, session_id: int, subject_id: Optional[int] = None) -> dict:
+        session = self.reachable_session(session_id, subject_id)
         if session.ended_at is None:
             session.ended_at = _now()
             self.db.commit()
-        return self.get(session_id)
+        return self.get(session_id, subject_id)
 
     # ---- the report ----------------------------------------------------------------------
 
-    def report(self, session_id: int) -> dict:
-        data = self.get(session_id)
+    def report(self, session_id: int, subject_id: Optional[int] = None) -> dict:
+        data = self.get(session_id, subject_id)
         latest = {}
         for q in data["questions"]:
             if q["takes"]:

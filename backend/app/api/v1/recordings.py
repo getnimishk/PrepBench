@@ -96,11 +96,11 @@ async def upload_recording(
             raise ResourceNotFoundException("InterviewQuestion", interview_question_id)
 
     if session_id is not None:
-        from app.models.interview_session import InterviewSession
+        from app.services.interview_session_service import InterviewSessionService
 
-        session = db.query(InterviewSession).filter(InterviewSession.id == session_id).first()
-        if session is None:
-            raise ResourceNotFoundException("InterviewSession", session_id)
+        # Only a session this preparation may reach takes its answers (the same 404 as an
+        # unknown session otherwise), so another preparation's session is never written to.
+        session = InterviewSessionService(db).reachable_session(session_id, subject_id)
         # A take filed under a session must answer one of its questions, or the
         # session report would count an answer to something it never asked.
         if interview_question_id is None or interview_question_id not in (session.question_ids or []):

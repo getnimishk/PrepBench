@@ -68,6 +68,9 @@ export const InterviewHubPage: React.FC = () => {
   // Each source is held as what was read, or null when the read failed, so a
   // failure is shown as a failure rather than as zero or as a guess.
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  // False when the preparations could not be read: then no track is offered, and
+  // the page says why rather than that none has interview rounds.
+  const [subjectsRead, setSubjectsRead] = useState(true);
   const [libraryTotal, setLibraryTotal] = useState<number | null>(null);
   const [prompts, setPrompts] = useState<SystemDesignPrompt[] | null>(null);
   const [attempts, setAttempts] = useState<SystemDesignAttempt[] | null>(null);
@@ -85,7 +88,7 @@ export const InterviewHubPage: React.FC = () => {
     setLoading(true);
 
     Promise.all([
-      getSubjects().catch(() => [] as Subject[]),
+      getSubjects().catch(() => null),
       getInterviewQuestions({ limit: 1 }).then((r) => r.total).catch(() => null),
       getSystemDesignPrompts({ limit: 500 }).then((r) => r.items).catch(() => null),
       getSystemDesignAttempts({ limit: 500 }).then((r) => r.items).catch(() => null),
@@ -94,7 +97,8 @@ export const InterviewHubPage: React.FC = () => {
     ])
       .then(([subjs, qTotal, prs, atts, recs, drCount]) => {
         if (cancelled) return;
-        setSubjects(subjs);
+        setSubjects(subjs ?? []);
+        setSubjectsRead(subjs != null);
         setLibraryTotal(qTotal);
         setPrompts(prs);
         setAttempts(atts);
@@ -110,14 +114,16 @@ export const InterviewHubPage: React.FC = () => {
     };
   }, []);
 
-  // Strict subject resolution without silent substitution
+  // Strict subject resolution without silent substitution. The slug is a
+  // preparation's identity and is what this hub's links carry, so it is tried
+  // first: a preparation named "3" is reached by "?subject=3", whichever
+  // preparation holds id 3. An id is still read for older links.
   const targetSubject = useMemo(() => {
     if (urlSubjectParam) {
+      const bySlug = subjects.find((s) => s.slug === urlSubjectParam);
+      if (bySlug) return bySlug;
       const num = Number(urlSubjectParam);
-      if (!Number.isNaN(num)) {
-        return subjects.find((s) => s.id === num) ?? null;
-      }
-      return subjects.find((s) => s.slug === urlSubjectParam) ?? null;
+      return Number.isNaN(num) ? null : subjects.find((s) => s.id === num) ?? null;
     }
     if (ctxSelectedId != null) {
       return subjects.find((s) => s.id === ctxSelectedId) ?? ctxSelected ?? null;
@@ -175,12 +181,19 @@ export const InterviewHubPage: React.FC = () => {
                 key={s.id}
                 variant="contained"
                 component={RouterLink}
-                to={`/interview?subject=${s.id}`}
+                to={`/interview?subject=${encodeURIComponent(s.slug)}`}
               >
                 {s.name} (Interview Track)
               </Button>
             ))}
           </Stack>
+          {interviewCapable.length === 0 && (
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              {subjectsRead
+                ? 'None of your preparations has interview rounds yet.'
+                : 'Your preparations could not be read, so no track can be offered.'}
+            </Typography>
+          )}
         </Panel>
       </Box>
     );
@@ -188,7 +201,13 @@ export const InterviewHubPage: React.FC = () => {
 
   // 2. Non-Interview Subject Guard: Zero silent switching!
   if (!targetCapabilities.interview) {
-    return <CapabilityUnavailablePage capability="Interview" subject={targetSubject} />;
+    return (
+      <CapabilityUnavailablePage
+        capability="Interview"
+        subject={targetSubject}
+        preparations={subjectsRead ? subjects : null}
+      />
+    );
   }
 
   // Whether the System Design Studio and design reviews are this preparation's: a capability

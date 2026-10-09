@@ -44,6 +44,11 @@ vi.mock('../services/api', () => ({
   getRecordingAudioUrl: (id: number) => `/api/v1/recordings/${id}/audio`,
 }));
 
+// The preparation chosen in the header. A session holding a preparation's own question is
+// reachable only as that preparation, so every read and the end of a session ask as it.
+let mockSelectedId: number | null = null;
+vi.mock('../context/PreparationContext', () => ({ usePreparation: () => ({ selectedId: mockSelectedId }) }));
+
 class FakeMediaRecorder {
   ondataavailable: ((e: { data: Blob }) => void) | null = null;
   onstop: (() => void) | null = null;
@@ -75,6 +80,7 @@ const session = (over: Partial<InterviewSession> = {}): InterviewSession => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockSelectedId = null;
   (globalThis as any).MediaRecorder = FakeMediaRecorder;
   Object.defineProperty(globalThis.navigator, 'mediaDevices', {
     value: { getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [{ stop: vi.fn() }] }) },
@@ -182,8 +188,26 @@ describe('Session screen', () => {
     expect(within(dialog).getByText(/1 question has no answer/)).toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: 'End session' }));
 
-    await waitFor(() => expect(mockFinish).toHaveBeenCalledWith(9));
+    await waitFor(() => expect(mockFinish).toHaveBeenCalledWith(9, null));
     expect(await screen.findByText('Report Screen')).toBeInTheDocument();
+  });
+
+  it('reads and ends the session as the chosen preparation, which a session of its own questions needs', async () => {
+    mockSelectedId = 6;
+    const user = userEvent.setup({ delay: null });
+    renderSession();
+    await screen.findByText(/Tell me about a conflict\./);
+    expect(mockGet).toHaveBeenCalledWith(9, 6);
+
+    await user.click(screen.getByRole('button', { name: 'End session' }));
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'End session' }));
+    await waitFor(() => expect(mockFinish).toHaveBeenCalledWith(9, 6));
+  });
+
+  it('asks with no preparation when none is chosen, never another one', async () => {
+    renderSession();
+    await screen.findByText(/Tell me about a conflict\./);
+    expect(mockGet).toHaveBeenCalledWith(9, null);
   });
 });
 
@@ -202,6 +226,14 @@ describe('Session report', () => {
       </Routes>
     </MemoryRouter>
   );
+
+  it('reads the report as the chosen preparation', async () => {
+    mockSelectedId = 6;
+    mockReport.mockResolvedValue(report());
+    renderReport();
+    await screen.findByText(/1 answer/);
+    expect(mockReport).toHaveBeenCalledWith(9, 6);
+  });
 
   it('says "Not graded" and why, and never shows a zero', async () => {
     mockReport.mockResolvedValue(report());
