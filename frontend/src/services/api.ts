@@ -580,7 +580,7 @@ export const uploadRecording = async (
   title: string,
   durationSeconds: number,
   interviewQuestionId?: number,
-  extra?: { sessionId?: number; planNote?: string },
+  extra?: { sessionId?: number; planNote?: string; subjectId?: number | null },
 ) => {
   const formData = new FormData();
   formData.append('file', blob, 'recording.webm');
@@ -591,6 +591,8 @@ export const uploadRecording = async (
   }
   if (extra?.sessionId !== undefined) formData.append('session_id', String(extra.sessionId));
   if (extra?.planNote) formData.append('plan_note', extra.planNote);
+  // The preparation recording: its question must be shared or its own.
+  if (extra?.subjectId != null) formData.append('subject_id', String(extra.subjectId));
   const res = await api.post<PracticeRecording>(`/recordings`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 30000,
@@ -716,6 +718,8 @@ export const getEvidence = async (subjectId: number | null) => {
 /** The questions a session with these settings would ask, without starting it. */
 export const planInterviewSession = async (params: {
   round_type: InterviewRoundType; category?: string; question_count: number;
+  /** The preparation practising: shared questions and its own. Omitted: shared only. */
+  subject_id?: number;
 }) => {
   const res = await api.get<PlannedQuestion[]>('/interview-sessions/plan', { params });
   return res.data;
@@ -741,8 +745,13 @@ export const getInterviewSessionReport = async (id: number) => {
   return res.data;
 };
 
-export const getInterviewQuestion = async (id: number) => {
-  const res = await api.get<InterviewQuestion>(`/interview-questions/${id}`);
+/** The scope is required: the preparation asking reaches the shared library and its own
+ *  questions; null (no preparation) reaches the shared library only. Another preparation's
+ *  question is a 404, like an unknown id. */
+const questionScope = (subjectId: number | null) => (subjectId == null ? undefined : { subject_id: subjectId });
+
+export const getInterviewQuestion = async (id: number, subjectId: number | null) => {
+  const res = await api.get<InterviewQuestion>(`/interview-questions/${id}`, { params: questionScope(subjectId) });
   return res.data;
 };
 
@@ -757,13 +766,13 @@ export const saveInterviewQuestionFromSource = async (body: InterviewQuestionSou
   return res.data;
 };
 
-export const updateInterviewQuestion = async (id: number, data: InterviewQuestionUpdate) => {
-  const res = await api.put<InterviewQuestion>(`/interview-questions/${id}`, data);
+export const updateInterviewQuestion = async (id: number, data: InterviewQuestionUpdate, subjectId: number | null) => {
+  const res = await api.put<InterviewQuestion>(`/interview-questions/${id}`, data, { params: questionScope(subjectId) });
   return res.data;
 };
 
-export const deleteInterviewQuestion = async (id: number) => {
-  const res = await api.delete<{ status: string; deleted_id: number }>(`/interview-questions/${id}`);
+export const deleteInterviewQuestion = async (id: number, subjectId: number | null) => {
+  const res = await api.delete<{ status: string; deleted_id: number }>(`/interview-questions/${id}`, { params: questionScope(subjectId) });
   return res.data;
 };
 

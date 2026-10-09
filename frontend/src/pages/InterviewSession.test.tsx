@@ -120,7 +120,7 @@ describe('Session setup', () => {
     await user.click(screen.getByRole('button', { name: 'Start session' }));
 
     await waitFor(() => expect(mockCreate).toHaveBeenCalledWith({
-      round_type: 'behavioral', category: undefined, question_count: 5, thinking: false,
+      round_type: 'behavioral', category: undefined, question_count: 5, thinking: false, subject_id: null,
     }));
     expect(await screen.findByText('Session Screen')).toBeInTheDocument();
   });

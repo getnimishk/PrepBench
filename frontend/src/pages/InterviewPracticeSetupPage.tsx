@@ -15,6 +15,7 @@ import {
   generateInterviewQuestion,
 } from '../services/api';
 import { getInterviewLibrary } from '../services/interviewLibrary';
+import { getSubjectCapabilities } from '../services/capabilities';
 import { InterviewQuestion, RoundTypeInfo, InterviewRoundType } from '../types/interviewQuestion';
 import { apiErrorMessage, loadFailed } from '../services/apiError';
 import { formatClock, practisedLabel } from '../services/interviewText';
@@ -49,7 +50,12 @@ const footerFor = (round: RoundTypeInfo | undefined, question: InterviewQuestion
 export const InterviewPracticeSetupPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { selected, capabilities } = usePreparation();
+  const { selected, capabilities, preparations } = usePreparation();
+  // Where to go for interview rounds: the learner's own preparations that have them, read
+  // from their records and addressed by slug -- never a fixed list of numeric ids, which
+  // point at nothing (or at someone else) once a preparation is recreated.
+  const interviewTracks = (preparations ?? [])
+    .filter((p) => p.id !== selected?.id && getSubjectCapabilities(p).interview);
 
   const [roundTypes, setRoundTypes] = useState<RoundTypeInfo[]>([]);
   const [roundsError, setRoundsError] = useState<string | null>(null);
@@ -217,15 +223,23 @@ export const InterviewPracticeSetupPage: React.FC = () => {
 
       {selected && capabilities && !capabilities.interview && (
         <Alert severity="warning" sx={{ mt: 2, mb: 1 }}>
-          <b>Interview Practice Guard:</b> Verbal interviews are not configured for <b>{selected.name}</b>. You are viewing the general interview library. Switch to{' '}
-          <Box component={RouterLink} to="/interview?subject=3" sx={{ color: 'primary.main', fontWeight: 600 }}>
-            System Design
-          </Box>{' '}
-          or{' '}
-          <Box component={RouterLink} to="/interview?subject=6" sx={{ color: 'primary.main', fontWeight: 600 }}>
-            Azure Data Factory
-          </Box>{' '}
-          for subject-specific interview rounds.
+          <b>Interview Practice Guard:</b> Verbal interviews are not configured for <b>{selected.name}</b>. You are viewing the general interview library.{' '}
+          {interviewTracks.length > 0 ? (
+            <>
+              Switch to{' '}
+              {interviewTracks.map((p, i) => (
+                <React.Fragment key={p.id}>
+                  {i > 0 && (i === interviewTracks.length - 1 ? ' or ' : ', ')}
+                  <Box component={RouterLink} to={`/interview?subject=${encodeURIComponent(p.slug)}`} sx={{ color: 'primary.main', fontWeight: 600 }}>
+                    {p.name}
+                  </Box>
+                </React.Fragment>
+              ))}{' '}
+              for subject-specific interview rounds.
+            </>
+          ) : (
+            <>None of your preparations has interview rounds yet.</>
+          )}
         </Alert>
       )}
       {fetchError && (

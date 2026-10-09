@@ -50,6 +50,8 @@ export interface InterviewSessionCreate {
   category?: string;
   question_count: number;
   thinking: boolean;
+  /** The preparation practising: shared questions and its own. Omitted: shared only. */
+  subject_id?: number | null;
 }
 
 /** A session summarised from the latest take of each question. */

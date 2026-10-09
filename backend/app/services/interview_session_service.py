@@ -41,8 +41,26 @@ class InterviewSessionService:
 
     # ---- choosing the questions -------------------------------------------------
 
-    def plan(self, round_type: InterviewRoundType, category: Optional[str], count: int) -> List[dict]:
+    def plan(
+        self, round_type: InterviewRoundType, category: Optional[str], count: int,
+        subject_id: Optional[int] = None,
+    ) -> List[dict]:
+        # The questions this preparation may practise: the shared library and its own, never
+        # another preparation's (the rule GET /interview-questions/{id} uses). No preparation:
+        # the shared library only.
+        if subject_id is not None:
+            from app.core.exceptions import ResourceNotFoundException
+            from app.models.subject import Subject
+
+            if self.db.get(Subject, subject_id) is None:
+                raise ResourceNotFoundException("Subject", subject_id)
         query = self.db.query(InterviewQuestion).filter(InterviewQuestion.round_type == round_type)
+        if subject_id is None:
+            query = query.filter(InterviewQuestion.subject_id.is_(None))
+        else:
+            query = query.filter(
+                InterviewQuestion.subject_id.is_(None) | (InterviewQuestion.subject_id == subject_id)
+            )
         if category:
             query = query.filter(InterviewQuestion.category == category)
         questions = query.order_by(InterviewQuestion.id.asc()).all()
@@ -80,8 +98,11 @@ class InterviewSessionService:
             for q in chosen
         ]
 
-    def create(self, round_type: InterviewRoundType, category: Optional[str], count: int, thinking: bool) -> dict:
-        planned = self.plan(round_type, category, count)
+    def create(
+        self, round_type: InterviewRoundType, category: Optional[str], count: int, thinking: bool,
+        subject_id: Optional[int] = None,
+    ) -> dict:
+        planned = self.plan(round_type, category, count, subject_id)
         if not planned:
             where = f" in {category}" if category else ""
             raise InvalidExamStateException(

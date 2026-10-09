@@ -3241,6 +3241,8 @@ export interface components {
             plan_note?: string;
             /** Session Id */
             session_id?: number;
+            /** Subject Id */
+            subject_id?: number;
             /**
              * Title
              * @default Untitled Recording
@@ -4730,6 +4732,8 @@ export interface components {
              */
             question_count: number;
             round_type: components["schemas"]["InterviewRoundType"];
+            /** Subject Id */
+            subject_id?: number | null;
             /**
              * Thinking
              * @default true
@@ -9372,7 +9376,10 @@ export interface operations {
     };
     get_question_api_v1_interview_questions__question_id__get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The preparation asking. It reaches the shared library and its own questions; omitted, the shared library only. Another preparation's question is a 404, like an unknown id. */
+                subject_id?: number | null;
+            };
             header?: never;
             path: {
                 question_id: number;
@@ -9403,7 +9410,10 @@ export interface operations {
     };
     update_question_api_v1_interview_questions__question_id__put: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The preparation asking. It reaches the shared library and its own questions; omitted, the shared library only. Another preparation's question is a 404, like an unknown id. */
+                subject_id?: number | null;
+            };
             header?: never;
             path: {
                 question_id: number;
@@ -9438,7 +9448,10 @@ export interface operations {
     };
     delete_question_api_v1_interview_questions__question_id__delete: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The preparation asking. It reaches the shared library and its own questions; omitted, the shared library only. Another preparation's question is a 404, like an unknown id. */
+                subject_id?: number | null;
+            };
             header?: never;
             path: {
                 question_id: number;
@@ -9506,6 +9519,8 @@ export interface operations {
                 round_type: components["schemas"]["InterviewRoundType"];
                 category?: string | null;
                 question_count?: number;
+                /** @description The preparation practising: shared questions and its own. Omitted: shared questions only. */
+                subject_id?: number | null;
             };
             header?: never;
             path?: never;

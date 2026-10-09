@@ -27,6 +27,10 @@ const q = (id: number, round: string, text: string, practice_count = 0, category
   id, round_type: round, question_text: text, category, is_ai_generated: false, created_at: '', practice_count,
 });
 
+// The chosen preparation: none by default, as the bare context.
+let mockSelectedId: number | null = null;
+vi.mock('../context/PreparationContext', () => ({ usePreparation: () => ({ selectedId: mockSelectedId }) }));
+
 const renderLibrary = () =>
   render(
     <MemoryRouter initialEntries={['/interview-practice/library']}>
@@ -38,6 +42,7 @@ const renderLibrary = () =>
   );
 
 beforeEach(() => {
+  mockSelectedId = null;
   vi.clearAllMocks();
   mockRounds.mockResolvedValue([
     { value: 'behavioral', label: 'Behavioral' },
@@ -86,7 +91,8 @@ describe('InterviewLibraryPage', () => {
     });
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
-    await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith(1, expect.objectContaining({ question_text: 'Tell me about a big mistake.' })));
+    // Saved as no preparation (none chosen here): a shared question, which any scope may edit.
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith(1, expect.objectContaining({ question_text: 'Tell me about a big mistake.' }), null));
     expect(await screen.findByText('Tell me about a big mistake.')).toBeInTheDocument();
   });
 
@@ -114,7 +120,7 @@ describe('InterviewLibraryPage', () => {
     await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith(1, expect.objectContaining({
       prepared_answer: 'My prepared STAR notes',
       key_talking_points: ['Point A', 'Point B'],
-    })));
+    }), null));
     expect(await screen.findByText('Has prepared answer')).toBeInTheDocument();
   });
 
@@ -130,7 +136,7 @@ describe('InterviewLibraryPage', () => {
     expect(mockDelete).not.toHaveBeenCalled();
 
     await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
-    await waitFor(() => expect(mockDelete).toHaveBeenCalledWith(1));
+    await waitFor(() => expect(mockDelete).toHaveBeenCalledWith(1, null));
     await waitFor(() => expect(screen.queryByText('Tell me about a mistake.')).not.toBeInTheDocument());
   });
 
@@ -226,5 +232,28 @@ describe('InterviewLibraryPage when the library cannot be read', () => {
     expect(await screen.findByText('Tell me about a mistake.')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'All · 2' })).toBeInTheDocument();
     expect(screen.getByText('2 questions across 2 rounds.')).toBeInTheDocument();
+  });
+});
+
+describe('InterviewLibraryPage edits and deletes as the chosen preparation', () => {
+  it('sends the preparation as the scope of a delete', async () => {
+    const user = userEvent.setup({ delay: null });
+    mockSelectedId = 6;
+    mockDelete.mockResolvedValue({ status: 'success', deleted_id: 1 });
+    renderLibrary();
+    await user.click(await screen.findByRole('button', { name: 'Delete Tell me about a mistake.' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(mockDelete).toHaveBeenCalledWith(1, 6));
+  });
+
+  it("says a refused delete failed (another preparation's question) and keeps it listed", async () => {
+    const user = userEvent.setup({ delay: null });
+    mockSelectedId = 6;
+    mockDelete.mockRejectedValue({ isAxiosError: true, response: { status: 404, data: { detail: 'InterviewQuestion with id 1 not found' } } });
+    renderLibrary();
+    await user.click(await screen.findByRole('button', { name: 'Delete Tell me about a mistake.' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(mockDelete).toHaveBeenCalledWith(1, 6));
+    expect(screen.getByText('Tell me about a mistake.')).toBeInTheDocument();
   });
 });

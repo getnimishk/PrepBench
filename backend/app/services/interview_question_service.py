@@ -83,11 +83,22 @@ class InterviewQuestionService:
             "limit": limit,
         }
 
-    def get_question(self, question_id: int) -> InterviewQuestionResponse:
-        q = self.repo.get_by_id(question_id)
-        if not q:
+    def _in_scope(self, question_id: int, subject_id: Optional[int]):
+        """The question this scope may reach, or the same 404 as an unknown id.
+
+        A named preparation that does not exist is refused, rather than read as "no
+        preparation" -- which would quietly widen nothing, but would hide a wrong id."""
+        from app.models.subject import Subject
+
+        if subject_id is not None and self.db.get(Subject, subject_id) is None:
+            raise ResourceNotFoundException("Subject", subject_id)
+        q = self.repo.get_in_scope(question_id, subject_id)
+        if q is None:
             raise ResourceNotFoundException("InterviewQuestion", question_id)
-        return InterviewQuestionResponse.model_validate(q)
+        return q
+
+    def get_question(self, question_id: int, subject_id: Optional[int] = None) -> InterviewQuestionResponse:
+        return InterviewQuestionResponse.model_validate(self._in_scope(question_id, subject_id))
 
     def save_from_source(self, req: InterviewQuestionSourceSave) -> InterviewQuestionSourceSaveResult:
         """Create the question for this source and preparation, or update the one saved before.
@@ -141,13 +152,17 @@ class InterviewQuestionService:
             created=created,
         )
 
-    def update_question(self, question_id: int, req: InterviewQuestionUpdate) -> InterviewQuestionResponse:
+    def update_question(
+        self, question_id: int, req: InterviewQuestionUpdate, subject_id: Optional[int] = None,
+    ) -> InterviewQuestionResponse:
+        self._in_scope(question_id, subject_id)
         updated = self.repo.update(question_id, req)
         if not updated:
             raise ResourceNotFoundException("InterviewQuestion", question_id)
         return InterviewQuestionResponse.model_validate(updated)
 
-    def delete_question(self, question_id: int) -> None:
+    def delete_question(self, question_id: int, subject_id: Optional[int] = None) -> None:
+        self._in_scope(question_id, subject_id)
         deleted = self.repo.delete(question_id)
         if not deleted:
             raise ResourceNotFoundException("InterviewQuestion", question_id)
