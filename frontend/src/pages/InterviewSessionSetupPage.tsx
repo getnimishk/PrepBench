@@ -3,6 +3,7 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React, { useEffect, useState } from 'react';
+import { usePreparation } from '../context/PreparationContext';
 import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Alert, Box, Button, CircularProgress, MenuItem, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography,
@@ -34,6 +35,8 @@ const panel = {
 export const InterviewSessionSetupPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  // A session draws from the shared library and the chosen preparation's own questions.
+  const { selectedId } = usePreparation();
   const [rounds, setRounds] = useState<RoundTypeInfo[]>([]);
   const [round, setRound] = useState<InterviewRoundType | ''>((searchParams.get('round') as InterviewRoundType) || '');
   const [categories, setCategories] = useState<string[]>([]);
@@ -72,11 +75,14 @@ export const InterviewSessionSetupPage: React.FC = () => {
     let cancelled = false;
     setPlan(null);
     setPlanError(null);
-    planInterviewSession({ round_type: round, category: category || undefined, question_count: count })
+    planInterviewSession({
+      round_type: round, category: category || undefined, question_count: count,
+      ...(selectedId != null ? { subject_id: selectedId } : {}),
+    })
       .then((p) => { if (!cancelled) setPlan(p); })
       .catch((err) => { if (!cancelled) setPlanError(apiErrorMessage(err, 'Could not choose the questions.')); });
     return () => { cancelled = true; };
-  }, [round, category, count]);
+  }, [round, category, count, selectedId]);
 
   const info = rounds.find((r) => r.value === round) ?? null;
 
@@ -87,6 +93,7 @@ export const InterviewSessionSetupPage: React.FC = () => {
     try {
       const session = await createInterviewSession({
         round_type: round, category: category || undefined, question_count: count, thinking,
+        subject_id: selectedId ?? null,
       });
       navigate(`/interview-practice/sessions/${session.id}`);
     } catch (err) {

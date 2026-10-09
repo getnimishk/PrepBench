@@ -3,6 +3,7 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePreparation } from '../context/PreparationContext';
 import { Link as RouterLink, useParams } from 'react-router-dom';
 import {
   Box, Typography, Button, Alert, Chip, CircularProgress, Stack,
@@ -60,6 +61,9 @@ const takeDate = (iso: string) => {
 export const InterviewPracticeResultsPage: React.FC = () => {
   const { recordingId } = useParams<{ recordingId: string }>();
   const rid = recordingId ? parseInt(recordingId, 10) : 0;
+  // A take's question is read as the chosen preparation: another preparation's question is
+  // not shown here (the take itself still is), the same rule as everywhere else.
+  const { selectedId } = usePreparation();
 
   const [recording, setRecording] = useState<PracticeRecording | null>(null);
   const [analysis, setAnalysis] = useState<RecordingAnalysis | null>(null);
@@ -101,7 +105,7 @@ export const InterviewPracticeResultsPage: React.FC = () => {
           const qid = r.interview_question_id;
           // Supporting detail: a failure here costs its own section, not the answer.
           Promise.resolve()
-            .then(() => getInterviewQuestion(qid))
+            .then(() => getInterviewQuestion(qid, selectedId ?? null))
             .then((q) => {
               setQuestion(q);
               return getInterviewRoundTypes().then((rounds) => setRound(rounds.find((x) => x.value === q.round_type) ?? null));
@@ -121,7 +125,7 @@ export const InterviewPracticeResultsPage: React.FC = () => {
         setError(loadFailed('Could not load this recording', err));
         setLoading(false);
       });
-  }, [rid, runAnalysis, loadTakes, loadAttempt]);
+  }, [rid, runAnalysis, loadTakes, loadAttempt, selectedId]);
 
   const recommendation = useMemo(() => {
     if (!analysis || analysis.analysis_status !== 'analyzed') return null;

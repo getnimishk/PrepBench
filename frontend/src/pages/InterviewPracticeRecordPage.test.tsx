@@ -22,6 +22,10 @@ vi.mock('../services/api', () => ({
   }]),
 }));
 
+// The chosen preparation: none by default, as the bare context.
+let mockSelectedId: number | null = null;
+vi.mock('../context/PreparationContext', () => ({ usePreparation: () => ({ selectedId: mockSelectedId }) }));
+
 class FakeMediaRecorder {
   ondataavailable: ((e: { data: Blob }) => void) | null = null;
   onstop: (() => void) | null = null;
@@ -35,6 +39,7 @@ class FakeMediaRecorder {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockSelectedId = null;
   (globalThis as any).MediaRecorder = FakeMediaRecorder;
   Object.defineProperty(globalThis.navigator, 'mediaDevices', {
     value: { getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [{ stop: vi.fn() }] }) },
@@ -146,5 +151,30 @@ describe('InterviewPracticeRecordPage when the question cannot be read', () => {
     expect(await screen.findByText(/Could not load this question\. Could not reach the PrepBench server\..*Nothing was changed\./)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByText(/Tell me about a time you failed\./)).toBeInTheDocument();
+  });
+});
+
+describe('InterviewPracticeRecordPage reads and records as the chosen preparation', () => {
+  it('asks for the question and saves the take with the preparation as their scope', async () => {
+    const user = userEvent.setup();
+    mockSelectedId = 6;
+    mockUpload.mockResolvedValue({ id: 99 });
+    renderPage('/interview-practice/7/record');
+    await waitFor(() => expect(screen.getByText(/Tell me about a time you failed\./)).toBeInTheDocument());
+    expect(mockGetQuestion).toHaveBeenCalledWith(7, 6);
+
+    await user.click(screen.getByRole('button', { name: /start answering/i }));
+    await user.click(await screen.findByRole('button', { name: /stop answering/i }));
+    await waitFor(() => expect(mockUpload).toHaveBeenCalled());
+    expect(mockUpload.mock.calls[0][4]).toEqual(expect.objectContaining({ subjectId: 6 }));
+  });
+
+  it("shows the load error for another preparation's question instead of showing it", async () => {
+    mockSelectedId = 1;
+    mockGetQuestion.mockRejectedValue({ isAxiosError: true, response: { status: 404, data: { detail: 'InterviewQuestion with id 7 not found' } } });
+    renderPage('/interview-practice/7/record');
+    expect(await screen.findByText(/Could not load this question/)).toBeInTheDocument();
+    expect(screen.queryByText(/Tell me about a time you failed/)).not.toBeInTheDocument();
+    expect(mockGetQuestion).toHaveBeenCalledWith(7, 1);
   });
 });

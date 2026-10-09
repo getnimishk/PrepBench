@@ -3,6 +3,7 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React, { useEffect, useState } from 'react';
+import { usePreparation } from '../context/PreparationContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Alert, Box, Button, Chip, Typography } from '@mui/material';
 import { getInterviewQuestion, getInterviewRoundTypes } from '../services/api';
@@ -23,6 +24,8 @@ export const InterviewPracticeRecordPage: React.FC = () => {
   const { questionId } = useParams<{ questionId: string }>();
   const navigate = useNavigate();
   const isGeneral = questionId === 'general';
+  // The question is read as the chosen preparation: shared or its own, never another's.
+  const { selectedId } = usePreparation();
   const qid = !isGeneral && questionId ? parseInt(questionId, 10) : 0;
 
   const [question, setQuestion] = useState<InterviewQuestion | null>(null);
@@ -36,7 +39,7 @@ export const InterviewPracticeRecordPage: React.FC = () => {
     if (isNaN(qid) || qid <= 0) return;
     setLoading(true);
     setFetchError(null);
-    getInterviewQuestion(qid)
+    getInterviewQuestion(qid, selectedId ?? null)
       .then((q) => {
         setQuestion(q);
         // The round's guidance is supporting detail; without it the take still records.
@@ -46,7 +49,7 @@ export const InterviewPracticeRecordPage: React.FC = () => {
       })
       .catch((err) => setFetchError(loadFailed('Could not load this question', err)))
       .finally(() => setLoading(false));
-  }, [isGeneral, qid, loadAttempt]);
+  }, [isGeneral, qid, loadAttempt, selectedId]);
 
   if (!isGeneral && (isNaN(qid) || qid <= 0)) {
     return <Alert severity="error">Invalid question.</Alert>;

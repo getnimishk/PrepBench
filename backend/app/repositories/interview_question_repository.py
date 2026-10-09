@@ -16,6 +16,17 @@ class InterviewQuestionRepository:
     def get_by_id(self, question_id: int) -> Optional[InterviewQuestion]:
         return self.db.query(InterviewQuestion).filter(InterviewQuestion.id == question_id).first()
 
+    def get_in_scope(self, question_id: int, subject_id: Optional[int]) -> Optional[InterviewQuestion]:
+        """The question, if this scope may reach it: the shared library (no subject_id) always,
+        a preparation's own question only from that preparation. Another preparation's question
+        is None -- the same answer as an unknown id, so knowing an id grants nothing."""
+        q = self.get_by_id(question_id)
+        if q is None:
+            return None
+        if q.subject_id is None or (subject_id is not None and q.subject_id == subject_id):
+            return q
+        return None
+
     def _apply_filters(self, query, filter_params: Optional[InterviewQuestionFilter]):
         if not filter_params:
             return query

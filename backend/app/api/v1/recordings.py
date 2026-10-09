@@ -67,6 +67,9 @@ async def upload_recording(
     interview_question_id: int = Form(None),
     session_id: int = Form(None),
     plan_note: str = Form(None),
+    # The preparation recording the take. Its question must be one it can reach: shared, or
+    # its own -- never another preparation's (the same rule as GET /interview-questions/{id}).
+    subject_id: int = Form(None),
     db: Session = Depends(get_db),
 ):
     # Validate the declared type before reading the body, so an obviously
@@ -82,9 +85,14 @@ async def upload_recording(
             detail=f"Recording exceeds the {MAX_RECORDING_BYTES // (1024 * 1024)}MB limit.",
         )
 
+    if subject_id is not None:
+        from app.models.subject import Subject
+
+        if db.get(Subject, subject_id) is None:
+            raise ResourceNotFoundException("Subject", subject_id)
     if interview_question_id is not None:
         question_repo = InterviewQuestionRepository(db)
-        if not question_repo.get_by_id(interview_question_id):
+        if not question_repo.get_in_scope(interview_question_id, subject_id):
             raise ResourceNotFoundException("InterviewQuestion", interview_question_id)
 
     if session_id is not None:

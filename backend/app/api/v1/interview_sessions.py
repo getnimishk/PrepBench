@@ -22,16 +22,20 @@ def plan_session(
     round_type: InterviewRoundType,
     category: Optional[str] = None,
     question_count: int = Query(3, ge=1, le=10),
+    subject_id: Optional[int] = Query(
+        None,
+        description="The preparation practising: shared questions and its own. Omitted: shared questions only.",
+    ),
     db: Session = Depends(get_db),
 ):
     """The questions a session with these settings would ask, without starting it."""
-    return InterviewSessionService(db).plan(round_type, category, question_count)
+    return InterviewSessionService(db).plan(round_type, category, question_count, subject_id)
 
 
 @router.post("", response_model=InterviewSessionResponse, status_code=status.HTTP_201_CREATED)
 def create_session(body: InterviewSessionCreate, db: Session = Depends(get_db)):
     return InterviewSessionService(db).create(
-        body.round_type, body.category, body.question_count, body.thinking
+        body.round_type, body.category, body.question_count, body.thinking, body.subject_id
     )
 
 

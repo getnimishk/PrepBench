@@ -18,6 +18,9 @@ class InterviewSessionCreate(BaseModel):
     question_count: int = Field(default=3, ge=1, le=10)
     # Whether to give the round's thinking time before each answer.
     thinking: bool = True
+    # The preparation practising: the session draws from the shared library and its own
+    # questions, never another preparation's. Omitted: the shared library only.
+    subject_id: Optional[int] = None
 
 
 class PlannedQuestion(BaseModel):

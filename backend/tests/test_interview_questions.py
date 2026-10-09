@@ -432,3 +432,142 @@ def test_update_question_saves_prepared_answer_and_talking_points():
     assert refetched["prepared_answer"] == body["prepared_answer"]
     assert refetched["key_talking_points"] == ["40% latency reduction", "Cross-functional task force of 6", "Zero downtime deploy"]
 
+
+
+# ---- ownership of a question reached by id (one policy with the list) ----------------------
+#
+# A question with no subject_id is the shared library's; one with a subject_id belongs to that
+# preparation. The list already answers that way (omitted subject_id = the shared library). The
+# id-based reads and writes must too: a preparation reaches shared questions and its own, never
+# another preparation's, and knowing an id grants nothing. Another preparation's question is
+# answered exactly like an unknown id (404), as learning attempts are.
+
+def _prep(stem: str) -> int:
+    made = client.post("/api/v1/subjects", json={"name": f"{stem} {uuid.uuid4().hex[:6]}", "kind": "skill"})
+    assert made.status_code == 201, made.text
+    return made.json()["id"]
+
+
+def _owned_question(sid: int, text: str) -> dict:
+    saved = client.put("/api/v1/interview-questions/by-source", json={
+        "source_ref": f"own/{uuid.uuid4().hex[:8]}", "subject_id": sid, "question_text": text,
+        "prepared_answer": "My own prepared answer.", "category": "Mine",
+    })
+    assert saved.status_code == 200, saved.text
+    return saved.json()["question"]
+
+
+def _shared_question(text: str) -> dict:
+    saved = client.put("/api/v1/interview-questions/by-source", json={
+        "source_ref": f"shared/{uuid.uuid4().hex[:8]}", "question_text": text, "category": "Shared",
+    })
+    assert saved.status_code == 200, saved.text
+    q = saved.json()["question"]
+    assert q["subject_id"] is None
+    return q
+
+
+def _get(qid, sid=None):
+    return client.get(f"/api/v1/interview-questions/{qid}", params={} if sid is None else {"subject_id": sid})
+
+
+def _put(qid, body, sid=None):
+    return client.put(f"/api/v1/interview-questions/{qid}", json=body, params={} if sid is None else {"subject_id": sid})
+
+
+def _delete(qid, sid=None):
+    return client.delete(f"/api/v1/interview-questions/{qid}", params={} if sid is None else {"subject_id": sid})
+
+
+def test_a_preparation_reads_and_edits_its_own_question_by_id():
+    a = _prep("Owner A")
+    mine = _owned_question(a, "A's own question")
+    got = _get(mine["id"], a)
+    assert got.status_code == 200 and got.json()["question_text"] == "A's own question"
+    edited = _put(mine["id"], {"category": "Edited by A"}, a)
+    assert edited.status_code == 200 and edited.json()["category"] == "Edited by A"
+
+
+def test_another_preparation_cannot_read_update_or_delete_it_and_nothing_changes():
+    a, b = _prep("Owner A"), _prep("Owner B")
+    theirs = _owned_question(b, "B's private question")
+
+    assert _get(theirs["id"], a).status_code == 404
+    assert _put(theirs["id"], {"question_text": "Overwritten by A", "category": "Stolen"}, a).status_code == 404
+    assert _delete(theirs["id"], a).status_code == 404
+
+    # B still has it, exactly as it was.
+    after = _get(theirs["id"], b)
+    assert after.status_code == 200
+    body = after.json()
+    assert body["question_text"] == "B's private question"
+    assert body["category"] == "Mine"
+    assert body["prepared_answer"] == "My own prepared answer."
+    assert body["subject_id"] == b
+
+
+def test_another_preparations_question_reads_as_unknown_not_forbidden():
+    a, b = _prep("Owner A"), _prep("Owner B")
+    theirs = _owned_question(b, "B's question")
+    unknown = _get(10_000_000, a)
+    other = _get(theirs["id"], a)
+    # Same status and same shape: the response does not confirm the id exists.
+    assert other.status_code == unknown.status_code == 404
+    assert set(other.json()) == set(unknown.json())
+
+
+def test_no_preparation_cannot_reach_a_preparations_question():
+    a = _prep("Owner A")
+    mine = _owned_question(a, "A's question, not for anyone without A")
+    assert _get(mine["id"]).status_code == 404
+    assert _put(mine["id"], {"category": "Changed with no preparation"}).status_code == 404
+    assert _delete(mine["id"]).status_code == 404
+    assert _get(mine["id"], a).json()["category"] == "Mine"
+
+
+def test_shared_questions_stay_readable_and_editable_from_any_preparation_or_none():
+    a = _prep("Owner A")
+    shared = _shared_question("A shared library question")
+    assert _get(shared["id"]).status_code == 200
+    assert _get(shared["id"], a).status_code == 200
+    assert _put(shared["id"], {"category": "Edited in the library"}).json()["category"] == "Edited in the library"
+    assert _put(shared["id"], {"category": "Edited under A"}, a).json()["category"] == "Edited under A"
+    # It stays shared: an edit under A does not make it A's.
+    assert _get(shared["id"]).json()["subject_id"] is None
+    assert _delete(shared["id"], a).status_code == 200
+    assert _get(shared["id"]).status_code == 404
+
+
+def test_an_unknown_preparation_is_refused_rather_than_read_as_none():
+    shared = _shared_question("Shared")
+    assert _get(shared["id"], 10_000_000).status_code == 404
+
+
+def test_a_recording_cannot_be_attached_to_another_preparations_question():
+    a, b = _prep("Owner A"), _prep("Owner B")
+    theirs = _owned_question(b, "B's question to record")
+    mine = _owned_question(a, "A's question to record")
+    files = lambda: {"file": ("take.webm", b"FAKE_AUDIO", "audio/webm")}
+    refused = client.post("/api/v1/recordings", files=files(), data={
+        "title": "A's take", "duration_seconds": "5", "interview_question_id": str(theirs["id"]), "subject_id": str(a),
+    })
+    assert refused.status_code == 404, refused.text
+    assert client.get("/api/v1/recordings", params={"interview_question_id": theirs["id"]}).json()["items"] == []
+    accepted = client.post("/api/v1/recordings", files=files(), data={
+        "title": "A's take", "duration_seconds": "5", "interview_question_id": str(mine["id"]), "subject_id": str(a),
+    })
+    assert accepted.status_code == 201, accepted.text
+
+
+def test_a_session_plans_only_shared_questions_and_the_preparations_own():
+    a, b = _prep("Owner A"), _prep("Owner B")
+    theirs = _owned_question(b, "B's technical question")
+    mine = _owned_question(a, "A's technical question")
+    planned = client.post("/api/v1/interview-sessions", json={"round_type": "technical", "question_count": 10, "subject_id": a})
+    assert planned.status_code == 201, planned.text
+    ids = {q["id"] for q in planned.json()["questions"]}
+    assert theirs["id"] not in ids
+    assert mine["id"] in ids or len(ids) == 10  # A's own is eligible; the plan may be full of others
+    none = client.post("/api/v1/interview-sessions", json={"round_type": "technical", "question_count": 10})
+    assert none.status_code == 201, none.text
+    assert not {q["id"] for q in none.json()["questions"]} & {theirs["id"], mine["id"]}

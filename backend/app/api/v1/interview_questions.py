@@ -94,19 +94,44 @@ def list_questions(
 
 
 @router.get("/{question_id}", response_model=InterviewQuestionResponse)
-def get_question(question_id: int, db: Session = Depends(get_db)):
+def get_question(
+    question_id: int,
+    subject_id: Optional[int] = Query(
+        None,
+        description="The preparation asking. It reaches the shared library and its own questions; "
+                    "omitted, the shared library only. Another preparation's question is a 404, like an unknown id.",
+    ),
+    db: Session = Depends(get_db),
+):
     service = InterviewQuestionService(db)
-    return service.get_question(question_id)
+    return service.get_question(question_id, subject_id)
 
 
 @router.put("/{question_id}", response_model=InterviewQuestionResponse)
-def update_question(question_id: int, req: InterviewQuestionUpdate, db: Session = Depends(get_db)):
+def update_question(
+    question_id: int,
+    req: InterviewQuestionUpdate,
+    subject_id: Optional[int] = Query(
+        None,
+        description="The preparation asking. It reaches the shared library and its own questions; "
+                    "omitted, the shared library only. Another preparation's question is a 404, like an unknown id.",
+    ),
+    db: Session = Depends(get_db),
+):
     service = InterviewQuestionService(db)
-    return service.update_question(question_id, req)
+    return service.update_question(question_id, req, subject_id)
 
 
 @router.delete("/{question_id}", status_code=status.HTTP_200_OK)
-def delete_question(question_id: int, db: Session = Depends(get_db)):
+def delete_question(
+    question_id: int,
+    subject_id: Optional[int] = Query(
+        None,
+        description="The preparation asking. It reaches the shared library and its own questions; "
+                    "omitted, the shared library only. Another preparation's question is a 404, like an unknown id.",
+    ),
+    db: Session = Depends(get_db),
+):
     service = InterviewQuestionService(db)
-    service.delete_question(question_id)
+    service.delete_question(question_id, subject_id)
     return {"status": "success", "deleted_id": question_id}

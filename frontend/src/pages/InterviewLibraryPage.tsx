@@ -145,7 +145,7 @@ export const InterviewLibraryPage: React.FC = () => {
         category: editCategory || undefined,
         prepared_answer: editPreparedAnswer.trim() || undefined,
         key_talking_points: pointsArray.length ? pointsArray : undefined,
-      });
+      }, selectedId ?? null);
       setEditing(null);
       load();
     } catch (err) {
@@ -158,7 +158,7 @@ export const InterviewLibraryPage: React.FC = () => {
   const confirmDelete = async () => {
     if (!deleting) return;
     try {
-      await deleteInterviewQuestion(deleting.id);
+      await deleteInterviewQuestion(deleting.id, selectedId ?? null);
       setQuestions((prev) => (prev ?? []).filter((q) => q.id !== deleting.id));
       setTotal((t) => t - 1);
     } catch (err) {

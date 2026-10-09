@@ -231,3 +231,56 @@ describe('InterviewPracticeSetupPage: the System Design track follows the capabi
     expect(screen.queryByText('System Design Track:')).not.toBeInTheDocument();
   });
 });
+
+describe('InterviewPracticeSetupPage: links to interview tracks follow the preparations, not numeric ids', () => {
+  const rec = (id: number, slug: string, name: string) => ({
+    id, name, slug, kind: 'skill', is_archived: false, display_order: id, has_exam_profile: false,
+    question_count: 0, content_packs: [], readiness: { state: 'needs_evaluation', mock_count: 0, recent_scores: [] },
+  }) as unknown as Subject;
+  const systemDesign = rec(3, 'system-design', 'System Design');
+  const adf = rec(6, 'adf', 'Azure Data Factory');
+  const scrum = { ...rec(1, 'psm-i', 'Scrum / PSM I'), kind: 'certification' } as unknown as Subject;
+  afterEach(() => { mockPreparation = { selected: null, selectedId: null, capabilities: UNASSIGNED_CAPABILITIES }; });
+
+  it('links to the preparations that have interview rounds, by slug, whatever their ids', async () => {
+    mockPreparation = {
+      selected: scrum, selectedId: 1, capabilities: { ...getSubjectCapabilities(scrum), interview: false },
+      preparations: [scrum, systemDesign, adf],
+    };
+    renderPage();
+    const guard = (await screen.findByText(/Interview Practice Guard:/)).closest('[role="alert"]') as HTMLElement;
+    const sd = within(guard).getByRole('link', { name: 'System Design' });
+    expect(sd).toHaveAttribute('href', '/interview?subject=system-design');
+    expect(within(guard).getByRole('link', { name: 'Azure Data Factory' })).toHaveAttribute('href', '/interview?subject=adf');
+    // Never a numeric id -- the old 3 and 6 now point at nothing, or at someone else.
+    for (const link of within(guard).getAllByRole('link')) {
+      expect(link.getAttribute('href')).not.toMatch(/subject=\d/);
+    }
+  });
+
+  it('never presents another preparation that now holds id 3 as System Design', async () => {
+    // System Design was deleted and a learner's own preparation got id 3. The old link,
+    // "/interview?subject=3" labelled System Design, would have opened the wrong preparation.
+    const mine = rec(3, 'my-own-notes', 'My own notes');
+    mockPreparation = {
+      selected: scrum, selectedId: 1, capabilities: { ...getSubjectCapabilities(scrum), interview: false },
+      preparations: [scrum, mine, adf],
+    };
+    renderPage();
+    const guard = (await screen.findByText(/Interview Practice Guard:/)).closest('[role="alert"]') as HTMLElement;
+    expect(within(guard).queryByRole('link', { name: 'System Design' })).not.toBeInTheDocument();
+    expect(within(guard).queryByRole('link', { name: 'My own notes' })).not.toBeInTheDocument();
+    expect(within(guard).getByRole('link', { name: 'Azure Data Factory' })).toHaveAttribute('href', '/interview?subject=adf');
+  });
+
+  it('offers no track to switch to when no preparation has interview rounds, rather than a fixed one', async () => {
+    mockPreparation = {
+      selected: scrum, selectedId: 1, capabilities: { ...getSubjectCapabilities(scrum), interview: false },
+      preparations: [scrum],
+    };
+    renderPage();
+    const guard = (await screen.findByText(/Interview Practice Guard:/)).closest('[role="alert"]') as HTMLElement;
+    expect(within(guard).queryAllByRole('link')).toHaveLength(0);
+    expect(within(guard).getByText(/None of your preparations has interview rounds yet/)).toBeInTheDocument();
+  });
+});

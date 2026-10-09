@@ -75,6 +75,7 @@ def _work(label: str, prep: dict, with_question: bool) -> dict:
         "question_text": f"{m} interview question", "category": "Phase 8",
     })
     assert saved.status_code == 200, saved.text
+    interview_question = saved.json()["question"]["id"]
     question = None
     if with_question:
         q = client.post("/api/v1/questions", json={
@@ -86,7 +87,8 @@ def _work(label: str, prep: dict, with_question: bool) -> dict:
         })
         assert q.status_code == 201, q.text
         question = q.json()["id"]
-    return {"sid": sid, "mark": m, "roadmap": rid, "topic": tid, "uid": uid, "question": question}
+    return {"sid": sid, "mark": m, "roadmap": rid, "topic": tid, "uid": uid, "question": question,
+            "interview_question": interview_question}
 
 
 @pytest.fixture(scope="module")
@@ -193,3 +195,28 @@ def test_the_shared_interview_library_holds_no_preparations_own_questions(world)
     """Phase 8: a question a preparation saved (ADF's Say-it answers) is never the shared library's."""
     shared = client.get("/api/v1/interview-questions", params={"limit": 500}).json()
     assert all(q["subject_id"] is None for q in shared["items"])
+
+
+@pytest.mark.parametrize("owner,reader", PAIRS, ids=[f"{a}->{b}" for a, b in PAIRS])
+def test_no_preparation_reaches_anothers_interview_question_by_id(world, owner, reader):
+    """Knowing an id grants nothing: detail, update and delete are refused like an unknown id,
+    and the owner's question is left exactly as it was."""
+    qid = world["work"][owner]["interview_question"]
+    other = world["preps"][reader]["id"]
+    path = f"/api/v1/interview-questions/{qid}"
+    assert client.get(path, params={"subject_id": other}).status_code == 404
+    assert client.put(path, params={"subject_id": other}, json={"question_text": "Overwritten"}).status_code == 404
+    assert client.delete(path, params={"subject_id": other}).status_code == 404
+    kept = client.get(path, params={"subject_id": world["work"][owner]["sid"]})
+    assert kept.status_code == 200
+    assert kept.json()["question_text"] == f"{world['work'][owner]['mark']} interview question"
+
+
+@pytest.mark.parametrize("label", list(KINDS))
+def test_no_preparation_cannot_reach_a_preparations_interview_question_by_id(world, label):
+    qid = world["work"][label]["interview_question"]
+    path = f"/api/v1/interview-questions/{qid}"
+    assert client.get(path).status_code == 404
+    assert client.put(path, json={"category": "Changed with no preparation"}).status_code == 404
+    assert client.delete(path).status_code == 404
+    assert client.get(path, params={"subject_id": world["work"][label]["sid"]}).json()["category"] == "Phase 8"

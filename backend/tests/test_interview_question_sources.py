@@ -212,7 +212,10 @@ def test_saving_the_same_source_again_updates_that_row(client):
     first = _save(client, source_ref=ref, subject_id=skill["id"]).json()["question"]
 
     # The learner renames the category in the library; a re-save must not undo that.
-    client.put(f"/api/v1/interview-questions/{first['id']}", json={"category": "My ADF prep"})
+    # As the owning preparation: its own question is not reachable without it.
+    renamed = client.put(f"/api/v1/interview-questions/{first['id']}", json={"category": "My ADF prep"},
+                         params={"subject_id": skill["id"]})
+    assert renamed.status_code == 200, renamed.text
 
     second = _save(
         client, source_ref=ref, subject_id=skill["id"],
@@ -290,7 +293,8 @@ def test_two_skills_with_the_same_pack_keep_their_own_question(client):
 
     assert first["created"] is True and second["created"] is True
     assert first["question"]["id"] != second["question"]["id"]
-    kept = client.get(f"/api/v1/interview-questions/{first['question']['id']}").json()
+    kept = client.get(f"/api/v1/interview-questions/{first['question']['id']}",
+                      params={"subject_id": first_skill["id"]}).json()
     assert kept["prepared_answer"] == "First skill's answer."
     assert kept["subject_id"] == first_skill["id"]
 

@@ -660,6 +660,10 @@
             "title": "Session Id",
             "type": "integer"
           },
+          "subject_id": {
+            "title": "Subject Id",
+            "type": "integer"
+          },
           "title": {
             "default": "Untitled Recording",
             "title": "Title",
@@ -4605,6 +4609,17 @@
           },
           "round_type": {
             "$ref": "#/components/schemas/InterviewRoundType"
+          },
+          "subject_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Id"
           },
           "thinking": {
             "default": true,
@@ -15871,6 +15886,24 @@
               "title": "Question Id",
               "type": "integer"
             }
+          },
+          {
+            "description": "The preparation asking. It reaches the shared library and its own questions; omitted, the shared library only. Another preparation's question is a 404, like an unknown id.",
+            "in": "query",
+            "name": "subject_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The preparation asking. It reaches the shared library and its own questions; omitted, the shared library only. Another preparation's question is a 404, like an unknown id.",
+              "title": "Subject Id"
+            }
           }
         ],
         "responses": {
@@ -15908,6 +15941,24 @@
             "schema": {
               "title": "Question Id",
               "type": "integer"
+            }
+          },
+          {
+            "description": "The preparation asking. It reaches the shared library and its own questions; omitted, the shared library only. Another preparation's question is a 404, like an unknown id.",
+            "in": "query",
+            "name": "subject_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The preparation asking. It reaches the shared library and its own questions; omitted, the shared library only. Another preparation's question is a 404, like an unknown id.",
+              "title": "Subject Id"
             }
           }
         ],
@@ -15948,6 +15999,24 @@
             "schema": {
               "title": "Question Id",
               "type": "integer"
+            }
+          },
+          {
+            "description": "The preparation asking. It reaches the shared library and its own questions; omitted, the shared library only. Another preparation's question is a 404, like an unknown id.",
+            "in": "query",
+            "name": "subject_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The preparation asking. It reaches the shared library and its own questions; omitted, the shared library only. Another preparation's question is a 404, like an unknown id.",
+              "title": "Subject Id"
             }
           }
         ],
@@ -16069,6 +16138,24 @@
               "minimum": 1,
               "title": "Question Count",
               "type": "integer"
+            }
+          },
+          {
+            "description": "The preparation practising: shared questions and its own. Omitted: shared questions only.",
+            "in": "query",
+            "name": "subject_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The preparation practising: shared questions and its own. Omitted: shared questions only.",
+              "title": "Subject Id"
             }
           }
         ],

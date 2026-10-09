@@ -3,6 +3,7 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { usePreparation } from '../../context/PreparationContext';
 import {
   Alert, Box, Button, Chip, CircularProgress, FormControlLabel, Stack, Switch, TextField, Theme, Typography, alpha, useTheme,
 } from '@mui/material';
@@ -117,6 +118,7 @@ export const AnswerConsole: React.FC<{
   preparedAnswer, keyTalkingPoints,
   onSaved, onBusyChange, onPhaseChange,
 }) => {
+  const { selectedId } = usePreparation();
   const [phase, setPhase] = useState<Phase>('ready');
   useEffect(() => {
     onBusyChange?.(phase !== 'ready');
@@ -136,7 +138,7 @@ export const AnswerConsole: React.FC<{
     try {
       const recording = await uploadRecording(
         take.blob, title, take.seconds, questionId ?? undefined,
-        { sessionId, planNote: planNote.trim() || undefined },
+        { sessionId, planNote: planNote.trim() || undefined, subjectId: selectedId ?? null },
       );
       pending.current = null;
       onSaved(recording);
@@ -144,7 +146,7 @@ export const AnswerConsole: React.FC<{
       setSaveError(apiErrorMessage(err, 'Your answer was recorded but did not save.'));
       setPhase('failed');
     }
-  }, [title, questionId, sessionId, planNote, onSaved]);
+  }, [title, questionId, sessionId, planNote, onSaved, selectedId]);
 
   const { isRecording, elapsed, recordError, start, stop } = useAudioRecorder((blob, seconds) => {
     pending.current = { blob, seconds };
