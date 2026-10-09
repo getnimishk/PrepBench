@@ -12,6 +12,8 @@ import { adfLabStatus, hasAdfPack } from './adfLab/experiments';
  * `SKILL_SLUG` in services/lakehouse/attempts.ts (a test holds them together).
  */
 export const LAKEHOUSE_SLUG = 'databricks';
+/** The slug the backend treats as owning the System Design prompts and design reviews. */
+export const SYSTEM_DESIGN_SLUG = 'system-design';
 
 /**
  * Unassigned / missing subject capabilities fallback profile.
@@ -25,6 +27,7 @@ export const UNASSIGNED_CAPABILITIES: SubjectCapabilityProfile = Object.freeze({
   learningLab: false,
   lab: false,
   lakehouseLab: false,
+  systemDesignStudio: false,
   learningLabStatus: 'UNAVAILABLE',
   workspace: true,
   evidence: true,
@@ -69,6 +72,7 @@ const SUBJECT_CAPABILITY_PROFILES: Record<number, SubjectCapabilityProfile> = {
     learningLab: false,
     lab: false,
     lakehouseLab: false,
+    systemDesignStudio: false,
     learningLabStatus: 'UNAVAILABLE',
     workspace: true,
     evidence: true,
@@ -85,6 +89,7 @@ const SUBJECT_CAPABILITY_PROFILES: Record<number, SubjectCapabilityProfile> = {
     learningLab: true,
     lab: true,
     lakehouseLab: true,
+    systemDesignStudio: false,
     learningLabStatus: 'AVAILABLE', // Lakehouse simulation sandbox is live in current production
     workspace: true,
     evidence: true,
@@ -101,6 +106,7 @@ const SUBJECT_CAPABILITY_PROFILES: Record<number, SubjectCapabilityProfile> = {
     learningLab: false,
     lab: false,
     lakehouseLab: false,
+    systemDesignStudio: true,
     learningLabStatus: 'UNAVAILABLE',
     workspace: true,
     evidence: true,
@@ -117,6 +123,7 @@ const SUBJECT_CAPABILITY_PROFILES: Record<number, SubjectCapabilityProfile> = {
     learningLab: false,
     lab: false,
     lakehouseLab: false,
+    systemDesignStudio: false,
     learningLabStatus: 'UNAVAILABLE',
     workspace: true,
     evidence: true,
@@ -133,6 +140,7 @@ const SUBJECT_CAPABILITY_PROFILES: Record<number, SubjectCapabilityProfile> = {
     learningLab: false,
     lab: false,
     lakehouseLab: false,
+    systemDesignStudio: false,
     learningLabStatus: 'UNAVAILABLE',
     workspace: true,
     evidence: true,
@@ -149,6 +157,7 @@ const SUBJECT_CAPABILITY_PROFILES: Record<number, SubjectCapabilityProfile> = {
     learningLab: true, // The ADF Behaviour Lab (services/adfLab), five experiments
     lab: true,
     lakehouseLab: false,
+    systemDesignStudio: false,
     // From the lab's own registry: AVAILABLE only while all five experiments are built
     // (adfLabStatus), INTEGRATION_PENDING the moment any one is not.
     learningLabStatus: adfLabStatus(),
@@ -377,6 +386,7 @@ function deriveCapabilities(s: LiveSubject): SubjectCapabilityProfile {
     learningLab: adfLab,
     lab: adfLab,
     lakehouseLab: s.slug === LAKEHOUSE_SLUG,
+    systemDesignStudio: s.slug === SYSTEM_DESIGN_SLUG,
     learningLabStatus: adfLab ? adfLabStatus() : 'UNAVAILABLE',
     workspace: true,
     evidence: true,

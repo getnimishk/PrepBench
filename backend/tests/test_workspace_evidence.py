@@ -383,11 +383,17 @@ def test_no_preparation_means_work_with_no_owner_never_every_preparation(db):
     kinds = {i["kind"] for i in none_workspace["items"]}
     assert {"system_design_answer", "design_review_call", "sandbox_run", "interview_answer", "recording",
             "topic_guide", "topic_note"} <= kinds
-    assert "lab_run" not in kinds  # the owned ADF run is not here
+    # The owned ADF run is not here. (Checked by its own id: other tests may leave runs
+    # that belong to no preparation, and those rightly are.)
+    assert not any(i["id"].startswith(f"lab_run:{owned}:") for i in none_workspace["items"])
+    assert all(":" not in i["id"] or f":{owned}:" not in i["id"] for i in none_workspace["items"])
     assert f"topic_guide:{unowned_roadmap['topic']}" in _ids(none_workspace["items"])
 
     none_evidence = _evidence(None)["items"]
-    assert not any(i["kind"] in ("lab_stage", "mock_exam") for i in none_evidence)
+    # Nothing of the owned preparation's -- its lab stages, its mocks -- by owner, not by kind:
+    # other tests may leave unowned lab runs, and those rightly are here.
+    assert not any(i["kind"] == "mock_exam" for i in none_evidence)
+    assert not any(i["kind"] == "lab_stage" and i["ref"].get("track") and i["id"].find(f":{owned}:") >= 0 for i in none_evidence)
     sd = next(i for i in none_evidence if i["kind"] == "system_design")
     assert sd["level"] == "completed" and sd["assessed_by"] == "ai"  # AI-graded is not verified
     dr = next(i for i in none_evidence if i["kind"] == "design_review")

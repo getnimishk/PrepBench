@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { RoadmapTopicPage } from './RoadmapTopicPage';
@@ -227,7 +227,8 @@ describe('a topic\'s curriculum links and evidence', () => {
     expect(await screen.findByRole('link', { name: 'Ch 9 · Loading only new data' })).toHaveAttribute('href', '/learn/guides/adf/incremental');
     expect(screen.getByText('Partial Coverage')).toBeInTheDocument();
     // The pack is read at the version the preparation pins.
-    expect(api.getContentPack).toHaveBeenCalledWith('adf', 1);
+    // Read in an effect after the roadmap renders: waited for, not assumed to have run already.
+    await waitFor(() => expect(api.getContentPack).toHaveBeenCalledWith('adf', 1));
     expect(await screen.findByRole('link', { name: 'Scenario 4 · Scenario late-rows' })).toHaveAttribute('href', '/scenarios/adf/late-rows');
     // A planned (unwritten) scenario and another chapter's scenario are not linked.
     expect(screen.queryByText(/Scenario planned-one/)).not.toBeInTheDocument();

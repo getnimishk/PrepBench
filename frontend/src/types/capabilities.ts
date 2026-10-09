@@ -36,6 +36,13 @@ export interface SubjectCapabilityProfile {
    */
   lakehouseLab: boolean;
   /**
+   * The System Design Studio's prompts and the Architecture Design Reviews. Neither table
+   * has an owner (Phase 6, D6); the backend counts them as the `system-design` skill's by
+   * an editorial slug rule (home_service._owns_system_design), and this reads the same
+   * slug -- never the id, which a learner's own preparation can reuse.
+   */
+  systemDesignStudio: boolean;
+  /**
    * Current production availability status for Learning Lab:
    * - 'AVAILABLE': Fully implemented and active in current production (e.g. Databricks Lakehouse Lab)
    * - 'INTEGRATION_PENDING': Target capability in architecture, but production experiments scheduled for future integration phase (e.g. ADF Behaviour Labs scheduled for Phase 5)

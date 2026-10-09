@@ -15595,6 +15595,7 @@
             }
           },
           {
+            "description": "This preparation's own questions. Omitted: the shared library -- the questions that belong to no preparation, never every preparation's.",
             "in": "query",
             "name": "subject_id",
             "required": false,
@@ -15607,6 +15608,7 @@
                   "type": "null"
                 }
               ],
+              "description": "This preparation's own questions. Omitted: the shared library -- the questions that belong to no preparation, never every preparation's.",
               "title": "Subject Id"
             }
           },
@@ -16793,7 +16795,7 @@
         "operationId": "list_attempts_api_v1_learning_attempts_get",
         "parameters": [
           {
-            "description": "Only this preparation's attempts.",
+            "description": "This preparation's attempts. Omitted: the attempts that belong to no preparation -- never every preparation's.",
             "in": "query",
             "name": "subject_id",
             "required": false,
@@ -16806,7 +16808,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Only this preparation's attempts.",
+              "description": "This preparation's attempts. Omitted: the attempts that belong to no preparation -- never every preparation's.",
               "title": "Subject Id"
             }
           },

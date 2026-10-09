@@ -93,3 +93,27 @@ describe('evidenceForTopic', () => {
     expect(evidenceForTopic([item('lab_stage', { track: 'watermark', run: '1', stage: 'apply' })], NO_LINKS)).toEqual([]);
   });
 });
+
+describe('the ADF lab registry agrees with the ADF pack (Phase 8)', () => {
+  // The pack's own "Roadmap alignment" blocks are the authority for which topic numbers a
+  // chapter covers, by name. An experiment that named a topic the pack calls something
+  // else -- or a number the pack never aligns -- would link a topic it does not teach.
+  const packText = JSON.stringify(ADF);
+
+  it('names each experiment topic exactly as the pack aligns it', () => {
+    for (const e of ADF_LAB_EXPERIMENTS) {
+      for (const t of e.topics) {
+        expect(packText, `${e.slug}: Topic ${t.number} — ${t.title}`).toContain(`**Topic ${t.number} — ${t.title}**`);
+      }
+    }
+  });
+
+  it('reads only chapters the pack has, and stays the five canonical experiments', () => {
+    const chapterIds = new Set(ADF.chapters.map((c) => c.id));
+    for (const e of ADF_LAB_EXPERIMENTS) {
+      for (const ch of e.chapters) expect(chapterIds.has(ch.id), `${e.slug} -> ${ch.id}`).toBe(true);
+    }
+    expect(ADF_LAB_EXPERIMENTS.map((e) => e.slug).sort()).toEqual(['concurrency', 'copy-perf', 'fault-tolerance', 'triggers', 'watermark']);
+    expect(ADF_LAB_EXPERIMENTS.find((e) => e.slug === 'fault-tolerance')!.tracks!.map((t) => t.id)).toEqual(['dependency', 'bad-rows']);
+  });
+});

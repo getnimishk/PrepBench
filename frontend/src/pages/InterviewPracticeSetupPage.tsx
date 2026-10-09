@@ -11,10 +11,10 @@ import { ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
 import { usePreparation } from '../context/PreparationContext';
 import {
   getInterviewRoundTypes,
-  getInterviewQuestions,
   getRecordings,
   generateInterviewQuestion,
 } from '../services/api';
+import { getInterviewLibrary } from '../services/interviewLibrary';
 import { InterviewQuestion, RoundTypeInfo, InterviewRoundType } from '../types/interviewQuestion';
 import { apiErrorMessage, loadFailed } from '../services/apiError';
 import { formatClock, practisedLabel } from '../services/interviewText';
@@ -49,7 +49,7 @@ const footerFor = (round: RoundTypeInfo | undefined, question: InterviewQuestion
 export const InterviewPracticeSetupPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { selected, selectedId, capabilities } = usePreparation();
+  const { selected, capabilities } = usePreparation();
 
   const [roundTypes, setRoundTypes] = useState<RoundTypeInfo[]>([]);
   const [roundsError, setRoundsError] = useState<string | null>(null);
@@ -62,7 +62,7 @@ export const InterviewPracticeSetupPage: React.FC = () => {
 
   const roundParam = searchParams.get('round') as RoundTab | null;
   const initialTab: RoundTab =
-    roundParam ?? (selectedId === 3 ? 'system_design' : 'all');
+    roundParam ?? (capabilities?.systemDesignStudio ? 'system_design' : 'all');
 
   const [tab, setTab] = useState<RoundTab>(initialTab);
 
@@ -82,14 +82,18 @@ export const InterviewPracticeSetupPage: React.FC = () => {
   useEffect(() => {
     setFetchError(null);
     setQuestions(null);
-    getInterviewQuestions({ limit: 500 })
+    let cancelled = false;
+    // The shared library plus this preparation's own questions, never another's (Phase 8).
+    getInterviewLibrary(selected?.id ?? null, 500)
       // Least-practised first, so the top of each round is what is new.
-      .then((res) => setQuestions([...res.items].sort((a, b) => (a.practice_count ?? 0) - (b.practice_count ?? 0))))
+      .then((res) => { if (!cancelled) setQuestions([...res.items].sort((a, b) => (a.practice_count ?? 0) - (b.practice_count ?? 0))); })
       .catch((err) => {
+        if (cancelled) return;
         setQuestions([]);
         setFetchError(loadFailed('Could not load interview questions', err));
       });
-  }, [questionsAttempt]);
+    return () => { cancelled = true; };
+  }, [questionsAttempt, selected?.id]);
 
   // Supporting detail for the "Recordings library" button: left unsaid, not zero, when unreadable.
   useEffect(() => {
@@ -104,7 +108,11 @@ export const InterviewPracticeSetupPage: React.FC = () => {
     return map;
   }, [roundTypes]);
 
-  const shown = (questions ?? []).filter((q) => tab === 'all' || q.round_type === tab);
+  // The tab on screen must be one that exists: a round asked for (System Design's default,
+  // or ?round=) is only selected once the round tabs have loaded and include it -- until then,
+  // or if they could not be read, everything is shown under "All questions".
+  const activeTab: RoundTab = tab === 'all' || roundTypes.some((r) => r.value === tab) ? tab : 'all';
+  const shown = (questions ?? []).filter((q) => activeTab === 'all' || q.round_type === activeTab);
 
   const randomPractice = () => {
     const pool = shown.length > 0 ? shown : questions ?? [];
@@ -114,7 +122,7 @@ export const InterviewPracticeSetupPage: React.FC = () => {
   };
 
   const handleGenerate = async () => {
-    const round = genRound || (tab !== 'all' ? tab : roundTypes[0]?.value);
+    const round = genRound || (activeTab !== 'all' ? activeTab : roundTypes[0]?.value);
     if (!round) return;
     setGenerateError(null);
     setGenerating(true);
@@ -162,7 +170,7 @@ export const InterviewPracticeSetupPage: React.FC = () => {
             </Button>
             <Button
               component={RouterLink}
-              to={`/interview-practice/setup${tab !== 'all' ? `?round=${tab}` : ''}`}
+              to={`/interview-practice/setup${activeTab !== 'all' ? `?round=${activeTab}` : ''}`}
               variant="outlined"
             >
               Set up a session
@@ -184,11 +192,11 @@ export const InterviewPracticeSetupPage: React.FC = () => {
         </Alert>
       )}
 
-      {selectedId === 3 && (
+      {capabilities?.systemDesignStudio && (
         <Alert severity="info" sx={{ mt: 2, mb: 1 }}>
           <b>System Design Track:</b> Practicing verbal architecture explanations? You can also practice written challenges in the{' '}
           <Box component={RouterLink} to="/system-design" sx={{ color: 'primary.main', fontWeight: 600 }}>
-            System Design Studio (32 prompts)
+            System Design Studio
           </Box>{' '}
           or tradeoff decisions in{' '}
           <Box component={RouterLink} to="/design-reviews" sx={{ color: 'primary.main', fontWeight: 600 }}>
@@ -231,7 +239,7 @@ export const InterviewPracticeSetupPage: React.FC = () => {
       )}
 
       <Tabs
-        value={tab}
+        value={activeTab}
         onChange={(_, v: RoundTab) => setTab(v)}
         variant="scrollable"
         scrollButtons="auto"
@@ -334,7 +342,7 @@ export const InterviewPracticeSetupPage: React.FC = () => {
                   <TextField
                     select
                     label="Round"
-                    value={genRound || (tab !== 'all' ? tab : roundTypes[0]?.value ?? '')}
+                    value={genRound || (activeTab !== 'all' ? activeTab : roundTypes[0]?.value ?? '')}
                     onChange={(e) => setGenRound(e.target.value as InterviewRoundType)}
                     slotProps={{ select: { native: true } }}
                     sx={{ minWidth: 170 }}

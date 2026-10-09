@@ -17,7 +17,7 @@ import { Explanation } from '../components/common/Explanation';
 import { loadFailed } from '../services/apiError';
 import { LoadingState } from '../components/common/States';
 import {
-  BigFigure, Detail, Eyebrow, Grid, PageHead, Panel, PanelHead, Pill, Row, Section, Sub,
+  BigFigure, Detail, Eyebrow, Grid, Note, PageHead, Panel, PanelHead, Pill, Row, Section, Sub,
 } from '../components/ui/primitives';
 
 /**
@@ -58,7 +58,7 @@ export const ReviewPage: React.FC = () => {
   // The picked preparation's mistakes, schedule and sessions. Unscoped, a learner
   // switched to one with nothing due saw "nothing due" on Home and then another
   // preparation's mistakes here.
-  const { selectedId, selected } = usePreparation();
+  const { selectedId, selected, loading: prepLoading, error: prepError, refresh: refreshPreparations } = usePreparation();
   const [queue, setQueue] = useState<ReviewQueue | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,6 +78,16 @@ export const ReviewPage: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
+    // With no preparation chosen there is no queue to read: review is always one
+    // preparation's mistakes, never every preparation's at once (Phase 8).
+    if (selectedId == null) {
+      setQueue(null);
+      setActivity([]);
+      setError(null);
+      setStarted(false);
+      setLoading(false);
+      return undefined;
+    }
     // Another preparation is another queue, so the session starts over.
     setLoading(true);
     setError(null);
@@ -127,6 +137,30 @@ export const ReviewPage: React.FC = () => {
 
   if (loading) {
     return <LoadingState label="Loading your review queue…" />;
+  }
+
+  if (selectedId == null) {
+    // Nothing chosen -- but only say so once the preparations have been read. While they
+    // load, wait; if they could not be read, say that rather than "choose one".
+    if (prepLoading && !prepError) return <LoadingState label="Loading your review queue…" />;
+    return (
+      <Box>
+        <PageHead title="Review Queue" sub="Miss → understand → verify → schedule. Review is a learning loop, not a history list." />
+        {prepError ? (
+          <Alert
+            severity="error"
+            action={<Button color="inherit" size="small" onClick={() => void refreshPreparations()}>Retry</Button>}
+          >
+            Could not load your preparations, so there is no review queue to show. Nothing was changed.
+          </Alert>
+        ) : (
+        <Note>
+          No preparation is chosen. Review reads one preparation&apos;s mock mistakes at a time — choose one in the
+          header to see its queue.
+        </Note>
+        )}
+      </Box>
+    );
   }
 
   // "Every wrong answer has been read" is only true of mocks that exist. With

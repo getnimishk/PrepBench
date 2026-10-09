@@ -32,7 +32,10 @@ router = APIRouter(prefix="/learning", tags=["Learning"])
 
 @router.get("/attempts", response_model=List[LearningAttemptResponse])
 def list_attempts(
-    subject_id: Optional[int] = Query(None, description="Only this preparation's attempts."),
+    subject_id: Optional[int] = Query(
+        None,
+        description="This preparation's attempts. Omitted: the attempts that belong to no preparation -- never every preparation's.",
+    ),
     concept_id: Optional[str] = Query(None, description="Only attempts at this concept."),
     db: Session = Depends(get_db),
 ):

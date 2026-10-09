@@ -2,7 +2,7 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
@@ -10,8 +10,10 @@ import {
 } from '@mui/material';
 import { Pencil, Trash2, Upload } from 'lucide-react';
 import {
-  deleteInterviewQuestion, getInterviewQuestions, getInterviewRoundTypes, updateInterviewQuestion,
+  deleteInterviewQuestion, getInterviewRoundTypes, updateInterviewQuestion,
 } from '../services/api';
+import { getInterviewLibrary } from '../services/interviewLibrary';
+import { usePreparation } from '../context/PreparationContext';
 import { apiErrorMessage, loadFailed } from '../services/apiError';
 import { practisedLabel } from '../services/interviewText';
 import { InterviewQuestionImportModal } from '../components/interview/InterviewQuestionImportModal';
@@ -79,17 +81,27 @@ export const InterviewLibraryPage: React.FC = () => {
   const [editError, setEditError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<InterviewQuestion | null>(null);
 
+  // The shared library plus the chosen preparation's own questions -- never another
+  // preparation's (Phase 8). Only the latest request's answer is shown after a switch.
+  const { selectedId } = usePreparation();
+  const seq = useRef(0);
   const load = () => {
+    const mine = ++seq.current;
     setLoadError(null);
-    getInterviewQuestions({ limit: LIMIT })
-      .then((res) => { setQuestions(res.items); setTotal(res.total); })
-      .catch((err) => setLoadError(loadFailed('Could not load the question library', err)));
+    getInterviewLibrary(selectedId ?? null, LIMIT)
+      .then((res) => { if (mine === seq.current) { setQuestions(res.items); setTotal(res.total); } })
+      .catch((err) => { if (mine === seq.current) setLoadError(loadFailed('Could not load the question library', err)); });
   };
 
   useEffect(() => {
     getInterviewRoundTypes().then(setRounds).catch(() => setRounds([]));
-    load();
   }, []);
+
+  useEffect(() => {
+    load();
+    // Reload when the preparation changes; `load` reads it fresh each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
 
   const shown = useMemo(() => {
     const filtered = (questions ?? []).filter((q) => tab === 'all' || q.round_type === tab);

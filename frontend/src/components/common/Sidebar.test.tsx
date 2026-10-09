@@ -236,3 +236,17 @@ describe('Sidebar', () => {
     await waitFor(() => expect(getReviewCounts).toHaveBeenCalled());
   });
 });
+
+describe('Sidebar review badge with no preparation (Phase 8)', () => {
+  it("reads no counts, rather than every preparation's added together", async () => {
+    const before = preparation.selectedId;
+    preparation.selectedId = null;
+    try {
+      renderAt('/');
+      await new Promise((r) => setTimeout(r, 30));
+      expect(getReviewCounts).not.toHaveBeenCalled();
+    } finally {
+      preparation.selectedId = before;
+    }
+  });
+});

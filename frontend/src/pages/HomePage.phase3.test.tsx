@@ -47,6 +47,7 @@ interface MockPrepContext {
   capabilities: SubjectCapabilityProfile;
   select: (id: number | null) => void;
   loading: boolean;
+  provided?: boolean;
 }
 
 const mockSelect = vi.fn();
@@ -462,6 +463,35 @@ describe('Phase 3 — Unified Home & Certification Readiness Integration', () =>
     // Clicking select triggers select(id)
     fireEvent.click(screen.getByText('Select Azure Data Factory'));
     expect(mockSelect).toHaveBeenCalledWith(6);
+  });
+
+  it('waits for a loading preparation provider instead of showing PSM I (Phase 8)', async () => {
+    // Nothing stored, the provider still loading, Home's own subjects already read:
+    // this used to fall through to the first certification and render PSM I.
+    Object.assign(mockContext, {
+      selectedId: null, selected: null, capabilities: UNASSIGNED_CAPABILITIES, loading: true, provided: true,
+    });
+    try {
+      const view = renderHomePage();
+      await waitFor(() => expect(mockGetSubjects).toHaveBeenCalled());
+      await new Promise((r) => setTimeout(r, 30));
+      expect(screen.getByText('Loading your progress…')).toBeInTheDocument();
+      expect(screen.queryByText(/Professional Scrum Master I/)).not.toBeInTheDocument();
+      expect(mockGetEvidence).not.toHaveBeenCalled();
+      expect(mockGetFocusTopics).not.toHaveBeenCalled();
+
+      // Loaded with nothing chosen: the unassigned view, still never PSM I.
+      mockContext.loading = false;
+      view.rerender(
+        <MemoryRouter initialEntries={['/']}>
+          <Routes><Route path="/" element={<HomePage />} /></Routes>
+        </MemoryRouter>,
+      );
+      expect(await screen.findByRole('heading', { name: 'Choose Your Focus Area' })).toBeInTheDocument();
+      expect(mockGetEvidence).not.toHaveBeenCalled();
+    } finally {
+      Object.assign(mockContext, { loading: false, provided: undefined });
+    }
   });
 
   describe('Phase 3 Learning Lab Production Availability Hardening (Phase Gate Invariants)', () => {
