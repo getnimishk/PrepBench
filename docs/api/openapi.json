@@ -16203,6 +16203,24 @@
               "title": "Session Id",
               "type": "integer"
             }
+          },
+          {
+            "description": "The preparation asking. A session holding its questions, or only shared ones, is reachable; one holding another preparation's question is a 404, like an unknown id.",
+            "in": "query",
+            "name": "subject_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The preparation asking. A session holding its questions, or only shared ones, is reachable; one holding another preparation's question is a 404, like an unknown id.",
+              "title": "Subject Id"
+            }
           }
         ],
         "responses": {
@@ -16246,6 +16264,24 @@
               "title": "Session Id",
               "type": "integer"
             }
+          },
+          {
+            "description": "The preparation asking. A session holding its questions, or only shared ones, is reachable; one holding another preparation's question is a 404, like an unknown id.",
+            "in": "query",
+            "name": "subject_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The preparation asking. A session holding its questions, or only shared ones, is reachable; one holding another preparation's question is a 404, like an unknown id.",
+              "title": "Subject Id"
+            }
           }
         ],
         "responses": {
@@ -16287,6 +16323,24 @@
             "schema": {
               "title": "Session Id",
               "type": "integer"
+            }
+          },
+          {
+            "description": "The preparation asking. A session holding its questions, or only shared ones, is reachable; one holding another preparation's question is a 404, like an unknown id.",
+            "in": "query",
+            "name": "subject_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The preparation asking. A session holding its questions, or only shared ones, is reachable; one holding another preparation's question is a 404, like an unknown id.",
+              "title": "Subject Id"
             }
           }
         ],

@@ -369,10 +369,13 @@ function isLiveSubject(value: unknown): value is LiveSubject {
  *
  * Only what the record states is claimed: a certification is one by its kind;
  * questions by its own count; guides and scenarios by its attached packs.
- * Interview needs content of its own that a bare record cannot show, so it stays
- * off. The Learning Lab is on when the ADF pack is attached: the ADF Behaviour
- * Lab's experiments are that pack's. Roadmaps are not withheld: the Roadmaps screen
- * is where any preparation's first roadmap is created or imported.
+ * Interview needs content of its own, and the one source a record can show is the
+ * ADF pack: each of its scenarios ends with a Say-it question per role, which
+ * ScenarioPage saves under whichever preparation holds the pack -- so a recreated
+ * ADF keeps its rounds whatever its new slug is. Otherwise it stays off. The
+ * Learning Lab is on when the ADF pack is attached: the ADF Behaviour Lab's
+ * experiments are that pack's. Roadmaps are not withheld: the Roadmaps screen is
+ * where any preparation's first roadmap is created or imported.
  */
 function deriveCapabilities(s: LiveSubject): SubjectCapabilityProfile {
   const questions = s.question_count;
@@ -382,7 +385,7 @@ function deriveCapabilities(s: LiveSubject): SubjectCapabilityProfile {
   const adfLab = hasAdfPack(s);
   return Object.freeze({
     certification: s.kind.toLowerCase() === 'certification',
-    interview: false,
+    interview: adfLab,
     learningLab: adfLab,
     lab: adfLab,
     lakehouseLab: s.slug === LAKEHOUSE_SLUG,
@@ -409,23 +412,31 @@ function deriveCapabilities(s: LiveSubject): SubjectCapabilityProfile {
  * record rather than the table:
  *  - the question count, so a bank imported later (Kafka's, say) is seen the
  *    moment it is there, and a static 0 can never keep a filled bank locked;
- *  - whether the table applies at all: it describes the six seeded preparations
- *    by id *and* slug, so a learner's own preparation that happens to reuse an
- *    id is read from its own record, not mistaken for PSM I or ADF.
+ *  - whether the table applies at all: a record that carries a slug is matched to
+ *    it by that slug alone, exactly. The slug is a preparation's identity (it never
+ *    changes); its id is not -- a preparation deleted and created again gets a new
+ *    one, and SQLite can hand an old id to a different preparation. So a recreated
+ *    System Design keeps its profile at any id, and a learner's preparation holding
+ *    id 3 or 6 is read from its own record, never mistaken for System Design or ADF.
  */
 export function getSubjectCapabilities(
   subjectOrId?: Subject | { id?: number; slug?: string; name?: string } | number | string | null
 ): SubjectCapabilityProfile {
-  const id = resolveSubjectId(subjectOrId);
-  if (id === null) {
-    return UNASSIGNED_CAPABILITIES;
+  const live = isLiveSubject(subjectOrId) ? subjectOrId : null;
+  const slug = typeof subjectOrId === 'object' && subjectOrId !== null ? subjectOrId.slug : undefined;
+
+  let profile: SubjectCapabilityProfile | undefined;
+  if (slug) {
+    profile = KNOWN_PRODUCTION_SUBJECTS.find((s) => s.slug === slug)?.capabilities;
+    if (!profile) return live ? deriveCapabilities(live) : UNASSIGNED_CAPABILITIES;
+  } else {
+    // A bare id or slug string, or a record without a slug (an older payload, a test fixture).
+    const id = resolveSubjectId(subjectOrId);
+    if (id === null) return UNASSIGNED_CAPABILITIES;
+    profile = SUBJECT_CAPABILITY_PROFILES[id];
   }
 
-  const live = isLiveSubject(subjectOrId) ? subjectOrId : null;
-  const profile = SUBJECT_CAPABILITY_PROFILES[id];
-  const known = KNOWN_PRODUCTION_SUBJECTS.find((s) => s.id === id);
-
-  if (profile && (!live || !live.slug || live.slug === known?.slug)) {
+  if (profile) {
     if (!live) return profile;
     // The table says what each seeded preparation can do; its curriculum and its
     // question count are read from the record, so a roadmap unlinked or a pack

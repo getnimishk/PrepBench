@@ -426,3 +426,68 @@ describe('System Design Studio ownership is read from the slug, never the id (Ph
     expect(UNASSIGNED_CAPABILITIES.systemDesignStudio).toBe(false);
   });
 });
+
+describe('Known preparations are identified by slug, not by database id', () => {
+  // A preparation deleted and created again gets a new id (33, 66 here), and SQLite can
+  // hand an old id (3, 6) to a different preparation. The slug is the identity
+  // (SubjectUpdate: "the name is the label; the slug is the identity").
+  const pack = (pack_id: string, chapter_count: number, written_scenario_count: number) =>
+    ({ pack_id, pack_version: 1, latest_version: 1, title: pack_id, chapter_count, written_scenario_count });
+  const rec = (id: number, slug: string, over: Partial<Subject> = {}): Subject => ({
+    id, name: slug, slug, kind: 'skill', is_archived: false, display_order: id, has_exam_profile: false,
+    question_count: 0, content_packs: [],
+    readiness: { state: 'needs_evaluation', mock_count: 0, recent_scores: [] } as unknown as Subject['readiness'],
+    ...over,
+  } as Subject);
+
+  it('keeps System Design its interview rounds and studio when it is recreated as id 33', () => {
+    const caps = getSubjectCapabilities(rec(33, 'system-design'));
+    expect(caps.interview).toBe(true);
+    expect(caps.systemDesignStudio).toBe(true);
+    expect(caps.certification).toBe(false);
+  });
+
+  it('keeps ADF its interview rounds and lab when it is recreated as id 66', () => {
+    const adfPack = [pack('adf', 21, 18)] as Subject['content_packs'];
+    const caps = getSubjectCapabilities(rec(66, 'adf', { content_packs: adfPack }));
+    expect(caps.interview).toBe(true);
+    expect(caps.certification).toBe(false);
+    expect(caps.learningLab).toBe(true);
+    expect(caps.scenarios).toBe(true);
+  });
+
+  it('keeps ADF its interview rounds when the recreated preparation got a different slug but has the ADF pack', () => {
+    // Recreated through the app as "Azure Data Factory", the slug is derived from that name. Its
+    // Say-it questions come from the ADF pack's scenarios, saved under whichever preparation holds it.
+    const adfPack = [pack('adf', 21, 18)] as Subject['content_packs'];
+    expect(getSubjectCapabilities(rec(66, 'azure-data-factory', { content_packs: adfPack })).interview).toBe(true);
+    // Without the pack there is no interview content of its own.
+    expect(getSubjectCapabilities(rec(66, 'azure-data-factory')).interview).toBe(false);
+    // A guide-only pack is not interview content either.
+    expect(getSubjectCapabilities(rec(67, 'storage', { content_packs: [pack('adls', 11, 0)] as Subject['content_packs'] })).interview).toBe(false);
+  });
+
+  it('gives a different preparation holding id 3 or 6 none of System Design or ADF', () => {
+    for (const id of [3, 6]) {
+      const caps = getSubjectCapabilities(rec(id, 'kafka-streams'));
+      expect(caps.interview).toBe(false);
+      expect(caps.systemDesignStudio).toBe(false);
+      expect(caps.learningLab).toBe(false);
+      expect(caps.scenarios).toBe(false);
+    }
+    // A reference that names a slug is read by that slug too, never by its id.
+    expect(getSubjectCapabilities({ id: 3, slug: 'kafka-streams', name: 'Kafka Streams' }).interview).toBe(false);
+    expect(getSubjectCapabilities({ id: 33, slug: 'system-design', name: 'System Design' }).interview).toBe(true);
+  });
+
+  it('does not grant a known profile to a slug that only resembles one', () => {
+    // Aliases are for typed lookups, not records: a preparation's own slug must match exactly.
+    expect(getSubjectCapabilities(rec(70, 'system-design-2')).interview).toBe(false);
+    expect(getSubjectCapabilities(rec(71, 'sys-design')).systemDesignStudio).toBe(false);
+  });
+
+  it('offers recreated preparations, not their old ids, when filtering live records', () => {
+    const live = [rec(3, 'kafka-streams'), rec(33, 'system-design'), rec(66, 'adf', { content_packs: [pack('adf', 21, 18)] as Subject['content_packs'] })];
+    expect(getSubjectsWithCapability(live, 'interview').map((s) => s.id)).toEqual([33, 66]);
+  });
+});

@@ -201,7 +201,7 @@ export const CertificationHubPage: React.FC = () => {
 
   // 2. Non-Certification Subject Guard: Zero silent subject switching!
   if (!targetCapabilities.certification) {
-    return <CapabilityUnavailablePage capability="Certification" subject={targetSubject} />;
+    return <CapabilityUnavailablePage capability="Certification" subject={targetSubject} preparations={subjects} />;
   }
 
   // This hub can show a preparation other than the one in the header: its own

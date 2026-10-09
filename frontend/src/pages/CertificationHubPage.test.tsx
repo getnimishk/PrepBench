@@ -268,10 +268,10 @@ describe('CertificationHubPage — Phase 4 Certification Integration', () => {
     expect(screen.queryByText(/Verdict:/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Start Mock Exam/)).not.toBeInTheDocument();
 
-    // Provides transparent button to switch to PSM I
+    // Provides transparent button to switch to PSM I -- by its slug, from the live list
     expect(
       screen.getByRole('link', { name: /Switch to Scrum \/ PSM I \(Certification\)/ })
-    ).toHaveAttribute('href', '/certification?subject=1');
+    ).toHaveAttribute('href', '/certification?subject=psm-i');
   });
 
   it('renders unassigned scoping guard when selectedId is null without silently defaulting to PSM I', async () => {

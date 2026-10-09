@@ -7,18 +7,26 @@ import { Link as RouterLink } from 'react-router-dom';
 import { Box, Button, Stack, Typography, useTheme } from '@mui/material';
 import { ArrowRight, ShieldAlert } from 'lucide-react';
 import { PageHead, Panel } from '../ui/primitives';
-import { getSubjectsWithCapability, KNOWN_PRODUCTION_SUBJECTS } from '../../services/capabilities';
+import { getSubjectsWithCapability } from '../../services/capabilities';
 import type { CapabilityName } from '../../types/capabilities';
 import type { Subject } from '../../types/subject';
 
 export interface CapabilityUnavailablePageProps {
   capability: 'Certification' | 'Interview' | 'Learning Lab' | 'Roadmap' | 'Study Guide' | 'Scenarios';
   subject?: { id?: number | null; name?: string; slug?: string } | null;
+  /**
+   * The learner's preparations as the server sent them, or null when they could
+   * not be read. The track offered instead is one of these, linked by its slug:
+   * never a built-in id, which a recreated preparation no longer has and another
+   * preparation may now hold.
+   */
+  preparations: Subject[] | null;
 }
 
 export const CapabilityUnavailablePage: React.FC<CapabilityUnavailablePageProps> = ({
   capability,
   subject,
+  preparations,
 }) => {
   const theme = useTheme();
   const subjectName = subject?.name ?? 'This subject';
@@ -36,7 +44,11 @@ export const CapabilityUnavailablePage: React.FC<CapabilityUnavailablePageProps>
       ? 'scenarios'
       : 'studyGuide';
 
-  const capableSubjects = getSubjectsWithCapability(capabilityKey);
+  const capableSubjects = preparations == null
+    ? []
+    : getSubjectsWithCapability(preparations, capabilityKey).filter((s) => s.id !== subject?.id);
+  const other = capableSubjects[0] ?? null;
+  const noun = capability === 'Interview' ? 'interview rounds' : capability === 'Certification' ? 'a certification' : `${capability.toLowerCase()} set up`;
 
   return (
     <Box sx={{ maxWidth: 840, mx: 'auto', py: 4 }}>
@@ -94,23 +106,30 @@ export const CapabilityUnavailablePage: React.FC<CapabilityUnavailablePageProps>
               Return to Home
             </Button>
           )}
-          {capableSubjects.length > 0 && (
+          {other && (
             <Button
               variant="outlined"
               component={RouterLink}
               to={
                 capability === 'Certification'
-                  ? `/certification?subject=${capableSubjects[0].id}`
+                  ? `/certification?subject=${encodeURIComponent(other.slug)}`
                   : capability === 'Interview'
-                  ? `/interview?subject=${capableSubjects[0].id}`
-                  : `/subjects/${capableSubjects[0].id}`
+                  ? `/interview?subject=${encodeURIComponent(other.slug)}`
+                  : `/subjects/${other.id}`
               }
               endIcon={<ArrowRight size={16} />}
             >
-              Switch to {capableSubjects[0].name} ({capability})
+              Switch to {other.name} ({capability})
             </Button>
           )}
         </Stack>
+        {!other && (
+          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 2 }}>
+            {preparations == null
+              ? 'Your preparations could not be read, so no other track can be offered.'
+              : `None of your preparations has ${noun} yet.`}
+          </Typography>
+        )}
       </Panel>
     </Box>
   );

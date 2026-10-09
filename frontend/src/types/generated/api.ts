@@ -9550,7 +9550,10 @@ export interface operations {
     };
     get_session_api_v1_interview_sessions__session_id__get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The preparation asking. A session holding its questions, or only shared ones, is reachable; one holding another preparation's question is a 404, like an unknown id. */
+                subject_id?: number | null;
+            };
             header?: never;
             path: {
                 session_id: number;
@@ -9581,7 +9584,10 @@ export interface operations {
     };
     finish_session_api_v1_interview_sessions__session_id__finish_post: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The preparation asking. A session holding its questions, or only shared ones, is reachable; one holding another preparation's question is a 404, like an unknown id. */
+                subject_id?: number | null;
+            };
             header?: never;
             path: {
                 session_id: number;
@@ -9612,7 +9618,10 @@ export interface operations {
     };
     session_report_api_v1_interview_sessions__session_id__report_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The preparation asking. A session holding its questions, or only shared ones, is reachable; one holding another preparation's question is a 404, like an unknown id. */
+                subject_id?: number | null;
+            };
             header?: never;
             path: {
                 session_id: number;

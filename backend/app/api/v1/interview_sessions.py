@@ -40,16 +40,40 @@ def create_session(body: InterviewSessionCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{session_id}", response_model=InterviewSessionResponse)
-def get_session(session_id: int, db: Session = Depends(get_db)):
-    return InterviewSessionService(db).get(session_id)
+def get_session(
+    session_id: int,
+    subject_id: Optional[int] = Query(
+        None,
+        description="The preparation asking. A session holding its questions, or only shared ones, is "
+                    "reachable; one holding another preparation's question is a 404, like an unknown id.",
+    ),
+    db: Session = Depends(get_db),
+):
+    return InterviewSessionService(db).get(session_id, subject_id)
 
 
 @router.post("/{session_id}/finish", response_model=InterviewSessionResponse)
-def finish_session(session_id: int, db: Session = Depends(get_db)):
+def finish_session(
+    session_id: int,
+    subject_id: Optional[int] = Query(
+        None,
+        description="The preparation asking. A session holding its questions, or only shared ones, is "
+                    "reachable; one holding another preparation's question is a 404, like an unknown id.",
+    ),
+    db: Session = Depends(get_db),
+):
     """Mark the session ended. Idempotent; answers already given are kept either way."""
-    return InterviewSessionService(db).finish(session_id)
+    return InterviewSessionService(db).finish(session_id, subject_id)
 
 
 @router.get("/{session_id}/report", response_model=InterviewSessionReport)
-def session_report(session_id: int, db: Session = Depends(get_db)):
-    return InterviewSessionService(db).report(session_id)
+def session_report(
+    session_id: int,
+    subject_id: Optional[int] = Query(
+        None,
+        description="The preparation asking. A session holding its questions, or only shared ones, is "
+                    "reachable; one holding another preparation's question is a 404, like an unknown id.",
+    ),
+    db: Session = Depends(get_db),
+):
+    return InterviewSessionService(db).report(session_id, subject_id)

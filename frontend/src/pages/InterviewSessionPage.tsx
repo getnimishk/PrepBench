@@ -9,6 +9,7 @@ import {
   Typography, alpha,
 } from '@mui/material';
 import { X } from 'lucide-react';
+import { usePreparation } from '../context/PreparationContext';
 import {
   analyzeRecording, finishInterviewSession, getInterviewSession, getRecordingAudioUrl,
 } from '../services/api';
@@ -62,8 +63,14 @@ export const InterviewSessionPage: React.FC = () => {
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [phase, setPhase] = useState<AnswerPhase>('ready');
   const t = usePb();
+  // Read and ended as the chosen preparation: a session of its own questions is reachable only as it.
+  const { selectedId } = usePreparation();
+  const scope = selectedId ?? null;
 
-  const refresh = useCallback(() => getInterviewSession(sid).then((s) => { setSession(s); return s; }), [sid]);
+  const refresh = useCallback(
+    () => getInterviewSession(sid, scope).then((s) => { setSession(s); return s; }),
+    [sid, scope],
+  );
 
   useEffect(() => {
     setLoadError(null);
@@ -79,14 +86,14 @@ export const InterviewSessionPage: React.FC = () => {
   const end = useCallback(async () => {
     setEnding(true);
     try {
-      await finishInterviewSession(sid);
+      await finishInterviewSession(sid, scope);
       navigate(`/interview-practice/sessions/${sid}/report`);
     } catch (err) {
       setLoadError(apiErrorMessage(err, 'Could not end the session.'));
       setEnding(false);
       setConfirmEnd(false);
     }
-  }, [sid, navigate]);
+  }, [sid, scope, navigate]);
 
   // Esc ends the session, as the prototype has it -- but never mid-answer.
   useShortcuts([{

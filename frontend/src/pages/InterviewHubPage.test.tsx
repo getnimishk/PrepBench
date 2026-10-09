@@ -292,10 +292,10 @@ describe('InterviewHubPage — Phase 4 Interview Integration', () => {
       screen.getByText(/timed mock exam simulator, and spaced repetition queue/)
     ).toBeInTheDocument();
 
-    // Provides explicit link to switch to System Design or ADF
+    // Provides explicit link to switch to System Design or ADF -- by its slug, from the live list
     expect(
       screen.getByRole('link', { name: /Switch to System Design \(Interview\)/ })
-    ).toHaveAttribute('href', '/interview?subject=3');
+    ).toHaveAttribute('href', '/interview?subject=system-design');
   });
 
   it('renders unassigned scoping guard when selectedId is null without silently defaulting to System Design', async () => {
@@ -311,12 +311,130 @@ describe('InterviewHubPage — Phase 4 Interview Integration', () => {
     expect(screen.getByText('Technical Capability Rehearsal')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /System Design \(Interview Track\)/ })).toHaveAttribute(
       'href',
-      '/interview?subject=3'
+      '/interview?subject=system-design'
     );
     expect(screen.getByRole('link', { name: /Azure Data Factory \(Interview Track\)/ })).toHaveAttribute(
       'href',
-      '/interview?subject=6'
+      '/interview?subject=adf'
     );
+  });
+});
+
+describe('InterviewHubPage -- tracks are offered from the live preparations, by slug, never by a reused id', () => {
+  // System Design and ADF were deleted and created again (ids 33 and 66); SQLite then gave id 3
+  // to an unrelated preparation. Nothing may call id 3 System Design or send the learner there.
+  const KAFKA_STREAMS_AT_3: Subject = { ...SYSTEM_DESIGN_SUBJECT, id: 3, name: 'Kafka Streams', slug: 'kafka-streams' };
+  const SD_AT_33: Subject = { ...SYSTEM_DESIGN_SUBJECT, id: 33 };
+  const ADF_AT_66: Subject = {
+    ...ADF_SUBJECT,
+    id: 66,
+    content_packs: [{ pack_id: 'adf', pack_version: 1, latest_version: 1, title: 'ADF', chapter_count: 21, written_scenario_count: 18 }] as Subject['content_packs'],
+  };
+  const RENUMBERED = [PSM_SUBJECT, KAFKA_STREAMS_AT_3, SD_AT_33, ADF_AT_66];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetInterviewQuestions.mockResolvedValue({ items: [], total: 0 });
+    mockGetSystemDesignPrompts.mockResolvedValue({ items: [], total: 0 });
+    mockGetSystemDesignAttempts.mockResolvedValue({ items: [], total: 0 });
+    mockGetRecordings.mockResolvedValue({ items: [] });
+    mockGetDesignReviews.mockResolvedValue({ items: [], total: 0 });
+  });
+
+  const noLinkTo = (fragment: RegExp) =>
+    expect(screen.queryAllByRole('link').filter((a) => fragment.test(a.getAttribute('href') ?? ''))).toEqual([]);
+
+  it('offers the recreated System Design from the unavailable page, never the preparation now holding id 3', async () => {
+    mockGetSubjects.mockResolvedValue(RENUMBERED);
+    mockPreparation.mockReturnValue({ selectedId: 1, selected: PSM_SUBJECT, capabilities: getSubjectCapabilities(PSM_SUBJECT) });
+
+    renderInterviewHub();
+
+    expect(await screen.findByText('Interview Unavailable')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Switch to System Design \(Interview\)/ }))
+      .toHaveAttribute('href', '/interview?subject=system-design');
+    expect(screen.queryByText(/Kafka Streams/)).not.toBeInTheDocument();
+    noLinkTo(/subject=3(\D|$)/);
+  });
+
+  it('lists the recreated tracks by slug in the chooser, and not the preparation holding id 3', async () => {
+    mockGetSubjects.mockResolvedValue(RENUMBERED);
+    mockPreparation.mockReturnValue({ selectedId: null, selected: null, capabilities: UNASSIGNED_CAPABILITIES });
+
+    renderInterviewHub();
+
+    expect(await screen.findByText('Select an Interview Track')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /System Design \(Interview Track\)/ }))
+      .toHaveAttribute('href', '/interview?subject=system-design');
+    expect(screen.getByRole('link', { name: /Azure Data Factory \(Interview Track\)/ }))
+      .toHaveAttribute('href', '/interview?subject=adf');
+    expect(screen.queryByRole('link', { name: /Kafka Streams/ })).not.toBeInTheDocument();
+    noLinkTo(/subject=3(\D|$)/);
+  });
+
+  it('opens the recreated System Design from its slug link, with its studio', async () => {
+    mockGetSubjects.mockResolvedValue(RENUMBERED);
+    mockPreparation.mockReturnValue({ selectedId: null, selected: null, capabilities: UNASSIGNED_CAPABILITIES });
+
+    renderInterviewHub('/interview?subject=system-design');
+
+    expect(await screen.findByRole('link', { name: 'Open Studio' })).toHaveAttribute('href', '/system-design');
+    expect(screen.queryByText('Interview Unavailable')).not.toBeInTheDocument();
+  });
+
+  it('does not present the preparation now holding id 3 as System Design when opened by that id', async () => {
+    mockGetSubjects.mockResolvedValue(RENUMBERED);
+    mockPreparation.mockReturnValue({ selectedId: null, selected: null, capabilities: UNASSIGNED_CAPABILITIES });
+
+    renderInterviewHub('/interview?subject=3');
+
+    expect(await screen.findByText('Interview Unavailable')).toBeInTheDocument();
+    expect(screen.getByText('Interview is not configured for Kafka Streams')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Open Studio' })).not.toBeInTheDocument();
+  });
+
+  it('reaches the preparation whose slug looks like a number, not the one holding that id', async () => {
+    // A preparation named "3" has the slug "3"; the link names it, whichever preparation holds id 3.
+    mockGetSubjects.mockResolvedValue([PSM_SUBJECT, KAFKA_STREAMS_AT_3, { ...ADF_AT_66, id: 40, name: 'Pipelines 3', slug: '3' }]);
+    mockPreparation.mockReturnValue({ selectedId: null, selected: null, capabilities: UNASSIGNED_CAPABILITIES });
+
+    renderInterviewHub('/interview?subject=3');
+
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent(/Pipelines 3/);
+    expect(screen.queryByText('Interview Unavailable')).not.toBeInTheDocument();
+  });
+
+  it('says so when no other preparation has interview rounds, instead of offering one it does not have', async () => {
+    mockGetSubjects.mockResolvedValue([PSM_SUBJECT, KAFKA_STREAMS_AT_3]);
+    mockPreparation.mockReturnValue({ selectedId: 1, selected: PSM_SUBJECT, capabilities: getSubjectCapabilities(PSM_SUBJECT) });
+
+    renderInterviewHub();
+
+    expect(await screen.findByText('Interview Unavailable')).toBeInTheDocument();
+    expect(screen.getByText('None of your preparations has interview rounds yet.')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Switch to/ })).not.toBeInTheDocument();
+  });
+
+  it('says the preparations could not be read, rather than that none has interview rounds', async () => {
+    mockGetSubjects.mockRejectedValue(new Error('offline'));
+    mockPreparation.mockReturnValue({ selectedId: 1, selected: PSM_SUBJECT, capabilities: getSubjectCapabilities(PSM_SUBJECT) });
+
+    renderInterviewHub();
+
+    expect(await screen.findByText('Interview Unavailable')).toBeInTheDocument();
+    expect(screen.getByText(/Your preparations could not be read/)).toBeInTheDocument();
+    expect(screen.queryByText('None of your preparations has interview rounds yet.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Switch to/ })).not.toBeInTheDocument();
+  });
+
+  it('says so in the chooser when no preparation has interview rounds', async () => {
+    mockGetSubjects.mockResolvedValue([PSM_SUBJECT, KAFKA_STREAMS_AT_3]);
+    mockPreparation.mockReturnValue({ selectedId: null, selected: null, capabilities: UNASSIGNED_CAPABILITIES });
+
+    renderInterviewHub();
+
+    expect(await screen.findByText('Select an Interview Track')).toBeInTheDocument();
+    expect(screen.getByText('None of your preparations has interview rounds yet.')).toBeInTheDocument();
   });
 });
 
