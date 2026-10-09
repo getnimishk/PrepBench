@@ -23,6 +23,18 @@ was written on 2026-10-09 against `main` @ 6fcd46f (PR #83).
   don't fold "small" fixes to other areas into the PR. Note them in the PR description instead.
 - Suggested order: **P1-2, then P1-1, then P1-6, then P1-5**. P1-2 is the most native fit. P1-1's design is
   settled below. P1-6 is small. P1-5 is the largest, and most of its effort is getting the content right.
+- **Session settings.** Set these in the session's model and effort menus before sending the starter prompt.
+  A coordinating session can also set them for a session it started.
+
+  | Item | Model | Effort | Why |
+  |---|---|---|---|
+  | P1-2 Station D | Sonnet | low (medium if the engine needs a new op) | Copies Station F's pattern, and its grading is deterministic |
+  | P1-1 Interview questions | Sonnet | medium | One capability rule that must stay tied to real data, plus a schema change and OpenAPI regeneration |
+  | P1-6 AI feedback | Sonnet | low | Mechanical: a new task, a binding, the Not Graded paths |
+  | P1-5 Station I | Opus | high | Most of the work is content that must be checked claim by claim. A lower setting writes plausible but unchecked claims |
+
+  If a session at low effort hits a stop condition or a second failed fix, end the session and restart the
+  item at medium. Don't keep retrying at low.
 - Each PR ends with a gate report, `docs/implementation/GATE-LL-P1-<n>-REPORT.md`, in the shape of
   `GATE-LL-P1-3-REPORT.md`. Each PR also updates the Phase 4 row of `lakehouse-lab-plan.md` §1's status table.
 - Don't commit, push or open the PR until the user asks. That is CLAUDE.md hard rule 5.
