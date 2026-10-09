@@ -171,7 +171,7 @@ test('the topic page and roadmap list pass axe in both themes and fit a 390px ph
 
 test('an archived roadmap can be restored from the Roadmaps page, with its preparation claim', async ({ page, request }) => {
   await trackApi(page);
-  const prep = await createSkillWithPack(request, 'Curriculum Restore', 'adls');
+  const prep = await createSkillWithPack(request, 'Curriculum Shelf', 'adls');
   const { rid, title } = await adfRoadmap(request, prep.id);
   const count = async () => (await (await request.get(`/api/v1/subjects/${prep.id}`)).json()).roadmap_count as number;
 
