@@ -84,6 +84,21 @@
 
 ---
 
+## Independent verification (2026-10-10)
+
+Built in a separate tool, then reviewed against the handoff's P1-6 acceptance criteria and its common mistakes,
+and re-run on this machine with nothing else running:
+
+- Backend full suite: **1177 passed, 3 skipped** (9:58).
+- Frontend full suite (`npx vitest run`): **132 files, 1583 tests passed**. The original session's full run
+  showed failures in `DatabricksSandboxPage.test.tsx` and `RoadmapEditorPage.test.tsx` while the backend suite
+  was running at the same time; both files passed on their own then, and the full suite passes here. The report
+  above listed only the targeted files; this is the full-suite result.
+- Typecheck clean; lint 0 errors, 65 warnings (the same as `main`).
+- Review fix: an unexpected exception's raw text was shown to the learner as the not-graded reason. It now shows a
+  plain message, and the detail goes to the log only (an exception can carry request details). New test `test_an_unexpected_exception_never_shows_its_text_to_the_learner` failed before the fix and passes after; `test_lab_criteria_feedback.py` is now 9 tests, and with the LLM layer and config tests 63 pass.
+- Playwright (`databricks-sandbox` 8, `responsive` 3, `accessibility` 6, all passed in the original session) was not re-run: nothing on the frontend changed after those runs.
+
 ## Open items
 
 - Station I (P1-5: identity and governance) remains the final P1 Lakehouse Lab item briefed in `docs/implementation/lakehouse-p1-handoff.md`.

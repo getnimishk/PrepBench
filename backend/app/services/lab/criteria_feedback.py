@@ -67,11 +67,14 @@ def get_criteria_feedback(db: Session, criteria: str) -> CriteriaFeedbackRespons
     try:
         result = gateway.run(LLMTask.ACCEPTANCE_CRITERIA_FEEDBACK, prompt)
     except Exception as exc:
+        # The gateway reports provider failures itself; this only catches the unexpected.
+        # Its text stays in the log: an exception can carry request details (a URL, a
+        # header) that have no place on the learner's screen.
         logger.warning(f"Criteria feedback gateway execution error: {exc}")
         return CriteriaFeedbackResponse(
             status="not_graded",
             points=[],
-            reason=f"AI provider execution error: {exc}",
+            reason="The AI provider could not be reached for feedback.",
         )
 
     if result.status == "unavailable":

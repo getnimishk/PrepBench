@@ -139,3 +139,20 @@ def test_feedback_stores_nothing_and_never_touches_database(client, monkeypatch)
         assert db.query(InterviewQuestion).count() == question_count_before
     finally:
         db.close()
+
+def test_an_unexpected_exception_never_shows_its_text_to_the_learner(client, monkeypatch):
+    # An exception can carry request details; the learner sees a plain reason, the log keeps the rest.
+    from app.llm.gateway import LLMGateway
+
+    set_env_provider(monkeypatch)
+
+    def boom(self, *args, **kwargs):
+        raise RuntimeError("GET https://provider.example/v1?key=SECRET-KEY-123 failed")
+
+    monkeypatch.setattr(LLMGateway, "run", boom)
+    res = client.post(ENDPOINT, json={"criteria": SAMPLE_CRITERIA})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "not_graded" and data["points"] == []
+    assert data["reason"]
+    assert "SECRET-KEY-123" not in res.text and "https://" not in res.text
