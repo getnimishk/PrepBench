@@ -104,7 +104,7 @@ const ROUTES = (prepId: number, roadmapId: number, roleId: number, topicId: numb
   // A multi-sheet roadmap: its first tab, a reference sheet's tab, a plan sheet's tab.
   `/roadmaps/${sheets.roadmapId}`, `/roadmaps/${sheets.roadmapId}?resource=${sheets.referenceId}`,
   `/roadmaps/${sheets.roadmapId}?resource=${sheets.planId}`,
-   `/roadmaps/${roadmapId}/topics/${topicId}/guide`, '/search?q=Accessible', '/profile', '/lab', '/chart-sandbox', '/databricks-sandbox', '/databricks-sandbox?station=d', '/databricks-sandbox?pack=jd-po-005-v1', '/design-reviews', '/design-reviews/1', '/system-design', '/interview-practice',
+   `/roadmaps/${roadmapId}/topics/${topicId}/guide`, '/search?q=Accessible', '/profile', '/lab', '/chart-sandbox', '/databricks-sandbox', '/databricks-sandbox?station=d', '/databricks-sandbox?station=i', '/databricks-sandbox?pack=jd-po-005-v1', '/design-reviews', '/design-reviews/1', '/system-design', '/interview-practice',
   '/interview-practice/library', '/interview-practice/setup', '/recordings', '/notifications', '/onboarding',
   '/settings', '/settings/ai', '/settings/appearance', '/settings/practice', '/settings/shortcuts',
   '/settings/notifications', '/settings/data', '/settings/about', '/settings/states',

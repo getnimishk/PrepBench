@@ -199,3 +199,7 @@ class TestTheInterviewQuestionsImportThroughTheExistingImporter:
             assert stored["round_type"] == "technical"
             assert stored["category"] == q["category"]
             assert not stored.get("prepared_answer") and not stored.get("key_talking_points")
+
+def test_the_semiconductor_pack_offers_station_i():
+    # Station I (P1-5) is a simulation over this pack's fictional estate: it needs nothing but the listing.
+    assert "i" in _pack("semiconductor-v1").manifest.stations
