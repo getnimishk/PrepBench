@@ -458,3 +458,53 @@ describe('InterviewHubPage -- following its scenario links keeps the preparation
     expect(select).toHaveBeenCalledWith(6);
   });
 });
+
+describe('InterviewHubPage -- Lakehouse Lab P1-1: preparations with lab interview questions', () => {
+  const DATABRICKS_EMPTY: Subject = {
+    id: 2, name: 'Databricks', slug: 'databricks', kind: 'skill',
+    pass_mark: null, exam_question_count: null, exam_minutes: null, question_count: 0,
+    has_exam_profile: false, is_archived: false, display_order: 2,
+    readiness: { state: 'needs_evaluation', mock_count: 0, recent_scores: [] } as any,
+    lab_interview_question_count: 0,
+  };
+
+  const DATABRICKS_WITH_LAB_QUESTIONS: Subject = {
+    ...DATABRICKS_EMPTY,
+    lab_interview_question_count: 1,
+  };
+
+  it('renders Interview Unavailable when Databricks has no lab questions saved', async () => {
+    mockGetSubjects.mockResolvedValue([DATABRICKS_EMPTY]);
+    mockPreparation.mockReturnValue({
+      selectedId: 2, selected: DATABRICKS_EMPTY, capabilities: getSubjectCapabilities(DATABRICKS_EMPTY),
+    });
+
+    renderInterviewHub('/interview?subject=databricks');
+    expect(await screen.findByText('Interview Unavailable')).toBeInTheDocument();
+  });
+
+  it('routes to interview-practice rather than scenarios when Databricks has saved lab questions', async () => {
+    const select = vi.fn();
+    mockGetSubjects.mockResolvedValue([DATABRICKS_WITH_LAB_QUESTIONS]);
+    mockGetInterviewQuestions.mockResolvedValue({ items: [], total: 1 });
+    mockGetSystemDesignPrompts.mockResolvedValue({ items: [], total: 0 });
+    mockGetSystemDesignAttempts.mockResolvedValue({ items: [], total: 0 });
+    mockGetRecordings.mockResolvedValue({ items: [] });
+    mockGetDesignReviews.mockResolvedValue({ items: [], total: 0 });
+    mockPreparation.mockReturnValue({
+      selectedId: null, selected: null, capabilities: UNASSIGNED_CAPABILITIES, select,
+    });
+
+    renderInterviewHub('/interview?subject=databricks');
+
+    const mainBtn = await screen.findByRole('link', { name: /Practise Databricks questions/ });
+    expect(mainBtn).toHaveAttribute('href', '/interview-practice');
+    expect(screen.queryByRole('link', { name: /scenarios/i })).not.toBeInTheDocument();
+
+    expect(screen.getByText('Databricks lab interview questions')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Practise Questions' })).toHaveAttribute('href', '/interview-practice');
+
+    await userEvent.click(mainBtn);
+    expect(select).toHaveBeenCalledWith(2);
+  });
+});

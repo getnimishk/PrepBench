@@ -7365,6 +7365,11 @@ export interface components {
              */
             is_archived: boolean;
             kind: components["schemas"]["SubjectKind"];
+            /**
+             * Lab Interview Question Count
+             * @default 0
+             */
+            lab_interview_question_count: number;
             /** Name */
             name: string;
             /** Pass Mark */

@@ -21,6 +21,7 @@ import { Actions, Detail, Good, Note, Pill, Row } from '../ui/primitives';
 import { AcExplain, type SaveState } from './AcExplain';
 import { EnginePanel } from './EnginePanel';
 import { OperationForm } from './OperationForm';
+import { SaveAsInterviewQuestion } from './SaveAsInterviewQuestion';
 import { StationShell } from './StationShell';
 
 type StepState = 'pending' | 'running' | 'done' | 'failed';
@@ -379,6 +380,17 @@ export const StationC: React.FC<{
               saveState={saveState}
               onSave={saveCriteria}
             />
+            {Boolean(attempt?.completed_at) && (
+              <SaveAsInterviewQuestion
+                subjectId={subjectId}
+                packId={pack.id}
+                packVersion={pack.version}
+                station="Station C"
+                challengeId={challenge.id.slice('lakehouse.c.'.length)}
+                challengeTitle={challenge.title}
+                attempt={attempt}
+              />
+            )}
             <Row
               sx={{ mt: '10px' }}
               title="Databricks notebook"

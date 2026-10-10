@@ -12151,6 +12151,11 @@
           "kind": {
             "$ref": "#/components/schemas/SubjectKind"
           },
+          "lab_interview_question_count": {
+            "default": 0,
+            "title": "Lab Interview Question Count",
+            "type": "integer"
+          },
           "name": {
             "title": "Name",
             "type": "string"
