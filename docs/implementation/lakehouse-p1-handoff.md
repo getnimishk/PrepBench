@@ -115,6 +115,53 @@ Read `CLAUDE.md` first. These are the rules each item is most likely to trip ove
 | How lab work is titled in Workspace and Evidence | `frontend/src/services/portfolio.ts` (`LAKEHOUSE_TITLES`, `challengeById`) |
 | Tests | `components/lakehouse/*.test.tsx`, `services/lakehouse/*.test.ts`, `backend/tests/test_lab_*.py`, `e2e/databricks-sandbox.spec.ts` |
 
+## Common mistakes: read before writing code
+
+Each of these turned up in a real review of a Phase 4 item (P1-1, 2026-10-10), or in an earlier session on this
+repo. Tests passed anyway in every case. Treat them as part of the acceptance criteria of every item.
+
+**Code**
+1. **No silent fallback to "no preparation".** Never send `subject_id: null` for data that belongs to a
+   preparation. If that preparation doesn't exist, refuse with a visible message. A P1-1 draft would have put
+   private interview questions in the shared library, seen from every preparation.
+2. **React effects reset on identity, not on value.** Never put an object or array that is re-created on each
+   fetch or render into a dependency array that resets state. Depend on a stable id, or on a value-compared key
+   (a string). A new `react-hooks/exhaustive-deps` warning is a bug to fix, not to disable. A P1-1 draft's form
+   wiped the learner's typing on every refetch.
+3. **Stale and overlapping responses.** A screen that asks the server again must show only the latest
+   request's answer, and must clear or mark an answer that no longer matches its input. Test it by resolving
+   an older request after a newer one (`QuestionBankPage.test.tsx` has the pattern).
+4. **Identities come from stable ids.** Anything stored or used as a key (`source_ref`, attempt uids, challenge
+   ids) is built from letters, slugs or enum values, never from a display label. A P1-1 draft stored
+   `station/station a/…`. Type the parameter (`LabStation`, a `Literal`) so a label can't get in.
+5. **Test the real condition.** Branch on the data that decides the case, not on a guess that usually agrees.
+   A P1-1 draft used "has no scenarios" to mean "has lab questions".
+6. **Never `String()` an unknown value into the UI.** Handle each expected type and skip the rest. Otherwise
+   `[object Object]` reaches the learner.
+7. **AI output:** render it with `components/common/Explanation.tsx`, never `dangerouslySetInnerHTML`. Every
+   failure path is "Not Graded" with a reason. The AI never sets `correct`, completes an attempt, or moves an
+   evidence level. Tests use a fake provider and never reach the network.
+
+**Text and content**
+
+8. **No unsourced technical claims in copy.** That includes defaults, placeholders and prompts. Prefer asking
+   or describing over asserting. A P1-1 draft's default question claimed how Delta Lake behaves, which was
+   wrong for half the stations.
+
+**Tests and reporting**
+
+9. **Tests assert the intended behaviour from this brief, not the current output.** Write the test, watch it
+   fail for the right reason, then write the code. A P1-1 draft's test pinned its own bug as correct.
+10. **Run the full suites, not a selection:** `pytest -q`, `npm test -- --run`, typecheck, and lint. Lint must
+    show 0 errors and no more warnings than `main` had (take that count before starting). If a screen
+    changed, also run Playwright's `accessibility` and `responsive` specs, not only the item's own spec.
+11. **Report only what you ran and read.** The gate report gives exact commands and observed results, and
+    says what wasn't run and why. When it names another item, it copies the wording from this brief. A P1-1
+    draft invented descriptions for P1-5 and P1-6.
+12. **One tool in the folder at a time.** Before running anything, check that no other session, Playwright,
+    pytest or test server is running, and that the learner's PrepBench app is closed. Two concurrent Playwright
+    runs share ports and break each other, and the app's memory use makes browser tests time out.
+
 ---
 
 ## P1-1: interview questions from your own lab results
@@ -273,6 +320,10 @@ across the frontend, and any backend test that lists every task.
 4. Update `docs/wiki/AI-Providers.md` in the same PR (rule 7: sync the wiki only after merge).
 
 **Acceptance criteria:**
+- The response schema has no score or verdict field. Its status is a `Literal` (for example `"feedback" |
+  "not_graded"`), and the UI shows no number.
+- Editing the criteria after asking clears or marks the old feedback. Asking twice shows only the latest answer
+  (common mistake 3).
 - No provider for the task → "Not Graded" and why. A provider failure, timeout or unreadable reply →
   `not_graded`, never a made-up verdict or score.
 - The feedback **never** sets `correct` and never raises an evidence level. Evidence treats AI-assessed work as
@@ -307,5 +358,5 @@ environment failures.
 ## A starter prompt for each session
 
 > Build Lakehouse Lab item **P1-n** only. Read `CLAUDE.md` and `docs/implementation/lakehouse-p1-handoff.md`
-> (the safeguards, then the P1-n section), on a new branch from the latest `main`. Write the tests first, follow
+> (the safeguards, the common mistakes, then the P1-n section), on a new branch from the latest `main`. Write the tests first, follow
 > the stop conditions, and don't commit or push until I ask.
