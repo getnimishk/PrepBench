@@ -3207,8 +3207,11 @@ export interface components {
             count?: number | null;
             /** Domain */
             domain?: string | null;
-            /** Kind */
-            kind: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "no_exam_profile" | "more_mocks" | "weak_domain" | "below_pass" | "stale";
             /** Target */
             target?: number | null;
             /** Value */
@@ -3815,8 +3818,11 @@ export interface components {
              * @default []
              */
             key_choices: string[];
-            /** Label */
-            label: string;
+            /**
+             * Label
+             * @enum {string}
+             */
+            label: "A" | "B";
             /** Name */
             name: string;
             /** Rough Cost */
@@ -3844,9 +3850,12 @@ export interface components {
         /** DesignReviewAttemptResponse */
         DesignReviewAttemptResponse: {
             /** Axis Verdict */
-            axis_verdict?: string | null;
-            /** Choice */
-            choice: string;
+            axis_verdict?: ("named" | "partial" | "missed") | null;
+            /**
+             * Choice
+             * @enum {string}
+             */
+            choice: "A" | "B" | "ask_first";
             /**
              * Created At
              * Format: date-time
@@ -4069,8 +4078,11 @@ export interface components {
             due: boolean;
             /** Id */
             id: number;
-            /** State */
-            state: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "unseen" | "missed" | "correct";
             /** Text */
             text: string;
             /** Times Answered */
@@ -4088,8 +4100,11 @@ export interface components {
             domain: string;
             /** Score Pct */
             score_pct?: number | null;
-            /** State */
-            state: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "needs_evaluation" | "needs_work" | "developing" | "solid";
         };
         /**
          * DomainTopicItem
@@ -4347,8 +4362,9 @@ export interface components {
             /**
              * Session Kind
              * @default drill
+             * @enum {string}
              */
-            session_kind: string;
+            session_kind: "mock" | "drill";
             /**
              * Start Time
              * Format: date-time
@@ -4435,8 +4451,9 @@ export interface components {
             /**
              * Session Kind
              * @default drill
+             * @enum {string}
              */
-            session_kind: string;
+            session_kind: "mock" | "drill";
             /**
              * Start Time
              * Format: date-time
@@ -5975,8 +5992,11 @@ export interface components {
              */
             recent_scores: number[];
             rules?: components["schemas"]["ReadinessRulesResponse"];
-            /** State */
-            state: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "needs_evaluation" | "developing" | "almost_there" | "plateau" | "ready";
             /** Weakest Domain */
             weakest_domain?: string | null;
         };
@@ -6018,8 +6038,11 @@ export interface components {
         RecordingAnalysisResponse: {
             /** Analysis Error */
             analysis_error?: string | null;
-            /** Analysis Status */
-            analysis_status: string;
+            /**
+             * Analysis Status
+             * @enum {string}
+             */
+            analysis_status: "analyzed" | "unavailable" | "error";
             answer_comparison?: components["schemas"]["AnswerComparison"] | null;
             /**
              * Communication Scores
@@ -6510,8 +6533,11 @@ export interface components {
             phase_id: number;
             /** Phase Name */
             phase_name: string;
-            /** Schedule Status */
-            schedule_status: string;
+            /**
+             * Schedule Status
+             * @enum {string}
+             */
+            schedule_status: "actual" | "projected" | "unschedulable" | "skipped";
             /** Start */
             start?: string | null;
         };
@@ -6637,7 +6663,7 @@ export interface components {
             /** Projected End Date */
             projected_end_date?: string | null;
             /** Reason */
-            reason?: string | null;
+            reason?: ("no_topics" | "no_start_date" | "no_weekly_budget" | "no_time_estimates") | null;
             /** Remaining Estimated Hours */
             remaining_estimated_hours?: number | null;
             /** Schedule Available */
@@ -6662,8 +6688,11 @@ export interface components {
             phase_id: number;
             /** Phase Name */
             phase_name: string;
-            /** Schedule Status */
-            schedule_status: string;
+            /**
+             * Schedule Status
+             * @enum {string}
+             */
+            schedule_status: "actual" | "projected" | "unschedulable" | "skipped";
             /** Start */
             start?: string | null;
             status: components["schemas"]["RoadmapTopicStatus"];
@@ -7672,8 +7701,11 @@ export interface components {
             repetition: number;
             /** Response Text */
             response_text: string;
-            /** Self Grade */
-            self_grade: string;
+            /**
+             * Self Grade
+             * @enum {string}
+             */
+            self_grade: "not_yet" | "partial" | "yes";
             /** Topic Id */
             topic_id: number;
         };

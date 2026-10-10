@@ -2,7 +2,7 @@
 # Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 # Commercial use requires a separate licence from the copyright holder.
 
-from typing import List, Optional
+from typing import List, Literal, Optional
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 from app.schemas.analytics import ScoreTrendPoint
@@ -60,7 +60,8 @@ class RecordingAnalysisResponse(BaseModel):
     content_scores: List[RecordingCommunicationScore] = []
     content_summary: Optional[str] = None
     answer_comparison: Optional[AnswerComparison] = None
-    analysis_status: str
+    # Set only by RecordingAnalysisService (these three); the column defaults to "unavailable".
+    analysis_status: Literal["analyzed", "unavailable", "error"]
     analysis_error: Optional[str] = None
     created_at: datetime
 

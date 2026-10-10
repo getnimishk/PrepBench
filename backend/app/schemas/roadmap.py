@@ -286,7 +286,7 @@ class RoadmapScheduleItem(BaseModel):
     # "projected"     -- forecast from remaining hours against the weekly budget
     # "unschedulable" -- no estimated_hours, so it gets no bar rather than an
     #                    invented duration
-    schedule_status: str
+    schedule_status: Literal["actual", "projected", "unschedulable", "skipped"]  # RoadmapService.build_schedule's four
     start: Optional[date] = None
     end: Optional[date] = None
 
@@ -296,13 +296,13 @@ class RoadmapPhaseScheduleItem(BaseModel):
     phase_name: str
     start: Optional[date] = None
     end: Optional[date] = None
-    schedule_status: str
+    schedule_status: Literal["actual", "projected", "unschedulable", "skipped"]  # RoadmapService.build_schedule's four
 
 
 class RoadmapSchedule(BaseModel):
     schedule_available: bool
-    # One of: no_topics | no_start_date | no_weekly_budget | no_time_estimates
-    reason: Optional[str] = None
+    # The only reasons RoadmapService.build_schedule gives.
+    reason: Optional[Literal["no_topics", "no_start_date", "no_weekly_budget", "no_time_estimates"]] = None
     start_date: Optional[date] = None
     weekly_hours_budget: Optional[float] = None
     projected_end_date: Optional[date] = None
@@ -414,7 +414,7 @@ class TopicDemonstrationResponse(BaseModel):
     id: int
     topic_id: int
     response_text: str
-    self_grade: str
+    self_grade: Literal["not_yet", "partial", "yes"]  # as TopicDemonstrationCreate accepts
     repetition: int
     interval_days: int
     ease_factor: float

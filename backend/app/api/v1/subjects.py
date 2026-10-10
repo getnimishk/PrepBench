@@ -2,7 +2,7 @@
 # Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 # Commercial use requires a separate licence from the copyright holder.
 
-from typing import List, Optional
+from typing import List, Literal, Optional
 from datetime import datetime, date
 from fastapi import APIRouter, Depends, Query, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -32,8 +32,9 @@ router = APIRouter(prefix="/subjects", tags=["Subjects"])
 
 
 class DomainReadinessResponse(BaseModel):
+    # readiness.DomainState's values.
     domain: str
-    state: str
+    state: Literal["needs_evaluation", "needs_work", "developing", "solid"]
     answered: int
     # None, never 0, below the reporting threshold. Too few questions to judge
     # is not the same as a bad score.
@@ -42,7 +43,8 @@ class DomainReadinessResponse(BaseModel):
 
 class BlockerResponse(BaseModel):
     """One unmet condition of READY. The surface phrases it; the rule owns it."""
-    kind: str
+    # readiness.BLOCKER_*: the only kinds compute() reports.
+    kind: Literal["no_exam_profile", "more_mocks", "weak_domain", "below_pass", "stale"]
     domain: Optional[str] = None
     value: Optional[float] = None
     target: Optional[float] = None
@@ -73,7 +75,8 @@ def _rules() -> ReadinessRulesResponse:
 
 
 class ReadinessResponse(BaseModel):
-    state: str
+    # readiness.ReadinessState's values: the only ones compute() returns.
+    state: Literal["needs_evaluation", "developing", "almost_there", "plateau", "ready"]
     mock_count: int
     pass_mark: Optional[float] = None
     recent_scores: List[float] = []

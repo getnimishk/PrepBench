@@ -497,6 +497,13 @@
             "title": "Domain"
           },
           "kind": {
+            "enum": [
+              "no_exam_profile",
+              "more_mocks",
+              "weak_domain",
+              "below_pass",
+              "stale"
+            ],
             "title": "Kind",
             "type": "string"
           },
@@ -2218,6 +2225,10 @@
             "type": "array"
           },
           "label": {
+            "enum": [
+              "A",
+              "B"
+            ],
             "title": "Label",
             "type": "string"
           },
@@ -2297,6 +2308,11 @@
           "axis_verdict": {
             "anyOf": [
               {
+                "enum": [
+                  "named",
+                  "partial",
+                  "missed"
+                ],
                 "type": "string"
               },
               {
@@ -2306,6 +2322,11 @@
             "title": "Axis Verdict"
           },
           "choice": {
+            "enum": [
+              "A",
+              "B",
+              "ask_first"
+            ],
             "title": "Choice",
             "type": "string"
           },
@@ -2852,6 +2873,11 @@
             "type": "integer"
           },
           "state": {
+            "enum": [
+              "unseen",
+              "missed",
+              "correct"
+            ],
             "title": "State",
             "type": "string"
           },
@@ -2906,6 +2932,12 @@
             "title": "Score Pct"
           },
           "state": {
+            "enum": [
+              "needs_evaluation",
+              "needs_work",
+              "developing",
+              "solid"
+            ],
             "title": "State",
             "type": "string"
           }
@@ -3563,6 +3595,10 @@
           },
           "session_kind": {
             "default": "drill",
+            "enum": [
+              "mock",
+              "drill"
+            ],
             "title": "Session Kind",
             "type": "string"
           },
@@ -3787,6 +3823,10 @@
           },
           "session_kind": {
             "default": "drill",
+            "enum": [
+              "mock",
+              "drill"
+            ],
             "title": "Session Kind",
             "type": "string"
           },
@@ -8148,6 +8188,13 @@
             "$ref": "#/components/schemas/ReadinessRulesResponse"
           },
           "state": {
+            "enum": [
+              "needs_evaluation",
+              "developing",
+              "almost_there",
+              "plateau",
+              "ready"
+            ],
             "title": "State",
             "type": "string"
           },
@@ -8263,6 +8310,11 @@
             "title": "Analysis Error"
           },
           "analysis_status": {
+            "enum": [
+              "analyzed",
+              "unavailable",
+              "error"
+            ],
             "title": "Analysis Status",
             "type": "string"
           },
@@ -9629,6 +9681,12 @@
             "type": "string"
           },
           "schedule_status": {
+            "enum": [
+              "actual",
+              "projected",
+              "unschedulable",
+              "skipped"
+            ],
             "title": "Schedule Status",
             "type": "string"
           },
@@ -9994,6 +10052,12 @@
           "reason": {
             "anyOf": [
               {
+                "enum": [
+                  "no_topics",
+                  "no_start_date",
+                  "no_weekly_budget",
+                  "no_time_estimates"
+                ],
                 "type": "string"
               },
               {
@@ -10086,6 +10150,12 @@
             "type": "string"
           },
           "schedule_status": {
+            "enum": [
+              "actual",
+              "projected",
+              "unschedulable",
+              "skipped"
+            ],
             "title": "Schedule Status",
             "type": "string"
           },
@@ -12850,6 +12920,11 @@
             "type": "string"
           },
           "self_grade": {
+            "enum": [
+              "not_yet",
+              "partial",
+              "yes"
+            ],
             "title": "Self Grade",
             "type": "string"
           },

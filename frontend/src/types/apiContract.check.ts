@@ -31,7 +31,7 @@ import type {
 import type { LLMProvider, LLMTaskBinding, SystemInfo } from './llm';
 import type { Profile } from './profile';
 import type { Question, QuestionBankSummary, QuestionOption } from './question';
-import type { PracticeRecording, RecordingAnalysis, RecordingAnalytics } from './recording';
+import type { AnswerComparison, KeyPointMatch, PracticeRecording, RecordingAnalysis, RecordingAnalytics } from './recording';
 import type { CheckResult, ReviewCounts, ReviewItem, ReviewQueue } from './review';
 import type {
   RoadmapDetail, RoadmapPhase, RoadmapProgress, RoadmapResource, RoadmapSchedule, RoadmapSummary, RoadmapTopic,
@@ -62,24 +62,26 @@ type Sent<T> = T extends readonly (infer E)[]
 declare function api<N extends keyof Schemas>(name: N): Sent<Schemas[N]>;
 
 /**
- * The declared type with its string unions widened to `string`. Where a screen
- * narrows a value to a set ('ai' | 'learner', a readiness state, a round type)
- * the backend's schema declares a plain `str`, so the API promises no set to
- * check against; comparing them would flag every such field. What is still
- * checked: every field a screen reads is sent, with the right kind of value,
- * and null where the screen says it can be. (Declaring those as Literal in the
- * backend would let this check the values too.)
+ * Compiles only when the API's response (the argument) fits the declared type, values included: where a
+ * screen narrows a field to a set (a readiness state, a session kind, a design-review choice), the
+ * backend declares the same set as a Literal, so a value the screen doesn't know is a compile error here.
  */
-type Widen<T> = T extends string
-  ? string
-  : T extends readonly (infer E)[]
-    ? Widen<E>[]
-    : T extends object
-      ? { [K in keyof T]: Widen<T[K]> }
-      : T;
+function fits<Declared>(response: Declared): void { void response; }
 
-/** Compiles only when the API's response (the argument) fits the declared type. */
-function fits<Declared>(response: Widen<Declared>): void { void response; }
+/**
+ * The two fields the backend deliberately keeps open, as plain strings:
+ *  - an interview session's round_type is stored as a string so a session outlives a round being renamed
+ *    in code (models/interview_session.py), and the backend labels an unknown one rather than failing;
+ *  - a key point's status is written by an AI provider (recording_analysis_service.py lower-cases what it
+ *    returns), so the backend cannot promise the set without turning a stray value into a failed read.
+ * The screen's narrower type is checked everywhere else.
+ */
+type SessionAsSent = Omit<InterviewSession, 'round_type'> & { round_type: string };
+type AnalysisAsSent = Omit<RecordingAnalysis, 'answer_comparison'> & {
+  answer_comparison?: (Omit<AnswerComparison, 'key_point_matches'> & {
+    key_point_matches: (Omit<KeyPointMatch, 'status'> & { status: string })[];
+  }) | null;
+};
 
 export function apiContract(): void {
   fits<Subject>(api('SubjectWithReadiness'));
@@ -125,10 +127,10 @@ export function apiContract(): void {
   fits<RoleSummary>(api('RoleSummary'));
 
   fits<InterviewQuestion>(api('InterviewQuestionResponse'));
-  fits<InterviewSession>(api('InterviewSessionResponse'));
-  fits<InterviewSessionReport>(api('InterviewSessionReport'));
+  fits<SessionAsSent>(api('InterviewSessionResponse'));
+  fits<Omit<InterviewSessionReport, 'session'> & { session: SessionAsSent }>(api('InterviewSessionReport'));
   fits<PracticeRecording>(api('PracticeRecordingResponse'));
-  fits<RecordingAnalysis>(api('RecordingAnalysisResponse'));
+  fits<AnalysisAsSent>(api('RecordingAnalysisResponse'));
   fits<RecordingAnalytics>(api('RecordingAnalytics'));
 
   fits<DesignReviewDetail>(api('DesignReviewDetail'));
