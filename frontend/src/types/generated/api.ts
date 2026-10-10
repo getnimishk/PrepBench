@@ -956,6 +956,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/lab/lakehouse/criteria/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Criteria Ai Feedback
+         * @description AI advice on written acceptance criteria. Never raises a server error; never stores anything.
+         */
+        post: operations["criteria_ai_feedback_api_v1_lab_lakehouse_criteria_feedback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/lab/lakehouse/engine": {
         parameters: {
             query?: never;
@@ -3652,6 +3672,23 @@ export interface components {
             subject_id?: number | null;
             /** Table */
             table: string;
+        };
+        /** CriteriaFeedbackRequest */
+        CriteriaFeedbackRequest: {
+            /** Criteria */
+            criteria: string;
+        };
+        /** CriteriaFeedbackResponse */
+        CriteriaFeedbackResponse: {
+            /** Points */
+            points?: string[];
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "feedback" | "not_graded";
         };
         /** DailyGoalsResponse */
         DailyGoalsResponse: {
@@ -9642,6 +9679,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InterviewSessionReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    criteria_ai_feedback_api_v1_lab_lakehouse_criteria_feedback_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CriteriaFeedbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CriteriaFeedbackResponse"];
                 };
             };
             /** @description Validation Error */

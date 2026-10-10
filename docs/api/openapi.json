@@ -1756,6 +1756,58 @@
         "title": "CreateTableOp",
         "type": "object"
       },
+      "CriteriaFeedbackRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "criteria": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Criteria",
+            "type": "string"
+          }
+        },
+        "required": [
+          "criteria"
+        ],
+        "title": "CriteriaFeedbackRequest",
+        "type": "object"
+      },
+      "CriteriaFeedbackResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "points": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "enum": [
+              "feedback",
+              "not_graded"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "CriteriaFeedbackResponse",
+        "type": "object"
+      },
       "DailyGoalsResponse": {
         "properties": {
           "certification": {
@@ -16374,6 +16426,48 @@
         "summary": "Session Report",
         "tags": [
           "Interview sessions"
+        ]
+      }
+    },
+    "/api/v1/lab/lakehouse/criteria/feedback": {
+      "post": {
+        "description": "AI advice on written acceptance criteria. Never raises a server error; never stores anything.",
+        "operationId": "criteria_ai_feedback_api_v1_lab_lakehouse_criteria_feedback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CriteriaFeedbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CriteriaFeedbackResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Criteria Ai Feedback",
+        "tags": [
+          "Lakehouse Lab"
         ]
       }
     },

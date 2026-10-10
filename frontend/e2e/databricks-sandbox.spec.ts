@@ -220,3 +220,38 @@ test('a second scenario pack is reachable, shows only the stations it has, and r
   await expect(observe.getByText('Real engine not installed')).toBeVisible();
   await expect(observe).not.toContainText(/Real engine run|Table at version|\d+ rows/);
 });
+
+test('Get AI feedback in the default no-provider state shows Not Graded and reason without score', async ({ page }) => {
+  await page.goto('/databricks-sandbox?station=c');
+  await expect(page.getByRole('heading', { level: 2, name: /Station C/ })).toBeVisible();
+
+  // Commit a prediction first if not committed, to enable Explain
+  const refused = page.getByRole('radio', { name: /The write is refused/ });
+  if (await refused.isEnabled()) {
+    await refused.check();
+    await page.getByRole('button', { name: 'Commit prediction' }).click();
+  }
+  await expect(page.getByRole('button', { name: 'Prediction committed' })).toBeVisible();
+
+  const acInput = page.getByLabel('Acceptance criteria');
+  await acInput.fill(
+    'Given a batch with a new column, when it is appended, then it is rejected and nothing is written.',
+  );
+
+  const aiButton = page.getByRole('button', { name: 'Get AI feedback' });
+  await expect(aiButton).toBeEnabled();
+  await aiButton.click();
+
+  // In default no-provider state, endpoint returns not_graded with reason
+  await expect(page.getByText('Not Graded')).toBeVisible();
+  await expect(page.getByText(/No AI provider/i)).toBeVisible();
+
+  // Never a score, percentage, or verdict
+  await expect(page.getByText(/0%/)).toHaveCount(0);
+  await expect(page.getByText(/score/i)).toHaveCount(0);
+  await expect(page.getByText(/passed/i)).toHaveCount(0);
+
+  // Editing criteria clears the feedback
+  await acInput.pressSequentially(' And notify ops.');
+  await expect(page.getByText('Not Graded')).toHaveCount(0);
+});

@@ -11,10 +11,14 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.exceptions import ResourceNotFoundException
 from app.schemas.lab import (
-    EngineStatus, JournalEntry, JournalEntryIn, LabOperation, LabOperationResult, LabPackDetail,
-    LabPackSummary, LabResetResult, SourceIndexRow,
+    CriteriaFeedbackRequest, CriteriaFeedbackResponse, EngineStatus, JournalEntry,
+    JournalEntryIn, LabOperation, LabOperationResult, LabPackDetail, LabPackSummary,
+    LabResetResult, SourceIndexRow,
 )
-from app.services.lab import dataset_service, engine, journal_service, notebook_service, operations, pack_service
+from app.services.lab import (
+    criteria_feedback, dataset_service, engine, journal_service, notebook_service,
+    operations, pack_service,
+)
 
 router = APIRouter(prefix="/lab/lakehouse", tags=["Lakehouse Lab"])
 
@@ -123,3 +127,9 @@ def export_journal(pack_id: Optional[str] = Query(None), db: Session = Depends(g
 def delete_journal_entry(entry_uid: str, db: Session = Depends(get_db)):
     """The only change a journal entry allows."""
     journal_service.delete_entry(db, entry_uid)
+
+
+@router.post("/criteria/feedback", response_model=CriteriaFeedbackResponse)
+def criteria_ai_feedback(req: CriteriaFeedbackRequest, db: Session = Depends(get_db)):
+    """AI advice on written acceptance criteria. Never raises a server error; never stores anything."""
+    return criteria_feedback.get_criteria_feedback(db, req.criteria)

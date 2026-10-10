@@ -36,6 +36,7 @@ class LLMTask(str, Enum):
     RECORDING_ANALYSIS = "recording_analysis"
     TOPIC_GUIDE_DRAFTING = "topic_guide_drafting"
     EMBEDDING = "embedding"
+    ACCEPTANCE_CRITERIA_FEEDBACK = "acceptance_criteria_feedback"
 
 
 @dataclass(frozen=True)
@@ -55,18 +56,19 @@ class TaskSpec:
 
 
 TASK_SPECS: Dict[LLMTask, TaskSpec] = {
-    LLMTask.CONTENT_VALIDATION:       TaskSpec(Capability.TEXT_JSON, 15.0, 120.0),
-    LLMTask.INTERVIEW_QUESTION_GEN:   TaskSpec(Capability.TEXT_JSON, 20.0, 180.0),
-    LLMTask.SYSTEM_DESIGN_PROMPT_GEN: TaskSpec(Capability.TEXT_JSON, 20.0, 180.0),
-    LLMTask.SYSTEM_DESIGN_GRADING:    TaskSpec(Capability.TEXT_JSON, 25.0, 300.0),
+    LLMTask.CONTENT_VALIDATION:            TaskSpec(Capability.TEXT_JSON, 15.0, 120.0),
+    LLMTask.INTERVIEW_QUESTION_GEN:        TaskSpec(Capability.TEXT_JSON, 20.0, 180.0),
+    LLMTask.SYSTEM_DESIGN_PROMPT_GEN:      TaskSpec(Capability.TEXT_JSON, 20.0, 180.0),
+    LLMTask.SYSTEM_DESIGN_GRADING:         TaskSpec(Capability.TEXT_JSON, 25.0, 300.0),
     # One narrow question against a short justification, so it needs far less
     # headroom than grading a whole architecture answer.
-    LLMTask.DESIGN_REVIEW_GRADING:    TaskSpec(Capability.TEXT_JSON, 20.0, 180.0),
-    LLMTask.RECORDING_ANALYSIS:       TaskSpec(Capability.AUDIO_JSON, 45.0, 600.0),
+    LLMTask.DESIGN_REVIEW_GRADING:         TaskSpec(Capability.TEXT_JSON, 20.0, 180.0),
+    LLMTask.RECORDING_ANALYSIS:            TaskSpec(Capability.AUDIO_JSON, 45.0, 600.0),
     # Several sections of prose in one response -- the longest text output any
     # task asks for, so it gets more headroom than grading does.
-    LLMTask.TOPIC_GUIDE_DRAFTING:     TaskSpec(Capability.TEXT_JSON, 40.0, 420.0),
-    LLMTask.EMBEDDING:                TaskSpec(Capability.EMBEDDING, 10.0, 60.0),
+    LLMTask.TOPIC_GUIDE_DRAFTING:          TaskSpec(Capability.TEXT_JSON, 40.0, 420.0),
+    LLMTask.EMBEDDING:                     TaskSpec(Capability.EMBEDDING, 10.0, 60.0),
+    LLMTask.ACCEPTANCE_CRITERIA_FEEDBACK:  TaskSpec(Capability.TEXT_JSON, 20.0, 180.0),
 }
 
 
