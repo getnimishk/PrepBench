@@ -2,7 +2,9 @@
 
 # PrepBench
 
-**Certification exams, architecture decision practice, system design and interview grading, and curriculum tracking — running entirely on your own machine.**
+**Technical Capability, Proven.**
+
+**Certification exams, interview and system design practice, hands-on learning labs, and curriculum tracking — running entirely on your own machine.**
 
 [![CI](https://github.com/getnimishk/PrepBench/actions/workflows/ci.yml/badge.svg)](https://github.com/getnimishk/PrepBench/actions/workflows/ci.yml)
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-blue.svg)](LICENSE)
@@ -12,7 +14,15 @@
 
 </div>
 
-PrepBench is a local-first study platform built around one question: **would you pass?** You run mock exams, argue architecture decisions against a graded rubric, get feedback on written system design answers and spoken interview responses, track any syllabus as a visual roadmap, and explore how agile delivery metrics move — all from a single SQLite file on your laptop.
+PrepBench is a local-first study platform built around one question: **would you pass?** Set up what you are preparing for, whether a certification, a skill or a role from a job description. Then:
+- run mock exams;
+- argue architecture decisions against a graded rubric;
+- get feedback on written system design answers and spoken interview responses;
+- work through study guides and incident scenarios;
+- learn by prediction in simulation labs (agile metrics, Azure Data Factory, and a Hadoop-to-Databricks migration);
+- track any syllabus as a visual roadmap.
+
+All of it runs from a single SQLite file on your laptop.
 
 There is no account, no telemetry, and no subscription. A network connection is optional, and only if *you* choose to route AI grading through a cloud provider instead of a model on your own machine.
 
@@ -39,15 +49,18 @@ There is no account, no telemetry, and no subscription. A network connection is 
 
 | | |
 |---|---|
+| **Preparations** | Everything belongs to what you are preparing for: a **certification** (an exam profile and a question bank), a **skill** (study guides, labs, scenarios), or a **role** built from a job description, with a self-rated diagnostic shown before and after. Each preparation sees its own work and the shared library, never another preparation's |
 | **Readiness, not a score** | Every subject reports whether you would actually pass, computed from **full mocks only** — with the evidence beside it. Three mocks minimum, three consecutive at the pass mark, no weak domain, recent. Zero mocks reads *"needs evaluation"*, never `0%` |
 | **Five exam modes** | **Practice** (instant explanations) · **Timed** (real exam conditions) · **Custom** (pick topics, difficulty, count) · **Weak Topic Focus** (targets the topics your *mocks* say you are weak at — never your drills, because a drill draws from what you already get wrong) · **Spaced Repetition** (only what is due today) |
 | **Review that checks** | Reading an explanation is not learning it. Every miss you review ends in a **check** — one different question on the same concept. Pass it and the concept is verified; fail it and the concept goes back to the front of the schedule |
 | **Spaced repetition** | The SM-2 algorithm that powers Anki. Each completed sitting updates the interval and ease factor of every question you answered in it, so a question comes back just before you would have forgotten it |
 | **Design Review** | Two defensible architectures for one requirement. Pick one and say why — or refuse to pick and say what you would ask first. What is graded is whether your reasoning found the axis the decision turns on, not which option you chose |
 | **System design practice** | Write answers to real prompts and get graded across a six-category rubric — scores, strengths, and specific improvements, calibrated to your target role. Drafts save as you type, so you can leave and come back |
-| **Interview practice (audio)** | Record spoken answers across four rounds — HR screening, hiring manager, system design, behavioral. Every round opens with an introduction question, as a real interview does. Scored on **what you said** (content) and **how you said it** (pacing, filler words, clarity). Write a prepared answer and key talking points for a question beforehand, and your take is graded against your own plan — a plan alignment score, which points were covered, missed, or only partly hit, and what to do differently on the next take |
-| **Learning Lab** | Simulation sandboxes that teach a domain of professional metrics by prediction, not lecture. **Agile Metrics** is live: 27 views over one executable delivery model — change a WIP limit and watch cycle time, defect escape, and deployment risk move together — with a guided track that teaches you to read each chart before asking you to explain one. Databricks architecture and financial modelling sandboxes are next |
-| **Learning roadmaps** | Import any syllabus (`.xlsx` / `.json` / `.md` / `.csv`) and track it in three views: a table for editing, a journey map for orientation, and a Gantt schedule that projects your finish date |
+| **Interview practice (audio)** | Record spoken answers across five rounds: HR screening, hiring manager, system design, behavioral and technical. Practise one question at a time, or run a full **interview session**, with thinking time and a target answer length, in a focus mode with nothing else on screen. Every round opens with an introduction question, as a real interview does. Scored on **what you said** (content) and **how you said it** (pacing, filler words, clarity). Write a prepared answer and key talking points for a question beforehand, and your take is graded against your own plan — a plan alignment score, which points were covered, missed, or only partly hit, and what to do differently on the next take |
+| **Learning Lab** | Simulation sandboxes that teach by prediction, not lecture: predict, change a lever, observe, explain. There are three:<br>• **Agile Metrics:** 27 views over one executable delivery model.<br>• **ADF Behaviour Lab:** five experiments on how Azure Data Factory pipelines behave.<br>• **Lakehouse Lab:** a fictional Hadoop-to-Databricks migration across six stations, two of them on a real Delta engine (an optional install).<br>Every simulation says it is one, and every fact links to its source |
+| **Study Library and scenarios** | Built-in study guides (Azure Data Factory, 21 chapters; ADLS, 11 chapters) and 18 written incident scenarios, linked to the roadmap topics they cover |
+| **Workspace and Evidence** | Workspace collects your own work in a preparation: lab runs, case notes, prepared answers, recordings, notes. Evidence says what that work *demonstrates*: activity, completed, demonstrated, or evidenced. It never claims readiness |
+| **Learning roadmaps** | Import any syllabus (`.xlsx` / `.json` / `.md` / `.csv`) and track it in three views: a table for editing, a journey map for orientation, and a Gantt schedule that projects your finish date. A topic is complete only when you **demonstrate** it, and it links to the study-guide chapters, scenarios and lab experiments that cover it |
 | **Analytics** | A tab per practice mode — score trends with rolling averages, domain mastery, per-category breakdowns, and your weakest area called out by name |
 | **Question bank** | Full CRUD editor, bulk import from JSON/CSV/Excel/Markdown, advanced search, and a pre-import audit that validates a batch before it touches your database |
 | **Reports** | Export any exam session as a formatted PDF or a multi-sheet Excel workbook |
@@ -101,7 +114,7 @@ flowchart LR
     API -.->|only if you configure one| CLOUD
 ```
 
-Exams, the question bank, roadmaps, analytics, the Chart Sandbox, spaced repetition, and PDF/Excel export never make a network call at all. Delete `backend/data/exam_simulator.db` and your study data is gone — nobody else has a copy.
+Exams, the question bank, roadmaps, analytics, the study guides and scenarios, every Learning Lab sandbox, spaced repetition, and PDF/Excel export never make a network call at all. Delete `backend/data/exam_simulator.db` and your study data is gone — nobody else has a copy.
 
 ---
 
@@ -151,7 +164,21 @@ Open it at **`/design-reviews`**.
 
 ## The Learning Lab
 
-A home for simulation sandboxes, each teaching a domain of professional metrics through the same loop: predict, manipulate, observe, explain. Open the hub at **`/lab`** to see every sandbox; each one also has its own direct link once it is live.
+A home for simulation sandboxes, each teaching through the same loop: predict, manipulate, observe, explain. Open the hub at **`/lab`**.
+
+| Sandbox | Route | What it teaches |
+|---|---|---|
+| **Agile Metrics** | `/chart-sandbox` | Delivery metrics, from one executable model (below) |
+| **ADF Behaviour Lab** | `/lab/adf` | Five Azure Data Factory experiments: watermarks, triggers, concurrency, copy performance, fault tolerance. Open to any preparation with the ADF study guide attached |
+| **Lakehouse Lab** | `/databricks-sandbox` | A fictional Hadoop-to-Databricks migration, at programme level (migration waves; identity and governance) and pipeline level (ADF and Lakeflow, ADLS, Delta Lake, a reconciliation hunt for planted defects) |
+
+A few rules apply to all three:
+- **Your prediction is write-once**, and the model grades it, never AI.
+- **Your explanations are never scored.**
+- **Simulations are labelled.** Teaching constants are labelled as such.
+- **Identity and governance facts link to their sources.** In the Lakehouse Lab, each one cites the official Microsoft or Apache page it was checked against.
+
+The details are on the [Learning Lab](https://github.com/getnimishk/PrepBench/wiki/Learning-Lab) wiki page.
 
 ### Agile Metrics
 
@@ -215,7 +242,16 @@ Narrow two-to-four column sheets (CLI cheat sheets, glossaries, mental models) a
 
 ## AI setup (optional)
 
-PrepBench works with no AI at all. AI adds exactly four things: system design grading, design review grading, interview recording analysis, and question generation. Everything else runs without it.
+PrepBench works with no AI at all. AI adds a handful of things, each its own task:
+- system design grading, and generating system design prompts;
+- design review grading;
+- interview recording analysis, and generating interview questions;
+- question content validation;
+- study guide drafting;
+- semantic search indexing;
+- feedback on acceptance criteria in the Lakehouse Lab.
+
+Everything else runs without it. Without a provider, each of these says *"Not Graded"* or *"unavailable"* and why. None of them ever invents a result.
 
 You choose who runs the model. Open **Settings → AI Providers**.
 
@@ -344,7 +380,7 @@ cd backend && pip install -r requirements-dev.txt && python -m pytest -q
 cd frontend && npm test && npm run typecheck && npm run lint
 ```
 
-458 backend tests and 446 frontend tests at time of writing. CI runs all of it, plus `tsc` and ESLint, on every push and pull request.
+About 1,180 backend tests and 1,610 frontend unit tests as of October 2026, plus a Playwright browser suite covering accessibility, the 390px layout and every screen. CI runs them, plus `tsc` and ESLint, on every push and pull request. The optional Lakehouse engine has its own CI job.
 
 ### Project layout
 
@@ -358,6 +394,9 @@ PrepBench/
 │   │   ├── repositories/    # Data access layer
 │   │   ├── schemas/         # Pydantic request/response models
 │   │   ├── services/        # Business logic
+│   │   ├── llm/             # AI provider adapters and per-task routing
+│   │   ├── content/packs/   # Built-in study guides and scenarios (ADF, ADLS)
+│   │   ├── data/lab_packs/  # Lakehouse Lab scenario packs
 │   │   └── utils/           # PDF/Excel generators, seed data
 │   └── tests/
 ├── frontend/
@@ -370,6 +409,9 @@ PrepBench/
 ├── data/                    # Sample question packs
 ├── docs/
 │   ├── wiki/                # Wiki sources — mirrored by scripts/sync-wiki.sh
+│   ├── api/openapi.json     # The API contract (generated)
+│   ├── implementation/      # Phase contracts and gate reports
+│   ├── research/            # Sourced research registers (e.g. Station I's facts)
 │   └── proposals/           # Architecture proposals
 ├── start_app.bat            # Windows launcher
 └── start_app.sh             # macOS / Linux launcher
@@ -390,7 +432,15 @@ Interactive Swagger docs live at **http://localhost:8000/docs** once the backend
 | `/api/v1/exams/{id}/answer` | POST | Save an answer (autosave) |
 | `/api/v1/exams/{id}/finish` | POST | Submit and score |
 | `/api/v1/exams/{id}/answers/{qid}/reviewed` | POST | Mark a wrong answer as reviewed |
-| `/api/v1/subjects` | GET | Every subject with its readiness and evidence |
+| `/api/v1/subjects` | GET / POST | Every preparation with its readiness, or create one |
+| `/api/v1/subjects/{id}/content-packs/{pack_id}` | PUT / DELETE | Attach or detach a built-in study guide |
+| `/api/v1/roles` | GET / POST | Role preparations built from a job description |
+| `/api/v1/content-packs/{pack_id}` | GET | A built-in study guide with its chapters and scenarios |
+| `/api/v1/learning/attempts` | GET / POST | Learning Lab and scenario attempts, scoped to a preparation |
+| `/api/v1/workspace` · `/api/v1/evidence` | GET | Your work in a preparation, and what it demonstrates |
+| `/api/v1/interview-sessions` | POST | Start a timed interview session (`/plan` previews it) |
+| `/api/v1/lab/lakehouse/packs` | GET | Lakehouse Lab scenario packs |
+| `/api/v1/lab/lakehouse/ops` | POST | Run an operation on the real Delta engine, if installed |
 | `/api/v1/home` | GET | Home summary — resumable session, mock totals, outstanding review |
 | `/api/v1/home/activity` | GET | One timeline across every practice format |
 | `/api/v1/home/other-preparation` | GET | What is going on outside the primary subject |
@@ -424,9 +474,10 @@ The [wiki](https://github.com/getnimishk/PrepBench/wiki) holds what would bloat 
 
 | Page | Covers |
 |---|---|
-| [Architecture](https://github.com/getnimishk/PrepBench/wiki/Architecture) | Backend layering, the 24 tables, the seed ledger, why there is no Alembic |
+| [Architecture](https://github.com/getnimishk/PrepBench/wiki/Architecture) | Backend layering, the 33 tables, preparation scope, the seed ledger, why there is no Alembic |
 | [Readiness](https://github.com/getnimishk/PrepBench/wiki/Readiness) | Subjects, why a drill never counts as a mock, the five states and their thresholds |
 | [Design Review](https://github.com/getnimishk/PrepBench/wiki/Design-Review) | The deciding axis, the grading contract, and how to write a review |
+| [Learning Lab](https://github.com/getnimishk/PrepBench/wiki/Learning-Lab) | The three sandboxes, the rules they share, the Lakehouse stations, and where Station I's facts come from |
 | [Chart Sandbox](https://github.com/getnimishk/PrepBench/wiki/Chart-Sandbox) | The executable delivery model, the coupling ledger, the guided track |
 | [AI Providers](https://github.com/getnimishk/PrepBench/wiki/AI-Providers) | Task-level routing, local model setup, how keys are stored |
 | [Importing Content](https://github.com/getnimishk/PrepBench/wiki/Importing-Content) | Question formats, roadmap column detection, the pre-import audit |
@@ -448,7 +499,7 @@ Yes, for personal and other noncommercial use. No paid tier, no account, no usag
 <details>
 <summary><b>Does it work without an internet connection?</b></summary>
 
-Yes — that is the point. Exams, the question bank, roadmaps, analytics, the Chart Sandbox, and PDF/Excel export all run with the Wi-Fi off. So does AI grading, if you run a model locally. A network is needed only if you *choose* a cloud provider, and the app is fully usable with neither.
+Yes — that is the point. Exams, the question bank, roadmaps, analytics, the study guides, every Learning Lab sandbox, and PDF/Excel export all run with the Wi-Fi off. So does AI grading, if you run a model locally. A network is needed only if you *choose* a cloud provider, and the app is fully usable with neither.
 </details>
 
 <details>
@@ -460,7 +511,7 @@ No. Everything lives in one SQLite file on your machine. There is no telemetry, 
 <details>
 <summary><b>Do I need an API key?</b></summary>
 
-No. The AI features need *a model*, not a cloud account — Settings → AI Providers walks you through running one locally. Connect a cloud key instead if you want sharper feedback and do not mind the round trip. With neither, those three features report "unavailable" rather than inventing a score, and everything else works normally.
+No. The AI features need *a model*, not a cloud account — Settings → AI Providers walks you through running one locally. Connect a cloud key instead if you want sharper feedback and do not mind the round trip. With neither, the AI features report "unavailable" or "Not Graded" rather than inventing a score, and everything else works normally.
 </details>
 
 <details>
@@ -485,16 +536,19 @@ It is designed as a single-user local app — there is no authentication or mult
 
 ## What's next
 
-- [ ] Start a full mock from the UI, so readiness moves without going through the API
-- [ ] Design reviews carrying a `subject_id` of their own, rather than being mapped onto a subject by domain
+The prototype is complete: everything above is built and in use. What follows is planned but not started.
+
+- [ ] An AI tutor drawer
+- [ ] A job feed for role preparations, from legal sources only
+- [ ] Native Windows and iOS apps
+- [ ] A decision on the recordings library: per preparation, or shared as it is now
+- [ ] Design reviews and system design attempts carrying a `subject_id` of their own, rather than belonging to no preparation
 - [ ] Spoken explanation practice in the Agile Metrics sandbox — reason aloud about a chart and get feedback on the argument, not just the answer
 - [ ] Flow Efficiency and Aging WIP as guided sandbox concepts
-- [ ] Databricks architecture and financial modelling sandboxes in the Learning Lab
+- [ ] A financial modelling sandbox in the Learning Lab
 - [ ] AI-generated explanations for imported questions that arrive without one
 - [ ] PDF and image question import with OCR
 - [ ] Flashcard mode built from missed questions
-- [ ] Mobile-responsive PWA
-- [ ] Tauri desktop build (native Windows and macOS app)
 
 ---
 

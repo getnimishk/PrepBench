@@ -5,6 +5,7 @@
 - [Architecture](Architecture)
 - [Readiness](Readiness)
 - [Design Review](Design-Review)
+- [Learning Lab](Learning-Lab)
 - [Chart Sandbox](Chart-Sandbox)
 
 **Using it**

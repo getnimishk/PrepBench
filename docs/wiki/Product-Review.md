@@ -4,6 +4,9 @@
 
 This page is a record, not a specification. It is kept because the reasoning is more reusable than the conclusions, and because two of the review's headline recommendations turned out to be wrong in a way worth remembering.
 
+> [!NOTE]
+> **Status, October 2026.** The open seam described below, where no screen could start a mock, has since closed. Exam setup now sends `session_kind: mock` and `subject_id`, and refuses a paper it cannot fill; see [Readiness](Readiness). The rest of the page is kept as written.
+
 ## The verdict under review
 
 The review's thesis was that PrepBench has *partially lost its innocence* — not because the system became sophisticated, but because **the system's sophistication became visible**. It identified two competing personalities:

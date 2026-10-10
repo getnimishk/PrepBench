@@ -57,25 +57,41 @@ Three of them are newer than the rest and worth placing: `subjects` and `home` a
 
 ## Data model
 
-Twenty-four tables, grouped by the feature that owns them:
+Thirty-three tables, grouped by the feature that owns them:
 
 | Area | Tables |
 |---|---|
-| Subjects | `subjects` |
+| Preparations | `subjects` · `subject_content_packs` |
+| Roles | `roles` · `role_requirements` · `role_diagnostic_attempts` |
 | Questions | `questions` · `question_options` |
 | Exams | `exam_sessions` · `exam_answers` |
 | Review | `review_checks` |
 | Spaced repetition | `spaced_repetition` |
 | System design | `system_design_prompts` · `system_design_attempts` · `system_design_drafts` |
 | Design review | `design_reviews` · `design_options` · `design_review_attempts` |
-| Interview practice | `interview_questions` · `practice_recordings` · `recording_analyses` |
-| Roadmaps | `roadmaps` · `roadmap_phases` · `roadmap_topics` · `roadmap_resources` |
+| Interview practice | `interview_questions` · `interview_sessions` · `practice_recordings` · `recording_analyses` |
+| Roadmaps and curriculum | `roadmaps` · `roadmap_phases` · `roadmap_topics` · `roadmap_resources` · `topic_demonstrations` · `topic_guide_sections` |
+| Learning Lab | `learning_attempts` · `lab_journal_entries` |
 | AI providers | `llm_provider_config` · `llm_task_binding` |
-| User content | `user_notes` · `bookmarks` |
 | Seeding | `seeded_content` |
 | Settings | `app_settings` |
 
-`subjects` is the one table other features hang off. `exam_sessions` gained a nullable `subject_id` and a `session_kind` rather than being split, so historical sessions keep working — see [Readiness](Readiness#mocks-and-drills).
+A preparation (the `subjects` table) is the one thing other features hang off: a certification, a skill, or a role built from a job description. `exam_sessions` gained a nullable `subject_id` and a `session_kind` rather than being split, so historical sessions keep working; see [Readiness](Readiness#mocks-and-drills). Built-in content packs (`backend/app/content/packs/`: the ADF study guide with 21 chapters and 18 written scenarios, and the ADLS guide with 11 chapters) are files, not tables. `subject_content_packs` records which pack, at which version, a preparation has attached.
+
+## Preparation scope
+
+Almost every read and write belongs to one preparation, and the rules for that are the same everywhere:
+
+- **`subject_id` names the preparation asking.** With it, a request answers for that preparation's own rows. Some data is shared on purpose, such as interview questions with no owner, which form the shared library. A preparation then reaches the shared rows and its own.
+- **Leaving `subject_id` out never means "all".** It means *no preparation*: shared or unowned rows only. A screen working in a preparation always sends one.
+- **Another preparation's row is a 404, exactly like an unknown id.** Knowing an id grants nothing. This holds for:
+  - interview questions by id, including updates, deletes and uploading a take;
+  - learning attempts;
+  - interview sessions. A session's owner is the owner of the questions it holds, so a session holding a preparation's own question is reachable only as that preparation, while a session of shared questions reads anywhere.
+- **A preparation is identified by its slug, not its id.** The slug never changes, while SQLite can hand a deleted preparation's id to a new one. The six built-in capability profiles are matched by exact slug. Links between hubs (`/interview?subject=…`, `/certification?subject=…`) carry the slug, and the hubs read a slug before an id.
+- **Capabilities come from the record.** Whether a preparation has interview rounds, a roadmap, a study guide or a Learning Lab is read from its own data: its question count, attached packs, linked roadmaps and saved lab questions. Nothing is set by hand for a particular id.
+
+`backend/tests/test_phase8_isolation_matrix.py` checks these rules across every pair of preparations. A few reads are unscoped on purpose (the review queue, analytics, the question and roadmap catalogues, the all-preparations Home overview), and every caller scopes them; `docs/implementation/PHASE-8-REPORT.md` lists them. Separately, the recordings library lists every take; whether it should be per-preparation is an open product decision.
 
 ### Schema changes without Alembic
 
@@ -149,6 +165,12 @@ Route-level pages worth knowing:
 | `/` | Home — resumable session, headline mock numbers, per-subject readiness, activity |
 | `/subjects/:id` | One subject: readiness with its evidence, and coverage across every format |
 | `/practice` · `/learn` | Two hubs — a list of doors, not a dashboard |
+| `/preparations` · `/preparations/roles/:id` | Your preparations (certifications, skills, roles), and a role's before/after diagnostic |
+| `/certification` · `/interview` | Hubs for a preparation's exam readiness and its interview practice. Each says so when the preparation has no such capability, and offers one that does, by slug |
+| `/learn/guides/:packId` · `/scenarios` | The Study Library (built-in study guides) and the written incident scenarios |
+| `/roadmaps/:id` · `…/topics/:topicId/guide` · `…/demonstrate` | A roadmap, a topic's study guide, and demonstrating the topic (completion is demonstration only) |
+| `/interview-practice` · `/interview-practice/sessions/:id` | The interview library, recorded takes, and timed interview sessions (a focus mode, with no sidebar) |
+| `/lab` · `/lab/adf` · `/databricks-sandbox` | The Learning Lab hub, the ADF Behaviour Lab, and the Lakehouse Lab; see [Learning Lab](Learning-Lab) |
 | `/review` | A bounded review session: the newest unread misses one at a time, then the timeline |
 | `/design-reviews` · `/design-reviews/:id` | The design review bank and one review |
 | `/workspace` | Workspace: the learner's own work in the chosen preparation (lab runs, case notes, prepared answers, recordings, topic guides and notes), read from the rows the features keep. `GET /api/v1/workspace?subject_id=` |
