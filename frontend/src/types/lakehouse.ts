@@ -5,7 +5,7 @@
 // Wire shapes of the Lakehouse Lab API, mirroring backend/app/schemas/lab.py.
 // `apiContract.check.ts` is where the generated types are compared with these.
 
-export type LabStation = 'a' | 'b' | 'c' | 'f' | 'i';
+export type LabStation = 'a' | 'b' | 'c' | 'd' | 'f' | 'i';
 export type JournalSource = 'real_engine' | 'simulation';
 
 export interface EngineStatus {

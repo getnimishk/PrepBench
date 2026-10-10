@@ -98,6 +98,20 @@ describe('DatabricksSandboxPage', () => {
     expect(screen.queryByText(/not built yet/)).not.toBeInTheDocument();
   });
 
+  it('shows Station D under the pipeline stations only when the pack lists it', async () => {
+    vi.mocked(api.getLakehousePack).mockResolvedValue({ ...pack, stations: ['a', 'b', 'c', 'd', 'f'] });
+    const { unmount } = renderPage('/databricks-sandbox?station=d');
+    expect(await screen.findByRole('heading', { level: 2, name: /Station D · Reconciliation Detective/ })).toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: 'Stations' });
+    expect(within(nav).getAllByRole('button').map((b) => b.textContent)).toEqual([
+      'F · Migration Factory', 'A · ADF + Lakeflow', 'B · ADLS', 'C · Delta Lake', 'D · Reconciliation Detective',
+    ]);
+    unmount();
+    vi.mocked(api.getLakehousePack).mockResolvedValue(pack);
+    renderPage('/databricks-sandbox?station=d'); // a pack that lists no D: falls back to its first station
+    expect(await screen.findByRole('heading', { level: 2, name: /Station F/ })).toBeInTheDocument();
+  });
+
   it('opens Station A and Station B, each with its own heading', async () => {
     const { unmount } = renderPage('/databricks-sandbox?station=a');
     expect(await screen.findByRole('heading', { level: 2, name: /Station A/ })).toBeInTheDocument();

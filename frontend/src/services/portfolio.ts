@@ -8,6 +8,7 @@ import { ADF_LAB_EXPERIMENTS } from './adfLab/experiments';
 import { TIERING_CHALLENGE } from './lakehouse/factoryModel';
 import { ACCESS_CHALLENGE, WATERMARK_CHALLENGE } from './lakehouse/pipelineChallenges';
 import { challengeById } from './lakehouse/stationC';
+import { defectTitle } from './lakehouse/stationD';
 import { CONCEPTS } from './learning/concepts';
 
 /**
@@ -41,7 +42,7 @@ export function titleOf(item: { title: string; ref: Record<string, string> }): s
   const { track, challenge_id: challenge, concept_id: concept } = item.ref ?? {};
   if (track) return adfTrackTitle(track) ?? item.title;
   if (challenge?.startsWith('lakehouse.')) {
-    return LAKEHOUSE_TITLES[challenge] ?? challengeById(challenge)?.title ?? item.title;
+    return LAKEHOUSE_TITLES[challenge] ?? challengeById(challenge)?.title ?? defectTitle(challenge) ?? item.title;
   }
   if (concept && concept in CONCEPTS) return CONCEPTS[concept as keyof typeof CONCEPTS].canonicalName;
   return item.title;

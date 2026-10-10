@@ -166,6 +166,21 @@ test('Station B: predict the access, fix it with execute on the parents, and see
   await expect(observe.getByText('Teaching constant').first()).toBeVisible();
 });
 
+test('Station D: says it is a teaching simulation, scores against the pack, and without the engine runs and claims nothing', async ({ page, request }) => {
+  const status = await (await request.get('/api/v1/lab/lakehouse/engine')).json();
+  test.skip(status.available === true, 'The real Delta engine is installed here; this spec covers it being absent.');
+
+  await page.goto('/databricks-sandbox?station=d');
+  await expect(page.getByRole('heading', { level: 2, name: /Station D · Reconciliation Detective/ })).toBeVisible();
+  await expect(page.getByText(/not a real Hadoop or Databricks system/)).toBeVisible();
+  // Found against the eight defects the pack plants; nothing found yet (or what this worker already found).
+  await expect(page.getByText(/^\d of 8$/)).toBeVisible();
+  await expect(page.getByText('Real engine not installed').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Run on the engine' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Claim this defect' })).toBeDisabled();
+  await expect(page.getByText(/Run an operation first/)).toBeVisible();
+});
+
 test('Station C still opens from the rail, and the notebook is marked Unverified', async ({ page }) => {
   await page.goto('/databricks-sandbox?station=a');
   await page.getByRole('button', { name: 'C \u00b7 Delta Lake' }).click();

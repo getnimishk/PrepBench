@@ -22,26 +22,28 @@ import { JournalDrawer } from '../components/lakehouse/JournalDrawer';
 import { StationA } from '../components/lakehouse/StationA';
 import { StationB } from '../components/lakehouse/StationB';
 import { StationC } from '../components/lakehouse/StationC';
+import { StationD } from '../components/lakehouse/StationD';
 import { StationF } from '../components/lakehouse/StationF';
 
 /**
  * The Lakehouse Lab (PRD P0-12, plan Phase 1B). One fictional migration, two levels.
  *
- * Four stations: F (the Migration Factory), A (ADF + Lakeflow) and B (ADLS) are simulations, and C
- * (Delta Lake) runs on the real engine. A's batch manifest feeds C.
+ * Five stations: F (the Migration Factory), A (ADF + Lakeflow) and B (ADLS) are simulations, and C
+ * (Delta Lake) and D (the Reconciliation Detective) run on the real engine. A's batch manifest feeds C.
  *
  * More than one scenario pack can be installed. The page offers the stations a pack lists in its
  * manifest and no others, so a pack that ships only data (the JD-PO-005 pack) shows Station C and
  * nothing that would have to say "no content". Nothing here is specific to a pack.
  */
 
-type Station = 'f' | 'a' | 'b' | 'c';
+type Station = 'f' | 'a' | 'b' | 'c' | 'd';
 
 const RAIL: { id: Station; level: 'Programme' | 'Pipeline'; name: string }[] = [
   { id: 'f', level: 'Programme', name: 'Migration Factory' },
   { id: 'a', level: 'Pipeline', name: 'ADF + Lakeflow' },
   { id: 'b', level: 'Pipeline', name: 'ADLS' },
   { id: 'c', level: 'Pipeline', name: 'Delta Lake' },
+  { id: 'd', level: 'Pipeline', name: 'Reconciliation Detective' },
 ];
 
 // The programme comes first: it shows why the pipeline details matter.
@@ -274,6 +276,7 @@ export const DatabricksSandboxPage: React.FC = () => {
               upstream={downstream ? { isDefault: upstreamIsDefault, onChange: () => go('a') } : undefined}
             />
           ))}
+          {station === 'd' && <StationD pack={pack} engine={engine} subjectId={subjectId} onJournalChange={refreshJournal} />}
           {station === 'c' && sourceRows === 'failed' && (
             <Detail sx={{ mt: '8px' }}>The source index didn’t load, so the batch from Station A isn’t available as a challenge.</Detail>
           )}

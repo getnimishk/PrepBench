@@ -6,7 +6,7 @@ import type { WireLearningAttempt } from '../../types/learning';
 import type { LabOperation, LabOperationResult } from '../../types/lakehouse';
 import { apiErrorMessage, isAttemptIdTaken } from '../apiError';
 import { getLearningAttempts, patchLearningAttempt, runLakehouseOperation, startLearningAttempt } from '../api';
-/** Every lab challenge id starts here; Station C's are `lakehouse.c.…`, Station F's `lakehouse.f.…`. */
+/** Every lab challenge id starts here; Station C's are `lakehouse.c.…`, Station D's `lakehouse.d.…`, Station F's `lakehouse.f.…`. */
 export const LAB_PREFIX = 'lakehouse.';
 
 /** What an attempt needs to know about a challenge. Station C's and Station F's both have it. */
@@ -130,6 +130,20 @@ export function completeLabSimulation(
 ): Promise<WireLearningAttempt> {
   return patchLearningAttempt(
     attemptUid, { completed: true, correct, observed: { ...observed, source: 'simulation' } }, scopeOf(subjectId),
+  );
+}
+
+/**
+ * Close a Station D attempt: the learner claimed this defect and the engine result they cited
+ * shows it. `correct` is true only ever from a claim stationD.checkClaim accepted -- a claim it
+ * rejects is never recorded -- so it is set by the pack's ground truth and the engine, not by the
+ * learner or an AI.
+ */
+export function completeLabClaim(
+  subjectId: number | undefined, attemptUid: string, observed: Record<string, unknown>,
+): Promise<WireLearningAttempt> {
+  return patchLearningAttempt(
+    attemptUid, { completed: true, correct: true, observed: { ...observed, source: 'engine', ok: true } }, scopeOf(subjectId),
   );
 }
 
