@@ -178,7 +178,7 @@ A few rules apply to all three:
 - **Simulations are labelled.** Teaching constants are labelled as such.
 - **Identity and governance facts link to their sources.** In the Lakehouse Lab, each one cites the official Microsoft or Apache page it was checked against.
 
-The details are on the [Learning Lab](https://github.com/getnimishk/PrepBench/wiki/Learning-Lab) wiki page.
+New to the labs? **[How to use the Learning Lab](https://github.com/getnimishk/PrepBench/wiki/Learning-Lab-Guide)** walks through every station, with no spoilers. How they are built is on the [Learning Lab](https://github.com/getnimishk/PrepBench/wiki/Learning-Lab) page.
 
 ### Agile Metrics
 
@@ -477,6 +477,7 @@ The [wiki](https://github.com/getnimishk/PrepBench/wiki) holds what would bloat 
 | [Architecture](https://github.com/getnimishk/PrepBench/wiki/Architecture) | Backend layering, the 33 tables, preparation scope, the seed ledger, why there is no Alembic |
 | [Readiness](https://github.com/getnimishk/PrepBench/wiki/Readiness) | Subjects, why a drill never counts as a mock, the five states and their thresholds |
 | [Design Review](https://github.com/getnimishk/PrepBench/wiki/Design-Review) | The deciding axis, the grading contract, and how to write a review |
+| [How to use the Learning Lab](https://github.com/getnimishk/PrepBench/wiki/Learning-Lab-Guide) | A learner's guide to every lab and station: what you do, the controls, how to read results |
 | [Learning Lab](https://github.com/getnimishk/PrepBench/wiki/Learning-Lab) | The three sandboxes, the rules they share, the Lakehouse stations, and where Station I's facts come from |
 | [Chart Sandbox](https://github.com/getnimishk/PrepBench/wiki/Chart-Sandbox) | The executable delivery model, the coupling ledger, the guided track |
 | [AI Providers](https://github.com/getnimishk/PrepBench/wiki/AI-Providers) | Task-level routing, local model setup, how keys are stored |

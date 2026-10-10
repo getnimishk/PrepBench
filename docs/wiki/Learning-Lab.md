@@ -9,6 +9,8 @@ The Learning Lab teaches by doing rather than by reading. Every sandbox follows 
 
 The prediction is write-once, so you cannot change it after seeing the result. Explanations are yours and are never scored. The hub is at **`/lab`**.
 
+This page explains how the labs are built and the rules behind them. To learn how to *use* them, station by station, see **[How to use the Learning Lab](Learning-Lab-Guide)**.
+
 There are three sandboxes.
 
 | Sandbox | Route | Who it is for |
