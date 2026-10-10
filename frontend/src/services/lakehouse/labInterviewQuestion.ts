@@ -13,17 +13,23 @@
  * If no observations were recorded, no talking points exist.
  */
 
+import type { LabStation } from '../../types/lakehouse';
+
+/** How a station is named on screen: "Station D". */
+export const stationLabel = (station: LabStation): string => `Station ${station.toUpperCase()}`;
+
 /**
  * Builds a stable source reference for an interview question generated from a lab station challenge.
  */
 export function labInterviewSourceRef(
   packId: string,
   packVersion: number,
-  station: string,
+  station: LabStation,
   challengeId: string,
 ): string {
-  const normStation = station.toLowerCase();
-  const raw = `lab/${packId}@${packVersion}/station/${normStation}/${challengeId}`;
+  // The station's letter, never its display name: the ref is an identity and must not change
+  // (or carry spaces) when a label is reworded.
+  const raw = `lab/${packId}@${packVersion}/station/${station}/${challengeId}`;
   return raw.slice(0, 150);
 }
 
@@ -72,14 +78,16 @@ export function extractTalkingPoints(observed: Record<string, unknown> | null | 
     points.push(`Execution source: ${String(observed.source)}`);
   }
 
-  // Any other non-empty values recorded in observed
+  // Any other value recorded in observed, if it is a plain scalar: a nested object or list
+  // has no honest one-line reading, so it is left out rather than shown as "[object Object]".
   const handled = new Set([
     'result', 'outcome', 'claim', 'basis', 'ok', 'version',
     'rows', 'missed', 'duplicated', 'right', 'total', 'source',
   ]);
 
   for (const [key, value] of Object.entries(observed)) {
-    if (!handled.has(key) && value !== null && value !== undefined && value !== '') {
+    const scalar = typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
+    if (!handled.has(key) && scalar && value !== '') {
       const label = key.replace(/_/g, ' ');
       const capitalized = label.charAt(0).toUpperCase() + label.slice(1);
       points.push(`${capitalized}: ${String(value)}`);
@@ -90,8 +98,10 @@ export function extractTalkingPoints(observed: Record<string, unknown> | null | 
 }
 
 /**
- * Generates a default question prompt for the rehearsal studio.
+ * A starting prompt for the rehearsal studio. It asks about what the learner found and what
+ * they would do, and claims nothing about the platform itself; the learner can rewrite it.
  */
-export function defaultQuestionText(stationName: string, challengeTitle: string): string {
-  return `How does Delta Lake handle ${challengeTitle} in production (${stationName})?`;
+export function defaultQuestionText(station: LabStation, challengeTitle: string): string {
+  return `In the Lakehouse Lab (${stationLabel(station)}, ${challengeTitle}), what did you observe, `
+    + 'and what would you do differently in a real migration because of it?';
 }

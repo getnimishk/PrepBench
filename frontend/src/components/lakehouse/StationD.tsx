@@ -264,7 +264,7 @@ export const StationD: React.FC<{
                     subjectId={subjectId}
                     packId={pack.id}
                     packVersion={pack.version}
-                    station="Station D"
+                    station="d"
                     challengeId={d.id}
                     challengeTitle={defectName(d.id)}
                     attempt={a}

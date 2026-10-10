@@ -410,7 +410,7 @@ export const StationF: React.FC<{
                 subjectId={subjectId}
                 packId={pack.id}
                 packVersion={pack.version}
-                station="Station F"
+                station="f"
                 challengeId="tiering"
                 challengeTitle="Migration Factory: tiering"
                 attempt={attempt}

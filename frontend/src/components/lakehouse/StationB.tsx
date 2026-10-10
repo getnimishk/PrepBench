@@ -283,7 +283,7 @@ export const StationB: React.FC<{
                 subjectId={subjectId}
                 packId={pack.id}
                 packVersion={pack.version}
-                station="Station B"
+                station="b"
                 challengeId="access"
                 challengeTitle={ACCESS_CHALLENGE.title}
                 attempt={lab.attempt}

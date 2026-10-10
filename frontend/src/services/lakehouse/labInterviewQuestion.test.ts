@@ -17,9 +17,12 @@ describe('labInterviewSourceRef', () => {
     expect(ref.length).toBeLessThanOrEqual(150);
   });
 
-  it('normalizes station name to lowercase', () => {
-    const ref = labInterviewSourceRef('semiconductor-v1', 1, 'Station-D', 'duplicate_keys');
-    expect(ref).toBe('lab/semiconductor-v1@1/station/station-d/duplicate_keys');
+  it('names the station by its letter, never its display name, so refs carry no spaces', () => {
+    for (const station of ['a', 'b', 'c', 'd', 'f'] as const) {
+      const ref = labInterviewSourceRef('semiconductor-v1', 1, station, 'x');
+      expect(ref).toBe(`lab/semiconductor-v1@1/station/${station}/x`);
+      expect(ref).not.toMatch(/\s/);
+    }
   });
 });
 
@@ -79,6 +82,12 @@ describe('extractTalkingPoints', () => {
     expect(points).toContain('Execution source: simulation');
   });
 
+  it('skips values that are not plain scalars, instead of writing [object Object]', () => {
+    const points = extractTalkingPoints({ rows: 3, detail: { nested: true }, list: [1, 2] });
+    expect(points).toEqual(['Affected rows: 3']);
+    expect(points.join(' ')).not.toContain('[object');
+  });
+
   it('extracts custom keys formatted factually', () => {
     const points = extractTalkingPoints({
       conflict_mode: 'isolation_level_write_serializable',
@@ -88,9 +97,10 @@ describe('extractTalkingPoints', () => {
 });
 
 describe('defaultQuestionText', () => {
-  it('generates a concise technical interview question text', () => {
-    const text = defaultQuestionText('Station C', 'Duplicate keys');
-    expect(text).toContain('Duplicate keys');
-    expect(text.length).toBeGreaterThan(10);
+  it('asks about what the learner found, without claiming what Delta Lake does', () => {
+    const text = defaultQuestionText('d', 'Precision loss');
+    expect(text).toContain('Precision loss');
+    expect(text).toContain('Station D');
+    expect(text).not.toMatch(/Delta Lake handle/);
   });
 });

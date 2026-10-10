@@ -385,7 +385,7 @@ export const StationC: React.FC<{
                 subjectId={subjectId}
                 packId={pack.id}
                 packVersion={pack.version}
-                station="Station C"
+                station="c"
                 challengeId={challenge.id.slice('lakehouse.c.'.length)}
                 challengeTitle={challenge.title}
                 attempt={attempt}

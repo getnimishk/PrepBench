@@ -238,9 +238,11 @@ export const InterviewHubPage: React.FC = () => {
     ? prompts.filter((p) => !attemptedPromptIds.has(p.id))
     : [];
   const promptCount = prompts == null ? null : prompts.length;
-  // A non-System-Design preparation without written scenarios (whose interview
-  // rounds come from lab questions) directs to interview practice, not /scenarios.
-  const isLabInterviewPrep = !isSystemDesignSubject && !targetCapabilities.scenarios;
+  // A preparation whose interview rounds come from its saved lab questions, and that has no
+  // written scenarios, is sent to interview practice: /scenarios would show it nothing.
+  const isLabInterviewPrep = !isSystemDesignSubject
+    && (targetSubject.lab_interview_question_count ?? 0) > 0
+    && !targetCapabilities.scenarios;
 
   return (
     <Box>

@@ -49,7 +49,7 @@ describe('SaveAsInterviewQuestion', () => {
           subjectId={2}
           packId="semiconductor-v1"
           packVersion={1}
-          station="Station C"
+          station="c"
           challengeId="duplicate-keys"
           challengeTitle="Duplicate keys"
           attempt={mockAttempt}
@@ -76,6 +76,30 @@ describe('SaveAsInterviewQuestion', () => {
     expect(pointsInput.value).toContain('Operation status: Succeeded');
     expect(pointsInput.value).toContain('Delta table version: 2');
     expect(pointsInput.value).toContain('Affected rows: 50');
+  });
+
+  it('offers no save without the Databricks preparation, so a lab question never lands in the shared library', () => {
+    renderComponent({ subjectId: undefined });
+    expect(screen.queryByRole('button', { name: /Save as interview question/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/saved under the Databricks preparation/i)).toBeInTheDocument();
+    expect(api.saveInterviewQuestionFromSource).not.toHaveBeenCalled();
+  });
+
+  it('keeps what the learner typed when the same attempt is fetched again', async () => {
+    const user = userEvent.setup();
+    const view = renderComponent();
+    const pointsInput = screen.getByLabelText(/Key talking points/i) as HTMLTextAreaElement;
+    await user.clear(pointsInput);
+    await user.type(pointsInput, 'My own wording of the finding');
+    // A refetch hands over a new object with the same attempt and the same values.
+    const refetched = { ...mockAttempt, observed: { ...(mockAttempt.observed as object) } } as WireLearningAttempt;
+    view.rerender(
+      <ThemeProvider theme={theme}>
+        <SaveAsInterviewQuestion subjectId={2} packId="semiconductor-v1" packVersion={1} station="c"
+          challengeId="duplicate-keys" challengeTitle="Duplicate keys" attempt={refetched} />
+      </ThemeProvider>,
+    );
+    expect((screen.getByLabelText(/Key talking points/i) as HTMLTextAreaElement).value).toBe('My own wording of the finding');
   });
 
   it('prepared answer defaults to empty unless written', () => {
@@ -109,7 +133,7 @@ describe('SaveAsInterviewQuestion', () => {
     await waitFor(() => {
       expect(api.saveInterviewQuestionFromSource).toHaveBeenCalledWith(
         expect.objectContaining({
-          source_ref: 'lab/semiconductor-v1@1/station/station c/duplicate-keys',
+          source_ref: 'lab/semiconductor-v1@1/station/c/duplicate-keys',
           subject_id: 2,
           round_type: 'technical',
           prepared_answer: 'My rehearsed answer.',

@@ -13,12 +13,14 @@ import {
   labInterviewSourceRef,
 } from '../../services/lakehouse/labInterviewQuestion';
 import type { WireLearningAttempt } from '../../types/learning';
+import type { LabStation } from '../../types/lakehouse';
 
 export interface SaveAsInterviewQuestionProps {
   subjectId?: number;
   packId: string;
   packVersion: number;
-  station: string;
+  /** The station's letter; it names the question's source, so it must not be a display label. */
+  station: LabStation;
   challengeId: string;
   challengeTitle: string;
   attempt?: WireLearningAttempt | null;
@@ -44,21 +46,40 @@ export const SaveAsInterviewQuestion: React.FC<SaveAsInterviewQuestionProps> = (
 }) => {
   const points = extractTalkingPoints(attempt?.observed);
   const hasObservations = points.length > 0;
+  // Compared by value: a refetch hands over a new `observed` object with the same values, and
+  // that must not wipe what the learner has typed.
+  const pointsText = points.join('\n');
 
   const [questionText, setQuestionText] = useState(() => defaultQuestionText(station, challengeTitle));
-  const [talkingPointsText, setTalkingPointsText] = useState(() => points.join('\n'));
+  const [talkingPointsText, setTalkingPointsText] = useState(pointsText);
   const [preparedAnswer, setPreparedAnswer] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{ created: boolean; message: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Synchronize initial points whenever the attempt's observations change
+  // Start again only when it is a different attempt, or its recorded values really changed.
   useEffect(() => {
     setQuestionText(defaultQuestionText(station, challengeTitle));
-    setTalkingPointsText(points.join('\n'));
+    setTalkingPointsText(pointsText);
     setSaveStatus(null);
     setError(null);
-  }, [attempt?.attempt_uid, attempt?.observed, station, challengeTitle]);
+  }, [attempt?.attempt_uid, pointsText, station, challengeTitle]);
+
+  // A lab question belongs to the Databricks preparation. Without one there is nowhere private to
+  // keep it: saving with no preparation would put it in the shared library, seen from every one.
+  if (subjectId == null) {
+    return (
+      <Panel sx={{ mt: '12px' }}>
+        <Typography variant="subtitle2" component="h4" sx={{ fontWeight: 700, mb: '4px' }}>
+          Interview question
+        </Typography>
+        <Detail>
+          Interview questions from the lab are saved under the Databricks preparation, and there isn't one.
+          Create it in Preparations to save this result as a question.
+        </Detail>
+      </Panel>
+    );
+  }
 
   if (!hasObservations) {
     return (
@@ -87,7 +108,7 @@ export const SaveAsInterviewQuestion: React.FC<SaveAsInterviewQuestionProps> = (
     try {
       const result = await saveInterviewQuestionFromSource({
         source_ref: sourceRef,
-        subject_id: subjectId ?? null,
+        subject_id: subjectId,
         round_type: 'technical',
         question_text: questionText.trim(),
         category,

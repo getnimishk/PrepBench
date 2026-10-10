@@ -302,7 +302,7 @@ export const StationA: React.FC<{
                 subjectId={subjectId}
                 packId={pack.id}
                 packVersion={pack.version}
-                station="Station A"
+                station="a"
                 challengeId="watermark"
                 challengeTitle={WATERMARK_CHALLENGE.title}
                 attempt={lab.attempt}
