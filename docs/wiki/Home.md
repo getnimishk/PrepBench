@@ -9,10 +9,11 @@ If you just want to run it, the [README](https://github.com/getnimishk/PrepBench
 | Page | What it covers |
 |---|---|
 | **[Philosophy](Philosophy)** | What PrepBench is for, the rules it holds to and the reasoning behind them, what it refuses to be, and where the principles are still in tension |
-| **[Architecture](Architecture)** | Backend layering, the request path, the 24 tables, the seed ledger, why there is no Alembic, and what CI actually enforces |
+| **[Architecture](Architecture)** | Backend layering, the request path, the 33 tables, preparation scope (who can reach what), the seed ledger, why there is no Alembic, and what CI actually enforces |
 | **[Readiness](Readiness)** | Subjects, why a drill never counts as a mock, the five states and the thresholds behind them |
 | **[Design Review](Design-Review)** | Two defensible architectures, the deciding axis, and why grading assesses the reasoning rather than the choice |
-| **[Chart Sandbox](Chart-Sandbox)** | The Learning Lab's first sandbox: the executable delivery model, the coupling ledger, the 27 views, and the guided learning layer |
+| **[Learning Lab](Learning-Lab)** | The three sandboxes (Agile Metrics, the ADF Behaviour Lab, the Lakehouse Lab and its six stations), the rules they share, and where Station I's facts come from |
+| **[Chart Sandbox](Chart-Sandbox)** | The Agile Metrics sandbox: the executable delivery model, the coupling ledger, the 27 views, and the guided learning layer |
 | **[AI Providers](AI-Providers)** | The provider gateway, task-level routing, local model setup, and how keys are stored |
 | **[Importing Content](Importing-Content)** | Question formats, roadmap column detection, and the pre-import audit |
 | **[Product Review](Product-Review)** | The September 2026 review checked against the database: which claims held, which did not, and the resulting order of work |
