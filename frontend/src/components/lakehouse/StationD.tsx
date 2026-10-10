@@ -20,6 +20,7 @@ import { ErrorState, LoadingState } from '../common/States';
 import { Actions, Bar, Detail, Good, Metric, MetricRow, Note, Panel, Pill } from '../ui/primitives';
 import { EnginePanel } from './EnginePanel';
 import { OperationForm } from './OperationForm';
+import { SaveAsInterviewQuestion } from './SaveAsInterviewQuestion';
 
 /** What was run, in words. */
 function describeRun(op: LabOperation): string {
@@ -259,6 +260,15 @@ export const StationD: React.FC<{
                     {savedNote[d.id] === 'saved' && <Box role="status"><Detail>Saved. Your words, not graded.</Detail></Box>}
                     {savedNote[d.id] === 'failed' && <Box role="alert"><Detail sx={{ color: 'error.main' }}>Could not save. Try again.</Detail></Box>}
                   </Actions>
+                  <SaveAsInterviewQuestion
+                    subjectId={subjectId}
+                    packId={pack.id}
+                    packVersion={pack.version}
+                    station="d"
+                    challengeId={d.id}
+                    challengeTitle={defectName(d.id)}
+                    attempt={a}
+                  />
                 </Box>
               );
             })}

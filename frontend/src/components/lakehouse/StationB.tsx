@@ -18,6 +18,7 @@ import { AcExplain, type SaveState } from './AcExplain';
 import { CouplingLedger } from './CouplingLedger';
 import { CodeBlock } from './LoopSteps';
 import { StationShell } from './StationShell';
+import { SaveAsInterviewQuestion } from './SaveAsInterviewQuestion';
 import { useLabAttempt } from './useLabAttempt';
 
 const n = (v: number) => v.toLocaleString('en-GB');
@@ -265,17 +266,30 @@ export const StationB: React.FC<{
           </Box>
         )}
         explain={(
-          <AcExplain
-            enabled={committed}
-            intro={`Write the acceptance criteria for giving ${principal} access.`}
-            placeholder="Given a vendor who needs one folder, when access is granted, then they can write only there …"
-            criteria={criteria}
-            onCriteria={(text) => { setCriteria(text); setSaveState('idle'); }}
-            checked={checked}
-            onCheck={setChecked}
-            saveState={saveState}
-            onSave={saveCriteria}
-          />
+          <>
+            <AcExplain
+              enabled={committed}
+              intro={`Write the acceptance criteria for giving ${principal} access.`}
+              placeholder="Given a vendor who needs one folder, when access is granted, then they can write only there …"
+              criteria={criteria}
+              onCriteria={(text) => { setCriteria(text); setSaveState('idle'); }}
+              checked={checked}
+              onCheck={setChecked}
+              saveState={saveState}
+              onSave={saveCriteria}
+            />
+            {Boolean(lab.attempt?.completed_at) && (
+              <SaveAsInterviewQuestion
+                subjectId={subjectId}
+                packId={pack.id}
+                packVersion={pack.version}
+                station="b"
+                challengeId="access"
+                challengeTitle={ACCESS_CHALLENGE.title}
+                attempt={lab.attempt}
+              />
+            )}
+          </>
         )}
       />
 

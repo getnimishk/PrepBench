@@ -25,6 +25,7 @@ import { Actions, Bar, CheckRow, Detail, Good, Metric, MetricRow, Note, Panel, P
 import { AcExplain, type SaveState } from './AcExplain';
 import { FactoryLedger } from './FactoryLedger';
 import { FactoryTimeline } from './FactoryTimeline';
+import { SaveAsInterviewQuestion } from './SaveAsInterviewQuestion';
 import { StationShell } from './StationShell';
 
 const VISUALLY_HIDDEN = {
@@ -393,16 +394,29 @@ export const StationF: React.FC<{
           </Box>
         )}
         explain={(
-          <AcExplain
-            enabled={committed}
-            placeholder="Given the yield waves, when a consumer isn’t on the map, then the cutover is blocked until …"
-            criteria={criteria}
-            onCriteria={(text) => { setCriteria(text); setSaveState('idle'); }}
-            checked={checked}
-            onCheck={setChecked}
-            saveState={saveState}
-            onSave={saveCriteria}
-          />
+          <>
+            <AcExplain
+              enabled={committed}
+              placeholder="Given the yield waves, when a consumer isn’t on the map, then the cutover is blocked until …"
+              criteria={criteria}
+              onCriteria={(text) => { setCriteria(text); setSaveState('idle'); }}
+              checked={checked}
+              onCheck={setChecked}
+              saveState={saveState}
+              onSave={saveCriteria}
+            />
+            {Boolean(attempt?.completed_at) && (
+              <SaveAsInterviewQuestion
+                subjectId={subjectId}
+                packId={pack.id}
+                packVersion={pack.version}
+                station="f"
+                challengeId="tiering"
+                challengeTitle="Migration Factory: tiering"
+                attempt={attempt}
+              />
+            )}
+          </>
         )}
       />
 

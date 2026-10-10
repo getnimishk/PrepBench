@@ -11,8 +11,9 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.exceptions import ResourceNotFoundException
-from app.schemas.exam import MockHistoryItem
+from app.models.interview_question import InterviewQuestion
 from app.models.roadmap import Roadmap
+from app.schemas.exam import MockHistoryItem
 from app.models.subject import SubjectKind
 from app.repositories.question_repository import QuestionRepository
 from app.repositories.subject_repository import SubjectRepository
@@ -128,6 +129,10 @@ class SubjectWithReadiness(SubjectResponse):
     # archive a roadmap and the preparation stops claiming it.
     roadmap_count: int = 0
 
+    # How many interview questions saved from lab results this preparation owns.
+    # Enables interview capability when > 0 (Lakehouse Lab P1-1).
+    lab_interview_question_count: int = 0
+
 
 def _question_count(db: Session, subject) -> int:
     """How many questions this preparation owns.
@@ -195,6 +200,7 @@ def _with_readiness(db: Session, repo: SubjectRepository, subject) -> "SubjectWi
         question_count=_question_count(db, subject),
         content_packs=content_pack_service.content_packs_for(db, subject.id),
         roadmap_count=_roadmap_count(db, subject),
+        lab_interview_question_count=_lab_interview_question_count(db, subject),
     )
 
 
@@ -202,6 +208,22 @@ def _roadmap_count(db: Session, subject) -> int:
     return (
         db.query(func.count(Roadmap.id))
         .filter(Roadmap.subject_id == subject.id, Roadmap.is_archived.is_(False))
+        .scalar()
+    ) or 0
+
+
+def _lab_interview_question_count(db: Session, subject) -> int:
+    """How many interview questions saved from lab results this preparation owns.
+
+    Counts interview_questions rows where subject_id == subject.id and
+    source_ref starts with 'lab/'.
+    """
+    return (
+        db.query(func.count(InterviewQuestion.id))
+        .filter(
+            InterviewQuestion.subject_id == subject.id,
+            InterviewQuestion.source_ref.like("lab/%"),
+        )
         .scalar()
     ) or 0
 

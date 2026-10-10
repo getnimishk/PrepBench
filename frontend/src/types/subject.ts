@@ -122,6 +122,9 @@ export interface Subject {
   /** Unarchived roadmaps linked to this preparation. Whether it "has a roadmap" is
    *  read from here, so the claim follows the real link (Phase 7, D3). */
   roadmap_count?: number;
+  /** Interview questions saved from lab results under this preparation. When > 0,
+   *  unlocks the interview capability (Lakehouse Lab P1-1). */
+  lab_interview_question_count?: number;
 }
 
 /** A built-in content pack as attached to one subject: the pinned version,

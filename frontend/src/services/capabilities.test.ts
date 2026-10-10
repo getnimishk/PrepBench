@@ -491,3 +491,40 @@ describe('Known preparations are identified by slug, not by database id', () => 
     expect(getSubjectsWithCapability(live, 'interview').map((s) => s.id)).toEqual([33, 66]);
   });
 });
+
+describe('Lakehouse Lab P1-1: interview capability from saved lab questions', () => {
+  const seeded = (id: number, over: Partial<Subject> = {}): Subject => ({
+    id, name: 'Databricks', slug: 'databricks', kind: 'skill', is_archived: false, display_order: id, has_exam_profile: false,
+    question_count: 0, content_packs: [],
+    readiness: { state: 'needs_evaluation', mock_count: 0, recent_scores: [] } as unknown as Subject['readiness'],
+    ...over,
+  } as Subject);
+
+  it('keeps interview: false for Databricks when lab_interview_question_count is 0', () => {
+    const caps = getSubjectCapabilities(seeded(2, { lab_interview_question_count: 0 }));
+    expect(caps.interview).toBe(false);
+  });
+
+  it('unlocks interview: true for Databricks when lab_interview_question_count > 0', () => {
+    const caps = getSubjectCapabilities(seeded(2, { lab_interview_question_count: 1 }));
+    expect(caps.interview).toBe(true);
+  });
+
+  it('leaves profile unchanged (interview: false) when lab_interview_question_count is absent', () => {
+    const caps = getSubjectCapabilities(seeded(2));
+    expect(caps.interview).toBe(false);
+  });
+
+  it('unlocks interview: true for renumbered Databricks (id: 77, slug: databricks) when lab_interview_question_count > 0', () => {
+    const caps = getSubjectCapabilities(seeded(77, { lab_interview_question_count: 2 }));
+    expect(caps.interview).toBe(true);
+  });
+
+  it('unlocks interview for any non-Databricks preparation that owns a lab question without special casing the slug', () => {
+    const custom = seeded(99, { slug: 'custom-spark-pipeline', lab_interview_question_count: 1 });
+    expect(getSubjectCapabilities(custom).interview).toBe(true);
+
+    const customEmpty = seeded(99, { slug: 'custom-spark-pipeline', lab_interview_question_count: 0 });
+    expect(getSubjectCapabilities(customEmpty).interview).toBe(false);
+  });
+});

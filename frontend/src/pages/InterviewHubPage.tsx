@@ -238,6 +238,11 @@ export const InterviewHubPage: React.FC = () => {
     ? prompts.filter((p) => !attemptedPromptIds.has(p.id))
     : [];
   const promptCount = prompts == null ? null : prompts.length;
+  // A preparation whose interview rounds come from its saved lab questions, and that has no
+  // written scenarios, is sent to interview practice: /scenarios would show it nothing.
+  const isLabInterviewPrep = !isSystemDesignSubject
+    && (targetSubject.lab_interview_question_count ?? 0) > 0
+    && !targetCapabilities.scenarios;
 
   return (
     <Box>
@@ -263,6 +268,16 @@ export const InterviewHubPage: React.FC = () => {
                 to="/system-design"
               >
                 Open Design Studio
+              </Button>
+            ) : isLabInterviewPrep ? (
+              <Button
+                variant="contained"
+                color="primary"
+                component={RouterLink}
+                onClick={adoptTarget}
+                to="/interview-practice"
+              >
+                Practise {targetSubject.name} questions
               </Button>
             ) : (
               <Button
@@ -478,10 +493,16 @@ export const InterviewHubPage: React.FC = () => {
 
           {!isSystemDesignSubject && (
             <Row
-              title={`${targetSubject.name} scenario Say-it questions`}
+              title={
+                isLabInterviewPrep
+                  ? `${targetSubject.name} lab interview questions`
+                  : `${targetSubject.name} scenario Say-it questions`
+              }
               detail={
-                'Each scenario ends with a Say-it question for your role. Saving your answer adds it to the '
-                + `interview library under ${targetSubject.name}, where you can rehearse it aloud.`
+                isLabInterviewPrep
+                  ? `Questions saved from your Lakehouse Lab observations under ${targetSubject.name}, where you can rehearse them aloud.`
+                  : 'Each scenario ends with a Say-it question for your role. Saving your answer adds it to the '
+                    + `interview library under ${targetSubject.name}, where you can rehearse it aloud.`
               }
               middle={
                 <Pill tone={subjectQuestionTotal === null ? 'warning' : 'accent'}>
@@ -498,9 +519,9 @@ export const InterviewHubPage: React.FC = () => {
                   variant="outlined"
                   component={RouterLink}
                   onClick={adoptTarget}
-                  to="/scenarios"
+                  to={isLabInterviewPrep ? "/interview-practice" : "/scenarios"}
                 >
-                  Explore Scenarios
+                  {isLabInterviewPrep ? 'Practise Questions' : 'Explore Scenarios'}
                 </Button>
               }
             />

@@ -18,6 +18,7 @@ import { Actions, CheckRow, Detail, Good, Metric, MetricRow, Note, Panel, Pill, 
 import { AcExplain, type SaveState } from './AcExplain';
 import { CouplingLedger } from './CouplingLedger';
 import { StationShell } from './StationShell';
+import { SaveAsInterviewQuestion } from './SaveAsInterviewQuestion';
 import { useLabAttempt } from './useLabAttempt';
 
 const n = (v: number) => v.toLocaleString('en-GB');
@@ -285,16 +286,29 @@ export const StationA: React.FC<{
           </Box>
         )}
         explain={(
-          <AcExplain
-            enabled={committed}
-            placeholder="Given a copy that fails part-way, when the watermark has already moved, then …"
-            criteria={criteria}
-            onCriteria={(text) => { setCriteria(text); setSaveState('idle'); }}
-            checked={checked}
-            onCheck={setChecked}
-            saveState={saveState}
-            onSave={saveCriteria}
-          />
+          <>
+            <AcExplain
+              enabled={committed}
+              placeholder="Given a copy that fails part-way, when the watermark has already moved, then …"
+              criteria={criteria}
+              onCriteria={(text) => { setCriteria(text); setSaveState('idle'); }}
+              checked={checked}
+              onCheck={setChecked}
+              saveState={saveState}
+              onSave={saveCriteria}
+            />
+            {Boolean(lab.attempt?.completed_at) && (
+              <SaveAsInterviewQuestion
+                subjectId={subjectId}
+                packId={pack.id}
+                packVersion={pack.version}
+                station="a"
+                challengeId="watermark"
+                challengeTitle={WATERMARK_CHALLENGE.title}
+                attempt={lab.attempt}
+              />
+            )}
+          </>
         )}
       />
 

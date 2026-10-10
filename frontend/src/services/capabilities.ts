@@ -329,7 +329,7 @@ function resolveSubjectId(
 
 /** A preparation as the server sent it, rather than a bare id or slug. */
 type LiveSubject = Pick<Subject, 'id' | 'slug' | 'kind' | 'question_count'>
-  & Pick<Subject, 'content_packs' | 'roadmap_count'>;
+  & Pick<Subject, 'content_packs' | 'roadmap_count' | 'lab_interview_question_count'>;
 
 /**
  * What a preparation's curriculum really is, from its own record (Phase 7):
@@ -383,9 +383,10 @@ function deriveCapabilities(s: LiveSubject): SubjectCapabilityProfile {
   // The ADF Behaviour Lab is for any preparation with the ADF pack attached, not only the seeded
   // one: its experiments are the pack's, and the lab pages check for the pack themselves.
   const adfLab = hasAdfPack(s);
+  const hasLabQuestions = typeof s.lab_interview_question_count === 'number' && s.lab_interview_question_count > 0;
   return Object.freeze({
     certification: s.kind.toLowerCase() === 'certification',
-    interview: adfLab,
+    interview: adfLab || hasLabQuestions,
     learningLab: adfLab,
     lab: adfLab,
     lakehouseLab: s.slug === LAKEHOUSE_SLUG,
@@ -442,12 +443,15 @@ export function getSubjectCapabilities(
     // question count are read from the record, so a roadmap unlinked or a pack
     // attached shows at once (Phase 7, D3/D5), as an imported bank does.
     const curriculum = liveCurriculum(live);
+    const hasLabQuestions = typeof live.lab_interview_question_count === 'number' && live.lab_interview_question_count > 0;
+    const interview = profile.interview || hasLabQuestions;
     const sameCurriculum = Object.entries(curriculum)
       .every(([k, v]) => profile[k as keyof SubjectCapabilityProfile] === v);
-    if (live.question_count === profile.questionCount && sameCurriculum) return profile;
+    if (live.question_count === profile.questionCount && sameCurriculum && interview === profile.interview) return profile;
     return Object.freeze({
       ...profile,
       ...curriculum,
+      interview,
       questionCount: live.question_count,
       questionAvailability: live.question_count > 0,
       hasQuestionBank: live.question_count > 0,
