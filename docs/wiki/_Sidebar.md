@@ -9,6 +9,7 @@
 - [Chart Sandbox](Chart-Sandbox)
 
 **Using it**
+- [How to use the Learning Lab](Learning-Lab-Guide)
 - [AI Providers](AI-Providers)
 - [Importing Content](Importing-Content)
 

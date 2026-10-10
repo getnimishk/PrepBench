@@ -12,6 +12,7 @@ If you just want to run it, the [README](https://github.com/getnimishk/PrepBench
 | **[Architecture](Architecture)** | Backend layering, the request path, the 33 tables, preparation scope (who can reach what), the seed ledger, why there is no Alembic, and what CI actually enforces |
 | **[Readiness](Readiness)** | Subjects, why a drill never counts as a mock, the five states and the thresholds behind them |
 | **[Design Review](Design-Review)** | Two defensible architectures, the deciding axis, and why grading assesses the reasoning rather than the choice |
+| **[How to use the Learning Lab](Learning-Lab-Guide)** | For learners: what you are doing in each lab, the controls on every station, how to read results, and how to get the most out of it |
 | **[Learning Lab](Learning-Lab)** | The three sandboxes (Agile Metrics, the ADF Behaviour Lab, the Lakehouse Lab and its six stations), the rules they share, and where Station I's facts come from |
 | **[Chart Sandbox](Chart-Sandbox)** | The Agile Metrics sandbox: the executable delivery model, the coupling ledger, the 27 views, and the guided learning layer |
 | **[AI Providers](AI-Providers)** | The provider gateway, task-level routing, local model setup, and how keys are stored |
