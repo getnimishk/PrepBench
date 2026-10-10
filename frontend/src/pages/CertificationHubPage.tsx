@@ -103,14 +103,16 @@ export const CertificationHubPage: React.FC = () => {
     };
   }, []);
 
-  // Resolve target subject strictly without silent switching
+  // Resolve target subject strictly without silent switching. The slug is a
+  // preparation's identity and is what this hub's links carry, so it is tried
+  // first: a preparation named "4" is reached by "?subject=4", whichever
+  // preparation holds id 4. An id is still read for older links.
   const targetSubject = useMemo(() => {
     if (urlSubjectParam) {
+      const bySlug = subjects.find((s) => s.slug === urlSubjectParam);
+      if (bySlug) return bySlug;
       const num = Number(urlSubjectParam);
-      if (!Number.isNaN(num)) {
-        return subjects.find((s) => s.id === num) ?? null;
-      }
-      return subjects.find((s) => s.slug === urlSubjectParam) ?? null;
+      return Number.isNaN(num) ? null : subjects.find((s) => s.id === num) ?? null;
     }
     if (ctxSelectedId != null) {
       return subjects.find((s) => s.id === ctxSelectedId) ?? ctxSelected ?? null;
@@ -188,12 +190,19 @@ export const CertificationHubPage: React.FC = () => {
                 key={s.id}
                 variant="contained"
                 component={RouterLink}
-                to={`/certification?subject=${s.id}`}
+                to={`/certification?subject=${encodeURIComponent(s.slug)}`}
               >
                 {s.name} ({s.certification ?? 'Exam'})
               </Button>
             ))}
           </Stack>
+          {certCapable.length === 0 && (
+            <Typography variant="body2" sx={{ color: loadError ? 'error.main' : 'text.secondary' }} role={loadError ? 'alert' : undefined}>
+              {loadError
+                ? `${loadError} Your preparations could not be read, so no certification can be offered.`
+                : 'None of your preparations is a certification yet.'}
+            </Typography>
+          )}
         </Panel>
       </Box>
     );

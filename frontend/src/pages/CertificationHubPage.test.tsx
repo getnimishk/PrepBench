@@ -287,14 +287,40 @@ describe('CertificationHubPage — Phase 4 Certification Integration', () => {
     expect(screen.getByText('Certification Readiness Scoping')).toBeInTheDocument();
     expect(screen.getByText(/PrepBench certification assessments require formal subject scoping\./)).toBeInTheDocument();
 
-    // Offers available certification tracks
+    // Offers available certification tracks, by slug
     expect(screen.getByRole('link', { name: /Scrum \/ PSM I/ })).toHaveAttribute(
       'href',
-      '/certification?subject=1'
+      '/certification?subject=psm-i'
     );
     expect(
       screen.getByRole('link', { name: /Confluent Certified Developer for Apache Kafka/ })
-    ).toHaveAttribute('href', '/certification?subject=4');
+    ).toHaveAttribute('href', '/certification?subject=confluent-certified-developer-for-apache-kafka');
+  });
+
+  it('links tracks by slug and reaches a preparation whose slug looks like a number, not the one holding that id', async () => {
+    // A certification named "4" has the slug "4"; Kafka holds id 4.
+    const NAMED_FOUR: Subject = { ...PSM_SUBJECT, id: 40, name: '4', slug: '4', certification: 'Cert Four' };
+    mockGetSubjects.mockResolvedValue([...ALL_SUBJECTS, NAMED_FOUR]);
+    mockPreparation.mockReturnValue({ selectedId: null, selected: null, capabilities: UNASSIGNED_CAPABILITIES });
+    renderCertHub('/certification?subject=4');
+    expect(await screen.findByRole('heading', { level: 1, name: /Cert Four|4/ })).toBeInTheDocument();
+    expect(screen.queryByText(/Confluent Certified Developer for Apache Kafka/)).not.toBeInTheDocument();
+  });
+
+  it('says so in the chooser when no preparation is a certification', async () => {
+    mockGetSubjects.mockResolvedValue([DATABRICKS_SUBJECT, ADF_SUBJECT]);
+    mockPreparation.mockReturnValue({ selectedId: null, selected: null, capabilities: UNASSIGNED_CAPABILITIES });
+    renderCertHub();
+    expect(await screen.findByText('Select a Certification')).toBeInTheDocument();
+    expect(screen.getByText('None of your preparations is a certification yet.')).toBeInTheDocument();
+  });
+
+  it('says the preparations could not be read, rather than that none is a certification', async () => {
+    mockGetSubjects.mockRejectedValue(new Error('offline'));
+    mockPreparation.mockReturnValue({ selectedId: null, selected: null, capabilities: UNASSIGNED_CAPABILITIES });
+    renderCertHub();
+    expect(await screen.findByText(/Could not load certification data/)).toBeInTheDocument();
+    expect(screen.queryByText('None of your preparations is a certification yet.')).not.toBeInTheDocument();
   });
 
   it('enforces subject-switch isolation: PSM I -> Kafka -> PSM I guarantees Kafka shows 0 questions and never inherits PSM I content', async () => {
