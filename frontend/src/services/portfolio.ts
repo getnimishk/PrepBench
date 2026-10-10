@@ -9,6 +9,7 @@ import { TIERING_CHALLENGE } from './lakehouse/factoryModel';
 import { ACCESS_CHALLENGE, WATERMARK_CHALLENGE } from './lakehouse/pipelineChallenges';
 import { challengeById } from './lakehouse/stationC';
 import { defectTitle } from './lakehouse/stationD';
+import { STATION_I_TITLES } from './lakehouse/identityModel';
 import { CONCEPTS } from './learning/concepts';
 
 /**
@@ -35,6 +36,7 @@ const LAKEHOUSE_TITLES: Record<string, string> = {
   [WATERMARK_CHALLENGE.id]: WATERMARK_CHALLENGE.title,
   [ACCESS_CHALLENGE.id]: ACCESS_CHALLENGE.title,
   [TIERING_CHALLENGE.id]: 'Migration Factory: tiering',
+  ...STATION_I_TITLES,
 };
 
 /** The title to show for an item: from the lab's own registry when it is lab work. */

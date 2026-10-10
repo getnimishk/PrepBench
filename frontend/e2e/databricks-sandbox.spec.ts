@@ -181,6 +181,34 @@ test('Station D: says it is a teaching simulation, scores against the pack, and 
   await expect(page.getByText(/Run an operation first/)).toBeVisible();
 });
 
+test('Station I: says it is a simulation, cites its sources, and shows the cutover result only after a prediction', async ({ page }) => {
+  await page.goto('/databricks-sandbox?station=i');
+  await expect(page.getByRole('heading', { level: 2, name: 'Station I \u00b7 Identity and governance' })).toBeVisible();
+  await expect(page.getByText(/A teaching simulation over a fictional estate\. Nothing here calls Microsoft Entra ID/)).toBeVisible();
+  const grounds = page.getByRole('region', { name: 'What this puzzle rests on' });
+  await expect(grounds.getByRole('link', { name: 'Managed identities for Azure resources' }).first())
+    .toHaveAttribute('href', 'https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/overview');
+  await expect(page.getByText(/Generally Available/)).toHaveCount(0);
+
+  // Commit unless this worker already did; the result is shown only after.
+  const commit = page.getByRole('button', { name: 'Commit prediction' });
+  if (await commit.count() > 0) {
+    await expect(page.getByText('No token')).toHaveCount(0);
+    await page.getByRole('radio', { name: 'svc-tool-feed' }).check();
+    await commit.click();
+  }
+  await expect(page.getByRole('button', { name: 'Prediction committed' })).toBeVisible();
+  const observe = page.getByRole('region', { name: /3 \u00b7 Observe/ });
+  await expect(observe.getByText('No token')).toBeVisible();
+  await expect(observe.getByText('Token from Azure Databricks')).toBeVisible();
+
+  // The governance puzzle is its own attempt, behind the same lock.
+  await page.getByRole('button', { name: 'A Ranger policy, redesigned' }).click();
+  const policy = page.getByLabel('The legacy Ranger policy on retail.customer_orders');
+  await expect(policy).toBeVisible();
+  await expect(policy).toContainText('public: 1 = 0');
+});
+
 test('Station C still opens from the rail, and the notebook is marked Unverified', async ({ page }) => {
   await page.goto('/databricks-sandbox?station=a');
   await page.getByRole('button', { name: 'C \u00b7 Delta Lake' }).click();

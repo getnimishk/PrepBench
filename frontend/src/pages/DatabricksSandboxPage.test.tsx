@@ -112,6 +112,21 @@ describe('DatabricksSandboxPage', () => {
     expect(await screen.findByRole('heading', { level: 2, name: /Station F/ })).toBeInTheDocument();
   });
 
+  it('shows Station I beside the Migration Factory, at programme level, only when the pack lists it', async () => {
+    vi.mocked(api.getLakehousePack).mockResolvedValue({ ...pack, stations: ['a', 'b', 'c', 'd', 'f', 'i'] });
+    const { unmount } = renderPage('/databricks-sandbox?station=i');
+    expect(await screen.findByRole('heading', { level: 2, name: 'Station I · Identity and governance' })).toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: 'Stations' });
+    expect(within(nav).getAllByRole('button').map((b) => b.textContent)).toEqual([
+      'F · Migration Factory', 'I · Identity and governance',
+      'A · ADF + Lakeflow', 'B · ADLS', 'C · Delta Lake', 'D · Reconciliation Detective',
+    ]);
+    unmount();
+    vi.mocked(api.getLakehousePack).mockResolvedValue(pack);
+    renderPage('/databricks-sandbox?station=i'); // a pack that lists no I: falls back to its first station
+    expect(await screen.findByRole('heading', { level: 2, name: /Station F/ })).toBeInTheDocument();
+  });
+
   it('opens Station A and Station B, each with its own heading', async () => {
     const { unmount } = renderPage('/databricks-sandbox?station=a');
     expect(await screen.findByRole('heading', { level: 2, name: /Station A/ })).toBeInTheDocument();
