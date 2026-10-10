@@ -53,6 +53,7 @@ TASK_LABELS = {
     LLMTask.EMBEDDING: "Semantic search indexing",
     LLMTask.DESIGN_REVIEW_GRADING: "Design Review grading",
     LLMTask.TOPIC_GUIDE_DRAFTING: "Study guide drafting",
+    LLMTask.ACCEPTANCE_CRITERIA_FEEDBACK: "Acceptance criteria feedback",
 }
 
 # What each feature does when no provider can run it. Stated next to the
@@ -67,6 +68,7 @@ TASK_FALLBACKS = {
     LLMTask.INTERVIEW_QUESTION_GEN: "Generation is unavailable; the built-in question bank still works.",
     LLMTask.SYSTEM_DESIGN_PROMPT_GEN: "Generation is unavailable; the built-in prompt bank still works.",
     LLMTask.EMBEDDING: "Question checks use keyword matching instead of semantic search.",
+    LLMTask.ACCEPTANCE_CRITERIA_FEEDBACK: "Feedback shows Not graded; deterministic structure checks still run.",
 }
 
 # Ports probed by local detection, in the order a user is most likely to have

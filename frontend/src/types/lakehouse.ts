@@ -179,3 +179,10 @@ export interface AcCheck {
   passed: boolean;
   hint: string;
 }
+
+/** AI feedback on acceptance criteria (P1-6). Advice only, no score or verdict. */
+export interface CriteriaFeedbackResponse {
+  status: 'feedback' | 'not_graded';
+  points?: string[];
+  reason?: string | null;
+}

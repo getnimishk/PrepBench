@@ -337,3 +337,20 @@ class JournalEntry(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ---- acceptance criteria feedback (P1-6) -------------------------------------------
+
+
+class CriteriaFeedbackRequest(BaseModel):
+    criteria: str = Field(min_length=1, max_length=4000)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class CriteriaFeedbackResponse(BaseModel):
+    status: Literal["feedback", "not_graded"]
+    points: List[str] = Field(default_factory=list)
+    reason: Optional[str] = None
+
+    model_config = ConfigDict(extra="forbid")

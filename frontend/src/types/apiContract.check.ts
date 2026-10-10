@@ -25,7 +25,8 @@ import type { DomainPlanItem, ExamAnswer, ExamDetail, ExamPreview, ExamSession, 
 import type { InterviewQuestion } from './interviewQuestion';
 import type { InterviewSession, InterviewSessionReport } from './interviewSession';
 import type {
-  EngineStatus, JournalEntry, LabOperationResult, LabPackDetail, LabPackSummary, LabResetResult, SourceIndexRow,
+  CriteriaFeedbackResponse, EngineStatus, JournalEntry, LabOperationResult, LabPackDetail, LabPackSummary,
+  LabResetResult, SourceIndexRow,
 } from './lakehouse';
 import type { LLMProvider, LLMTaskBinding, SystemInfo } from './llm';
 import type { Profile } from './profile';
@@ -151,6 +152,7 @@ export function apiContract(): void {
   fits<LabResetResult>(api('LabResetResult'));
   fits<JournalEntry>(api('JournalEntry'));
   fits<SourceIndexRow>(api('SourceIndexRow'));
+  fits<CriteriaFeedbackResponse>(api('CriteriaFeedbackResponse'));
 
   fits<Profile>(api('ProfileResponse'));
   fits<LLMProvider>(api('ProviderResponse'));

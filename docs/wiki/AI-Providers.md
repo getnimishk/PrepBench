@@ -2,9 +2,9 @@
 
 PrepBench runs fine with no AI at all. Exams, the question bank, roadmaps, analytics, the Chart Sandbox, spaced repetition and export never touch a model.
 
-AI backs seven named tasks, and you decide who runs each one. Configure it at **Settings → AI Providers**.
+AI backs named tasks, and you decide who runs each one. Configure it at **Settings → AI Providers**.
 
-## The seven tasks
+## Named tasks
 
 `LLMTask` in `app/llm/types.py` names every AI-backed operation in the app, once:
 
@@ -16,7 +16,9 @@ AI backs seven named tasks, and you decide who runs each one. Configure it at **
 | `interview_question_gen` | Generating interview questions |
 | `system_design_prompt_gen` | Generating system design prompts |
 | `content_validation` | The pre-import audit on question batches |
+| `topic_guide_drafting` | Drafting study guides from topic notes |
 | `embedding` | Vector operations |
+| `acceptance_criteria_feedback` | AI advice on Lakehouse Lab acceptance criteria |
 
 **Routing is per task.** `llm_task_binding` maps each task to a provider independently, so you can grade system design on a local model and send only audio to a cloud one. Nothing forces a single choice across the app.
 
@@ -122,6 +124,7 @@ Every AI-backed feature reports itself **unavailable**. None falls back to a heu
 | Design review grading | `grading_status: not_graded`, **no verdict** — the attempt still saves and the reveal still shows |
 | Interview recording analysis | Unavailable — the recording is still kept |
 | Question generation and the import audit | Unavailable; import itself is unaffected |
+| Acceptance criteria feedback | *"Not Graded"* — advice is unavailable; criteria still save and deterministic checks run |
 
 This is the first of the project's four rules (see [Home](Home)): an invented grade is worse than a missing one, because the learner cannot tell the difference. A `0%` on a system design answer reads as *"you scored nothing"*, not *"nothing scored you"* — and on a design review, a fabricated `missed` verdict would blame the learner for a missing API key.
 

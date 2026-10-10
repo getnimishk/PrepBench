@@ -11,8 +11,8 @@ import type { SpacedDeck, SpacedGrade, SpacedGradeResult } from '../types/spaced
 import type { Role, RoleCreate, RoleDiagnostic, RoleDiagnosticItem, RoleRequirementIn, RoleSummary } from '../types/role';
 import type { WireLearningAttempt } from '../types/learning';
 import type {
-  EngineStatus, JournalEntry, JournalEntryIn, LabOperation, LabOperationResult, LabPackDetail, LabPackSummary, LabResetResult,
-  SourceIndexRow,
+  CriteriaFeedbackResponse, EngineStatus, JournalEntry, JournalEntryIn, LabOperation, LabOperationResult,
+  LabPackDetail, LabPackSummary, LabResetResult, SourceIndexRow,
 } from '../types/lakehouse';
 import { ScoreTrendPoint, DomainMasteryItem, DomainDetail } from '../types/analytics';
 import { AppSettings } from '../types/settings';
@@ -1443,3 +1443,9 @@ export const getLakehouseJournalMarkdown = (packId?: string) =>
 
 export const getLakehouseNotebook = (packId: string) =>
   getLakehouseText(`/packs/${encodeURIComponent(packId)}/notebook`, { station: 'c' });
+
+/** AI feedback on acceptance criteria (P1-6). Advice only, never a grade or score. */
+export const getLakehouseCriteriaFeedback = async (criteria: string) => {
+  const res = await api.post<CriteriaFeedbackResponse>(`${LAKEHOUSE}/criteria/feedback`, { criteria });
+  return res.data;
+};
