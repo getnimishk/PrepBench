@@ -2,7 +2,7 @@
 # Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 # Commercial use requires a separate licence from the copyright holder.
 
-from typing import List, Optional
+from typing import List, Literal, Optional
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from app.models.question import QuestionDifficulty
@@ -19,7 +19,8 @@ class FlowStage(BaseModel):
 
 
 class DesignOptionBase(BaseModel):
-    label: str
+    # A review compares two options, A and B (VALID_CHOICES adds "ask_first" for the learner's choice).
+    label: Literal["A", "B"]
     name: str
     summary: str
     flow: List[FlowStage] = []
@@ -189,10 +190,11 @@ class DesignReviewAttemptResponse(BaseModel):
     id: int
     review_id: int
     review_title: Optional[str] = None
-    choice: str
+    choice: Literal["A", "B", "ask_first"]  # VALID_CHOICES, enforced on submit
     justification: str
     grading_status: str
-    axis_verdict: Optional[str] = None
+    # Stored only after the grader's verdict is checked against VALID_VERDICTS; otherwise None (not graded).
+    axis_verdict: Optional[Literal["named", "partial", "missed"]] = None
     feedback: Optional[str] = None
     time_spent_seconds: int
     created_at: datetime

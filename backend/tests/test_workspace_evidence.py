@@ -437,3 +437,23 @@ def test_reading_workspace_and_evidence_writes_nothing():
     assert client.get(ATTEMPTS, params={"subject_id": sid}).json() == before
     assert client.post("/api/v1/workspace").status_code == 405
     assert client.post("/api/v1/evidence").status_code == 405
+
+def test_a_station_d_claim_is_worded_as_a_claim_not_a_prediction(db):
+    # Station D records a defect the learner claims, backed by an engine result they cited, and checks it
+    # against the pack's planted defects (P1-2). It is not a prediction checked against what the engine did.
+    databricks = _preparation("Databricks")["id"]
+    _attempt(databricks, f"lk:{databricks}:semiconductor-v1@1:d-precision", "lakehouse.d.precision",
+             "lakehouse.d.precision", "pack=semiconductor-v1@1", prediction="precision",
+             observed={"claim": "precision", "basis": "300 rows differ in yield_pct", "source": "engine", "ok": True},
+             completed=True, correct=True)
+    _attempt(databricks, f"lk:{databricks}:semiconductor-v1@1:i-identity-cutover", "lakehouse.i.identity-cutover",
+             "lakehouse.i.identity-cutover", "pack=semiconductor-v1@1", prediction="tool-feed",
+             observed={"failing_workload": "svc-tool-feed", "plans_that_work": 3, "source": "simulation"},
+             completed=True, correct=True)
+    by_challenge = {i["ref"]["challenge_id"]: i for i in _evidence(databricks)["items"]}
+    claim = by_challenge["lakehouse.d.precision"]["basis"]
+    assert "Prediction" not in claim
+    assert "Defect claim checked against the pack's planted defects" in claim
+    assert "engine result you cited" in claim
+    # Station I is a simulation: its prediction is checked against the model.
+    assert "Prediction checked against the model's simulation" in by_challenge["lakehouse.i.identity-cutover"]["basis"]

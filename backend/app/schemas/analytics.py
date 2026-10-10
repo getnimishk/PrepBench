@@ -2,7 +2,7 @@
 # Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 # Commercial use requires a separate licence from the copyright holder.
 
-from typing import List, Dict, Optional
+from typing import List, Dict, Literal, Optional
 from pydantic import BaseModel
 
 class TopicMasteryItem(BaseModel):
@@ -53,7 +53,7 @@ class DomainQuestionItem(BaseModel):
     topic: str
     # unseen: never answered. missed: answered wrong at least once. correct:
     # answered, and never wrong.
-    state: str
+    state: Literal["unseen", "missed", "correct"]
     times_answered: int
     times_correct: int
     due: bool

@@ -155,7 +155,10 @@ class ExamSessionResponse(BaseModel):
     # `source` is response-only on purpose -- there is no field for it on
     # ExamCreateRequest, so a client cannot declare its own provenance and
     # everything the app records is the learner's.
-    session_kind: str = DRILL
+    #
+    # Written only through the create request, whose validator accepts these
+    # two; the column defaults to "drill".
+    session_kind: Literal["mock", "drill"] = DRILL
     subject_id: Optional[int] = None
     total_questions: int
     answered_questions: int

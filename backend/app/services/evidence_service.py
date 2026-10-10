@@ -119,8 +119,14 @@ class EvidenceService:
         if kind.family == "lakehouse":
             observed = attempt.observed or {}
             engine = isinstance(observed, dict) and observed.get("source") != "simulation" and "ok" in observed
-            check = ("Prediction checked against what the real Delta engine did" if engine
-                     else "Prediction checked against the model's simulation")
+            if attempt.challenge_id.startswith("lakehouse.d."):
+                # Station D (P1-2): the learner claims a defect and cites an engine result; the claim is
+                # checked against the pack's planted defects. It was never a prediction.
+                check = "Defect claim checked against the pack's planted defects, with the engine result you cited"
+            elif engine:
+                check = "Prediction checked against what the real Delta engine did"
+            else:
+                check = "Prediction checked against the model's simulation"
             return EvidenceItem(**base, source="learning_lab", kind="lakehouse_challenge", assessed_by="model",
                                 title=kind.title, demonstrates="Lakehouse Lab challenge",
                                 basis=self._basis(attempt, check))
