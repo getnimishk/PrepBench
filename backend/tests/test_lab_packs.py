@@ -49,7 +49,7 @@ class TestEveryShippedPack:
         assert p.manifest.notebook_verified_on is None or re.match(r"^\d{4}-\d{2}-\d{2}$", p.manifest.notebook_verified_on)
 
     def test_manifest_stations_are_ones_the_lab_has(self, pack_id):
-        assert set(_pack(pack_id).manifest.stations) <= {"a", "b", "c", "f", "i"}
+        assert set(_pack(pack_id).manifest.stations) <= {"a", "b", "c", "d", "f", "i"}
         assert "c" in _pack(pack_id).manifest.stations      # every pack runs Station C
 
     def test_has_the_table_station_c_names_with_the_columns_its_challenges_rely_on(self, pack_id):

@@ -42,7 +42,7 @@ This plan is written to be picked up **cold, in a new session**. Each phase is s
 | 1B | Page shell + Station C UI + journal | 1A gate | **Merged** (PR #60). Open: the author runs the notebook on Free Edition | `GATE-LL-1B-REPORT.md` |
 | 2 | Station F: Migration Factory | 1B gate | **Merged** (PR #62) | `GATE-LL-2-REPORT.md` |
 | 3 | Stations A and B + downstream flow | 2 gate | **Merged** (PR #66) | `GATE-LL-3-REPORT.md` |
-| 4 | Interview-ready (P1-1 to P1-6) | 3 gate | In progress, one PR per item. **P1-3 merged** (PR #68). **P1-4 delivered** by the skills plan's Phase 4 (role diagnostic, checked 2026-10-09). **To build: P1-1, P1-2, P1-5, P1-6**, briefed in `lakehouse-p1-handoff.md` | `GATE-LL-P1-3-REPORT.md` (P1-3); the rest TBD |
+| 4 | Interview-ready (P1-1 to P1-6) | 3 gate | In progress, one PR per item. **P1-3 merged** (PR #68). **P1-4 delivered** by the skills plan's Phase 4 (role diagnostic, checked 2026-10-09). **P1-2 built** (Station D, `GATE-LL-P1-2-REPORT.md`; PR pending). **To build: P1-1, P1-5, P1-6**, briefed in `lakehouse-p1-handoff.md` | `GATE-LL-P1-3-REPORT.md` (P1-3), `GATE-LL-P1-2-REPORT.md` (P1-2); the rest TBD |
 | Later | P2 items | — | Not planned | — |
 
 PR #31 (interview importer keeps prepared answers and talking points, Phase 4's P1-1) and PR #32 (spec, design and

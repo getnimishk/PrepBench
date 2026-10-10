@@ -122,7 +122,7 @@ class PackManifest(BaseModel):
     summary: str = ""
     fictional: bool
     seed: int
-    stations: List[Literal["a", "b", "c", "f", "i"]]
+    stations: List[Literal["a", "b", "c", "d", "f", "i"]]
     # Set by hand, after someone has run the exported notebook on Databricks Free
     # Edition. Until then the export says "Unverified".
     notebook_verified_on: Optional[str] = None

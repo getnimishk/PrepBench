@@ -20,6 +20,8 @@ describe('naming lab work from the registries that already name it', () => {
     expect(titleOf({ title: 'fallback', ref: { challenge_id: 'lakehouse.a.watermark-order' } }))
       .toBe('The watermark moves before the copy');
     expect(titleOf({ title: 'Server title', ref: { challenge_id: 'lakehouse.z.unknown' } })).toBe('Server title');
+    expect(titleOf({ title: 'fallback', ref: { challenge_id: 'lakehouse.d.null-scrap' } }))
+      .toBe('Reconciliation Detective: nulls written as zero');
     expect(titleOf({ title: 'Server title', ref: { track: 'no-such-experiment' } })).toBe('Server title');
     expect(titleOf({ title: 'The missing lots', ref: {} })).toBe('The missing lots');
   });
