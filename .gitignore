@@ -54,12 +54,10 @@ frontend/dist/
 .DS_Store
 Thumbs.db
 
-# Claude Code config and instructions -- local to each machine, not project
-# source. CLAUDE.md carries session-to-session notes and standing instructions
-# for whoever's working on this machine; it isn't meant to be reviewed as a
-# diff or shared through the repo.
+# Claude Code's local config (settings, skills) stays on each machine.
+# CLAUDE.md is tracked (since 2026-10-11): it is the project's rulebook for AI
+# assistants, and changes to it go through pull requests like any other doc.
 .claude/
-CLAUDE.md
 
 # Coverage artifacts
 .coverage
