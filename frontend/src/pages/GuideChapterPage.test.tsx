@@ -132,6 +132,9 @@ describe('GuideChapterPage: images and rich source links', () => {
                 caption: 'Official ADF lifecycle diagram.',
                 source_attribution: 'Microsoft Learn',
                 source_url: 'https://example.test/docs',
+                license: 'CC BY 4.0',
+                license_url: 'https://creativecommons.org/licenses/by/4.0/',
+                modification_status: 'Unmodified',
               },
             },
           ],
@@ -151,6 +154,11 @@ describe('GuideChapterPage: images and rich source links', () => {
     const sourceLink = screen.getByRole('link', { name: '(Source: Microsoft Learn)' });
     expect(sourceLink).toHaveAttribute('href', 'https://example.test/docs');
     expect(sourceLink).toHaveAttribute('target', '_blank');
+
+    const licenseLink = screen.getByRole('link', { name: 'CC BY 4.0' });
+    expect(licenseLink).toHaveAttribute('href', 'https://creativecommons.org/licenses/by/4.0/');
+    expect(licenseLink).toHaveAttribute('target', '_blank');
+    expect(screen.getByText(/\(Unmodified\)/)).toBeInTheDocument();
 
     const inlineLink = screen.getByRole('link', { name: 'Microsoft Learn guide' });
     expect(inlineLink).toHaveAttribute('href', 'https://example.test/docs');

@@ -24,7 +24,10 @@
             "alt": "Azure Data Factory end-to-end data integration architecture and lifecycle",
             "caption": "Azure Data Factory end-to-end lifecycle: Connect & Collect, Transform & Enrich, CI/CD & Publish, and Continuous Monitoring.",
             "source_attribution": "Microsoft Learn — Introduction to Azure Data Factory",
-            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/introduction"
+            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/introduction",
+            "license": "CC BY 4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "modification_status": "Unmodified"
           }
         },
         {
@@ -130,7 +133,10 @@
             "alt": "Relationship between Azure Data Factory entities: Pipelines, Activities, Datasets, Linked Services, and Integration Runtime",
             "caption": "Azure Data Factory entity relationships: Activities inside a pipeline consume input datasets and produce output datasets, connecting to external data stores via linked services and integration runtimes.",
             "source_attribution": "Microsoft Learn — Datasets and Linked Services",
-            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/concepts-datasets-linked-services"
+            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/concepts-datasets-linked-services",
+            "license": "CC BY 4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "modification_status": "Unmodified"
           }
         },
         {
@@ -177,7 +183,10 @@
             "alt": "Pipelines enclosing activities chained with dependencies consuming datasets",
             "caption": "Pipelines group activities that execute sequentially or in parallel, chained by dependency conditions and consuming datasets.",
             "source_attribution": "Microsoft Learn — Pipelines and Activities",
-            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/concepts-pipelines-activities"
+            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/concepts-pipelines-activities",
+            "license": "CC BY 4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "modification_status": "Unmodified"
           }
         },
         {
@@ -262,7 +271,10 @@
             "alt": "Integration runtime network routing across Azure, Managed VNet, and on-premises",
             "caption": "Integration Runtime routing: Azure IR for public cloud stores, Managed VNet IR with private endpoints, and Self-hosted IR for on-premises firewalls.",
             "source_attribution": "Microsoft Learn — Integration Runtime",
-            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/concepts-integration-runtime"
+            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/concepts-integration-runtime",
+            "license": "CC BY 4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "modification_status": "Unmodified"
           }
         },
         {
@@ -348,7 +360,7 @@
         },
         {
           "heading": "The self-hosted IR, in practice",
-          "md": "When the source sits in a private network (an on-premises database, a Hadoop cluster), you install the self-hosted IR on a Windows machine **inside that network**: a physical server on premises, or a virtual machine in a private Azure virtual network.\n\n- **Service vs data connectivity:** Outbound HTTPS connections to Azure on **port 443** are required for control-plane communication (dispatching tasks, polling queues, reporting heartbeat). Data-movement connectivity is distinct: the SHIR connects directly to source and sink data stores. While cloud store transfers typically use HTTPS (port 443), database connectors require their own destination ports (for example, outbound port 1433 for Azure SQL Database or Azure Synapse Analytics, unless using staged copy to route via storage).\n- **No inbound internet ports required:** It polls an Azure service bus queue for work, so no inbound ports from the public internet need to be opened on your corporate firewall.\n- **Credential manager and port 8060:** Inbound TCP port 8060 is required on the local machine's Windows Firewall for the credential manager application and PowerShell encryption cmdlet to set credentials on the host. In multi-node high-availability clusters, enabling optional 'Remote access from intranet' uses port 8060 by default for node-to-node credential syncing across your private network, but should never be exposed to the public internet.\n- **Internal network path:** The host machine must reach the source on your internal network (the database's specific port, through internal corporate firewalls) and reach Azure outbound on 443 (via proxy if configured). Microsoft guidance recommends treating sources as firewalled on-premises even when ExpressRoute is present, and using a self-hosted IR for databases hosted on private Azure VMs.\n- **Private networking choices:** Organizations requiring private connectivity can route SHIR traffic through ExpressRoute or a site-to-site VPN. To keep ADF control-plane traffic off the public internet, configure Azure Private Link for the data factory. ExpressRoute/VPN and Private Link can be deployed independently or together depending on corporate security policies.\n- **Credential management:** Credentials can be encrypted locally on the host machine using the credential manager, or ideally, referenced directly from **Azure Key Vault** using managed identities.\n- **High availability and scale:** Up to four physical or virtual machines can be joined into a single active-active logical SHIR cluster for high availability and throughput. Install nodes near the source systems to minimize latency.\n- If either side of a copy requires a self-hosted IR, the copy activity executes on it; both source and sink must be reachable from that SHIR machine.\n\n**Why it matters to you:** the self-hosted IR is a real server someone has to own: patching, monitoring, capacity and failover. In a migration plan it is a workstream, not a checkbox."
+          "md": "When the source sits in a private network (an on-premises database, a Hadoop cluster), you install the self-hosted IR on a Windows machine **inside that network**: a physical server on premises, or a virtual machine in a private Azure virtual network.\n\n- **Service vs data connectivity:** Outbound HTTPS connections to Azure on **port 443** are required for control-plane communication (dispatching tasks, polling queues, reporting heartbeat). Data-movement connectivity is distinct: the SHIR connects directly to source and sink data stores. While cloud store transfers typically use HTTPS (port 443), database connectors require their own destination ports (for example, outbound port 1433 for Azure SQL Database or Azure Synapse Analytics, unless using staged copy to route via storage).\n- **No inbound internet ports required:** It polls an Azure service bus queue for work, so no inbound ports from the public internet need to be opened on your corporate firewall.\n- **Credential manager and port 8060:** Inbound TCP port 8060 is required on the local machine's Windows Firewall for the credential manager application and PowerShell encryption cmdlet to set credentials on the host. In multi-node high-availability clusters, enabling optional 'Remote access from intranet' uses port 8060 by default for node-to-node credential syncing across your private network, but should never be exposed to the public internet.\n- **Internal network path:** The host machine must reach the source on your internal network (the database's specific port, through internal corporate firewalls) and reach Azure outbound on 443 (via proxy if configured). Microsoft guidance recommends treating sources as firewalled on-premises even when ExpressRoute is present, and using a self-hosted IR for databases hosted on private Azure VMs.\n- **Private networking choices:** Organizations requiring private connectivity can route SHIR traffic through ExpressRoute or a site-to-site VPN. To keep ADF control-plane traffic off the public internet, configure Azure Private Link for the data factory. ExpressRoute/VPN and Private Link can be deployed independently or together depending on corporate security policies.\n- **Credential management:** Credentials can be encrypted locally on the host machine using the credential manager, or ideally, referenced directly from **Azure Key Vault** using managed identities.\n- **High availability and scale:** Up to four physical or virtual machines can be joined into a single active-active logical SHIR cluster for high availability and throughput. Install nodes near the source systems to minimize latency.\n- **Execution IR and network reachability:** When copying data directly, if either side requires a self-hosted IR, the copy activity executes on that SHIR; the SHIR host machine must have network reachability to both the source and the sink on their required connector ports. However, in a **staged copy**, the transfer is split into two legs: the SHIR uploads data from the private source to interim cloud staging storage over outbound HTTPS (port 443), and an Azure IR completes the transfer from staging into the cloud destination. In that staged scenario, the SHIR host does not need direct connectivity or open database ports (such as outbound port 1433) to the destination database.\n\n**Why it matters to you:** the self-hosted IR is a real server someone has to own: patching, monitoring, capacity and failover. In a migration plan it is a workstream, not a checkbox."
         },
         {
           "heading": "Where the work happens",
@@ -445,7 +457,10 @@
             "alt": "Copy activity data movement engine from hybrid sources to sinks",
             "caption": "Copy activity execution: Ingestion across hybrid on-premises and cloud sources into analytics data stores.",
             "source_attribution": "Microsoft Learn — Copy Activity Overview",
-            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-overview"
+            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-overview",
+            "license": "CC BY 4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "modification_status": "Unmodified"
           }
         },
         {
@@ -457,13 +472,16 @@
         },
         {
           "heading": "Staged copy: architecture and network bypass",
-          "md": "When copying data between disparate environments or loading analytical data stores, **Staged copy** allows ADF to use interim blob or ADLS Gen2 storage as an intermediary staging buffer:\n\n- **High-speed bulk ingestion:** Sinks such as Azure Synapse Analytics achieve maximum ingestion throughput using PolyBase or the `COPY` statement, both of which require source files staged in cloud storage.\n- **Firewall & network port bypass:** In restricted corporate environments where direct database connectivity (such as outbound port 1433 for Azure SQL/Synapse) is blocked by corporate firewall policies, staged copy enables a hybrid SHIR to upload encrypted data via HTTPS (port 443) to interim storage, allowing an Azure IR to complete the final load.\n- **Compression and transport efficiency:** Staged copy compresses data in transit across slow WAN connections, reducing bandwidth consumption.\n- **Cleanup configuration:** ADF can automatically delete temporary staging files upon copy completion (`enableStaging: true`, `stagingSettings.enableStaging: true`).",
+          "md": "When copying data between disparate environments or loading analytical data stores, **Staged copy** allows ADF to use interim Azure Blob Storage or Azure Data Lake Storage Gen2 as a temporary staging buffer:\n\n- **Two-stage movement architecture:** The transfer is divided into two sequential stages: stage one moves data from the source to interim staging storage, and stage two loads data from interim staging into the sink data store. When spanning hybrid environments, the two stages can execute on different integration runtimes.\n- **High-speed bulk ingestion:** Analytical sinks such as Azure Synapse Analytics achieve optimal ingestion throughput using PolyBase or the `COPY` statement, both of which require staged source files in Azure cloud storage.\n- **Firewall & network port bypass:** In corporate environments where direct database connectivity (such as outbound port 1433 for Azure SQL Database or Azure Synapse Analytics) is blocked by corporate firewall policies from an on-premises host, staged copy enables a Self-hosted IR to upload data over HTTPS (port 443) to interim cloud storage. An Azure IR then performs the second leg to load into the destination database. This applies to supported connector and network architectures where staging is enabled, rather than universally avoiding database ports across every connector.\n- **Configuration JSON structure:** In the Copy activity JSON, staging is enabled by setting `\"enableStaging\": true` directly under `typeProperties`. Staging parameters are supplied in the nested `\"stagingSettings\"` object under `typeProperties` (specifying `linkedServiceName` for the interim storage and an optional `path` folder); `stagingSettings` does not contain `enableStaging`.\n- **Optional compression:** Data compression in staging storage is optional and configured through `enableCompression: true` inside `stagingSettings`; compression is not automatic or guaranteed on every staged copy.\n- **Automatic cleanup permissions:** ADF can automatically delete temporary staged data from interim storage after the copy finishes. For cleanup to succeed, the credential or managed identity used by the staging linked service must possess delete permissions (such as Storage Blob Data Contributor) on the staging container.",
           "image": {
             "src": "/assets/content/packs/adf/adf-staged-copy.png",
             "alt": "Two-stage copy movement via interim staging storage",
             "caption": "Staged copy architecture: Data is uploaded to interim staging storage via Integration Runtime 1, then loaded into the destination sink via Integration Runtime 2.",
             "source_attribution": "Microsoft Learn — Staged copy",
-            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-performance-features#staged-copy"
+            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-performance-features#staged-copy",
+            "license": "CC BY 4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "modification_status": "Unmodified"
           }
         },
         {
@@ -598,7 +616,10 @@
             "alt": "Incremental copy workflow using a watermark column and control table",
             "caption": "Incremental copy architecture: Look up old watermark from control table, look up new watermark from source, copy delta slice, and update control table on copy success.",
             "source_attribution": "Microsoft Learn — Incrementally copy data tutorial",
-            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/tutorial-incremental-copy-overview"
+            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/tutorial-incremental-copy-overview",
+            "license": "CC BY 4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "modification_status": "Unmodified"
           }
         },
         {
@@ -664,10 +685,10 @@
         },
         {
           "heading": "Canonical Microsoft definition of Change Data Capture",
-          "md": "**Microsoft definition:** \"ADF mapping data flow can automatically detect and extract changed data, including inserted, updated, and deleted rows from the source databases.\"\n\n- **In plain English:** Native CDC reads database transaction logs directly, capturing row inserts, updates, and deletes without requiring query burdens or timestamp columns on source tables.\n- **Source:** [Microsoft Learn — Change data capture](https://learn.microsoft.com/en-us/azure/data-factory/concepts-change-data-capture)\n- **Three distinct CDC architectures:** ADF provides three separate mechanisms for change capture: (1) the top-level **Change Data Capture resource** (a dedicated, continuous, no-code artifact in public preview), (2) **Native CDC & incremental extraction in Mapping Data Flows** (managed Spark execution with automatic checkpointing), and (3) **Connector-native change tracking or custom query watermarks** (pipeline activities such as Copy and Lookup)."
+          "md": "**Microsoft definition:** \"ADF mapping data flow can automatically detect and extract changed data, including inserted, updated, and deleted rows from the source databases.\"\n\n- **In plain English:** Native CDC reads database transaction logs directly, capturing row inserts, updates, and deletes without requiring query burdens or timestamp columns on source tables.\n- **Source:** [Microsoft Learn — Change data capture](https://learn.microsoft.com/en-us/azure/data-factory/concepts-change-data-capture)\n- **Four distinct change-capture approaches:** ADF provides four distinct mechanisms for change capture, each with its own runtime scope, prerequisites, and operational characteristics: (1) the top-level **Change Data Capture resource** (a dedicated, no-code artifact in public preview), (2) **Native CDC in Mapping Data Flows** (managed Spark reading transaction logs from supported databases), (3) **Automatic incremental extraction in Mapping Data Flows** (detecting changes via watermark columns or file metadata), and (4) **Custom pipeline-based extraction** (querying source-native change tracking functions or high-watermark control tables via activities like Copy and Lookup)."
         },
         {
-          "md": "ADF supports three primary architectural patterns for capturing changed data:",
+          "md": "ADF supports four distinct architectural patterns for capturing changed data:",
           "table": {
             "head": [
               "Architecture",
@@ -677,29 +698,34 @@
             "rows": [
               [
                 "Top-Level CDC Resource (Public Preview)",
-                "A dedicated top-level ADF artifact that runs continuously at a user-defined latency (from real-time to hours). Select sources and targets in a guided studio walk-through.",
-                "Requires Azure IR; Self-hosted IR is currently unsupported. Supported sources include Azure SQL Database, Azure SQL MI, SQL Server, Cosmos DB, Snowflake, and file formats; supported targets include Delta, Azure SQL, and ADLS Gen2. Billed as 4 vCores General Purpose data flow."
+                "A dedicated top-level ADF artifact configured via a guided studio walk-through that executes continuously or at scheduled latency intervals (from real-time to hours) on an Azure Integration Runtime.",
+                "Azure IR only; Self-hosted IR is unsupported. Complex data types are unsupported. 1:1 mapping constraint: each source and target can only be used once in a mapping. Azure Synapse target requires interim staging and appropriate storage write permissions. Billed at 4 vCores General Purpose Data Flow rates only while processing CDC data (not continuously while idle). Sources include connectors (Azure SQL DB, Azure SQL MI, SQL Server, Cosmos DB SQL API, Snowflake) and storage file formats (Avro, CSV, JSON, ORC, Parquet). Targets include connectors (Azure SQL DB, Azure SQL MI, Azure Synapse) and storage formats (Delta, CSV, JSON, Parquet, Avro). Note: Microsoft docs list targets differently across pages (e.g. ADLS Gen2 listed as target in overview vs file formats in resource guide)."
               ],
               [
                 "Native CDC in Mapping Data Flows",
-                "Data Flow source with native CDC enabled reads database transaction logs (or automatic incremental extraction for supported stores) on managed Spark clusters.",
-                "Automatically manages checkpoints. Checkpoint identity defaults to pipeline and activity identity. Outputs row-level metadata (`isInsert`, `isUpdate`, `isDelete`) for downstream conditional routing or Alter Row transforms into Delta Lake."
+                "Mapping Data Flow source with native CDC enabled reads database transaction logs directly on managed Spark clusters without requiring timestamp watermark columns on source tables.",
+                "Available for supported database sources (Azure SQL DB, SQL Server, Azure SQL MI). Manages checkpoints automatically. Provides built-in expression functions (isInsert(), isUpdate(), isDelete()) to evaluate row-operation state within Conditional Split or Alter Row transforms, allowing write operations (inserts, updates, deletes) to be applied to supported sinks such as Delta Lake."
+              ],
+              [
+                "Automatic Incremental Extraction in Data Flows",
+                "Mapping Data Flow source configured for incremental extraction identifies new or changed data using a user-specified incremental watermark column (date/time or incrementing key) or file modification timestamps.",
+                "Applicable to supported storage and relational sources lacking transaction-log CDC. ADF automatically tracks the high watermark across pipeline runs without manual control tables. Extracts inserts and updates based on the watermark column, but does not capture physical transaction-log deletes."
               ],
               [
                 "Custom Pipeline-Based Incremental Loading",
-                "Pipeline activities (Lookup, Copy, Script) querying source-native change tracking functions (e.g. SQL Server Change Tracking `CHANGETABLE`) or high-watermark timestamp control tables.",
-                "Customer-managed state in a control table (chapter 9). Works across any connector that supports queries, including on-premises databases over Self-hosted IR. Does not automatically extract transaction-log deletes unless using native change tracking."
+                "Pipeline orchestration activities (Lookup, Copy, Script) querying source-native change tracking (such as SQL Server CHANGETABLE) or querying user-maintained high-watermark control tables.",
+                "Customer-managed state in a control table (chapter 9). Highly portable and connector-agnostic; runs across cloud and on-premises sources using Self-hosted IR. Does not capture row deletes unless using source-native change tracking queries or soft-delete application columns."
               ]
             ]
           }
         },
         {
           "heading": "The checkpoint, and the rename trap",
-          "md": "In Mapping Data Flows and native CDC capabilities, ADF maintains state across runs using an internal **checkpoint** so that subsequent executions read only newly committed changes:\n\n- **Automatic checkpoint management:** For supported change-capture sources, ADF manages checkpoints automatically without requiring manual control tables or watermark lookup queries.\n- **Default checkpoint key behavior:** In Mapping Data Flow activities, checkpoint state is associated by default with the pipeline and activity identity. In newer implementations, newly created Data Flow activities generate an internal GUID-based or hashed key to preserve state across naming edits, while existing activities retain backward-compatible naming keys.\n- **When a custom checkpoint key is useful:** In Mapping Data Flows, you can optionally configure an explicit user-defined **Checkpoint Key** in the activity settings. This is useful when:\n  1. You anticipate renaming the pipeline or activity in production and want to guarantee continuity of captured state without relying on default generation rules.\n  2. You parameterize a reusable data flow across multiple distinct source tables or tenants and must supply a unique, parameterized key per source to prevent checkpoint collisions.\n  3. You are sharing state across multiple pipelines executing the same extraction.\n- **Important boundaries:** A custom checkpoint key is a specific feature of Mapping Data Flow activities; it does not apply to the separate top-level CDC resource (which manages its own state internally) nor to custom control-table watermark pipelines. It is not required for every CDC implementation.\n- **Debug vs triggered runs:** Refreshing the browser during a debug session resets debug checkpoints. Triggered production runs resume from the last committed execution checkpoint.\n\n**Interview takeaway:** \"ADF manages CDC checkpoints automatically based on activity and pipeline identity. When using Mapping Data Flows with reusable parameterized pipelines or when planning name refactoring, setting a custom checkpoint key prevents state collisions and avoids unintended delta resets.\""
+          "md": "In Mapping Data Flow activities that utilize native CDC or automatic incremental extraction, ADF maintains state across runs using an internal **checkpoint** so that subsequent executions read only newly committed changes:\n\n- **Feature scope:** Checkpoint keys are a specific configuration mechanism of Mapping Data Flow activities running native CDC or incremental extraction. They do not apply to the top-level CDC resource (which maintains its state internally within the service) or to custom control-table watermark pipelines.\n- **Documentation discrepancy on default checkpoint identity:** Official Microsoft documentation describes default checkpoint key generation inconsistently across different pages:\n  - The [Change data capture concept overview](https://learn.microsoft.com/en-us/azure/data-factory/concepts-change-data-capture) states that the checkpoint key defaults to a combination of the pipeline name and activity name, warning that renaming either the pipeline or the activity resets the checkpoint and causes the source to be re-read from the beginning.\n  - The [Execute Data Flow activity documentation](https://learn.microsoft.com/en-us/azure/data-factory/control-flow-execute-data-flow-activity) describes two different behaviors: in its settings reference, it states that newly created activities generate a unique GUID-based checkpoint key that persists state regardless of renaming; in its checkpoint table, it states that the default key is generated as a hash of the data flow name and pipeline name.\n  - Because official documentation presents these conflicting descriptions, engineering teams should not rely on a single assumed key-generation rule across all runtime versions.\n- **When an optional custom checkpoint key is useful:** In the Execute Data Flow activity settings (under Logging / Checkpoint settings), you can optionally provide a user-defined **Checkpoint Key**. Supported use cases include:\n  1. *Parameterized or dynamic data flows:* When a single data flow activity is invoked dynamically for multiple distinct source tables or tenants, supplying a parameterized checkpoint key (e.g. including the table name) ensures each dataset maintains an independent checkpoint state, avoiding collisions.\n  2. *Planned renaming under name-coupled behavior:* If your activity relies on default naming-derived keys where renames trigger resets, specifying an explicit custom checkpoint key before renaming can preserve the checkpoint across the refactor.\n  3. A custom key is not universally required, does not apply to non-Data Flow architectures, and should only be configured when supported by your operational requirements.\n- **Run execution semantics:**\n  - *First triggered production run after publish:* Establishes the initial checkpoint baseline according to the source configuration (e.g. reading from current time or full baseline).\n  - *Subsequent normal triggered runs:* Resume reading changes from the previous committed checkpoint.\n  - *Pipeline rerun:* Rerunning a specific historical pipeline run re-executes that run's execution slice rather than simply advancing from the latest production checkpoint.\n  - *Debug sessions:* Debug executions track state only within the active debug session cache; refreshing the browser or ending the debug session resets the debug checkpoint.\n- **Operational change management:** Before performing production renames or pipeline reorganizations on CDC workloads, verify checkpoint persistence in a staging environment and capture current transaction offsets or watermark values to prevent unexpected delta re-extraction.\n\n**Interview takeaway:** \"In Mapping Data Flows, ADF automatically manages CDC checkpoints. Microsoft documentation describes default checkpoint identity with conflicting models (pipeline/activity name coupling vs GUID vs name hash). Setting an optional custom checkpoint key is useful for parameterized flows processing multiple tables and for protecting state during planned renames.\""
         },
         {
           "heading": "CDC Schema Evolution, State Tracking, and Operational Governance",
-          "md": "Operating change data capture in production requires understanding how state is tracked, how schema changes propagate, and what operational safeguards are necessary:\n\n**1. Transaction State Tracking Mechanics**\n\n- **Source-specific state identifiers:** Depending on the source engine, CDC tracks state using transaction-log identifiers: Log Sequence Numbers (LSN) for SQL Server / Azure SQL, System Change Numbers (SCN) for Oracle, or changefeed tokens for Cosmos DB.\n- **Checkpoint commit semantics:** Reading changes from a transaction log and successfully persisting them to the destination are distinct stages. An internal checkpoint advances only after target write operations succeed. If a pipeline fails mid-execution, the next run restarts from the last committed checkpoint.\n- **Delivery guarantees and target idempotency:** While transaction-log capture prevents gaps in source reading, network retries or batch restarts can re-deliver records to the sink. Downstream sinks must implement idempotent writes (such as Delta Lake upserts / merge keys or deduplication logic) to ensure end-to-end data integrity.\n\n**2. Schema Evolution Across CDC Architectures**\n\nWhen source database schemas undergo DDL modifications, behavior depends on the specific CDC architecture and connector:\n- **Top-Level CDC Resource:** Supports schema evolution for supported combinations (such as Azure SQL Database to Delta Lake). When new columns are added to the source, the CDC resource automatically detects the additions and evolves the target schema when schema evolution is enabled.\n- **Mapping Data Flows:** Uses **Schema Drift**. Enabling *Allow schema drift* allows newly added columns to flow through to the sink without pipeline redeployment. Unmapped new columns arrive as late-bound fields.\n- **Handling dropped or renamed columns:** Relational databases treat DDL changes according to engine-specific log semantics. In many systems, a column rename is recorded as a drop of the old column and an addition of the new column. Downstream handling varies by sink: Delta sinks may capture the new column while preserving historical data under the old column name, whereas strict tabular sinks may reject mismatched schemas.\n- **No universal guarantees:** Microsoft's schema-evolution demonstrations (such as Azure SQL to Delta) illustrate supported behavior for those specific technologies; they do not guarantee seamless evolution across all connectors or custom schemas.\n\n**3. Production Change Management Protocol**\n\nBefore applying DDL alterations (such as column renames, type modifications, or table restructuring) to CDC-monitored tables:\n1. *Validate in non-production:* Rehearse DDL modifications in a staging environment to observe connector-specific schema evolution and checkpoint behavior.\n2. *Coordinate pipeline execution:* Where necessary, pause active CDC pipelines or drain pending transactions prior to executing major source DDL changes.\n3. *Update target projections:* Align target table definitions, column mappings, and consumer queries with the modified schema before resuming data flow.\n4. *Verify downstream reconciliation:* Confirm that delta capture resumes without duplicate records or schema validation errors."
+          "md": "Operating change data capture in production requires understanding how state is tracked, how schema changes propagate, and what operational safeguards are necessary:\n\n**1. State Tracking and Write Semantics**\n\n- **Connector-specific change tracking:** How changes are tracked depends on the source connector and ADF feature. In database transaction-log capture (such as native CDC in Mapping Data Flows or CDC resources for SQL Server / Azure SQL), the engine tracks transaction log positions. In incremental extraction, ADF tracks high-watermark column values (timestamps or keys) or file modification dates. These mechanics vary by connector and should not be assumed to operate identically across different engines.\n- **Checkpoint progression and recovery:** In Mapping Data Flows and the CDC resource, checkpoints advance as batches or data increments are processed and committed. If a run fails mid-execution, subsequent runs attempt recovery based on the last recorded state. However, checkpoint advancement and target write commit semantics depend on sink transactional capabilities (e.g. Delta Lake ACID transactions vs relational database bulk operations). ADF does not guarantee universal atomicity across arbitrary external storage targets.\n- **Delivery semantics and sink idempotency:** While transaction log reading avoids skipping changes at the source, network retries, cluster restarts, or pipeline replays can cause duplicate records to be sent to the sink. Exactly-once end-to-end delivery is not guaranteed by the platform alone. Sinks should implement idempotent write patterns (such as Delta Lake merge/upsert operations or destination deduplication keys) as a defensive engineering best practice.\n\n**2. Schema Evolution Across CDC Architectures**\n\nWhen source schemas change (DDL modifications), behavior depends on the specific architecture and connector configuration:\n- **Top-Level CDC Resource (Schema Evolution Tutorial):** In Microsoft's documented tutorial ([How to change data capture resource with schema evolution](https://learn.microsoft.com/en-us/azure/data-factory/how-to-change-data-capture-resource-with-schema-evolution)) for Azure SQL Database to Delta Lake on ADLS Gen2:\n  - The tutorial specifies that source tables must be configured with suitable **watermark/incremental columns** (such as modified date or incremental keys) rather than enabling native SQL Server CDC on the source tables.\n  - **Auto mapping** must be enabled in the source-to-target mapping configuration. When auto mapping is enabled, newly added source columns are automatically detected and propagated to the Delta target table schema.\n  - This capability is demonstrated for supported source/target pairings (such as Azure SQL Database to Delta Lake) and should not be assumed for arbitrary unsupported combinations.\n- **Mapping Data Flows (Schema Drift):** Mapping Data Flows handle schema evolution via **Schema Drift**. Enabling *Allow schema drift* on the source allows new columns to be read without re-authoring metadata. For those drifted columns to reach the sink, the sink must also have *Allow schema drift* enabled and use appropriate mapping rules (such as Auto Mapping or Rule-based Mapping). Sinks with strict, fixed schema projections will drop or fail on drifted columns unless explicitly configured.\n- **Row-operation evaluation functions:** In Mapping Data Flows, row operations are not emitted as plain column names. Instead, ADF provides built-in expression functions such as `isInsert()`, `isUpdate()`, and `isDelete()` (documented in [Data flow expression functions](https://learn.microsoft.com/en-us/azure/data-factory/data-flow-expression-functions)) to inspect row status inside Conditional Split or Alter Row transformations before writing to sinks.\n\n**3. Production Change Management Protocol**\n\nBefore applying DDL alterations (such as column additions, renames, type changes, or dropping columns) to source tables tracked by CDC:\n1. *Validate in non-production:* Test the specific DDL change against your connector pair in staging to observe how schema drift or schema evolution behaves under your sink settings.\n2. *Coordinate pipeline execution:* Where possible, pause active CDC pipelines or allow pending transactions to complete before altering source table definitions.\n3. *Update target projections:* Align target table definitions, column mappings, and consumer views with the modified schema before resuming execution.\n4. *Verify downstream reconciliation:* Confirm that delta processing resumes without missing records, duplicate rows, or schema validation failures."
         }
       ]
     },
@@ -926,7 +952,10 @@
             "alt": "Data Factory Managed Virtual Network and Managed Private Endpoints architecture",
             "caption": "Managed Virtual Network architecture: Isolated integration runtime communicating with Azure PaaS data stores via private endpoints over Azure Private Link.",
             "source_attribution": "Microsoft Learn — Managed virtual network",
-            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/managed-virtual-network-private-endpoint"
+            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/managed-virtual-network-private-endpoint",
+            "license": "CC BY 4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "modification_status": "Unmodified"
           }
         },
         {
@@ -984,7 +1013,10 @@
             "alt": "Customer-Managed Key envelope encryption workflow in Azure Data Factory",
             "caption": "Customer-Managed Key (CMK) envelope encryption: Factory root key is wrapped and unwrapped using Azure Key Vault HSM keys.",
             "source_attribution": "Microsoft Learn — Customer-managed keys",
-            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/enable-customer-managed-key"
+            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/enable-customer-managed-key",
+            "license": "CC BY 4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "modification_status": "Unmodified"
           }
         }
       ]
@@ -1001,13 +1033,16 @@
         },
         {
           "heading": "Canonical Microsoft security principles for regulated data",
-          "md": "**Microsoft security baseline:** \"Data Factory management resources are built on Azure security infrastructure and use all possible security measures offered by Azure.\"\n\n- **Source:** [Microsoft Learn — Data movement security considerations](https://learn.microsoft.com/en-us/azure/data-factory/data-movement-security-considerations)\n- **Sensitive payload masking:** Enable `secureInput: true` and `secureOutput: true` on activities to prevent sensitive customer tokens or query results from being written to monitoring and diagnostic logs.\n- **Network channel isolation:** Command channels (orchestration instructions) and data channels (payload movement) are physically separated; data moves directly point-to-point without passing through the ADF control plane.",
+          "md": "**Microsoft security baseline:** \"Data Factory management resources are built on Azure security infrastructure and use all possible security measures offered by Azure.\"\n\n- **Source:** [Microsoft Learn — Data movement security considerations](https://learn.microsoft.com/en-us/azure/data-factory/data-movement-security-considerations)\n- **Sensitive payload masking:** Enable `secureInput: true` and `secureOutput: true` on activities to prevent sensitive customer tokens or query results from being written to monitoring and diagnostic logs.\n- **Channel separation by purpose:** The Data Factory architecture separates control-plane command orchestration from data-plane movement: the control plane dispatches task instructions and tracks status, while the data channel moves payloads directly point-to-point between source and destination (or via interim staging) without customer payload data traversing ADF control servers.",
           "image": {
             "src": "/assets/content/packs/adf/adf-shir-network-channels.png",
             "alt": "Control plane command channel versus data plane transfer channel in Self-hosted IR",
             "caption": "Channel separation: Control plane command channel orchestrates execution, while data plane transfers payloads directly between source and sink without touching ADF control servers.",
             "source_attribution": "Microsoft Learn — Data movement security considerations",
-            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/data-movement-security-considerations"
+            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/data-movement-security-considerations",
+            "license": "CC BY 4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "modification_status": "Unmodified"
           }
         },
         {
@@ -1091,7 +1126,10 @@
             "alt": "Hierarchical tiers of copy scalability: control flow, activity compute DIUs, and thread parallelism",
             "caption": "Copy scalability tiers: Orchestration concurrency (ForEach), activity compute sizing (DIUs/nodes), and intra-activity worker threads (parallelCopies).",
             "source_attribution": "Microsoft Learn — Copy activity performance and scalability guide",
-            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-performance"
+            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-performance",
+            "license": "CC BY 4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "modification_status": "Unmodified"
           }
         },
         {
@@ -1360,7 +1398,10 @@
             "alt": "Continuous integration and delivery lifecycle with Git and Azure Pipelines in ADF",
             "caption": "Enterprise CI/CD lifecycle: Development factory publishes ARM templates to adf_publish branch; release pipelines deploy parameterized templates across Test, UAT, and Production.",
             "source_attribution": "Microsoft Learn — Continuous integration and delivery in ADF",
-            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/continuous-integration-delivery"
+            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/continuous-integration-delivery",
+            "license": "CC BY 4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "modification_status": "Unmodified"
           }
         },
         {

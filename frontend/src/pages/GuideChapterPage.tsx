@@ -149,7 +149,7 @@ export const GuideChapterPage: React.FC = () => {
                     (e.target as HTMLElement).style.display = 'none';
                   }}
                 />
-                {(b.image.caption || b.image.source_url) && (
+                {(b.image.caption || b.image.source_url || b.image.license) && (
                   <Typography
                     variant="caption"
                     color="text.secondary"
@@ -165,6 +165,24 @@ export const GuideChapterPage: React.FC = () => {
                       >
                         {b.image.source_attribution ? `(Source: ${b.image.source_attribution})` : '(Source)'}
                       </Link>
+                    )}
+                    {b.image.license && (
+                      <span>
+                        {' · '}
+                        {b.image.license_url ? (
+                          <Link
+                            href={b.image.license_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            sx={{ color: 'text.secondary', textDecoration: 'underline' }}
+                          >
+                            {b.image.license}
+                          </Link>
+                        ) : (
+                          b.image.license
+                        )}
+                        {b.image.modification_status ? ` (${b.image.modification_status})` : ''}
+                      </span>
                     )}
                   </Typography>
                 )}

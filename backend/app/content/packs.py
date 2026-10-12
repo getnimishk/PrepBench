@@ -39,6 +39,9 @@ class GuideImage(BaseModel):
     caption: Optional[str] = None
     source_attribution: Optional[str] = None
     source_url: Optional[str] = None
+    license: Optional[str] = None
+    license_url: Optional[str] = None
+    modification_status: Optional[str] = None
 
     model_config = ConfigDict(extra="forbid")
 

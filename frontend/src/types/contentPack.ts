@@ -33,6 +33,9 @@ export interface GuideImage {
   caption?: string | null;
   source_attribution?: string | null;
   source_url?: string | null;
+  license?: string | null;
+  license_url?: string | null;
+  modification_status?: string | null;
 }
 
 export interface GuideBlock {
