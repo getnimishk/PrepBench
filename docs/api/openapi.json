@@ -4030,6 +4030,16 @@
             ],
             "title": "Heading"
           },
+          "image": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GuideImage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "md": {
             "anyOf": [
               {
@@ -4053,6 +4063,58 @@
           }
         },
         "title": "GuideBlock",
+        "type": "object"
+      },
+      "GuideImage": {
+        "additionalProperties": false,
+        "properties": {
+          "alt": {
+            "title": "Alt",
+            "type": "string"
+          },
+          "caption": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caption"
+          },
+          "source_attribution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Attribution"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "src": {
+            "title": "Src",
+            "type": "string"
+          }
+        },
+        "required": [
+          "src",
+          "alt"
+        ],
+        "title": "GuideImage",
         "type": "object"
       },
       "GuideSectionHit": {

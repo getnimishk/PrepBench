@@ -111,3 +111,48 @@ describe('GuideChapterPage: practising a chapter', () => {
     expect(screen.queryByText(/Practise it in the Learning Lab/)).not.toBeInTheDocument();
   });
 });
+
+describe('GuideChapterPage: images and rich source links', () => {
+  it('renders image blocks with alt text, captions, and official source links', async () => {
+    const packWithImage = {
+      ...PACK,
+      chapters: [
+        {
+          id: 'what-it-is',
+          title: 'What it is',
+          summary: 'sum',
+          sources: '§1',
+          blocks: [
+            {
+              heading: 'Architecture Overview',
+              md: 'Read the [Microsoft Learn guide](https://example.test/docs) for more.',
+              image: {
+                src: '/assets/content/packs/adf/adf-architecture-overview.svg',
+                alt: 'Azure Data Factory architecture diagram',
+                caption: 'Official ADF lifecycle diagram.',
+                source_attribution: 'Microsoft Learn',
+                source_url: 'https://example.test/docs',
+              },
+            },
+          ],
+          practice_links: [],
+        },
+      ],
+    };
+
+    api.getContentPack.mockResolvedValue(packWithImage);
+    renderPage('/learn/guides/adf/what-it-is');
+
+    expect(await screen.findByRole('heading', { name: /1 · What it is/ })).toBeInTheDocument();
+    const img = screen.getByRole('img', { name: 'Azure Data Factory architecture diagram' });
+    expect(img).toHaveAttribute('src', '/assets/content/packs/adf/adf-architecture-overview.svg');
+    expect(screen.getByText('Official ADF lifecycle diagram.')).toBeInTheDocument();
+
+    const sourceLink = screen.getByRole('link', { name: '(Source: Microsoft Learn)' });
+    expect(sourceLink).toHaveAttribute('href', 'https://example.test/docs');
+    expect(sourceLink).toHaveAttribute('target', '_blank');
+
+    const inlineLink = screen.getByRole('link', { name: 'Microsoft Learn guide' });
+    expect(inlineLink).toHaveAttribute('href', 'https://example.test/docs');
+  });
+});

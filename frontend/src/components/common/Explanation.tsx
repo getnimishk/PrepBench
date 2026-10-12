@@ -3,27 +3,18 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Link, Typography } from '@mui/material';
 
 /**
- * Question explanations, rendered rather than printed.
+ * Question explanations and guide text, rendered rather than printed.
  *
- * Every one of the 709 explanations in the bank is written in Markdown --
- * bold lead-ins and a bulleted "why the other options are wrong" list -- and
- * every surface displayed it raw, so the most carefully written text in the
- * product read as `**Why the incorrect options are wrong:**`. That is the
- * paragraph review exists to deliver.
- *
- * This handles the four constructs the bank actually contains and nothing
- * else. It builds React elements rather than HTML, so a question imported
- * from somewhere untrusted cannot inject markup; and it is fifteen lines
- * rather than a dependency, because the alternative is shipping a general
- * Markdown engine to render bold text.
+ * Handles bold lead-ins, inline code, bullets, numbered lists, markdown links
+ * [label](url), and bare URLs safely without dangerouslySetInnerHTML.
  */
 
-const INLINE = /(\*\*[^*]+\*\*|`[^`]+`)/g;
+const INLINE = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\((?:https?:\/\/[^\s)]+|\/[^\s)]+)\)|https?:\/\/[^\s)\]]+)/g;
 
-/** Bold and code spans within a line. */
+/** Bold, code spans, and links within a line. */
 const inline = (text: string): React.ReactNode[] =>
   text.split(INLINE).filter(Boolean).map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**')) {
@@ -38,6 +29,50 @@ const inline = (text: string): React.ReactNode[] =>
         >
           {part.slice(1, -1)}
         </Box>
+      );
+    }
+    const linkMatch = part.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]+)\)$/);
+    if (linkMatch) {
+      const [, label, href] = linkMatch;
+      const isExternal = href.startsWith('http://') || href.startsWith('https://');
+      return (
+        <Link
+          key={i}
+          href={href}
+          target={isExternal ? '_blank' : undefined}
+          rel={isExternal ? 'noopener noreferrer' : undefined}
+          sx={{
+            color: 'primary.main',
+            textDecoration: 'underline',
+            textUnderlineOffset: '2px',
+            '&:hover': { textDecoration: 'none' },
+          }}
+        >
+          {label}
+        </Link>
+      );
+    }
+    if (part.startsWith('http://') || part.startsWith('https://')) {
+      const cleanUrl = part.replace(/[.,;:)]+$/, '');
+      const trailing = part.slice(cleanUrl.length);
+      return (
+        <React.Fragment key={i}>
+          <Link
+            href={cleanUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            sx={{
+              color: 'primary.main',
+              textDecoration: 'underline',
+              textUnderlineOffset: '2px',
+              wordBreak: 'break-all',
+              '&:hover': { textDecoration: 'none' },
+            }}
+          >
+            {cleanUrl}
+          </Link>
+          {trailing}
+        </React.Fragment>
       );
     }
     return <React.Fragment key={i}>{part}</React.Fragment>;
