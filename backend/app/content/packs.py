@@ -33,10 +33,24 @@ class GuideTable(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class GuideImage(BaseModel):
+    src: str
+    alt: str
+    caption: Optional[str] = None
+    source_attribution: Optional[str] = None
+    source_url: Optional[str] = None
+    license: Optional[str] = None
+    license_url: Optional[str] = None
+    modification_status: Optional[str] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class GuideBlock(BaseModel):
     heading: Optional[str] = None
     md: Optional[str] = None
     table: Optional[GuideTable] = None
+    image: Optional[GuideImage] = None
 
     model_config = ConfigDict(extra="forbid")
 

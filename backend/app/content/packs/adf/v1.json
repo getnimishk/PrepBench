@@ -10,11 +10,25 @@
       "id": "what-it-is",
       "title": "What ADF is, and what it isn't",
       "summary": "ADF is an orchestrator: it moves data and tells other services what to do, and when.",
-      "sources": "§1, §18.1, §24",
+      "sources": "§1, §18.1, §24; Microsoft Learn (2026-10-12)",
       "blocks": [
         {
           "heading": "Roadmap alignment",
           "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 1 — What Azure Data Factory Is** (Full)\n  - *Relevant sections:* What ADF is; The documentation's own example; The four stages the documentation describes; The typical journey of one row\n  - *Learning evidence:* Write a one-minute ADF explanation for a Product/Program interview.\n- **Topic 2 — ADF vs Databricks vs Synapse vs Fabric Data Factory** (Full)\n  - *Relevant sections:* ADF vs Databricks vs Synapse vs Fabric: architecture selection framework; Where it is heading; Ch 20 (ADF and Fabric Data Factory)\n  - *Learning evidence:* Create a service-selection matrix for 4 common enterprise scenarios.\n- **Topic 4 — ADF Mental Model for Managers** (Full)\n  - *Relevant sections:* What ADF is; How to read the labels in this guide; Ch 21 (Pitfalls)\n  - *Learning evidence:* Create a one-page manager mental model covering ownership, risk, SLA, and cost framing."
+        },
+        {
+          "heading": "Canonical Microsoft definition and architecture overview",
+          "md": "**Microsoft definition:** \"Azure Data Factory is a managed cloud service that's built for these complex hybrid extract-transform-load (ETL), extract-load-transform (ELT), and data integration projects.\"\n\n- **In plain English:** ADF acts as a central cloud orchestrator that coordinates data movement across disparate networks and dispatches data transformations to compute engines.\n- **Source:** [Microsoft Learn — Introduction to Azure Data Factory](https://learn.microsoft.com/en-us/azure/data-factory/introduction)",
+          "image": {
+            "src": "/assets/content/packs/adf/adf-architecture-overview.svg",
+            "alt": "Azure Data Factory end-to-end data integration architecture and lifecycle",
+            "caption": "Azure Data Factory end-to-end lifecycle: Connect & Collect, Transform & Enrich, CI/CD & Publish, and Continuous Monitoring.",
+            "source_attribution": "Microsoft Learn — Introduction to Azure Data Factory",
+            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/introduction",
+            "license": "CC BY 4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "modification_status": "Unmodified"
+          }
         },
         {
           "md": "Azure Data Factory (ADF) is Microsoft's managed cloud service for **data integration**. It moves data between systems and runs the steps that clean and reshape it, on a schedule or when something happens.\n\nIt is mostly an **orchestrator**: it does the copying itself, but for heavy transformation it usually hands the work to another service (Databricks, Synapse, a database) and waits for the result. Think of it as the conductor, not the orchestra."
@@ -49,7 +63,7 @@
       "id": "building-blocks",
       "title": "The building blocks",
       "summary": "Pipeline, activity, linked service, dataset, integration runtime and trigger, and how they fit.",
-      "sources": "§2, §5",
+      "sources": "§2, §5; Microsoft Learn (2026-10-12)",
       "blocks": [
         {
           "heading": "Roadmap alignment",
@@ -112,6 +126,20 @@
           }
         },
         {
+          "heading": "Canonical Microsoft definitions for core building blocks",
+          "md": "Microsoft Learn establishes the official identities of the fundamental ADF entities:\n\n- **Pipeline:** \"A pipeline is a logical grouping of activities that together perform a task.\" Pipelines allow you to manage and schedule activities as a unified workflow container ([Microsoft Learn — Pipelines and activities](https://learn.microsoft.com/en-us/azure/data-factory/concepts-pipelines-activities)).\n- **Linked service:** \"Linked services are much like connection strings, which define the connection information needed for the service to connect to external resources.\" They encapsulate authentication and network path ([Microsoft Learn — Linked services](https://learn.microsoft.com/en-us/azure/data-factory/concepts-linked-services)).\n- **Dataset:** A dataset identifies or references the data an activity uses as input or output. It specifies the relevant data structure or location, such as a table, file, or folder. A linked service provides the connection information needed to access the underlying data store ([Microsoft Learn — Datasets and linked services](https://learn.microsoft.com/en-us/azure/data-factory/concepts-datasets-linked-services)).\n- **Integration runtime:** The compute infrastructure that executes data movement and dispatches activities across network environments.",
+          "image": {
+            "src": "/assets/content/packs/adf/adf-entity-relationships.png",
+            "alt": "Relationship between Azure Data Factory entities: Pipelines, Activities, Datasets, Linked Services, and Integration Runtime",
+            "caption": "Azure Data Factory entity relationships: Activities inside a pipeline consume input datasets and produce output datasets, connecting to external data stores via linked services and integration runtimes.",
+            "source_attribution": "Microsoft Learn — Datasets and Linked Services",
+            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/concepts-datasets-linked-services",
+            "license": "CC BY 4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "modification_status": "Unmodified"
+          }
+        },
+        {
           "heading": "How they connect: the documentation's example",
           "md": "To copy files from Blob storage into a SQL database you create **two linked services** (one for the storage account, one for the database), **two datasets** (the blob folder and its format; the SQL table), and **one Copy activity** in **a pipeline** that reads the first dataset and writes the second. An integration runtime does the actual work."
         },
@@ -137,7 +165,7 @@
       "id": "pipelines",
       "title": "Pipelines, activities and control flow",
       "summary": "The three kinds of activity, the four ways one step leads to the next, and the defaults that surprise people.",
-      "sources": "§3, §7, §20, §30",
+      "sources": "§3, §7, §20, §30; Microsoft Learn (2026-10-12)",
       "blocks": [
         {
           "heading": "Roadmap alignment",
@@ -146,6 +174,20 @@
         {
           "heading": "Three kinds of activity",
           "md": "- **Data movement**: the Copy activity, between the data stores on Microsoft's connector list (roughly a hundred). Each connector supports only some roles (source, sink, data flow, Lookup), so check the connector's own page rather than assume.\n- **Data transformation**: ADF data flows, Databricks notebooks, Synapse notebooks, stored procedures, Azure Functions and more.\n- **Control flow**: Execute Pipeline, For Each, If Condition, Switch, Until, Wait, Lookup, Get Metadata, Set Variable, Append Variable, Filter, Validation, Web, Webhook, Fail."
+        },
+        {
+          "heading": "Pipeline parameters, variables and Microsoft limits",
+          "md": "Microsoft Learn establishes strict architectural distinctions between parameters and variables:\n\n- **Parameters:** \"Parameters are defined at the pipeline level, and can't be modified during a pipeline run.\" They represent immutable configuration passed at run start ([Microsoft Learn — Parameters and variables](https://learn.microsoft.com/en-us/azure/data-factory/concepts-pipelines-activities)).\n- **Variables:** \"Pipeline variables are values that can be set and modified during a pipeline run.\" They represent mutable in-memory state modified via Set Variable and Append Variable activities.\n- **Concurrency rule:** Pipeline variables are scoped at pipeline level and are not thread-safe; modifying variables inside a parallel ForEach causes unpredictable state collisions.\n- **Get Metadata properties:** The Get Metadata activity retrieves: `itemName`, `itemType`, `size`, `lastModified`, `created`, `childItems`, `contentMD5`, `structure`, `columnCount`, and `exists` ([Microsoft Learn — Get Metadata Activity](https://learn.microsoft.com/en-us/azure/data-factory/control-flow-get-metadata-activity)). Metadata availability depends on the connector and object type (for example, folder vs. file).\n- **Until activity timeout:** Supports execution timeouts between 10 minutes and 90 days (default is 7 days); Wait activity pauses between 1 and 86,400 seconds ([Microsoft Learn — Until Activity](https://learn.microsoft.com/en-us/azure/data-factory/control-flow-until-activity)).",
+          "image": {
+            "src": "/assets/content/packs/adf/adf-pipeline-activity-dataset.png",
+            "alt": "Pipelines enclosing activities chained with dependencies consuming datasets",
+            "caption": "Pipelines group activities that execute sequentially or in parallel, chained by dependency conditions and consuming datasets.",
+            "source_attribution": "Microsoft Learn — Pipelines and Activities",
+            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/concepts-pipelines-activities",
+            "license": "CC BY 4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "modification_status": "Unmodified"
+          }
         },
         {
           "heading": "How one step leads to the next",
@@ -215,11 +257,25 @@
       "id": "integration-runtimes",
       "title": "Integration runtimes: where the work runs",
       "summary": "Azure, self-hosted and SSIS runtimes, how a managed virtual network changes what the Azure runtime can reach, and why a private-network source usually needs a server someone owns.",
-      "sources": "§6, §8, §16, §30",
+      "sources": "§6, §8, §16, §30; Microsoft Learn (2026-10-12)",
       "blocks": [
         {
           "heading": "Roadmap alignment",
           "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 20 — Integration Runtime Fundamentals** (Full)\n  - *Relevant sections:* The three IR families table; The simple rule, and the nuance behind it; Choosing between them\n  - *Learning evidence:* Create an IR decision tree.\n- **Topic 21 — Self-hosted IR Architecture and Operations** (Full)\n  - *Relevant sections:* The self-hosted IR, in practice; Where the work happens; Scenario 3\n  - *Learning evidence:* Write a SHIR production handover checklist.\n- **Topic 22 — Managed VNet and Managed Private Endpoints** (Full)\n  - *Relevant sections:* Choosing between them; Where the work happens; Ch 14 (Security and networking)\n  - *Learning evidence:* Draw a private ADF network topology.\n- **Topic 23 — On-premises Connectivity and Network Paths** (Full)\n  - *Relevant sections:* The simple rule, and the nuance behind it; The self-hosted IR, in practice\n  - *Learning evidence:* Compare three on-premises connectivity topologies.\n- **Topic 24 — Private Endpoint vs Managed Private Endpoint** (Full)\n  - *Relevant sections:* Choosing between them; Ch 14 (Security and networking)\n  - *Learning evidence:* Create a four-term networking glossary."
+        },
+        {
+          "heading": "Canonical Microsoft definition of the Integration Runtime",
+          "md": "**Microsoft definition:** \"The integration runtime (IR) is the compute infrastructure used by Azure Data Factory and Azure Synapse pipelines to provide... data integration capabilities\"\n\n- **In plain English:** The Integration Runtime is the actual execution engine (the 'truck and driver') that moves data across network boundaries and dispatches jobs to external compute.\n- **Managed virtual network:** \"Creating an integration runtime within a managed virtual network ensures the data integration process is isolated and secure.\" ([Microsoft Learn — Managed virtual network](https://learn.microsoft.com/en-us/azure/data-factory/managed-virtual-network-private-endpoint))\n- **Self-hosted IR networking & scale:** Scales out up to 4 nodes in an active-active cluster. Outbound HTTPS (port 443) connectivity is required to communicate with Data Factory and cloud service endpoints. Locally, inbound TCP port 8060 is required at the Windows Firewall host level for the credential manager application and PowerShell encryption cmdlet; port 8060 is also used by default for optional intranet remote-access and multi-node HA synchronization. Direct data movement to destinations such as Azure SQL Database or Azure Synapse conditionally requires outbound port 1433 unless bypassed via staged copy. Additional outbound data-movement ports depend strictly on the selected connector, source, and sink architecture ([Microsoft Learn — Self-hosted IR](https://learn.microsoft.com/en-us/azure/data-factory/create-self-hosted-integration-runtime); [Data movement security considerations](https://learn.microsoft.com/en-us/azure/data-factory/data-movement-security-considerations)).",
+          "image": {
+            "src": "/assets/content/packs/adf/adf-integration-runtime-network.png",
+            "alt": "Integration runtime network routing across Azure, Managed VNet, and on-premises",
+            "caption": "Integration Runtime routing: Azure IR for public cloud stores, Managed VNet IR with private endpoints, and Self-hosted IR for on-premises firewalls.",
+            "source_attribution": "Microsoft Learn — Integration Runtime",
+            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/concepts-integration-runtime",
+            "license": "CC BY 4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "modification_status": "Unmodified"
+          }
         },
         {
           "md": "An **integration runtime (IR)** is the compute that does the work: it copies data, runs data flows, and hands transformation work to other services. Microsoft's documentation names **three types**: Azure, self-hosted and Azure-SSIS.\n\n**A managed virtual network is not a fourth type.** It is a networking option you choose when you create an Azure IR. An Azure IR created that way runs inside a network Microsoft manages for the factory and reaches data stores through private endpoints. Microsoft notes that an existing standard Azure IR can't be switched to a managed virtual network, or back, so it is a decision you make up front."
@@ -304,7 +360,7 @@
         },
         {
           "heading": "The self-hosted IR, in practice",
-          "md": "When the source sits in a private network (an on-premises database, a Hadoop cluster), you install the self-hosted IR on a Windows machine **inside that network**: a physical server on premises, or a virtual machine in a private Azure virtual network.\n\n- It makes only **outbound** connections to Azure, on **port 443**; nothing comes in from the internet.\n- It polls a queue for work, then copies data straight between the source and the cloud store over HTTPS.\n- **It does not remove the need for a network path.** The machine must reach the source on your internal network (the database's own port, through any internal firewalls) and reach Azure outbound on 443, through your proxy if you have one. Microsoft's guidance is to treat a source as on-premises behind a firewall even when ExpressRoute is in place, and to use a self-hosted IR even for a database on an Azure VM.\n- **No VPN or ExpressRoute is needed just so ADF can reach it**, because it calls out. Without ExpressRoute, that outbound traffic crosses the public internet over HTTPS; if your policy says it must stay private, that leg needs ExpressRoute or a VPN, plus Private Link.\n- Credentials are encrypted on the machine, or better, kept in **Azure Key Vault**.\n- Install it **near, but not on,** the source, so it doesn't compete with it. Several nodes make it highly available (Microsoft's limits page lists up to four; check the current limit).\n- If either side of a copy uses a self-hosted IR, the whole copy runs on it, so both sides must be reachable from that machine. Two private-network stores must use the same self-hosted IR.\n\n**Why it matters to you:** the self-hosted IR is a real server someone has to own: patching, monitoring, capacity and failover. In a migration plan it is a workstream, not a checkbox."
+          "md": "When the source sits in a private network (an on-premises database, a Hadoop cluster), you install the self-hosted IR on a Windows machine **inside that network**: a physical server on premises, or a virtual machine in a private Azure virtual network.\n\n- **Service vs data connectivity:** Outbound HTTPS connections to Azure on **port 443** are required for control-plane communication (dispatching tasks, polling queues, reporting heartbeat). Data-movement connectivity is distinct: in a direct copy, the execution IR (the SHIR) must connect directly to both the source and sink data stores on their required network ports. However, in a staged copy, the SHIR connects only to the private source and interim cloud staging storage over outbound HTTPS (port 443), while an Azure IR handles the staging-to-sink leg. While cloud store transfers typically use HTTPS (port 443), database connectors in direct copy require their own destination ports (for example, outbound port 1433 for Azure SQL Database or Azure Synapse Analytics, which can be avoided from the SHIR machine when using staged copy to route via storage).\n- **No inbound internet ports required:** It polls an Azure service bus queue for work, so no inbound ports from the public internet need to be opened on your corporate firewall.\n- **Credential manager and port 8060:** Inbound TCP port 8060 is required on the local machine's Windows Firewall for the credential manager application and PowerShell encryption cmdlet to set credentials on the host. In multi-node high-availability clusters, enabling optional 'Remote access from intranet' uses port 8060 by default for node-to-node credential syncing across your private network, but should never be exposed to the public internet.\n- **Internal network path:** The host machine must reach the source on your internal network (the database's specific port, through internal corporate firewalls) and reach Azure outbound on 443 (via proxy if configured). Microsoft guidance recommends treating sources as firewalled on-premises even when ExpressRoute is present, and using a self-hosted IR for databases hosted on private Azure VMs.\n- **Private networking choices:** Organizations requiring private connectivity can route SHIR traffic through ExpressRoute or a site-to-site VPN. To keep ADF control-plane traffic off the public internet, configure Azure Private Link for the data factory. ExpressRoute/VPN and Private Link can be deployed independently or together depending on corporate security policies.\n- **Credential management:** Credentials can be encrypted locally on the host machine using the credential manager, or ideally, referenced directly from **Azure Key Vault** using managed identities.\n- **High availability and scale:** Up to four physical or virtual machines can be joined into a single active-active logical SHIR cluster for high availability and throughput. Install nodes near the source systems to minimize latency.\n- **Execution IR and network reachability:** When copying data directly, if either side requires a self-hosted IR, the copy activity executes on that SHIR; the SHIR host machine must have network reachability to both the source and the sink on their required connector ports. However, in a **staged copy**, the transfer is split into two legs: the SHIR uploads data from the private source to interim cloud staging storage over outbound HTTPS (port 443), and an Azure IR completes the transfer from staging into the cloud destination. In that staged scenario, the SHIR host does not need direct connectivity or open database ports (such as outbound port 1433) to the destination database.\n\n**Why it matters to you:** the self-hosted IR is a real server someone has to own: patching, monitoring, capacity and failover. In a migration plan it is a workstream, not a checkbox."
         },
         {
           "heading": "Where the work happens",
@@ -316,11 +372,15 @@
       "id": "triggers",
       "title": "Triggers: when pipelines run",
       "summary": "Schedule, tumbling-window and event triggers, and why one leaves gaps the other fills.",
-      "sources": "§4, §9, §30",
+      "sources": "§4, §9, §30; Microsoft Learn (2026-10-12)",
       "blocks": [
         {
           "heading": "Roadmap alignment",
           "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 16 — Schedule Triggers** (Full)\n  - *Relevant sections:* Triggers table (Schedule trigger); (Intro)\n  - *Learning evidence:* Design a daily 05:15 ingestion schedule.\n- **Topic 17 — Tumbling Window Triggers** (Full)\n  - *Relevant sections:* Triggers table (Tumbling window trigger); Why the tumbling window matters\n  - *Learning evidence:* Design an hourly load with backfill and late-data delay.\n- **Topic 18 — Event and Custom Event Triggers** (Full)\n  - *Relevant sections:* Triggers table (Storage event trigger); (Intro)\n  - *Learning evidence:* Design a file-arrival ingestion trigger with safe filtering.\n- **Topic 19 — Time Zones and Window Semantics** (Full)\n  - *Relevant sections:* Time zones\n  - *Learning evidence:* Create a UTC-based scheduling standard."
+        },
+        {
+          "heading": "Canonical Microsoft definitions for triggers",
+          "md": "Microsoft Learn defines the trigger execution model:\n\n- **Trigger:** \"Triggers represent a unit of processing that determines when a pipeline execution needs to be kicked off.\" ([Microsoft Learn — Pipeline triggers](https://learn.microsoft.com/en-us/azure/data-factory/concepts-pipeline-execution-triggers))\n- **Tumbling window trigger:** \"Tumbling window triggers are a type of trigger that fires at a periodic time interval from a specified start time, while retaining state.\" Supports stateful backfill and self-dependencies ([Microsoft Learn — Tumbling window triggers](https://learn.microsoft.com/en-us/azure/data-factory/how-to-create-tumbling-window-trigger)).\n- **Storage event trigger:** \"Data Factory and Azure Synapse Analytics pipelines natively integrate with Azure Event Grid, which lets you trigger pipelines on such events.\" ([Microsoft Learn — Event triggers](https://learn.microsoft.com/en-us/azure/data-factory/how-to-create-event-trigger))\n- **Event filter constraint:** Path pattern matching supports only `blobPathBeginsWith` and `blobPathEndsWith`; wildcards in the middle are not supported by Azure Event Grid."
         },
         {
           "table": {
@@ -383,11 +443,25 @@
       "id": "copy",
       "title": "The Copy activity",
       "summary": "What happens during a copy, the formats, the settings that matter, and when a failed copy can resume.",
-      "sources": "§11, §25, §30",
+      "sources": "§11, §25, §30; Microsoft Learn (2026-10-12)",
       "blocks": [
         {
           "heading": "Roadmap alignment",
           "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 25 — Copy Activity Fundamentals** (Full)\n  - *Relevant sections:* (Intro); Settings that matter\n  - *Learning evidence:* Design one cloud-to-cloud and one hybrid copy pipeline.\n- **Topic 26 — Connectors, Formats and Capability Matrix** (Full)\n  - *Relevant sections:* Connectors\n  - *Learning evidence:* Build a connector capability checklist for SQL, Oracle, S3, ADLS and REST.\n- **Topic 27 — Schema Mapping and Type Conversion** (Full)\n  - *Relevant sections:* Settings that matter; Ch 7 (Bad rows, cut-off values and \"verified\" copies)\n  - *Learning evidence:* Create a type-conversion risk checklist.\n- **Topic 30 — Staged Copy, Resume and Large File Handling** (Full)\n  - *Relevant sections:* When a failed copy can resume; Ch 13 (Recovering from failures)\n  - *Learning evidence:* Create a copy-recovery decision tree."
+        },
+        {
+          "heading": "Canonical Microsoft definition of the Copy activity",
+          "md": "**Microsoft definition:** \"you can use the Copy activity to copy data among data stores located on-premises and in the cloud.\"\n\n- **In plain English:** The Copy activity executes high-throughput serverless data movement across 100+ connectors, managing serialization, compression, and column mapping.\n- **Connector capability matrix:** Microsoft maintains capabilities across 100+ stores at [Microsoft Learn — Connector overview](https://learn.microsoft.com/en-us/azure/data-factory/connector-overview).\n- **Staged copy:** \"Specify whether you want to copy data via an interim staging store.\" Used for Synapse PolyBase/COPY bulk loads and corporate firewall traversal ([Microsoft Learn — Staged copy](https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-performance-features#staged-copy)).",
+          "image": {
+            "src": "/assets/content/packs/adf/adf-copy-activity-engine.png",
+            "alt": "Copy activity data movement engine from hybrid sources to sinks",
+            "caption": "Copy activity execution: Ingestion across hybrid on-premises and cloud sources into analytics data stores.",
+            "source_attribution": "Microsoft Learn — Copy Activity Overview",
+            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-overview",
+            "license": "CC BY 4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "modification_status": "Unmodified"
+          }
         },
         {
           "md": "The Copy activity reads from a source, converts the format if needed, maps columns, and writes to a sink (the destination). It can copy files as they are (fast, no parsing) or convert them, for example a SQL Server table into Parquet files in the lake.\n\n**Formats the Copy activity reads and writes:** Avro, Binary, CSV (delimited text), Excel, Iceberg (Azure Data Lake Storage Gen2 only), JSON, ORC, Parquet and XML. Delta is a mapping data flow format; the Copy activity reaches Delta tables through the Azure Databricks Delta Lake connector."
@@ -395,6 +469,20 @@
         {
           "heading": "Settings that matter",
           "md": "- **Data Integration Units (DIUs):** the copy's power on an Azure IR, up to 256.\n- **Parallel copies:** how many threads read and write at once.\n- **Staged copy:** go through Blob storage on the way, for some sinks and networks.\n- **Extra columns:** stamp each row with its source file (`$$FILEPATH`) or the run ID. This is lineage for free, and makes later investigations far easier.\n- **Auto-create the sink table** for SQL sinks: convenient to start, but review the schema it makes."
+        },
+        {
+          "heading": "Staged copy: architecture and network bypass",
+          "md": "When copying data between disparate environments or loading analytical data stores, **Staged copy** allows ADF to use interim Azure Blob Storage or Azure Data Lake Storage Gen2 as a temporary staging buffer:\n\n- **Two-stage movement architecture:** The transfer is divided into two sequential stages: stage one moves data from the source to interim staging storage, and stage two loads data from interim staging into the sink data store. When spanning hybrid environments, the two stages can execute on different integration runtimes.\n- **High-speed bulk ingestion:** Analytical sinks such as Azure Synapse Analytics achieve optimal ingestion throughput using PolyBase or the `COPY` statement, both of which require staged source files in Azure cloud storage.\n- **Firewall & network port bypass:** In corporate environments where direct database connectivity (such as outbound port 1433 for Azure SQL Database or Azure Synapse Analytics) is blocked by corporate firewall policies from an on-premises host, staged copy enables a Self-hosted IR to upload data over HTTPS (port 443) to interim cloud storage. An Azure IR then performs the second leg to load into the destination database. This applies to supported connector and network architectures where staging is enabled, rather than universally avoiding database ports across every connector.\n- **Configuration JSON structure:** In the Copy activity JSON, staging is enabled by setting `\"enableStaging\": true` directly under `typeProperties`. Staging parameters are supplied in the nested `\"stagingSettings\"` object under `typeProperties`, which contains `linkedServiceName` (the storage linked service reference), an optional `path` folder, and optional `\"enableCompression\": true`. `stagingSettings` does not contain `enableStaging`.\n- **Optional compression and authentication constraint:** Data compression in interim staging storage is optional and configured through `\"enableCompression\": true` inside `stagingSettings` (not at the `typeProperties` level); compression is not automatic or guaranteed on every staged copy. Crucially, as documented by Microsoft, **Service Principal or Managed Identity authentication is not supported** for the staging Blob linked service when compression is enabled during staged copy.\n- **Automatic cleanup permissions:** ADF can automatically delete temporary staged data from interim storage after the copy finishes. For cleanup to succeed, the credential or managed identity used by the staging linked service must possess delete permissions (such as Storage Blob Data Contributor) on the staging container.",
+          "image": {
+            "src": "/assets/content/packs/adf/adf-staged-copy.png",
+            "alt": "Two-stage copy movement via interim staging storage",
+            "caption": "Staged copy architecture: Data is uploaded to interim staging storage via Integration Runtime 1, then loaded into the destination sink via Integration Runtime 2.",
+            "source_attribution": "Microsoft Learn — Staged copy",
+            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-performance-features#staged-copy",
+            "license": "CC BY 4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "modification_status": "Unmodified"
+          }
         },
         {
           "heading": "When a failed copy can resume",
@@ -410,11 +498,15 @@
       "id": "bad-rows",
       "title": "Bad rows, cut-off values and \"verified\" copies",
       "summary": "The copy fails on the first bad row, cuts values silently by default, and \"verified\" means counts, not values.",
-      "sources": "§12, §31",
+      "sources": "§12, §31; Microsoft Learn (2026-10-12)",
       "blocks": [
         {
           "heading": "Roadmap alignment",
           "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 27 — Schema Mapping and Type Conversion** (Full)\n  - *Relevant sections:* Values cut off without an error; Column mapping; Ch 6 (The Copy activity)\n  - *Learning evidence:* Create a type-conversion risk checklist.\n- **Topic 28 — Fault Tolerance and Skipped Rows** (Full)\n  - *Relevant sections:* Bad rows; Ch 15 (Sensitive data in regulated industries)\n  - *Learning evidence:* Design a bad-row quarantine operating model.\n- **Topic 29 — Data Consistency Verification** (Full)\n  - *Relevant sections:* What \"verified\" means; Ch 8 (Proving the migration is complete)\n  - *Learning evidence:* Define a migration acceptance criterion beyond Copy success."
+        },
+        {
+          "heading": "Canonical Microsoft definitions for copy reliability",
+          "md": "Microsoft Learn documents precise semantics for schema mapping, fault tolerance, and consistency verification:\n\n- **Schema mapping:** \"By default, copy activity maps source data to sink by column names in a case-sensitive manner.\" ([Microsoft Learn — Schema mapping](https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-schema-and-type-mapping))\n- **Fault tolerance:** \"You can continue to copy the rest by enabling fault tolerance to skip the incompatible data.\" Tabular data skips 3 categories: data type mismatch, column count mismatch, and primary key violation ([Microsoft Learn — Fault tolerance](https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-fault-tolerance)).\n- **Data consistency:** \"ensure the data is not only successfully copied from source to destination store, but also verified to be consistent between source and destination store.\" ([Microsoft Learn — Data consistency](https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-data-consistency))"
         },
         {
           "heading": "Bad rows",
@@ -438,11 +530,15 @@
       "id": "reconciliation",
       "title": "Proving the migration is complete",
       "summary": "Counts, column totals, distributions, row fingerprints and business rules: five levels of proof, and what ADF gives you for each.",
-      "sources": "§12, §26, §31",
+      "sources": "§12, §26, §31; Microsoft Learn (2026-10-12)",
       "blocks": [
         {
           "heading": "Roadmap alignment",
           "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 29 — Data Consistency Verification** (Full)\n  - *Relevant sections:* (Intro); Five levels of proof; Ch 7 (Bad rows)\n  - *Learning evidence:* Define a migration acceptance criterion beyond Copy success.\n- **Topic 38 — Reconciliation: Counts, Profiles and Row Fingerprints** (Full)\n  - *Relevant sections:* Five levels of proof; Why totals aren't enough; Where the checks run\n  - *Learning evidence:* Create a five-level migration reconciliation plan.\n- **Topic 39 — Assert, Error Rows and Business Rules** (Full)\n  - *Relevant sections:* Five levels of proof (Level 5); Ch 11 (Transforming data: data flows, schema drift and Delta)\n  - *Learning evidence:* Implement a logical data-quality gate design.\n- **Topic 58 — Enterprise Migration Architecture** (Full)\n  - *Relevant sections:* Five levels of proof; Why it matters to you; Ch 19 (Migrating with ADF)\n  - *Learning evidence:* Complete an end-to-end 100–500 table Azure migration architecture case."
+        },
+        {
+          "heading": "Microsoft documentation on reconciliation and data quality gates",
+          "md": "Building reconciliation proofs in ADF Mapping Data Flows relies on documented native transformations:\n\n- **Aggregate functions:** Data flows provide `count`, `countAll`, `countIf`, `sum`, `avg`, `min`, `max`, `stddev`, `variance`, `countDistinct`, and `approxDistinctCount` ([Microsoft Learn — Aggregate functions](https://learn.microsoft.com/en-us/azure/data-factory/data-flow-aggregate-function)).\n- **Assert transformation:** Implements quality gates using `expect true`, `expect unique`, and `expect exists` expressions to route or fail on invalid records ([Microsoft Learn — Assert transformation](https://learn.microsoft.com/en-us/azure/data-factory/data-flow-assert)).\n- **Row fingerprints:** Built using cryptographic hash functions `sha2(256, ...)` or `md5(...)` to compare source and target representations row-by-row."
         },
         {
           "md": "A migration isn't finished when the copy succeeds; it's finished when you can **prove** the data arrived complete and unchanged. The Copy activity only gives you row counts, and its \"consistency verification\" for tables checks **counts only**, never values (chapter 7). Everything beyond that is something the team builds, and ADF's mapping data flows provide the parts."
@@ -506,11 +602,25 @@
       "id": "incremental",
       "title": "Loading only new data",
       "summary": "Full, windowed and watermark loads; the bookmark that must only move after a successful copy.",
-      "sources": "§13, §18.2, §21, §31",
+      "sources": "§13, §18.2, §21, §31; Microsoft Learn (2026-10-12)",
       "blocks": [
         {
           "heading": "Roadmap alignment",
           "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 31 — Full Load vs Incremental Load** (Full)\n  - *Relevant sections:* (Intro); Three patterns, depending on the table\n  - *Learning evidence:* Create a load-strategy decision table.\n- **Topic 32 — Watermark Patterns** (Full)\n  - *Relevant sections:* The watermark, step by step; Duplicates: the other failure; What a watermark can't do\n  - *Learning evidence:* Build a watermark control-table design.\n- **Topic 33 — Change Tracking and CDC** (Full)\n  - *Relevant sections:* Three patterns, depending on the table; Ch 10 (Change data capture)\n  - *Learning evidence:* Compare watermark, Change Tracking and CDC for three databases.\n- **Topic 35 — Metadata-Driven Pipelines** (Full)\n  - *Relevant sections:* Designing an end-to-end metadata-driven pipeline framework; The watermark, step by step; Ch 19 (Migrating with ADF)\n  - *Learning evidence:* Design a metadata-driven ingestion framework."
+        },
+        {
+          "heading": "Canonical Microsoft definition of the watermark pattern",
+          "md": "**Microsoft definition:** \"A watermark is a column that has the last updated time stamp or an incrementing key.\"\n\n- **In plain English:** A watermark is a database bookmark. The pipeline reads records strictly newer than the stored watermark, then advances the bookmark once the copy succeeds.\n- **Source:** [Microsoft Learn — Incrementally copy data tutorial](https://learn.microsoft.com/en-us/azure/data-factory/tutorial-incremental-copy-overview)",
+          "image": {
+            "src": "/assets/content/packs/adf/adf-watermark-workflow.png",
+            "alt": "Incremental copy workflow using a watermark column and control table",
+            "caption": "Incremental copy architecture: Look up old watermark from control table, look up new watermark from source, copy delta slice, and update control table on copy success.",
+            "source_attribution": "Microsoft Learn — Incrementally copy data tutorial",
+            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/tutorial-incremental-copy-overview",
+            "license": "CC BY 4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "modification_status": "Unmodified"
+          }
         },
         {
           "md": "The first time, you copy everything: the **initial full load**. After that, copying everything again is wasteful: a table might have 2 billion rows when 50,000 are new. So from then on you copy only what's **new or changed**: an **incremental** (or delta) load."
@@ -567,51 +677,55 @@
       "id": "cdc",
       "title": "Change data capture",
       "summary": "Four ways to get only the changes, including deletes, and the checkpoint that can be lost when something it is keyed to changes.",
-      "sources": "§15, §30",
+      "sources": "§15, §30; Microsoft Learn (2026-10-12)",
       "blocks": [
         {
           "heading": "Roadmap alignment",
           "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 33 — Change Tracking and CDC** (Full)\n  - *Relevant sections:* (Intro); Ch 9 (Loading only new data)\n  - *Learning evidence:* Compare watermark, Change Tracking and CDC for three databases.\n- **Topic 34 — CDC Checkpoints and Rename Risk** (Full)\n  - *Relevant sections:* The checkpoint, and the rename trap\n  - *Learning evidence:* Write a CDC rename/change-management runbook."
         },
         {
-          "md": "ADF offers four ways to pick up only what changed:",
+          "heading": "Canonical Microsoft definition of Change Data Capture",
+          "md": "**Microsoft definition:** \"ADF mapping data flow can automatically detect and extract changed data, including inserted, updated, and deleted rows from the source databases.\"\n\n- **In plain English:** Native CDC utilizes the source data store's native change-capture mechanism directly (such as transaction logs, change feeds, or change streams), capturing row inserts, updates, and deletes without requiring query burdens or timestamp watermark columns on source tables.\n- **Source:** [Microsoft Learn — Change data capture](https://learn.microsoft.com/en-us/azure/data-factory/concepts-change-data-capture)\n- **Four distinct change-capture approaches:** ADF provides four distinct mechanisms for change capture, each with its own runtime scope, prerequisites, and operational characteristics: (1) the top-level **Change Data Capture resource** (a dedicated, no-code artifact in public preview), (2) **Native CDC in Mapping Data Flows** (managed Spark reading native change streams from supported sources), (3) **Automatic incremental extraction in Mapping Data Flows** (detecting changes via watermark columns or file metadata), and (4) **Custom pipeline-based extraction** (querying source-native change tracking functions or high-watermark control tables via activities like Copy and Lookup)."
+        },
+        {
+          "md": "ADF supports four distinct architectural patterns for capturing changed data:",
           "table": {
             "head": [
-              "Way",
-              "How",
-              "Note"
+              "Architecture",
+              "How It Works",
+              "Key Capabilities & Limitations"
             ],
             "rows": [
               [
-                "Native CDC in data flows",
-                "Reads inserts, updates and deletes from the database's own change log",
-                "Recommended first: least load on the source"
+                "Top-Level CDC Resource (Public Preview)",
+                "A dedicated top-level ADF artifact configured via a guided studio walk-through that executes continuously or at scheduled latency intervals (from real-time to hours) on an Azure Integration Runtime.",
+                "Azure IR only; Self-hosted IR is unsupported. Complex data types are unsupported. 1:1 mapping constraint: each source and target can only be used once in a mapping. Azure Synapse target requires interim staging storage and appropriate write permissions. Billed at 4 vCores General Purpose Data Flow rates only while processing CDC data (not continuously while idle). Supported sources include connectors (Azure SQL Database, Azure SQL Managed Instance, SQL Server, Azure Cosmos DB SQL API, Snowflake) and storage file formats on Blob/ADLS Gen2 (Avro, Delimited Text, JSON, ORC, Parquet, XML). Supported targets include connectors (Azure SQL Database, Azure SQL Managed Instance, Azure Synapse Analytics) and storage formats on Blob/ADLS Gen2 (Avro, Delimited Text, Delta, JSON, ORC, Parquet). Note: Microsoft docs present targets slightly differently across sections (e.g. ADLS Gen2 listed as target in overview vs file formats in resource guide)."
               ],
               [
-                "Auto incremental extraction",
-                "You name an incremental column; ADF builds the query and remembers where it stopped",
-                "Databases and files"
+                "Native CDC in Mapping Data Flows",
+                "Mapping Data Flow source with native CDC enabled connects to the source's native change-capture mechanism on managed Spark clusters without requiring custom timestamp watermark queries or polling burdens on source tables.",
+                "Supported connectors include SAP CDC (via Operational Data Provisioning / ODP framework), Azure SQL Database, SQL Server, Azure SQL Managed Instance (via database transaction logs), Azure Cosmos DB SQL API (via change feed), Azure Cosmos DB analytical store (via Synapse Link), and Snowflake (via change tracking / streams). Automatically manages checkpoints. Provides built-in expression functions (isInsert(), isUpdate(), isDelete()) to evaluate row-operation state within Conditional Split or Alter Row transforms, allowing write operations (inserts, updates, deletes) to be applied to supported sinks such as Delta Lake."
               ],
               [
-                "CDC resource",
-                "A guided resource, no pipeline needed; runs continuously at a latency you set",
-                "Preview; doesn't work with the self-hosted IR, so no on-premises sources"
+                "Automatic Incremental Extraction in Data Flows",
+                "Mapping Data Flow source configured for incremental extraction identifies new or changed data using a user-specified incremental watermark column (date/time or incrementing key) or file modification timestamps.",
+                "Applicable to supported storage and relational sources lacking transaction-log CDC. ADF automatically tracks the high watermark across pipeline runs without manual control tables. Extracts inserts and updates based on the watermark column, but does not capture physical transaction-log deletes."
               ],
               [
-                "Customer-managed",
-                "The watermark and control table (chapter 9)",
-                "Works with any source"
+                "Custom Pipeline-Based Incremental Loading",
+                "Pipeline orchestration activities (Lookup, Copy, Script) querying source-native change tracking (such as SQL Server CHANGETABLE) or querying user-maintained high-watermark control tables.",
+                "Customer-managed state in a control table (chapter 9). Highly portable and connector-agnostic; runs across cloud and on-premises sources using Self-hosted IR. Does not capture row deletes unless using source-native change tracking queries or soft-delete application columns."
               ]
             ]
           }
         },
         {
           "heading": "The checkpoint, and the rename trap",
-          "md": "ADF remembers where the last run stopped with a **checkpoint**. What it is tied to is a place where Microsoft's own pages differ, so don't teach it as one simple rule:\n\n- **Microsoft fact, long-standing behaviour:** by default the checkpoint is coupled to the pipeline and activity names, so renaming either resets it. The next run starts again from the beginning, or from now (the change data capture concepts page).\n- **Microsoft fact, newer behaviour:** the Data Flow activity page says a newly created data flow activity uses a **GUID** as its checkpoint key instead of pipeline name plus activity name, so renaming doesn't lose its place, and that **existing activities keep the old pattern** for backward compatibility. The same page also describes the default key as a hash of the data flow and pipeline names. The pages don't agree with each other, so treat the exact default as unsettled.\n- **On both pages, you can set your own checkpoint key.**\n\n**Recommended practice:** for any change data capture load that matters, set an explicit checkpoint key, write it down, and rehearse a rename in a non-production factory before trusting it. Don't rely on a default you haven't tested. Also documented: refreshing the browser during a debug run resets the checkpoint, and a rerun from monitoring resumes from the previous checkpoint.\n\n**Interview takeaway:** \"the checkpoint can be lost when something it is keyed to changes, so we set the key ourselves and rehearse a rename.\" Avoid \"renaming always resets it\" and avoid \"renaming never matters\".\n\nA realistic incident: someone tidies up pipeline names, and the next load re-reads the whole history."
+          "md": "In Mapping Data Flow activities that utilize native CDC or automatic incremental extraction, ADF maintains state across runs using an internal **checkpoint** so that subsequent executions read only newly committed changes:\n\n- **Feature scope:** Checkpoint keys are a specific configuration mechanism of Mapping Data Flow activities running native CDC or incremental extraction. They do not apply to the top-level CDC resource (which maintains its state internally within the service) or to custom control-table watermark pipelines.\n- **Documentation discrepancy on default checkpoint identity:** Official Microsoft documentation describes default checkpoint key generation inconsistently across different pages:\n  - The [Change data capture concept overview](https://learn.microsoft.com/en-us/azure/data-factory/concepts-change-data-capture) states that the checkpoint key defaults to a combination of the pipeline name and activity name, warning that renaming either the pipeline or the activity resets the checkpoint and causes the source to be re-read from the beginning.\n  - The [Execute Data Flow activity documentation](https://learn.microsoft.com/en-us/azure/data-factory/control-flow-execute-data-flow-activity) describes two different behaviors: in its settings reference, it states that newly created activities generate a unique GUID-based checkpoint key that persists state regardless of renaming; in its checkpoint table, it states that the default key is generated as a hash of the data flow name and pipeline name.\n  - Because official documentation presents these conflicting descriptions, engineering teams should not rely on a single assumed key-generation rule across all runtime versions.\n- **When an optional custom checkpoint key is useful:** In the Execute Data Flow activity settings (under Logging / Checkpoint settings), you can optionally provide a user-defined **Checkpoint Key**. Supported use cases include:\n  1. *Parameterized or dynamic data flows:* When a single data flow activity is invoked dynamically for multiple distinct source tables or tenants, supplying a parameterized checkpoint key (e.g. including the table name) ensures each dataset maintains an independent checkpoint state, avoiding collisions.\n  2. *Planned renaming under name-coupled behavior:* If your activity relies on default naming-derived keys where renames trigger resets, specifying an explicit custom checkpoint key before renaming can preserve the checkpoint across the refactor.\n  3. A custom key is not universally required, does not apply to non-Data Flow architectures, and should only be configured when supported by your operational requirements.\n- **Run execution semantics:**\n  - *First triggered production run after publish:* Establishes the initial checkpoint baseline according to the source configuration (e.g. reading from current time or full baseline).\n  - *Subsequent normal triggered runs:* Resume reading changes from the previous committed checkpoint.\n  - *Pipeline rerun:* Rerunning a specific historical pipeline run re-executes that run's execution slice rather than simply advancing from the latest production checkpoint.\n  - *Debug sessions:* Debug executions track state only within the active debug session cache; refreshing the browser or ending the debug session resets the debug checkpoint.\n- **Operational change management:** Before performing production renames or pipeline reorganizations on CDC workloads, verify checkpoint persistence in a staging environment and capture current transaction offsets or watermark values to prevent unexpected delta re-extraction.\n\n**Interview takeaway:** \"In Mapping Data Flows, ADF automatically manages CDC checkpoints. Microsoft documentation describes default checkpoint identity with conflicting models (pipeline/activity name coupling vs GUID vs name hash). Setting an optional custom checkpoint key is useful for parameterized flows processing multiple tables and for protecting state during planned renames.\""
         },
         {
-          "heading": "CDC Schema Evolution, Checkpointing, and Rename Risk",
-          "md": "Change Data Capture (CDC) enables continuous delta extraction without relying on high-watermark timestamp columns:\n\n**1. ADF CDC Architectures**\n\n- **Top-Level CDC Resource:** A dedicated native ADF resource for continuous low-latency data replication from sources like SQL Server, Azure SQL, and Oracle into Delta Lake or ADLS Gen2.\n- **Mapping Data Flow CDC Source:** A Data Flow source configured with `Change Data Capture` enabled, reading native transaction logs and outputting row metadata (`isInsert`, `isUpdate`, `isDelete`).\n- **Copy Activity CDC:** Relies on source database change tracking functions or CDC tables queried via SQL expressions.\n\n**2. Checkpointing Mechanics**\n\nADF tracks the state of captured transactions using Log Sequence Numbers (LSN) or system transaction timestamps stored in internal state checkpoints. If a pipeline fails or is temporarily stopped, restarting it resumes reading strictly from the last committed LSN, preventing duplicate processing or data gaps.\n\n**3. Schema Evolution & The Column Rename Trap**\n\nSource databases inevitably undergo DDL changes during production operations:\n- **Adding a Column:** Fully supported. ADF CDC detects the new column and appends it to downstream target schemas without pipeline modification if Schema Drift is enabled.\n- **Dropping a Column:** Handled gracefully. Dropped columns will produce null values in downstream writes.\n- **Renaming a Column (The Rename Trap):** Relational database engines (e.g. SQL Server, Oracle) record a column rename in transaction logs as a **DROP of the old column** followed by an **ADD of the new column**. If unhandled:\n  1. Downstream tables will suddenly contain two columns: the old column (permanently null thereafter) and the new column (empty for historical data).\n  2. If the sink has strict schema constraints, the pipeline will fail immediately.\n\n**4. CDC Change Management Runbook**\n\nBefore executing a column rename on a CDC-enabled source table:\n1. *Pause the CDC Pipeline:* Drain active transactions and stop the ADF CDC pipeline.\n2. *Apply Source DDL:* Execute the column rename in the source database.\n3. *Update Target Schema & Mappings:* Add the renamed column to the target Delta/SQL table and update column mappings in the ADF CDC resource.\n4. *Resume CDC Pipeline:* Restart the pipeline from the existing checkpoint to resume continuous streaming."
+          "heading": "CDC Schema Evolution, State Tracking, and Operational Governance",
+          "md": "Operating change data capture in production requires understanding how state is tracked, how schema changes propagate, and what operational safeguards are necessary:\n\n**1. State Tracking and Write Semantics**\n\n- **Connector-specific change tracking mechanisms:** In Mapping Data Flows, ADF uses the source's native change-capture mechanism rather than a single universal engine. Implementation details vary by connector: SQL Server, Azure SQL Database, and Azure SQL Managed Instance use database transaction logs; Azure Cosmos DB uses change feed tokens; SAP CDC uses the SAP Operational Data Provisioning (ODP) framework; Snowflake uses table change tracking streams; and file sources in incremental extraction use file modification timestamps or user-defined watermark column values. These mechanics are connector-specific and should not be assumed to operate identically across different engines.\n- **Checkpoint progression and recovery semantics:** In Mapping Data Flows utilizing native CDC or incremental extraction, checkpoints advance as data increments are processed. If a run fails mid-execution, subsequent normal runs attempt to resume from the last recorded checkpoint for that activity. However, checkpoint progression and target write commit semantics depend on sink transactional capabilities (e.g. Delta Lake ACID transactions vs relational database bulk operations). ADF does not guarantee universal atomicity across arbitrary external storage targets. Neither the top-level CDC resource nor custom watermark-table pipelines use the Data Flow activity checkpoint key mechanism.\n- **Delivery semantics and sink idempotency:** While source-native change capture avoids skipping changes at the source, network retries, cluster restarts, or pipeline replays can cause duplicate records to be sent to the sink. Exactly-once end-to-end delivery is not guaranteed by the platform alone. Sinks should implement idempotent write patterns (such as Delta Lake merge/upsert operations or destination deduplication keys) as a defensive engineering best practice.\n\n**2. Schema Evolution Across CDC Architectures**\n\nWhen source schemas change (DDL modifications), behavior depends on the specific architecture and connector configuration:\n- **Top-Level CDC Resource (Schema Evolution Tutorial):** In Microsoft's documented tutorial ([How to change data capture resource with schema evolution](https://learn.microsoft.com/en-us/azure/data-factory/how-to-change-data-capture-resource-with-schema-evolution)) for Azure SQL Database to Delta Lake on ADLS Gen2:\n  - The tutorial specifies that source tables must be configured with suitable **watermark/incremental columns** (such as modified date or incremental keys) rather than enabling native SQL Server CDC on the source tables.\n  - **Auto mapping** must be enabled in the source-to-target mapping configuration. When auto mapping is enabled, newly added source columns are automatically detected and propagated to the Delta target table schema.\n  - This capability is demonstrated for supported source/target pairings (such as Azure SQL Database to Delta Lake) and should not be assumed for arbitrary unsupported combinations.\n- **Mapping Data Flows (Schema Drift):** Mapping Data Flows handle schema evolution via **Schema Drift**. Enabling *Allow schema drift* on the source allows new columns to be read without re-authoring metadata. For those drifted columns to reach the sink, the sink must also have *Allow schema drift* enabled and use appropriate mapping rules (such as Auto Mapping or Rule-based Mapping). Sinks with strict, fixed schema projections will drop or fail on drifted columns unless explicitly configured.\n- **Row-operation evaluation functions:** In Mapping Data Flows, row operations are not emitted as plain column names. Instead, ADF provides built-in expression functions such as `isInsert()`, `isUpdate()`, and `isDelete()` (documented in [Data flow expression functions](https://learn.microsoft.com/en-us/azure/data-factory/data-flow-expression-functions)) to inspect row status inside Conditional Split or Alter Row transformations before writing to sinks.\n\n**3. Production Change Management Protocol**\n\nBefore applying DDL alterations (such as column additions, renames, type changes, or dropping columns) to source tables tracked by CDC:\n1. *Validate in non-production:* Test the specific DDL change against your connector pair in staging to observe how schema drift or schema evolution behaves under your sink settings.\n2. *Coordinate pipeline execution:* Where possible, pause active CDC pipelines or allow pending transactions to complete before altering source table definitions.\n3. *Update target projections:* Align target table definitions, column mappings, and consumer views with the modified schema before resuming execution.\n4. *Verify downstream reconciliation:* Confirm that delta processing resumes without missing records, duplicate rows, or schema validation failures."
         }
       ]
     },
@@ -619,11 +733,15 @@
       "id": "transform",
       "title": "Transforming data: data flows, schema drift and Delta",
       "summary": "Visual transformations on managed Spark, what to do when the source changes shape, and writing Delta tables.",
-      "sources": "§17, §20, §30, §31",
+      "sources": "§17, §20, §30, §31; Microsoft Learn (2026-10-12)",
       "blocks": [
         {
           "heading": "Roadmap alignment",
           "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 36 — Mapping Data Flows** (Full)\n  - *Relevant sections:* Mapping data flows; Writing Delta tables\n  - *Learning evidence:* Create a transformation-selection matrix.\n- **Topic 37 — Schema Drift and Data Flow Design** (Full)\n  - *Relevant sections:* When the source changes shape; Landing files in the lake\n  - *Learning evidence:* Define schema-evolution rules for a lake ingestion domain.\n- **Topic 39 — Assert, Error Rows and Business Rules** (Full)\n  - *Relevant sections:* Mapping data flows; Ch 8 (Proving the migration is complete)\n  - *Learning evidence:* Implement a logical data-quality gate design.\n- **Topic 40 — Data Flow Performance Fundamentals** (Full)\n  - *Relevant sections:* Mapping data flows; Ch 17 (Fine-tuning copies and data flows)\n  - *Learning evidence:* Create a Data Flow performance troubleshooting checklist.\n- **Topic 54 — Architecture Trade-offs: ADF vs Databricks vs Synapse** (Full)\n  - *Relevant sections:* Architecture trade-offs: ADF Mapping Data Flows vs Azure Databricks vs Azure Synapse Analytics; Mapping data flows; Ch 1, Ch 20, Ch 21\n  - *Learning evidence:* Present an architecture choice for a lakehouse ingestion platform.\n- **Topic 56 — ADF + Azure Synapse** (Full)\n  - *Relevant sections:* Mapping data flows; Ch 3 (Pipelines, activities and control flow)\n  - *Learning evidence:* Design an ADF + Synapse batch architecture."
+        },
+        {
+          "heading": "Canonical Microsoft definitions for Mapping Data Flows",
+          "md": "Microsoft Learn defines Mapping Data Flows and schema evolution:\n\n- **Mapping data flows:** \"Mapping data flows are visually designed data transformations in Azure Data Factory. Data flows allow data engineers to develop data transformation logic without writing code.\" ([Microsoft Learn — Mapping data flows](https://learn.microsoft.com/en-us/azure/data-factory/concepts-data-flow-overview))\n- **Schema drift:** \"Schema drift is the case where your sources often change metadata. Fields, columns, and, types can be added, removed, or changed on the fly.\" ([Microsoft Learn — Schema drift](https://learn.microsoft.com/en-us/azure/data-factory/concepts-data-flow-schema-drift))\n- **Performance guide:** Review Microsoft's tuning and cluster stages guide at [Microsoft Learn — Data flow performance](https://learn.microsoft.com/en-us/azure/data-factory/concepts-data-flow-performance)."
         },
         {
           "heading": "Mapping data flows",
@@ -651,11 +769,15 @@
       "id": "monitoring",
       "title": "Monitoring, failures and reruns",
       "summary": "Why a green run doesn't prove the data arrived, how reruns work, and the 45-day history.",
-      "sources": "§10, §23",
+      "sources": "§10, §23; Microsoft Learn (2026-10-12)",
       "blocks": [
         {
           "heading": "Roadmap alignment",
           "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 10 — Dependencies: Success, Failure, Completion and Skip** (Full)\n  - *Relevant sections:* A green run can hide a failure; Ch 3 (Pipelines)\n  - *Learning evidence:* Build a Try/Catch-style control-flow design on paper.\n- **Topic 44 — Monitoring, Alerts and Run History** (Full)\n  - *Relevant sections:* (Intro); Reruns; History and alerts\n  - *Learning evidence:* Create a production monitoring checklist and alert matrix.\n- **Topic 49 — Deployment Parameters, Global Parameters and Trigger Handling** (Full)\n  - *Relevant sections:* History and alerts; Ch 18 (From Dev to Prod)\n  - *Learning evidence:* Create a deployment readiness checklist.\n- **Topic 59 — ADF Interview Scenario Drills** (Full)\n  - *Relevant sections:* A green run can hide a failure; Ch 21 (Pitfalls); Scenario set\n  - *Learning evidence:* Record or write answers to 10 ADF interview scenarios."
+        },
+        {
+          "heading": "Canonical Microsoft definition and diagnostic architecture",
+          "md": "Microsoft Learn establishes monitoring capabilities and telemetry limits:\n\n- **Visual monitoring:** \"You can monitor all of your pipeline runs natively in the Azure Data Factory user experience.\" ([Microsoft Learn — Visually monitor ADF](https://learn.microsoft.com/en-us/azure/data-factory/monitor-visually))\n- **Retention limit:** Azure Data Factory stores pipeline run data in the portal for strictly 45 days. Multi-month auditing requires streaming diagnostic logs to Azure Monitor ([Microsoft Learn — Monitor ADF using Azure Monitor](https://learn.microsoft.com/en-us/azure/data-factory/monitor-using-azure-monitor)).\n- **Diagnostic tables:** Azure Monitor logs stream into `ADFPipelineRun`, `ADFActivityRun`, and `ADFTriggerRun` tables in Log Analytics."
         },
         {
           "heading": "A green run can hide a failure",
@@ -702,11 +824,15 @@
       "id": "recovery",
       "title": "Recovering from failures",
       "summary": "Rerun only what failed, make reruns safe, and what happens when a zone or a whole region goes down.",
-      "sources": "§3, §9, §10, §14, §29",
+      "sources": "§3, §9, §10, §14, §29; Microsoft Learn (2026-10-12)",
       "blocks": [
         {
           "heading": "Roadmap alignment",
           "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 30 — Staged Copy, Resume and Large File Handling** (Full)\n  - *Relevant sections:* Rerun only what failed; Ch 6 (The Copy activity)\n  - *Learning evidence:* Create a copy-recovery decision tree.\n- **Topic 50 — Reliability, Idempotency and Recovery** (Full)\n  - *Relevant sections:* (Intro); Rerun only what failed; Make every rerun safe; When a zone or a region fails; The backup is Git\n  - *Learning evidence:* Write an incident-recovery runbook for a failed nightly load.\n- **Topic 58 — Enterprise Migration Architecture** (Full)\n  - *Relevant sections:* Why it matters to you; Ch 19 (Migrating with ADF)\n  - *Learning evidence:* Complete an end-to-end 100–500 table Azure migration architecture case."
+        },
+        {
+          "heading": "Microsoft reliability and disaster recovery architecture",
+          "md": "Microsoft Learn documents the high-availability and recovery model for Azure Data Factory:\n\n- **Availability zone redundancy:** The core service and Azure Integration Runtime are zone-redundant automatically at no extra cost ([Microsoft Learn — Pipeline execution and triggers](https://learn.microsoft.com/en-us/azure/data-factory/concepts-pipeline-execution-triggers#recovery-and-restart)).\n- **Activity retry defaults:** Activity retries default to 0; minimum retry interval is 30 seconds.\n- **Disaster recovery (BCDR):** ADF does not provide native cross-region automated replication. BCDR requires maintaining factory infrastructure in Git / Bicep and redeploying to an Azure paired region with triggers stopped until failover."
         },
         {
           "md": "Every pipeline fails sometimes. Recovery is the plan for what happens next, and the documentation is clear that it is a **shared responsibility**: Microsoft runs the core service and the Azure integration runtime; the self-hosted runtime, the data stores and the pipeline design are yours.\n\nFour questions cover most recoveries: **what exactly failed**, **what can be rerun on its own**, **will rerunning it duplicate anything**, and **how do we prove it is fixed**."
@@ -746,9 +872,9 @@
                 "ADF skips them; it never retries them. Reloading is somebody's task"
               ],
               [
-                "Change data capture",
-                "Picks up from its checkpoint (chapter 10)",
-                "Unless something the checkpoint is keyed to has changed, such as a rename (set your own checkpoint key)"
+                "Change data capture (Mapping Data Flows)",
+                "Subsequent normal runs read from the last committed checkpoint (chapter 10)",
+                "Rerunning a selected pipeline run re-executes that slice; under name-coupled checkpoint behavior, renaming the pipeline or activity can reset the checkpoint (setting an optional custom checkpoint key in Data Flow activity settings mitigates this)"
               ]
             ]
           }
@@ -812,11 +938,25 @@
       "id": "security",
       "title": "Security and networking",
       "summary": "Where credentials live, what the firewall needs, which network terms mean what, how to keep data off the public internet, and the trusted-service change coming in 2027.",
-      "sources": "§16, §23, §30",
+      "sources": "§16, §23, §30; Microsoft Learn (2026-10-12)",
       "blocks": [
         {
           "heading": "Roadmap alignment",
           "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 22 — Managed VNet and Managed Private Endpoints** (Full)\n  - *Relevant sections:* Four network terms that get mixed up; (Intro block 3); Ch 4 (Integration runtimes)\n  - *Learning evidence:* Draw a private ADF network topology.\n- **Topic 24 — Private Endpoint vs Managed Private Endpoint** (Full)\n  - *Relevant sections:* Four network terms that get mixed up; Ch 4 (Integration runtimes)\n  - *Learning evidence:* Create a four-term networking glossary.\n- **Topic 41 — Managed Identity, Key Vault and Authentication** (Full)\n  - *Relevant sections:* (Intro); How many factories?\n  - *Learning evidence:* Create an enterprise credential-management pattern.\n- **Topic 42 — CMK and Factory Encryption** (Full)\n  - *Relevant sections:* (Intro); How many factories?\n  - *Learning evidence:* Create a CMK decision checklist.\n- **Topic 43 — Trusted Service: Legacy vs Modern** (Full)\n  - *Relevant sections:* Trusted service: Legacy and Modern\n  - *Learning evidence:* Create a legacy-to-modern migration watch item.\n- **Topic 45 — Operational Logging and Sensitive Data** (Full)\n  - *Relevant sections:* (Intro); Ch 15 (Sensitive data)\n  - *Learning evidence:* Design a regulated-data monitoring policy.\n- **Topic 48 — Bicep and Infrastructure as Code** (Full)\n  - *Relevant sections:* (Intro block 3); Ch 18 (From Dev to Prod)\n  - *Learning evidence:* Draft an ADF environment provisioning outline in Bicep."
+        },
+        {
+          "heading": "Canonical Microsoft definitions for enterprise security",
+          "md": "Microsoft Learn defines identity and encryption architecture:\n\n- **Managed identity:** \"Managed identities provide an identity for the service instance when connecting to resources that support Microsoft Entra authentication.\" ([Microsoft Learn — Managed identity](https://learn.microsoft.com/en-us/azure/data-factory/data-factory-service-identity))\n- **Customer-managed keys (CMK):** \"When you specify a customer-managed key (CMK), Data Factory uses both the factory system key and the CMK to encrypt customer data.\" ([Microsoft Learn — Customer-managed keys](https://learn.microsoft.com/en-us/azure/data-factory/enable-customer-managed-key))\n- **CMK immutability constraint:** Once customer-managed key encryption is enabled on a data factory, it cannot be reverted to Microsoft-managed keys.",
+          "image": {
+            "src": "/assets/content/packs/adf/adf-managed-vnet-private-endpoints.png",
+            "alt": "Data Factory Managed Virtual Network and Managed Private Endpoints architecture",
+            "caption": "Managed Virtual Network architecture: Isolated integration runtime communicating with Azure PaaS data stores via private endpoints over Azure Private Link.",
+            "source_attribution": "Microsoft Learn — Managed virtual network",
+            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/managed-virtual-network-private-endpoint",
+            "license": "CC BY 4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "modification_status": "Unmodified"
+          }
         },
         {
           "md": "- **Credentials** are stored encrypted by ADF, or, recommended, in **Azure Key Vault**. For on-premises sources they can be encrypted and kept **only on the self-hosted IR machine**.\n- ADF doesn't store the data it moves. It does keep **pipeline definitions, run metadata and cached data**, encrypted at rest with a Microsoft-managed key or your own (chapter 15). An older security page says ADF keeps no cache or logs at all; the newer \"Secure your Azure Data Factory deployment\" page is the one to follow.\n- Data moves over HTTPS/TLS. **ExpressRoute** or a **VPN** adds a private route.\n- The self-hosted IR needs **outbound port 443** toward Azure; 1433 only if it loads Azure SQL or Synapse directly (a staged copy avoids that). It also needs a network path to the source itself, on your side.\n- Use a **managed identity** to reach Azure storage instead of keys.\n- **Key Vault per environment**, with the **same secret names** in each: only the vault name changes between Dev and Prod, and the team needn't see Prod secrets."
@@ -867,7 +1007,17 @@
         },
         {
           "heading": "Customer-Managed Keys (CMK) and Factory Encryption Architecture",
-          "md": "By default, Microsoft encrypts all factory metadata at rest using Microsoft-managed keys. In highly regulated enterprises, security compliance often mandates **Customer-Managed Keys (CMK)**:\n\n**1. Encryption Scope and Data Separation**\n\n- **Factory Metadata at Rest:** CMK encrypts pipeline definitions, dataset schemas, linked service connection strings, and cached run metadata stored by the ADF service.\n- **Data in Transit:** Encrypted via HTTPS / TLS 1.2+ across all integration runtimes.\n- **Data at Rest in Stores:** Governed by the storage account or database encryption settings (e.g. ADLS Gen2 SSE, Azure SQL TDE), not the ADF factory CMK.\n\n**2. Architecture Prerequisites for CMK**\n\n1. *Azure Key Vault:* Must have **Soft Delete** and **Purge Protection** enabled to prevent accidental or malicious destruction of encryption keys.\n2. *User-Assigned Managed Identity:* Recommended for CMK configuration. The factory identity must have `Get`, `WrapKey`, and `UnwrapKey` permissions on the Azure Key Vault key.\n3. *Key Specification:* RSA key, 2048, 3072, or 4096-bit key size.\n\n**3. Critical Operational Facts (Microsoft Learn)**\n\n- **Permanent Immutability:** Once a Data Factory is configured with Customer-Managed Keys, **you cannot revert it to Microsoft-managed keys** (Microsoft fact).\n- **Key Rotation:** If the key version in Key Vault rotates, ADF can be configured to use the latest key version automatically or updated manually.\n- **Key Revocation Impact:** Revoking the factory's access to the Key Vault key renders the entire factory inoperable: pipelines cannot be triggered, authored, or edited until access is restored."
+          "md": "By default, Microsoft encrypts all factory metadata at rest using Microsoft-managed keys. In highly regulated enterprises, security compliance often mandates **Customer-Managed Keys (CMK)**:\n\n**1. Encryption Scope and Data Separation**\n\n- **Factory Metadata at Rest:** CMK encrypts pipeline definitions, dataset schemas, linked service connection strings, and cached run metadata stored by the ADF service.\n- **Data in Transit:** Encrypted via HTTPS / TLS 1.2+ across all integration runtimes.\n- **Data at Rest in Stores:** Governed by the storage account or database encryption settings (e.g. ADLS Gen2 SSE, Azure SQL TDE), not the ADF factory CMK.\n\n**2. Architecture Prerequisites for CMK**\n\n1. *Azure Key Vault:* Must have **Soft Delete** and **Purge Protection** enabled to prevent accidental or malicious destruction of encryption keys.\n2. *User-Assigned Managed Identity:* Recommended for CMK configuration. The factory identity must have `Get`, `WrapKey`, and `UnwrapKey` permissions on the Azure Key Vault key.\n3. *Key Specification:* RSA key, 2048, 3072, or 4096-bit key size.\n\n**3. Critical Operational Facts (Microsoft Learn)**\n\n- **Permanent Immutability:** Once a Data Factory is configured with Customer-Managed Keys, **you cannot revert it to Microsoft-managed keys** (Microsoft fact).\n- **Key Rotation:** If the key version in Key Vault rotates, ADF can be configured to use the latest key version automatically or updated manually.\n- **Key Revocation Impact:** Revoking the factory's access to the Key Vault key renders the entire factory inoperable: pipelines cannot be triggered, authored, or edited until access is restored.",
+          "image": {
+            "src": "/assets/content/packs/adf/adf-cmk-envelope-encryption.png",
+            "alt": "Customer-Managed Key envelope encryption workflow in Azure Data Factory",
+            "caption": "Customer-Managed Key (CMK) envelope encryption: Factory root key is wrapped and unwrapped using Azure Key Vault HSM keys.",
+            "source_attribution": "Microsoft Learn — Customer-managed keys",
+            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/enable-customer-managed-key",
+            "license": "CC BY 4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "modification_status": "Unmodified"
+          }
         }
       ]
     },
@@ -875,11 +1025,25 @@
       "id": "sensitive-data",
       "title": "Sensitive data in regulated industries",
       "summary": "Customer and card data at a bank: what ADF keeps, the controls it offers, and five places sensitive values leak.",
-      "sources": "§6, §23, §27, §30, §31",
+      "sources": "§6, §23, §27, §30, §31; Microsoft Learn (2026-10-12)",
       "blocks": [
         {
           "heading": "Roadmap alignment",
           "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 28 — Fault Tolerance and Skipped Rows** (Full)\n  - *Relevant sections:* Five places sensitive values leak; Ch 7 (Bad rows)\n  - *Learning evidence:* Design a bad-row quarantine operating model.\n- **Topic 41 — Managed Identity, Key Vault and Authentication** (Full)\n  - *Relevant sections:* Controls the documentation provides; Ch 14 (Security and networking)\n  - *Learning evidence:* Create an enterprise credential-management pattern.\n- **Topic 42 — CMK and Factory Encryption** (Full)\n  - *Relevant sections:* Controls the documentation provides; Ch 14 (Security and networking)\n  - *Learning evidence:* Create a CMK decision checklist.\n- **Topic 43 — Trusted Service: Legacy vs Modern** (Full)\n  - *Relevant sections:* Controls the documentation provides; Ch 14 (Security and networking)\n  - *Learning evidence:* Create a legacy-to-modern migration watch item.\n- **Topic 45 — Operational Logging and Sensitive Data** (Full)\n  - *Relevant sections:* Controls the documentation provides; Five places sensitive values leak; Compliance; Why it matters to you\n  - *Learning evidence:* Design a regulated-data monitoring policy."
+        },
+        {
+          "heading": "Canonical Microsoft security principles for regulated data",
+          "md": "**Microsoft security baseline:** \"Data Factory management resources are built on Azure security infrastructure and use all possible security measures offered by Azure.\"\n\n- **Source:** [Microsoft Learn — Data movement security considerations](https://learn.microsoft.com/en-us/azure/data-factory/data-movement-security-considerations)\n- **Sensitive payload masking:** Enable `secureInput: true` and `secureOutput: true` on activities to prevent sensitive customer tokens or query results from being written to monitoring and diagnostic logs.\n- **Channel separation by purpose:** The Data Factory architecture separates control-plane command orchestration from data-plane movement: the control plane dispatches task instructions and tracks status, while the data channel moves payloads directly point-to-point between source and destination (or via interim staging) without customer payload data traversing ADF control servers.",
+          "image": {
+            "src": "/assets/content/packs/adf/adf-shir-network-channels.png",
+            "alt": "Control plane command channel versus data plane transfer channel in Self-hosted IR",
+            "caption": "Channel separation: Control plane command channel orchestrates execution, while data plane transfers payloads directly between source and sink without touching ADF control servers.",
+            "source_attribution": "Microsoft Learn — Data movement security considerations",
+            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/data-movement-security-considerations",
+            "license": "CC BY 4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "modification_status": "Unmodified"
+          }
         },
         {
           "md": "At a bank or card issuer, much of the data being migrated is **personally identifiable information (PII)**: names, account and card numbers, addresses. The documentation's starting point: ADF \"doesn't store the source or sink data it moves\", only pipeline definitions, run metadata and cached data. The risk is in where data passes through and what gets logged."
@@ -948,11 +1112,25 @@
       "id": "performance-cost",
       "title": "Performance and cost",
       "summary": "The slowest of source, network and sink sets the speed; a handful of cost drivers set the bill.",
-      "sources": "§22, §23, §30, §31",
+      "sources": "§22, §23, §30, §31; Microsoft Learn (2026-10-12)",
       "blocks": [
         {
           "heading": "Roadmap alignment",
           "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 51 — Copy Performance: DIUs, Parallel Copies and Bottlenecks** (Full)\n  - *Relevant sections:* How long a copy takes; Tuning, in order; Ch 17 (Fine-tuning copies and data flows)\n  - *Learning evidence:* Create a Copy performance diagnosis decision tree.\n- **Topic 52 — ADF Cost Model and FinOps** (Full)\n  - *Relevant sections:* What you pay for; (Intro block 3)\n  - *Learning evidence:* Build a simple ADF cost-driver model."
+        },
+        {
+          "heading": "Canonical Microsoft definition of copy performance and pricing",
+          "md": "Microsoft Learn establishes the performance foundation for data movement:\n\n- **Performance foundation:** \"Azure Data Factory and Synapse pipelines offer a serverless architecture that allows parallelism at different levels.\"\n- **Source:** [Microsoft Learn — Copy activity performance](https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-performance)\n- **Data Integration Units (DIUs):** Azure Integration Runtime supports allocating between 4 and 256 DIUs per Copy activity.\n- **Pricing model:** ADF billing is governed by pipeline activity runs, DIU-hours for data movement, and vCore-hours for mapping data flows ([Microsoft Learn — Pricing concepts](https://learn.microsoft.com/en-us/azure/data-factory/pricing-concepts)).",
+          "image": {
+            "src": "/assets/content/packs/adf/adf-copy-scalability-tiers.png",
+            "alt": "Hierarchical tiers of copy scalability: control flow, activity compute DIUs, and thread parallelism",
+            "caption": "Copy scalability tiers: Orchestration concurrency (ForEach), activity compute sizing (DIUs/nodes), and intra-activity worker threads (parallelCopies).",
+            "source_attribution": "Microsoft Learn — Copy activity performance and scalability guide",
+            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-performance",
+            "license": "CC BY 4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "modification_status": "Unmodified"
+          }
         },
         {
           "heading": "How long a copy takes",
@@ -1063,11 +1241,15 @@
       "id": "fine-tuning",
       "title": "Fine-tuning copies and data flows",
       "summary": "Find the bottleneck first, then the knobs: DIUs, parallel copies, partitions, staging, cluster size, time to live and logging.",
-      "sources": "§22, §28, §30, §31",
+      "sources": "§22, §23, §30, §31; Microsoft Learn (2026-10-12)",
       "blocks": [
         {
           "heading": "Roadmap alignment",
           "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 40 — Data Flow Performance Fundamentals** (Full)\n  - *Relevant sections:* The data flow knobs; Known slow spots; Ch 11 (Transforming data)\n  - *Learning evidence:* Create a Data Flow performance troubleshooting checklist.\n- **Topic 51 — Copy Performance: DIUs, Parallel Copies and Bottlenecks** (Full)\n  - *Relevant sections:* Step 1: find the bottleneck; The copy knobs; Known slow spots; Why it matters to you\n  - *Learning evidence:* Create a Copy performance diagnosis decision tree.\n- **Topic 53 — Scale and Concurrency Trade-offs** (Full)\n  - *Relevant sections:* Scale and concurrency architecture: designing an enterprise concurrency budget; The copy knobs; Ch 3 (Pipelines); Ch 21 (Pitfalls)\n  - *Learning evidence:* Design a concurrency budget for a multi-source platform."
+        },
+        {
+          "heading": "Canonical Microsoft bottleneck rule and concurrency limits",
+          "md": "Microsoft Learn defines the methodology for performance diagnosis:\n\n- **The bottleneck rule:** \"The bottleneck of your copy run is the one with the longest duration.\"\n- **Source:** [Microsoft Learn — Troubleshoot copy performance](https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-performance-troubleshooting)\n- **Pipeline concurrency limit:** Pipeline JSON concurrency setting has no default maximum (unlimited); when a concurrency limit is configured, excess runs queue until active runs complete.\n- **ForEach batchCount:** Supports batchCount values from 1 to 50 (default is 20) for controlling parallel iteration loops ([Microsoft Learn — ForEach activity](https://learn.microsoft.com/en-us/azure/data-factory/control-flow-for-each-activity))."
         },
         {
           "md": "Chapter 16 says what sets the speed (the slowest of source, network and target) and the bill. This chapter is the knobs. The method is always the same: **find the bottleneck, change one thing, measure again.** Most settings default to **Auto**, and the documentation says the automatic choice \"usually gives you the best throughput\", so change a default only when a measurement says to."
@@ -1202,11 +1384,25 @@
       "id": "cicd",
       "title": "From Dev to Prod",
       "summary": "The release path, stopping triggers during a deployment, and why an urgent fix needs its own route.",
-      "sources": "§18.4, §19, §30",
+      "sources": "§28; Microsoft Learn (2026-10-12)",
       "blocks": [
         {
           "heading": "Roadmap alignment",
           "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 46 — Git Integration and Collaboration** (Full)\n  - *Relevant sections:* (Intro)\n  - *Learning evidence:* Create an ADF branch/PR strategy.\n- **Topic 47 — ARM Templates and Automated Publishing** (Full)\n  - *Relevant sections:* (Intro)\n  - *Learning evidence:* Design a Dev→Test→Prod deployment flow.\n- **Topic 48 — Bicep and Infrastructure as Code** (Full)\n  - *Relevant sections:* Infrastructure as Code: provisioning ADF with Bicep; (Intro block 2); Ch 14 (Security and networking)\n  - *Learning evidence:* Draft an ADF environment provisioning outline in Bicep.\n- **Topic 49 — Deployment Parameters, Global Parameters and Trigger Handling** (Full)\n  - *Relevant sections:* (Intro); Things that catch teams out\n  - *Learning evidence:* Create a deployment readiness checklist.\n- **Topic 50 — Reliability, Idempotency and Recovery** (Full)\n  - *Relevant sections:* Things that catch teams out; Ch 13 (Recovering from failures)\n  - *Learning evidence:* Write an incident-recovery runbook for a failed nightly load."
+        },
+        {
+          "heading": "Canonical Microsoft definitions for CI/CD and Global Parameters",
+          "md": "Microsoft Learn defines deployment lifecycle principles:\n\n- **CI/CD:** \"In Azure Data Factory, continuous integration and delivery (CI/CD) means moving Data Factory pipelines from one environment (development, test, production) to another.\"\n- **Source:** [Microsoft Learn — Continuous integration and delivery in ADF](https://learn.microsoft.com/en-us/azure/data-factory/continuous-integration-delivery)\n- **Global parameters:** \"Global parameters are constants across a data factory that pipelines can consume in any expression.\" ([Microsoft Learn — Global parameters](https://learn.microsoft.com/en-us/azure/data-factory/author-global-parameters))\n- **Trigger deployment prerequisite:** Triggers must be stopped before deploying ARM templates and restarted post-deployment via PowerShell deployment scripts to prevent active run collisions.",
+          "image": {
+            "src": "/assets/content/packs/adf/adf-cicd-lifecycle.png",
+            "alt": "Continuous integration and delivery lifecycle with Git and Azure Pipelines in ADF",
+            "caption": "Enterprise CI/CD lifecycle: Development factory publishes ARM templates to adf_publish branch; release pipelines deploy parameterized templates across Test, UAT, and Production.",
+            "source_attribution": "Microsoft Learn — Continuous integration and delivery in ADF",
+            "source_url": "https://learn.microsoft.com/en-us/azure/data-factory/continuous-integration-delivery",
+            "license": "CC BY 4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "modification_status": "Unmodified"
+          }
         },
         {
           "md": "This is the release path Microsoft documents. Each point is labelled so you can say which parts are the product and which are good practice.\n\n1. **Only the Dev factory is connected to Git** (Microsoft recommendation). People work in feature branches and merge through pull requests. Microsoft says test and production factories shouldn't have a Git repository and should be updated only through a pipeline or an ARM template.\n2. **The factory definition is turned into deployable ARM templates** (Microsoft fact). Microsoft documents two ways and says both are supported: the original **Publish button**, which writes the templates to the `adf_publish` branch, and the newer **automated publish**, where a build pipeline uses the `@microsoft/azure-data-factory-utilities` npm package to **validate** the factory and **export** the templates as a build artifact, with nobody clicking Publish.\n3. **A release pipeline deploys those templates** to Test/UAT, then Prod, with one parameter file per environment (Microsoft fact) and **approvals** before each stage (recommended practice: the person requesting a release shouldn't approve it).\n4. **Test and Prod are not edited by hand** (recommended practice). Microsoft's guidance is to change them only through the pipeline, which keeps what runs the same as what was reviewed. ADF doesn't stop you; your own governance does."
@@ -1228,11 +1424,15 @@
       "id": "migration",
       "title": "Migrating with ADF",
       "summary": "Snapshot plus deltas until cutover, partitions that rerun alone, and the control table as the plan.",
-      "sources": "§14, §21, §22, §31",
+      "sources": "§14, §21, §22, §26, §31; Microsoft Learn (2026-10-12)",
       "blocks": [
         {
           "heading": "Roadmap alignment",
           "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 35 — Metadata-Driven Pipelines** (Full)\n  - *Relevant sections:* The control table is the plan; Lessons the documentation draws; Ch 9 (Loading only new data)\n  - *Learning evidence:* Design a metadata-driven ingestion framework.\n- **Topic 58 — Enterprise Migration Architecture** (Full)\n  - *Relevant sections:* End-to-end enterprise migration architecture case: 100–500 tables to Azure; (Intro); Online or offline; Hadoop to ADLS Gen2; The control table is the plan; Lessons the documentation draws\n  - *Learning evidence:* Complete an end-to-end 100–500 table Azure migration architecture case."
+        },
+        {
+          "heading": "Microsoft migration architecture and bulk copy patterns",
+          "md": "Microsoft provides proven solution patterns for large-scale enterprise migrations:\n\n- **Bulk copy pattern:** The official 'Bulk Copy from Files to Database' template provides control-table-driven partition ingestion across hundreds of source entities ([Microsoft Learn — Bulk copy template](https://learn.microsoft.com/en-us/azure/data-factory/solution-template-bulk-copy-from-files-to-database)).\n- **Partitioned execution:** Large multi-terabyte tables must be partitioned into numeric or date slices to execute concurrent Copy activities across integration runtime nodes."
         },
         {
           "md": "Microsoft describes ADF as well suited to moving big data lakes (HDFS, Amazon S3) and warehouses (Oracle Exadata, Netezza, Teradata, Redshift) into Azure: petabytes for a lake, tens of terabytes for a warehouse. A migration is a **one-time historical copy** plus **scheduled incremental loads**, keeping old and new in sync for the whole migration window until cutover."
@@ -1263,11 +1463,15 @@
       "id": "fabric",
       "title": "ADF and Fabric Data Factory",
       "summary": "What changes in Microsoft Fabric, what's missing, and the three ways to move.",
-      "sources": "§24, §30, §31",
+      "sources": "§18.3, §24, §30, §31; Microsoft Learn (2026-10-12)",
       "blocks": [
         {
           "heading": "Roadmap alignment",
           "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 2 — ADF vs Databricks vs Synapse vs Fabric Data Factory** (Full)\n  - *Relevant sections:* (Intro); Not in Fabric yet; Three ways to move; Ch 1 (What ADF is, and what it isn't)\n  - *Learning evidence:* Create a service-selection matrix for 4 common enterprise scenarios.\n- **Topic 54 — Architecture Trade-offs: ADF vs Databricks vs Synapse** (Full)\n  - *Relevant sections:* (Intro); Ch 1, Ch 11, Ch 21\n  - *Learning evidence:* Present an architecture choice for a lakehouse ingestion platform.\n- **Topic 57 — ADF vs Fabric Data Factory in 2026** (Full)\n  - *Relevant sections:* (Intro); Not in Fabric yet; Three ways to move\n  - *Learning evidence:* Prepare a 3-minute ADF vs Fabric executive answer."
+        },
+        {
+          "heading": "Microsoft documentation on Fabric Data Factory positioning",
+          "md": "Microsoft Learn explicitly positions Data Factory in Microsoft Fabric as 'the next generation of Azure Data Factory':\n\n- **Workload unification:** Fabric Data Factory unifies pipeline orchestration and Power Query Dataflows Gen2 inside SaaS capacity units, eliminating infrastructure management.\n- **Source:** [Microsoft Learn — Compare Fabric Copy Data tool to Azure Data Factory](https://learn.microsoft.com/en-us/fabric/data-factory/compare-fabric-copy-data-tool-to-adf-copy-data-tool)\n- **Migration and coexistence:** Existing ADF pipelines continue to be supported; Microsoft provides guidance for gradual workload migration to Fabric OneLake architectures."
         },
         {
           "md": "Microsoft calls **Fabric Data Factory** the next generation of ADF. The main differences:",
@@ -1326,11 +1530,15 @@
       "id": "pitfalls",
       "title": "Pitfalls: every trap in one place",
       "summary": "The traps from the whole guide on one page: what goes wrong, how it shows, and how to prevent it.",
-      "sources": "§3–§31",
+      "sources": "§3–§31; Microsoft Learn (2026-10-12)",
       "blocks": [
         {
           "heading": "Roadmap alignment",
           "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 4 — ADF Mental Model for Managers** (Full)\n  - *Relevant sections:* Why it matters to you; Ch 1 (What ADF is, and what it isn't)\n  - *Learning evidence:* Create a one-page manager mental model.\n- **Topic 53 — Scale and Concurrency Trade-offs** (Full)\n  - *Relevant sections:* Running it; Ch 17 (Fine-tuning)\n  - *Learning evidence:* Design a concurrency budget for a multi-source platform.\n- **Topic 54 — Architecture Trade-offs: ADF vs Databricks vs Synapse** (Full)\n  - *Relevant sections:* Loading data; Ch 1, Ch 11, Ch 20\n  - *Learning evidence:* Present an architecture choice for a lakehouse ingestion platform.\n- **Topic 58 — Enterprise Migration Architecture** (Full)\n  - *Relevant sections:* Loading data; Failures that look like success; Releases, security and recovery; Ch 8, Ch 9, Ch 19\n  - *Learning evidence:* Complete an end-to-end 100–500 table Azure migration architecture case.\n- **Topic 59 — ADF Interview Scenario Drills** (Full)\n  - *Relevant sections:* All pitfall sections; Why it matters to you; Scenario set (18 scenarios); 10 diagnostic questions\n  - *Learning evidence:* Record or write answers to 10 ADF interview scenarios.\n- **Topic 60 — ADF Architecture Review Capstone** (Full)\n  - *Relevant sections:* ADF Architecture Review Capstone: end-to-end enterprise design review; Pitfalls review; Scenario set (18 scenarios); 10 diagnostic questions\n  - *Learning evidence:* Produce an architecture-review document plus 2-minute executive summary."
+        },
+        {
+          "heading": "Grounding pitfalls in official Microsoft documentation",
+          "md": "The anti-patterns in this chapter are derived from documented platform limits and operational behaviors:\n\n- **Documented limits:** Verified against the Azure Data Factory service limits and quotas documentation at [Microsoft Learn — Azure subscription limits and quotas](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/azure-subscription-service-limits#data-factory-limits).\n- **Review standard:** Every architecture review must verify DIU sizing, SHIR high availability, concurrency limits, credential isolation in Key Vault, and trigger stopping during release deployments against official documentation."
         },
         {
           "md": "Each trap below is taught in full in its own chapter (the last column). Use this page to revise before an interview, or as a review checklist for a design. Almost every one fails **quietly**: the run is green and the data is wrong."
@@ -1364,9 +1572,9 @@
                 "Change data capture"
               ],
               [
-                "Renaming a pipeline or activity that uses change data capture, with no checkpoint key set",
-                "Depending on how the activity was created, the checkpoint can reset and the history is read again",
-                "Set your own checkpoint key and rehearse a rename",
+                "Renaming a pipeline or Execute Data Flow activity using native CDC or incremental extraction, with default naming-derived keys",
+                "Under documented name-coupled key generation, renaming the pipeline or activity can reset the checkpoint and cause the source to be re-read from the beginning",
+                "In Mapping Data Flow activity settings, configure an explicit custom checkpoint key before renaming, and validate state continuity in staging",
                 "Change data capture"
               ],
               [
