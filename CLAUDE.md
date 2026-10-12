@@ -45,6 +45,8 @@ holds the start of its question's text: a product decision). (Station D's Eviden
 Certification hub's id links were fixed in #90.) Full Playwright runs here use
 `PREPBENCH_E2E_WORKERS=3`; close the learner's app first, and run one suite at a time.
 
+**ADF Microsoft Learn source enrichment (PR #94, 2026-10-12, branch `feat/adf-microsoft-source-enrichment`):** Full canonical source enrichment across all 21 ADF study guide chapters (`backend/app/content/packs/adf/v1.json`) with verified Microsoft Learn definitions, 13 local architectural diagrams under CC BY 4.0 attribution, `GuideImage` licensing metadata schema extension (`license`, `license_url`, `modification_status`), OpenAPI contract synchronization (`docs/api/openapi.json`), and technical reconciliations for SHIR networking, staged-copy `stagingSettings` hierarchy, and CDC checkpoint / connector scope.
+
 **Settled decisions, don't reopen these:**
 - The header Settings button stays, even though it isn't in the prototype — kept for
   quick access, at the user's request.
@@ -383,6 +385,14 @@ or `pip`. Node 22+. Git Bash / PowerShell on Windows.
     a PR changes a rule, a status or a settled decision recorded here, update CLAUDE.md in that same
     PR. Never put secrets, API keys or tokens in it. Add new rules at the end, so the numbers other
     documents cite never move.
+16. **Content-pack image licensing and schema integrity**: Third-party diagram and media assets
+    included in content packs must carry explicit licensing metadata (`license`, `license_url`,
+    `modification_status`) on `GuideImage` blocks. Third-party content (e.g., CC BY 4.0 Microsoft
+    documentation diagrams) must be clearly distinguished from original repository code under
+    PolyForm Noncommercial 1.0.0. Diagram links must reference local assets in
+    `frontend/public/assets/content/packs/<pack_id>/`. Schema changes to `backend/app/content/packs.py`
+    must stay synchronized with `docs/api/openapi.json` and `frontend/src/types/contentPack.ts`, verified
+    via `pytest tests/test_openapi_contract.py` and `pytest tests/test_content_packs.py`.
 
 ## Testing
 
@@ -533,13 +543,16 @@ docs/
   7. When roadmap topics change, review the Study Guide crosswalk.
   8. The existing technical accuracy and research discipline still applies (grounded claim-by-claim in Microsoft Learn).
   9. Microsoft facts and course recommendations must not be confused.
-  10. Changes must preserve the existing Study Guide schema (`GuideBlock` extra="forbid") and pass content-pack tests.
+  10. Changes must preserve the existing Study Guide schema (`GuideBlock` extra="forbid") and pass content-pack tests. `GuideImage` blocks require explicit licensing metadata (`license`, `license_url`, `modification_status`) when incorporating third-party diagrams (e.g., CC BY 4.0 for Microsoft documentation assets).
   11. **Live Application Linking**: Roadmaps and built-in Content Packs (`backend/app/content/packs/`) are bidirectionally connected in the application. `ContentPackService` dynamically resolves mapped curriculum chapters (`MappedGuideChapter`) for roadmap topics (`TopicGuideResponse.mapped_chapters`, `RoadmapTopicResponse.mapped_chapters`).
   12. **UI Navigation & Empty States**: When curriculum chapters exist for a topic, `RoadmapTopicPage` must provide direct navigation to read the chapter (`/learn/guides/:packId/:chapterId`), and `TopicGuidePage` renders the "Built-in Study Guide" panel with chapter summaries, relevant sections, and learning evidence deliverables. Never display "No study guide yet" when curriculum material exists; distinguish personal/AI synthesis notes from authoritative course content.
   13. **Microsoft Cloud & ADF Technical Accuracy**:
       - *Pipeline Concurrency*: Controls the maximum concurrent runs of *that specific pipeline* (configured per pipeline, no factory-wide ceiling; runs queue when reached). Clearly distinguish from service/subscription-level concurrent pipeline run limits across the factory.
       - *Connection Models*: Treat $(runs) \times (batchCount) \times (parallelCopies)$ as a potential connection pressure / upper-bound planning model, not an exact runtime law (ADF dynamically determines effective copy parallelism and connector behavior varies by source/sink).
       - *Compute/DIU Scales*: Avoid universal range claims (e.g. teaching "2 to 256" or "4 to 256" as universal rules). State that available DIUs depend on the integration runtime and scenario, with Azure IR intelligent throughput optimization configurable from 4 to 256.
+      - *Staged Copy Configuration Hierarchy*: `enableStaging: true` belongs directly under Copy activity `typeProperties`. `stagingSettings` is nested under `typeProperties` and contains `linkedServiceName`, optional `path`, and `enableCompression: true` (inside `stagingSettings`, not at `typeProperties`). Compression is optional and not supported with MSI/Service Principal staging linked services.
+      - *Self-Hosted Integration Runtime (SHIR) Networking*: Default outbound HTTPS over port 443 to ADF and Azure services. Inbound port 8060 is local to the host machine for the Microsoft Integration Runtime Configuration Manager and credential sync (or intranet cluster node communication if enabled); never characterize 8060 as an outbound firewall rule or general data-movement port.
+      - *Change Data Capture (CDC)*: Distinguish the top-level CDC resource (supporting Azure SQL, SQL Server, MI, Cosmos DB SQL/Analytical, Snowflake, DelimitedText, Parquet, JSON, XML, Avro, ORC) from native connector change-capture mechanisms. Mapping Data Flow CDC provides automatic checkpointing tied to the data flow / pipeline identity; custom checkpoint keys are specific to Mapping Data Flows when checkpoint reuse across pipelines/schedules or isolation is required. Top-level CDC artifacts manage checkpoints automatically based on table configuration.
 
 ## Where to look next
 
