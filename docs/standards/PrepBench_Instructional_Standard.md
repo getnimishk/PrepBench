@@ -1,14 +1,16 @@
 # PrepBench Instructional Standard
 
-**Version:** 1.3 — Reusable Product Standard
+**Version:** 1.4 — Reusable Product Standard (proposed amendment)
 
-**Status:** Approved baseline — approved 2026-10-13
+**Status:** Draft — not approved. Version 1.3 (approved 2026-10-13) remains the last approved version. This draft supersedes nothing until it is formally approved. The approved v1.3 text is preserved in Git history (commit `5142d31`, merged in PR #96).
 
 **Scope:** All PrepBench learning packs — ADF, Databricks, Agentic AI, and future packs — including roadmaps, study guides, learning units, tutorials, labs, and assessments.
 
 ## Change log
 
 **Version 1.3** closes three gaps identified in the v1.2 review: independent verification of beginner comprehension, clearer conformance classification (including reference-only material), and a mandatory pack-annex template. It also establishes a pack-level overview visual requirement inspired by the role of Microsoft's ADF Visual Guide, clarifies cross-pack terminology, and strengthens the publishing quality gate.
+
+**Version 1.4 (draft, not approved)** amends the visual sourcing cascade in section 6: search for existing authoritative visuals, reuse a suitable one under verified terms, and create an original only as a justified fallback. It conforms section 15 step 2 to the amended section 6, and extends section 14 item 5 so the pack annex records the sourcing decision and its evidence. The Pack Overview Visual remains mandatory for every pack. No other requirement changes.
 
 ## 1. Purpose
 
@@ -104,7 +106,20 @@ These levels need not appear as literal headings in every lesson, but the conten
 
 Every learning pack must include a **Pack Overview Visual** near the beginning of its introductory learning path. Its purpose is to give the learner a coherent, at-a-glance mental model of the technology or domain before they study components in depth.
 
-Microsoft's [Azure Data Factory Visual Guide](https://learn.microsoft.com/en-us/azure/data-factory/media/introduction/data-factory-visual-guide-small.png), presented from the [ADF introduction](https://learn.microsoft.com/en-us/azure/data-factory/introduction), is a reference for the *instructional function* of such a visual: it helps learners see how the technology, its components, and the end-to-end process fit together. PrepBench must create an original, source-verified visual synthesis; do not copy Microsoft's artwork or layout verbatim.
+The Pack Overview Visual is mandatory. A pack may not omit it merely because no suitable existing visual was found or because creating one requires additional effort. Where no suitable existing visual exists, apply the justified-creation gate below and resolve any remaining gap during pack rework. The exception that allows prose or an example instead of a diagram applies to additional chapter-specific diagrams, not to the pack-level overview.
+
+Microsoft's [Azure Data Factory Visual Guide](https://learn.microsoft.com/en-us/azure/data-factory/media/introduction/data-factory-visual-guide-small.png), presented from the [ADF introduction](https://learn.microsoft.com/en-us/azure/data-factory/introduction), is an example of the *instructional function* of such a visual: it helps learners see how the technology, its components, and the end-to-end process fit together.
+
+### Sourcing the visual: search, reuse first, create only as a justified fallback
+
+Follow this cascade in order.
+
+1. **Search.** Identify existing authoritative visuals that suit the pack's intended mental model. For a Microsoft product, Microsoft Learn diagrams are candidates; for other packs, the vendor's or primary source's documentation.
+2. **Reuse first.** Prefer a suitable existing visual over redrawing it. A visual is suitable when it covers the list below well enough to give the learner the mental model (with the orientation, alternative text, caption and long description), is technically accurate and current, and its reuse rights are verified. Verify the reuse terms of the specific asset, record its source, and give the attribution those terms require. Do not assume that all Microsoft Learn imagery is reusable.
+3. **Create an original only as a justified fallback.** Create an original visual only if no existing visual is suitable and the topic's importance to the pack's mental model justifies the authoring cost. Build it from verified facts, and do not copy a third-party asset's artwork or layout unless its terms permit.
+4. **Record the decision.** Record the search, the candidates considered, the suitability decision and the rationale in the pack annex (section 14, item 5).
+
+Whichever route is taken, provide orientation, useful alternative text, a caption, and a long description that communicates the visual's essential information.
 
 The Pack Overview Visual must cover, at the appropriate level for the technology:
 
@@ -126,7 +141,7 @@ For ADF, the overview should help a beginner connect data sources, pipelines and
 - Prioritize a legible overview over a crowded poster. If full detail cannot remain readable at normal display size, provide a high-resolution or zoomable detailed companion, while keeping the main overview coherent.
 - Label components and directional relationships clearly. Use arrows with meaning, a clear visual hierarchy, restrained color, and a legend when needed.
 - Provide useful alternative text and a caption that explains the diagram's scope and how the learner should read it.
-- Add source attribution and confirm reuse rights for every reused third-party asset. Do not assume that an image is reusable merely because it appears on a documentation site or in a repository; verify the specific asset's terms. Prefer original PrepBench diagrams built from verified facts.
+- Add source attribution and confirm reuse rights for every reused third-party asset. Do not assume that an image is reusable merely because it appears on a documentation site or in a repository; verify the specific asset's terms. Prefer reusing a suitable existing visual under verified terms to redrawing it; where a visual is created, build it from verified facts.
 - Keep the visual subordinate to accurate explanation: the visual summarizes and connects ideas; it does not replace the sequential lesson, glossary, worked examples, or detailed documentation.
 
 Each substantive chapter should also include a concept-specific diagram or other visual where it materially improves understanding. A separate diagram is not required when a short explanation or example is clearer. Mind maps remain selective, not a default format.
@@ -261,7 +276,7 @@ Every pack must maintain an annex that specifies how this standard is applied to
 2. **Authoritative-source hierarchy:** primary sources by claim type, how conflicting sources are handled, and how changing/time-sensitive claims are re-verified.
 3. **Terminology policy:** preferred terms, acronym conventions, glossary location, and known cross-product terminology differences.
 4. **Lab environment and safeguards:** accounts, software/runtime versions, permissions, sample data, required infrastructure, estimated cost where material, cleanup, privacy, security, and safety expectations.
-5. **Pack Overview Visual specification:** asset location, intended learning role, covered concepts, alternative text, caption, source/attribution and reuse-rights status, plus the high-resolution/zoom approach where needed.
+5. **Pack Overview Visual sourcing and specification:** the sourcing decision and its evidence (candidates searched, suitability assessment, the selected visual and its source, and the rationale for creating an original if one was created), asset location, intended learning role, covered concepts, orientation, alternative text, caption, long description, source/attribution and reuse-rights status (verified terms for any reused asset), plus the high-resolution/zoom approach where needed.
 6. **Curriculum mapping:** roadmap topics mapped to learning units, objectives, prerequisites, practice/assessment evidence, sources, and advanced/reference companion material.
 7. **Conformance register:** each unit's Core, Full, or Reference companion classification, with a rationale for exceptions or reference-only treatment.
 8. **Review plan:** independent-review owner or role, how comprehension findings are recorded, and triggers for re-review (such as source changes, recurring learner errors, or changes to labs).
@@ -271,8 +286,8 @@ An annex may add domain-specific fields but must not omit these minimum fields. 
 ## 15. How we will apply this standard to PrepBench
 
 1. Ratify this standard as the cross-pack baseline and define or update the ADF pack annex using Section 14.
-2. Create an original ADF Pack Overview Visual using Microsoft's guide as an instructional reference, not copying its artwork or layout; place it early in Chapter 1.
+2. Provide the ADF Pack Overview Visual following the section 6 sourcing cascade: select and reuse the most suitable existing authoritative visual under verified terms with attribution, creating an original only if none is suitable and the topic justifies it, recording the decision in the pack annex. Place it early in Chapter 1 with the orientation, alternative text, caption and long description the standard requires.
 3. Rework ADF Chapter 1 into the required learner progression while preserving technical accuracy and complete roadmap coverage.
 4. Conduct an independent comprehension review and test with at least two learners unfamiliar with ADF. Record and resolve significant issues before approving the reference chapter and annex.
-5. Use the approved reference chapter to audit the remaining ADF chapters; apply the same standard to Databricks, Agentic AI, and future packs, creating an annex and overview visual for each.
+5. Use the approved reference chapter to audit the remaining ADF chapters; apply the same standard to Databricks, Agentic AI, and future packs, creating an annex for each and providing an overview visual under the section 6 sourcing cascade.
 6. Update content review checklists and relevant product tests so that the intended structure is maintained.
