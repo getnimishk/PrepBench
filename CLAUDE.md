@@ -397,6 +397,13 @@ or `pip`. Node 22+. Git Bash / PowerShell on Windows.
     `frontend/public/assets/content/packs/<pack_id>/`. Schema changes to `backend/app/content/packs.py`
     must stay synchronized with `docs/api/openapi.json` and `frontend/src/types/contentPack.ts`, verified
     via `pytest tests/test_openapi_contract.py` and `pytest tests/test_content_packs.py`.
+17. **Curriculum authoring follows the PrepBench Instructional Standard** (v1.3, approved 2026-10-13):
+    [`docs/standards/PrepBench_Instructional_Standard.md`](docs/standards/PrepBench_Instructional_Standard.md)
+    is canonical (see [`docs/standards/README.md`](docs/standards/README.md)). Before changing curriculum
+    or learning-guide content (roadmaps, study guides, learning units, labs, assessments), read the
+    standard and the pack's annex (standard section 14); if the pack has no approved annex, say so and
+    stop rather than proceeding without one. An annex can add rigor but never waive the standard.
+    Changes to the standard are versioned through a pull request, as the README describes.
 
 ## Testing
 
