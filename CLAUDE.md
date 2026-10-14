@@ -30,10 +30,7 @@ sessions read anywhere; others get the unknown-session 404, on read, report, fin
 #84 and #87 `docs/implementation/lakehouse-p1-handoff.md` (briefs, safeguards, a "Common mistakes"
 list from real reviews); #85 Station D (Reconciliation Detective, P1-2); #86 interview questions from
 lab results (P1-1); #88 AI feedback on acceptance criteria (P1-6, new `LLMTask`, advice only, never
-`correct`, nothing stored); #89 Station I (identity and governance, P1-5); #90 backlog cleanup (Literal
-response fields, slug links on the Certification hub, Station D's Evidence wording); #91 README and wiki
-brought up to date; #92 the learner's guide `docs/wiki/Learning-Lab-Guide.md`; #93 CLAUDE.md tracked in
-the repo (hard rule 15). **Lakehouse Lab Phase 4 is
+`correct`, nothing stored); #89 Station I (identity and governance, P1-5). **Lakehouse Lab Phase 4 is
 complete** (P1-4 was delivered by the role diagnostic). Station I's facts come only from
 `docs/research/lakehouse-p1-5-identity-governance-research.md` (revision 2: every fact checked against
 an official page on 2026-10-10), held to it by `identityModel.test.ts`; a new fact goes through the
@@ -47,8 +44,6 @@ Open, not urgent: the recordings list is unscoped (any preparation lists every t
 holds the start of its question's text: a product decision). (Station D's Evidence wording and the
 Certification hub's id links were fixed in #90.) Full Playwright runs here use
 `PREPBENCH_E2E_WORKERS=3`; close the learner's app first, and run one suite at a time.
-
-**ADF Microsoft Learn source enrichment (PR #94, merged 2026-10-12, `main` @ 8b54e77):** Full canonical source enrichment across all 21 ADF study guide chapters (`backend/app/content/packs/adf/v1.json`) with verified Microsoft Learn definitions, 12 Microsoft diagrams placed in the guide under CC BY 4.0 attribution (13 files in `frontend/public/assets/content/packs/adf/`; `adf-copy-activity-overview.png` is not referenced by the guide), the audit `docs/research/ADF_Microsoft_Source_Enrichment_Audit.md`, `GuideImage` licensing metadata schema extension (`license`, `license_url`, `modification_status`), OpenAPI contract synchronization (`docs/api/openapi.json`), and technical reconciliations for SHIR networking, staged-copy `stagingSettings` hierarchy, and CDC checkpoint / connector scope.
 
 **Settled decisions, don't reopen these:**
 - The header Settings button stays, even though it isn't in the prototype — kept for
@@ -66,9 +61,9 @@ Certification hub's id links were fixed in #90.) Full Playwright runs here use
   scratchpad defaults `workspace: true`, `evidence: true`), and **never** defaults to ADF or
   PSM I. ADF is strictly a Skill (no certification mocks); Kafka CCDAK is registered as a
   Certification but currently has 0 questions loaded in database (`questionAvailability: false`,
-  mock assembly disabled). Roadmaps follow the live record (`roadmap_count`): as of 2026-10-14 the
-  learner's data links roadmap 3 to Databricks and roadmap 4 is deleted, so PSM I (1) and System
-  Design (3) have no roadmap -- see the data note under Phase 4 stabilization.
+  mock assembly disabled). PSM I (1) and System Design (3) each have a roadmap row linked
+  (`roadmap: true`) -- but see the data note under Phase 4 stabilization: both are the same
+  off-topic "Storage FileSystems" roadmap.
   - **Capabilities come from the live record, not only the static table (stabilization,
     2026-10-07; slug-only since PR #83, 2026-10-09)**: `getSubjectCapabilities(subject)` applies the
     six-subject table when the record's slug matches an entry **exactly** -- never by id, so a recreated
@@ -100,7 +95,7 @@ Certification hub's id links were fixed in #90.) Full Playwright runs here use
     - ADF Behaviour Lab: `AVAILABLE` since Phase 5 (2026-10-07) -- derived, not hand-set: `adfLabStatus()` in `services/adfLab/experiments.ts` gives `INTEGRATION_PENDING` the moment any of the five experiments is marked not built, and Home falls back to its pending cards (`Pill tone="warning"`, disabled `Behaviour Lab (Integration Pending)`), still covered by tests that hold the pending profile explicitly.
     - Forward-compatible auto-enablement: Transitioning `learningLabStatus` to `'AVAILABLE'` in Phase 5 immediately activates all CTAs and experiment links without redesigning Home.
 - **Certification & Interview Integration (Phase 4)**:
-  - **Terminology Discipline**: Databricks Data Platform is exclusively termed **"Lakehouse Lab" / "Open Lakehouse Lab"** (never "Behaviour Lab"). ADF's is the **"ADF Behaviour Lab"**, available since Phase 5 (it shows "Integration Pending" only if an experiment is ever marked not built).
+  - **Terminology Discipline**: Databricks Data Platform is exclusively termed **"Lakehouse Lab" / "Open Lakehouse Lab"** (never "Behaviour Lab"). ADF retains "Behaviour Lab (Integration Pending — Phase 5)".
   - **Single Source of Truth**: Reused the production certification engine (`/exams`, `ExamRunner`, `ExamReview`, `ExamSetupPage`, `getMockHistory`, `getReviewCounts`), interview engine (`getSystemDesignPrompts`, `getDesignReviews`, `getInterviewQuestions`, `getRecordings`), and readiness engine. Did NOT create second certification, interview, or readiness calculators.
   - **Capability-Aware Certification Hub (`/certification`)**: Answers the 5 core certification questions: (1) Target credential profile, (2) Authoritative production readiness verdict (`READY`, `NOT READY`, `NOT MEASURED YET`, `DATA NOT AVAILABLE`) read from `readiness.state` exactly as Home reads it -- the hub must never compute its own verdict (it used to, from streak + recency alone, ignoring domain floors), (3) Qualifying evidence (streak, recency, domain breakdown, all driven by `readiness.rules`), (4) Practice recommendations (targeted drills, spaced repetition queue, question bank), (5) Direct mock start with active sittings or honest disabled lock (`0 Questions Loaded` for Kafka). Non-certification tracks (ADF, Databricks, System Design) render `CapabilityUnavailablePage` without silent switching.
   - **Capability-Aware Interview Hub (`/interview`)**: Answers the 5 core interview questions: (1) Rehearsal formats (System Design Prompts, Design Reviews, Verbal Rounds, AI Rubric), (2) Technical competency evaluated (Distributed Architecture vs Pipeline Reliability), (3) Live production modes, (4) Historical recording & studio attempt ledger, (5) Next unattempted challenge recommendation. Non-interview tracks (PSM I) render `CapabilityUnavailablePage` without silent switching.
@@ -135,9 +130,8 @@ Certification hub's id links were fixed in #90.) Full Playwright runs here use
     not override it) must set `component`: a real heading at the right level, or `"p"`. Card
     backgrounds use `'pb.surface2'`, never `'action.hover'` (failed dark-mode contrast).
   - **Known data issues, not fixed (data/content task, Phase 7 or a dedicated remediation):**
-    roadmaps 3 and 4 were the identical "Storage FileSystems to Cloud Mastery Roadmap" (13 phases,
-    63 topics, 188h), linked to PSM I and System Design -- the learner has since resolved it (2026-10-09:
-    roadmap 3 moved to Databricks, roadmap 4 deleted); all 36
+    roadmaps 3 (PSM I) and 4 (System Design) are the identical "Storage FileSystems to Cloud
+    Mastery Roadmap" (13 phases, 63 topics, 188h) -- off-topic for PSM I; all 36
     `interview_questions` have `subject_id` NULL; the real DB still holds old test rows from
     2026-08-10 (questions 501-503 `UnitTestCert-*`, exam sessions 8-10 with `source='test'`).
     Never "fix" these by editing the learner's database from code or tests.
@@ -197,9 +191,9 @@ Certification hub's id links were fixed in #90.) Full Playwright runs here use
     (catalogue), `/home` (all-preparations overview). `systemDesignStudio` capability (the
     `system-design` slug, as the backend's `_owns_system_design`) replaces `id === 3`; Home waits for a
     loading provider (`PreparationContextValue.provided`) instead of guessing PSM I. Cross-surface
-    isolation matrix: `backend/tests/test_phase8_isolation_matrix.py`. The learner ran the Phase 7
-    actions later on 2026-10-09 (ADF title repair, Agentic AI course-lesson relabel, roadmap 3 moved from
-    PSM I to Databricks, roadmap 4 deleted, ADLS attached to Databricks): only the learner runs them.
+    isolation matrix: `backend/tests/test_phase8_isolation_matrix.py`. The learner's own data had not
+    been through the Phase 7 actions as of 2026-10-09 (PSM I still owns roadmap 3, ADF titles still
+    bare numbers): only the learner runs them.
   - **Phase 5 -- the ADF Behaviour Lab -- is implemented and merged** (2026-10-07; PRs #76, #77): `docs/implementation/PHASE-5-CONTRACT.md` section 8 is the record. Five
     experiments at `/lab/adf/:slug` (watermark, triggers, concurrency, copy-perf, fault-tolerance with
     `?mode=dependency|bad-rows`), hub `/lab/adf`, one `ExperimentRunner` for the eight stages
@@ -389,38 +383,6 @@ or `pip`. Node 22+. Git Bash / PowerShell on Windows.
     a PR changes a rule, a status or a settled decision recorded here, update CLAUDE.md in that same
     PR. Never put secrets, API keys or tokens in it. Add new rules at the end, so the numbers other
     documents cite never move.
-16. **Content-pack image licensing and schema integrity**: Third-party diagram and media assets
-    included in content packs must carry explicit licensing metadata (`license`, `license_url`,
-    `modification_status`) on `GuideImage` blocks. Third-party content (e.g., CC BY 4.0 Microsoft
-    documentation diagrams) must be clearly distinguished from original repository code under
-    PolyForm Noncommercial 1.0.0. Diagram links must reference local assets in
-    `frontend/public/assets/content/packs/<pack_id>/`. Schema changes to `backend/app/content/packs.py`
-    must stay synchronized with `docs/api/openapi.json` and `frontend/src/types/contentPack.ts`, verified
-    via `pytest tests/test_openapi_contract.py` and `pytest tests/test_content_packs.py`.
-17. **Curriculum authoring follows the PrepBench Instructional Standard**, v1.3 (approved 2026-10-13),
-    with draft v1.4 proposing amendments to section 6's visual sourcing cascade and section 15 step 2.
-    [`docs/standards/PrepBench_Instructional_Standard.md`](docs/standards/PrepBench_Instructional_Standard.md)
-    is canonical (see [`docs/standards/README.md`](docs/standards/README.md)). Until v1.4 is formally
-    approved, do not describe it as the approved baseline; the approved v1.3 text is preserved in Git
-    history (README).
-    Before changing curriculum or learning-guide content (roadmaps, study guides, learning units, labs,
-    assessments), read the standard and the pack's annex (standard section 14). If the pack has no
-    approved annex, say so and stop rather than proceeding without one.
-    **Narrow pre-approval exception:** this stop rule is overridden only for work that standard section 15
-    explicitly requires before an annex can be approved, and only when the pack's draft annex specifically
-    identifies that work. The permitted work is providing the mandatory Pack Overview Visual (step 2) and
-    reworking the reference chapter (step 3). For the visual, reuse a suitable existing visual under
-    verified terms, or create an original only when no suitable candidate exists and the topic justifies
-    it; the visual may not be omitted. Annex approval, and approval of a reused rather than original
-    visual, depend on v1.4 taking effect. For ADF, this exception covers `docs/standards/packs/adf.md`,
-    sections 5 and 7.2, and Chapter 1, including the prerequisite block required for the reference-chapter
-    review. Nothing else is permitted under this exception. Any fix not explicitly identified in the draft
-    annex as required pre-approval work remains blocked until the annex is approved. In particular,
-    prerequisite blocks for other chapters, the F16 cross-link, and all other chapter remediation must wait
-    for approval. The two-learner comprehension pilot (standard section 15, step 4) remains mandatory
-    before approval and cannot be waived by this exception.
-    An annex can add rigor but never waive the standard. Changes to the standard are versioned through a
-    pull request, as the README describes.
 
 ## Testing
 
@@ -526,10 +488,9 @@ docs/
   PrepBench is structured around Five Connected Capabilities (Certification, Interview,
   Learning Lab, Workspace, Evidence) underpinned by a Curriculum Layer (Roadmaps, Study Guides,
   Scenarios). Capabilities are heterogeneous and derive from authentic repository data:
-  (The figures below describe the learner's data as checked on 2026-10-14; a reset or import changes them.)
-  - *PSM I (id: 1)*: Certification (709 questions, 85% pass mark), no roadmap (roadmap 3 moved to Databricks), Workspace, Evidence.
-  - *Databricks (id: 2)*: Learning Lab (Lakehouse Lab), Roadmap (id: 3: Storage FileSystems to Cloud Mastery Roadmap), Study Guide (ADLS pack, 11 chapters), Workspace, Evidence.
-  - *System Design (id: 3)*: Interview (32 architecture prompts, 10 design reviews), no roadmap (roadmap 4 deleted), Workspace, Evidence.
+  - *PSM I (id: 1)*: Certification (709 questions, 85% pass mark), Roadmap (id: 3: Storage FileSystems to Cloud Mastery Roadmap, 13 phases, 63 topics, 188h), Workspace, Evidence.
+  - *Databricks (id: 2)*: Learning Lab (Lakehouse System Lab), Workspace, Evidence.
+  - *System Design (id: 3)*: Interview (32 architecture prompts, 10 design reviews), Roadmap (id: 4: Storage FileSystems to Cloud Mastery Roadmap, 13 phases, 63 topics, 188h), Workspace, Evidence.
   - *Kafka CCDAK (id: 4)*: Certification (0 questions loaded in database, mock assembly disabled), Roadmap (id: 1), Workspace, Evidence.
   - *Agentic AI (id: 5)*: Roadmap (id: 5), Workspace, Evidence.
   - *ADF (id: 6)*: Interview (18 scenarios), Learning Lab (5 behaviour labs), Roadmap (60 topics), Study Guide (21 chapters), Scenarios (18), Workspace, Evidence. (**ADF is a Skill, not a Certification**).
@@ -572,16 +533,13 @@ docs/
   7. When roadmap topics change, review the Study Guide crosswalk.
   8. The existing technical accuracy and research discipline still applies (grounded claim-by-claim in Microsoft Learn).
   9. Microsoft facts and course recommendations must not be confused.
-  10. Changes must preserve the existing Study Guide schema (`GuideBlock` extra="forbid") and pass content-pack tests. `GuideImage` blocks require explicit licensing metadata (`license`, `license_url`, `modification_status`) when incorporating third-party diagrams (e.g., CC BY 4.0 for Microsoft documentation assets).
+  10. Changes must preserve the existing Study Guide schema (`GuideBlock` extra="forbid") and pass content-pack tests.
   11. **Live Application Linking**: Roadmaps and built-in Content Packs (`backend/app/content/packs/`) are bidirectionally connected in the application. `ContentPackService` dynamically resolves mapped curriculum chapters (`MappedGuideChapter`) for roadmap topics (`TopicGuideResponse.mapped_chapters`, `RoadmapTopicResponse.mapped_chapters`).
   12. **UI Navigation & Empty States**: When curriculum chapters exist for a topic, `RoadmapTopicPage` must provide direct navigation to read the chapter (`/learn/guides/:packId/:chapterId`), and `TopicGuidePage` renders the "Built-in Study Guide" panel with chapter summaries, relevant sections, and learning evidence deliverables. Never display "No study guide yet" when curriculum material exists; distinguish personal/AI synthesis notes from authoritative course content.
   13. **Microsoft Cloud & ADF Technical Accuracy**:
       - *Pipeline Concurrency*: Controls the maximum concurrent runs of *that specific pipeline* (configured per pipeline, no factory-wide ceiling; runs queue when reached). Clearly distinguish from service/subscription-level concurrent pipeline run limits across the factory.
       - *Connection Models*: Treat $(runs) \times (batchCount) \times (parallelCopies)$ as a potential connection pressure / upper-bound planning model, not an exact runtime law (ADF dynamically determines effective copy parallelism and connector behavior varies by source/sink).
       - *Compute/DIU Scales*: Avoid universal range claims (e.g. teaching "2 to 256" or "4 to 256" as universal rules). State that available DIUs depend on the integration runtime and scenario, with Azure IR intelligent throughput optimization configurable from 4 to 256.
-      - *Staged Copy Configuration Hierarchy*: `enableStaging: true` belongs directly under Copy activity `typeProperties`. `stagingSettings` is nested under `typeProperties` and contains `linkedServiceName`, optional `path`, and `enableCompression: true` (inside `stagingSettings`, not at `typeProperties`). Compression is optional and not supported with MSI/Service Principal staging linked services.
-      - *Self-Hosted Integration Runtime (SHIR) Networking*: Default outbound HTTPS over port 443 to ADF and Azure services. Inbound port 8060 is local to the host machine for the Microsoft Integration Runtime Configuration Manager and credential sync (or intranet cluster node communication if enabled); never characterize 8060 as an outbound firewall rule or general data-movement port.
-      - *Change Data Capture (CDC)*: Distinguish the top-level CDC resource (supporting Azure SQL, SQL Server, MI, Cosmos DB SQL/Analytical, Snowflake, DelimitedText, Parquet, JSON, XML, Avro, ORC) from native connector change-capture mechanisms. Mapping Data Flow CDC provides automatic checkpointing tied to the data flow / pipeline identity; custom checkpoint keys are specific to Mapping Data Flows when checkpoint reuse across pipelines/schedules or isolation is required. Top-level CDC artifacts manage checkpoints automatically based on table configuration.
 
 ## Where to look next
 

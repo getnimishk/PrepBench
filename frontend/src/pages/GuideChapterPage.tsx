@@ -5,7 +5,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link as RouterLink, useParams } from 'react-router-dom';
 import {
-  Box, Button, Link, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography,
+  Box, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
 } from '@mui/material';
 import { getContentPack } from '../services/api';
 import { apiErrorMessage } from '../services/apiError';
@@ -125,68 +125,6 @@ export const GuideChapterPage: React.FC = () => {
                   </TableBody>
                 </Table>
               </TableContainer>
-            )}
-            {b.image && (
-              <Box sx={{ mt: b.md ? '14px' : 0, mb: '8px', textAlign: 'center' }}>
-                <Box
-                  component="img"
-                  src={b.image.src}
-                  alt={b.image.alt}
-                  loading="lazy"
-                  sx={{
-                    width: '100%',
-                    maxWidth: 780,
-                    height: 'auto',
-                    maxHeight: 520,
-                    objectFit: 'contain',
-                    display: 'block',
-                    borderRadius: 1,
-                    border: (theme) => `1px solid ${theme.palette.divider}`,
-                    bgcolor: 'background.paper',
-                    mx: 'auto',
-                  }}
-                  onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                    (e.target as HTMLElement).style.display = 'none';
-                  }}
-                />
-                {(b.image.caption || b.image.source_url || b.image.license) && (
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ display: 'block', mt: 1, px: 1, lineHeight: 1.5 }}
-                  >
-                    {b.image.caption && <span>{b.image.caption} </span>}
-                    {b.image.source_url && (
-                      <Link
-                        href={b.image.source_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        sx={{ color: 'text.secondary', textDecoration: 'underline' }}
-                      >
-                        {b.image.source_attribution ? `(Source: ${b.image.source_attribution})` : '(Source)'}
-                      </Link>
-                    )}
-                    {b.image.license && (
-                      <span>
-                        {' · '}
-                        {b.image.license_url ? (
-                          <Link
-                            href={b.image.license_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            sx={{ color: 'text.secondary', textDecoration: 'underline' }}
-                          >
-                            {b.image.license}
-                          </Link>
-                        ) : (
-                          b.image.license
-                        )}
-                        {b.image.modification_status ? ` (${b.image.modification_status})` : ''}
-                      </span>
-                    )}
-                  </Typography>
-                )}
-              </Box>
             )}
           </Panel>
         </Section>

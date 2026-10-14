@@ -4,23 +4,10 @@ name: CI
 # person remembering to, which is how a reset endpoint kept eleven tables for
 # months without anyone noticing.
 
-# Prose-only changes cannot affect a test. Only paths no test, build or
-# generator reads are listed: docs/api, docs/research and docs/implementation
-# are read by tests, so they still trigger a run.
 on:
   push:
     branches: ['**']
-    paths-ignore:
-      - 'CLAUDE.md'
-      - 'README.md'
-      - 'docs/standards/**'
-      - 'docs/wiki/**'
   pull_request:
-    paths-ignore:
-      - 'CLAUDE.md'
-      - 'README.md'
-      - 'docs/standards/**'
-      - 'docs/wiki/**'
 
 # A new push to the same branch makes the previous run irrelevant.
 concurrency:
