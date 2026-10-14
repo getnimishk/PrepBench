@@ -14,7 +14,7 @@
 
 ## Pack annexes
 
-Section 14 of the standard makes a pack annex mandatory for every learning pack. The annex says how the standard applies to that technology (learner profile, source hierarchy, terminology, lab safeguards, overview visual, curriculum mapping, conformance register, review plan). Annexes sit beside the standard in this folder once approved. No pack annex has been registered yet.
+Section 14 of the standard makes a pack annex mandatory for every learning pack. The annex says how the standard applies to that technology (learner profile, source hierarchy, terminology, lab safeguards, overview visual, curriculum mapping, conformance register, review plan). Pack annexes are kept in `packs/`, and each carries its own approval status. The ADF annex, [`packs/adf.md`](packs/adf.md), is a draft awaiting review and is not approved. No other pack has an annex.
 
 ## Changing the standard
 
