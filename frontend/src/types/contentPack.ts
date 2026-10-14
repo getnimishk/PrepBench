@@ -27,24 +27,12 @@ export interface GuideTable {
   rows: string[][];
 }
 
-export interface GuideImage {
-  src: string;
-  alt: string;
-  caption?: string | null;
-  source_attribution?: string | null;
-  source_url?: string | null;
-  license?: string | null;
-  license_url?: string | null;
-  modification_status?: string | null;
-}
-
 export interface GuideBlock {
   heading?: string | null;
   /** Rendered with components/common/Explanation.tsx: paragraphs, **bold**,
-   *  `code`, - bullets, 1. numbers, [links](url). Never dangerouslySetInnerHTML. */
+   *  `code`, - bullets, 1. numbers. Never dangerouslySetInnerHTML. */
   md?: string | null;
   table?: GuideTable | null;
-  image?: GuideImage | null;
 }
 
 export interface PracticeLink {
