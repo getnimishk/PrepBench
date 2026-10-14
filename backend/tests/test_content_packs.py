@@ -34,7 +34,14 @@ CHAPTER_REF_RE = re.compile(r"[Cc]hapter (\d+)")
 # reference should break this test, not silently point at the wrong chapter.
 EXPECTED_CHAPTER_REFERENCES = {
     "adf": [
+        ("what-it-is", 2, "building-blocks"),
+        ("what-it-is", 4, "integration-runtimes"),
+        ("what-it-is", 5, "triggers"),
+        ("what-it-is", 7, "bad-rows"),
+        ("what-it-is", 8, "reconciliation"),
         ("what-it-is", 11, "transform"),
+        ("what-it-is", 13, "recovery"),
+        ("what-it-is", 15, "sensitive-data"),
         ("what-it-is", 20, "fabric"),
         ("building-blocks", 11, "transform"),
         ("reconciliation", 7, "bad-rows"),

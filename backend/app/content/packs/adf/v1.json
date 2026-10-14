@@ -8,40 +8,360 @@
   "chapters": [
     {
       "id": "what-it-is",
-      "title": "What ADF is, and what it isn't",
-      "summary": "ADF is an orchestrator: it moves data and tells other services what to do, and when.",
+      "title": "Introduction to Azure Data Factory",
+      "summary": "ADF is mostly an orchestrator that also copies data itself: what it is, how it works from connect to monitor, its core concepts, and where it fits next to Databricks, Synapse and Fabric.",
       "sources": "§1, §18.1, §24",
       "blocks": [
         {
           "heading": "Roadmap alignment",
-          "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 1 — What Azure Data Factory Is** (Full)\n  - *Relevant sections:* What ADF is; The documentation's own example; The four stages the documentation describes; The typical journey of one row\n  - *Learning evidence:* Write a one-minute ADF explanation for a Product/Program interview.\n- **Topic 2 — ADF vs Databricks vs Synapse vs Fabric Data Factory** (Full)\n  - *Relevant sections:* ADF vs Databricks vs Synapse vs Fabric: architecture selection framework; Where it is heading; Ch 20 (ADF and Fabric Data Factory)\n  - *Learning evidence:* Create a service-selection matrix for 4 common enterprise scenarios.\n- **Topic 4 — ADF Mental Model for Managers** (Full)\n  - *Relevant sections:* What ADF is; How to read the labels in this guide; Ch 21 (Pitfalls)\n  - *Learning evidence:* Create a one-page manager mental model covering ownership, risk, SLA, and cost framing."
+          "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 1 — What Azure Data Factory Is** (Full)\n  - *Relevant sections:* What is Azure Data Factory?; Features of Azure Data Factory; Usage scenarios; How does it work? (Connect and collect, Transform and enrich, CI/CD and publish, Monitor); Top-level concepts\n  - *Learning evidence:* Write a one-minute ADF explanation for a Product/Program interview.\n- **Topic 2 — ADF vs Databricks vs Synapse vs Fabric Data Factory** (Full)\n  - *Relevant sections:* ADF vs Databricks vs Synapse vs Fabric; Where Azure Data Factory fits today; Ch 20 (ADF and Fabric Data Factory)\n  - *Learning evidence:* Create a service-selection matrix for 4 common enterprise scenarios.\n- **Topic 4 — ADF Mental Model for Managers** (Full)\n  - *Relevant sections:* What is Azure Data Factory? (orchestration versus computation); A manager's mental model; How to read the labels in this guide; Ch 21 (Pitfalls)\n  - *Learning evidence:* Create a one-page manager mental model covering ownership, risk, SLA, and cost framing."
         },
         {
-          "md": "Azure Data Factory (ADF) is Microsoft's managed cloud service for **data integration**. It moves data between systems and runs the steps that clean and reshape it, on a schedule or when something happens.\n\nIt is mostly an **orchestrator**: it does the copying itself, but for heavy transformation it usually hands the work to another service (Databricks, Synapse, a database) and waits for the result. Think of it as the conductor, not the orchestra."
+          "heading": "What is Azure Data Factory?",
+          "md": "Companies keep data in many places: databases, files, software-as-a-service (SaaS) applications. On its own, that raw data has little context or meaning for the analysts and decision makers who need it. Somebody has to collect it, reshape it, and do that again on a schedule, reliably, with alerts when it breaks. That is the problem Azure Data Factory (ADF) addresses.\n\n**Microsoft fact:** ADF is a managed cloud service built for complex hybrid extract-transform-load (ETL), extract-load-transform (ELT) and data integration projects. Microsoft describes it as a cloud-based ETL and data integration service for creating data-driven workflows, called pipelines, that orchestrate data movement and transform data at scale. Source: [Introduction to Azure Data Factory](https://learn.microsoft.com/en-us/azure/data-factory/introduction).\n\nFour terms carry the rest of the chapter:\n\n- **Data movement:** copying data from one store to another.\n- **Data transformation:** changing its shape or content: cleaning, joining, aggregating.\n- **ETL:** extract, transform, then load into the destination. **ELT:** extract and load first, then transform inside the destination or another engine.\n- **Orchestration:** deciding which step runs when, passing results along, retrying, and reporting what happened."
         },
         {
-          "heading": "The documentation's own example",
-          "md": "A gaming company has petabytes of game logs in the cloud, and customer and campaign data in its own data centre. It wants to combine them every day, process them with Spark (an engine that spreads work across many machines; Databricks runs it), and publish the result to a data warehouse (a database built for reporting) for reports, and also do it whenever new log files land. ADF is what wires that together and runs it."
+          "heading": "Orchestration versus computation",
+          "md": "The sentence \"ADF is an orchestrator\" is useful but incomplete. ADF does three different things:\n\n1. It **moves data itself.** The Copy activity reads from a source, can convert formats, map columns and compress or decompress, and writes to a sink. It runs on an integration runtime (the compute ADF uses, explained below).\n2. It **runs transformations itself, in one case.** Mapping data flows are visually designed transformations that run on Apache Spark clusters that ADF manages for you.\n3. It **hands other transformations to other services** (Azure Databricks, Azure HDInsight, a database running a stored procedure, Azure Functions and more), waits, and acts on the result. Dispatching is lightweight; the heavy work happens on the service you chose.\n\nThe conductor analogy fits the third part and breaks on the first two: a conductor never plays a note, but ADF does copy data and does run data flows. Read it as: ADF decides what happens and when, performs the copying itself, and borrows specialised engines for the rest. It is not a replacement for Spark, a data warehouse or a database engine.\n\nSources: [Copy activity](https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-overview), [Mapping data flows](https://learn.microsoft.com/en-us/azure/data-factory/concepts-data-flow-overview), [Integration runtime](https://learn.microsoft.com/en-us/azure/data-factory/concepts-integration-runtime)."
         },
         {
-          "heading": "The four stages the documentation describes",
-          "md": "1. **Connect and collect**: copy data from where it is into a central store, usually the data lake (cheap cloud storage that holds files of any shape; ADLS Gen2 has its own guide).\n2. **Transform and enrich**: clean and shape it, in ADF's own data flows (visual transformations, chapter 11) or by calling Databricks and similar services.\n3. **Publish**: load the results where reports read them, and release pipeline changes through Dev, Test and Prod.\n4. **Monitor**: watch every scheduled run succeed or fail."
+          "heading": "A mental model, and one running example",
+          "md": "Picture ADF as the layer between your sources and the places people use the data:\n\n**sources** (databases, files, SaaS) -> **ADF** (connect, copy, schedule, call compute, monitor) -> **storage and compute** (a data lake, Databricks, a SQL engine) -> **serving** (a warehouse, Power BI reports)\n\nThe rest of this chapter follows one invented example, the **retail sales load**. A retailer keeps store sales in a SQL Server database in its own data centre and receives a daily returns file from a partner into Azure Blob storage. Every night it must land both in a data lake, clean and combine them, load a reporting database, and tell someone if anything fails. It is an illustration written for this guide, not a Microsoft reference architecture.\n\n**Where ADF sits in a modern platform:** at the ingestion and orchestration layer. Storage (for example Azure Data Lake Storage Gen2), transformation engines and reporting tools sit on either side of it. Chapter 2 starts taking the building blocks apart; this chapter gives you the whole picture first."
         },
         {
-          "heading": "The typical journey of one row",
-          "md": "Microsoft's 2018 white paper tells it this way: data is extracted from an on-premises Oracle database and from Salesforce, landed **raw** in the data lake (cheap, and you decide later what to keep), prepared with Spark (duplicates removed, reshaped), enriched (a machine-learning step adds a churn score), loaded into the warehouse, and read by Power BI (Microsoft's reporting and dashboard tool). On failure, a step sends an email; on success, the next step starts.\n\nThis is a 2018 illustration of the idea, so read it as a pattern, not a current architecture: product names have moved on (what the paper calls SQL Data Warehouse is now an Azure Synapse dedicated SQL pool)."
+          "heading": "Interview takeaway",
+          "md": "**Interview takeaway:** \"Azure Data Factory is Microsoft's managed service for building scheduled or event-driven data pipelines. It connects to many sources, copies data itself, can run Spark-based data flows, and orchestrates external engines like Databricks, so teams use it to ingest and coordinate rather than to replace their compute. For new work, Microsoft now points learners to Data Factory in Microsoft Fabric.\""
         },
         {
-          "heading": "Where it is heading",
-          "md": "Almost every ADF page now opens with a note that **Data Factory in Microsoft Fabric** is \"the next generation of Azure Data Factory\", recommended for new users. ADF is still everywhere in existing projects, and the concepts carry over. Chapter 20 covers the difference."
+          "heading": "The official architecture picture",
+          "md": "Microsoft publishes a single-image visual guide of the whole ADF architecture, and a smaller top-level diagram. Open them next to this chapter:\n\n- [High-resolution visual guide (image)](https://learn.microsoft.com/en-us/azure/data-factory/media/introduction/data-factory-visual-guide.png)\n- [The introduction page, with the top-level architecture diagram](https://learn.microsoft.com/en-us/azure/data-factory/introduction)\n- [How the visual guide was made (Sketch the Docs)](https://dev.to/azure/a-visual-guide-to-azure-data-factory-53ik)\n\nPrepBench links to these rather than copying them: the reuse terms for that exact image could not be confirmed when this chapter was written, and this guide must not redistribute an asset without evidence of permission."
+        },
+        {
+          "heading": "Features of Azure Data Factory",
+          "md": "Microsoft's introduction lists six features. Each is below with what it is for and the limit to remember.\n\n- **Data compression during copy.** The Copy activity can compress or decompress while it moves data, which reduces the bandwidth used. **Limit:** codecs depend on the file format and on the engine. For delimited text, Microsoft lists bzip2, gzip, deflate, ZipDeflate, TarGzip, Tar, snappy and lz4, but the Copy activity does not support snappy or lz4, and mapping data flows do not support ZipDeflate, TarGzip or Tar. Check the page for your format ([delimited text](https://learn.microsoft.com/en-us/azure/data-factory/format-delimited-text)).\n- **Broad connectivity.** ADF connects to cloud and on-premises stores, grouped by Microsoft as Azure, database, NoSQL, file, generic protocol and services and apps. **Limit:** support varies by connector, by direction (many connectors are source-only), by activity (Copy, data flow, Lookup, Get Metadata, Delete) and by integration runtime (some need a self-hosted one). This guide quotes no connector count because the list changes; read [the connector overview](https://learn.microsoft.com/en-us/azure/data-factory/connector-overview) for the one you need. A generic ODBC, REST, OData or HTTP connector covers many stores that have no dedicated connector.\n- **Event-based execution.** Besides schedules, a pipeline can start when something happens. Microsoft documents event-based triggers in two flavours: a storage event trigger (a file arrives or is deleted in Azure Blob Storage) and a custom event trigger (Event Grid custom topics). **Limit:** if you stop and start an event-based trigger it resumes its old pattern, which can start pipelines you did not intend; Microsoft says to delete it and create a new one instead ([pipeline execution and triggers](https://learn.microsoft.com/en-us/azure/data-factory/concepts-pipeline-execution-triggers)).\n- **Data preview and validation.** In a mapping data flow with debug mode on, the Data Preview tab shows a snapshot of the data at each transformation. For file-based copies, the Copy activity offers optional data consistency verification and a session log of copied files. **Limit:** these catch copy problems, not wrong business logic.\n- **Customizable data flows.** You build transformation graphs visually, without writing Spark code, and run them from pipelines. **Limit:** data flows run on Spark compute that ADF starts and stops for you, and that compute is billed by the vCore-hour while it runs ([data flow overview](https://learn.microsoft.com/en-us/azure/data-factory/concepts-data-flow-overview)).\n- **Integrated security.** ADF integrates with Microsoft Entra ID and Azure role-based access control (RBAC). Microsoft recommends keeping secrets in Azure Key Vault or using managed identity, and notes that ADF does not store secrets in Git. **Limit:** Microsoft advises against assigning RBAC to individual pipelines or datasets; consider a second factory if you need many separate roles ([CI/CD](https://learn.microsoft.com/en-us/azure/data-factory/continuous-integration-delivery), [source control](https://learn.microsoft.com/en-us/azure/data-factory/source-control)).\n\n**Cost.** ADF is billed on consumption. Microsoft names three meters: orchestration activity runs, Data Integration Unit (DIU) hours for copies on the Azure integration runtime, and vCore-hours for data flow execution and debugging. Other costs can accrue from external activities and from the external services they call. No blanket statement such as \"ADF is cheap\" is safe: use the per-run consumption view and the pricing calculator ([plan and manage costs](https://learn.microsoft.com/en-us/azure/data-factory/plan-manage-costs))."
+        },
+        {
+          "heading": "Usage scenarios: Microsoft's gaming example",
+          "md": "Microsoft's introduction uses this story. A gaming company collects petabytes of game logs produced in the cloud and wants to learn about customer preferences, demographics and usage. To do it, it must combine the logs with reference data (customer, game and marketing-campaign information) that sits in an on-premises data store. It plans to process the joined data with a Spark cluster in the cloud (Azure HDInsight), publish the result to a cloud data warehouse such as Azure Synapse Analytics for reporting, run the whole workflow on a daily schedule, and also run it when files land in a blob container.\n\nMap it to ADF: **ingest** from two kinds of store (cloud logs and on-premises reference data, the second needing a self-hosted integration runtime); **transform** by calling Spark; **publish** to a warehouse; **trigger** by schedule and by storage event; **monitor** the daily runs.\n\n**Read it as a pattern, not a template.** The page names HDInsight and Synapse because those were the services when the example was written. The same page lists Azure Databricks among the compute services ADF can call, and Microsoft now tells new learners to start with Fabric Data Factory. The shape (ingest, process, publish, schedule, monitor) is what still matters."
+        },
+        {
+          "heading": "Example 1: bank moving core-banking data (PrepBench example)",
+          "md": "**PrepBench example (illustrative, not Microsoft guidance).**\n\n- **Business problem:** a regulated bank wants nightly copies of core-banking tables in a data lake for analytics, without opening inbound firewall ports to its data centre.\n- **Data sources:** on-premises Oracle and SQL Server databases.\n- **ADF's responsibility:** connect through a self-hosted integration runtime, which makes only outbound HTTP-based connections; copy each table to the lake; sequence the steps; retry; record every run.\n- **Transformation or compute:** Azure Databricks notebooks (called from ADF) to cleanse and conform the data, or a mapping data flow for simpler shaping.\n- **Target:** Azure Data Lake Storage Gen2, then a SQL serving layer.\n- **Trigger:** a tumbling window trigger, one window per business day, because it keeps state, supports backfill of past windows and a retry policy, which a schedule trigger does not.\n- **Operational consideration:** reconcile counts and totals between source and lake; keep credentials in Key Vault; keep personal data rules in view (chapter 15).\n- **Why ADF fits, and when it does not:** it fits hybrid, scheduled, auditable batch movement. It does not fit when the business needs a continuous low-latency stream; that calls for a streaming service instead."
+        },
+        {
+          "heading": "Example 2: retail micro-batch ingestion (PrepBench example)",
+          "md": "**PrepBench example (illustrative, not Microsoft guidance).**\n\n- **Business problem:** store systems drop sales files every few minutes; managers want dashboards that are minutes, not a day, behind.\n- **Data sources:** CSV files arriving in Azure Blob Storage.\n- **ADF's responsibility:** react to each arrival (storage event trigger), copy and decompress the file, call the transformation, load the result.\n- **Transformation or compute:** a mapping data flow to remove duplicates and standardise columns.\n- **Target:** Azure SQL Database feeding Power BI.\n- **Trigger:** storage event trigger.\n- **Operational consideration:** every data flow run starts Spark compute that ADF spins up and down, so very frequent small runs pay that start-up each time. Measure it before promising freshness; the Azure integration runtime offers a time-to-live setting for exactly this. Also design for duplicate or out-of-order files.\n- **Why ADF fits, and when it does not:** event-driven batches of files are a good match. If latency must be seconds, or one tiny file produces one expensive run, reconsider the design or the tool."
+        },
+        {
+          "heading": "Example 3: Hadoop migration (PrepBench example)",
+          "md": "**PrepBench example (illustrative, not Microsoft guidance).**\n\n- **Business problem:** an on-premises Hadoop cluster is being retired; its data and its nightly jobs must move to Azure.\n- **Data sources:** files in HDFS, and Hive or HBase tables (ADF has HDFS, Hive, HBase and Spark source connectors).\n- **ADF's responsibility:** bulk-copy the files into the lake, then run recurring incremental copies; orchestrate the new jobs that replace the old ones.\n- **Transformation or compute:** Azure Databricks or Synapse Spark running rewritten jobs, called from pipelines. ADF copies data; it does not translate Hive or Spark code or table definitions.\n- **Target:** Azure Data Lake Storage Gen2.\n- **Trigger:** manual runs for the bulk copy, then a schedule or tumbling window trigger for increments.\n- **Operational consideration:** for large binary file copies that keep the folder hierarchy, a rerun can resume from the failure point (conditions in the Monitor section), which matters when a copy takes days.\n- **Why ADF fits, and when it does not:** it is a good bulk mover and scheduler. Rewriting and testing the workloads is the larger job, and it is not ADF's."
+        },
+        {
+          "heading": "How does it work? The whole picture",
+          "md": "Microsoft describes ADF as interconnected systems that form a complete platform for data engineers, and organises its explanation as four steps: **connect and collect, transform and enrich, CI/CD and publish, monitor**. The table shows how the components answer one question each; the four sections below follow the workflow in order. [Source](https://learn.microsoft.com/en-us/azure/data-factory/introduction).",
+          "table": {
+            "head": [
+              "Component",
+              "The question it answers",
+              "Where you meet it"
+            ],
+            "rows": [
+              [
+                "Source and sink data stores",
+                "Where is the data, and where must it go?",
+                "SQL Server, Blob storage, Data Lake, SaaS"
+              ],
+              [
+                "Linked service",
+                "How do I connect to that store or compute?",
+                "A connection definition, like a connection string"
+              ],
+              [
+                "Dataset",
+                "Which data inside the store?",
+                "A table, or a folder and file pattern"
+              ],
+              [
+                "Activity",
+                "What action happens on that data?",
+                "Copy, data flow, notebook, stored procedure, control"
+              ],
+              [
+                "Pipeline",
+                "Which activities run together as one unit of work?",
+                "The thing you schedule, run and monitor"
+              ],
+              [
+                "Integration runtime",
+                "What compute runs or dispatches the activity, and where?",
+                "Azure, self-hosted or Azure-SSIS"
+              ],
+              [
+                "Trigger",
+                "When does the pipeline start?",
+                "Schedule, tumbling window, event"
+              ],
+              [
+                "Monitor",
+                "Did it work, and why not?",
+                "ADF Studio, Azure Monitor, API, PowerShell"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "Connect and collect",
+          "md": "Enterprises hold data of many types (structured, semi-structured, unstructured), in many places, arriving at different speeds. Step one is to connect to every source, step two is to move the data to a central location for processing. Without a service like ADF, teams write custom movement code and also have to build monitoring, alerting and controls themselves.\n\nIn the **retail sales load** the pieces line up like this:\n\n1. A **linked service** holds the connection to the on-premises SQL Server and another to the lake.\n2. A **dataset** names the sales table (source) and the lake folder (sink).\n3. A **Copy activity** takes exactly one input dataset and one output dataset and copies between them.\n4. An **integration runtime** executes it. The SQL Server sits in a private network, so the linked service points (through its `connectVia` property) to a self-hosted integration runtime installed inside that network.\n\n**Which runtime runs a copy?** Between two public cloud stores, the Azure integration runtime. If either side points to a self-hosted runtime, the copy runs there, and when both sides are private they must use the same self-hosted runtime. A single Copy activity cannot use more than one self-hosted runtime.\n\nCollecting data into a central cloud store such as Azure Data Lake Storage or Blob storage first, then transforming it later, is the pattern Microsoft describes. Sources: [Copy activity](https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-overview), [Integration runtime](https://learn.microsoft.com/en-us/azure/data-factory/concepts-integration-runtime)."
+        },
+        {
+          "heading": "What Microsoft Doesn't Say: a green copy is not a correct load",
+          "md": "**Practical implication:** a Copy activity that shows Succeeded has moved what it was configured to move, which is not the same as every source row arriving correctly.\n\n**Why it matters:** by default the Copy activity stops and fails on rows incompatible with the sink, but Microsoft documents a fault tolerance setting that skips and logs incompatible rows so the copy can succeed. A run configured that way can be green while rows were left behind.\n\n**What to do:** if you enable skipping, also enable logging of skipped rows and alert on a non-zero count; for important tables compare row counts and totals between source and sink after each load (chapter 7 covers bad rows and chapter 8 reconciliation). The optional data consistency verification and session log help for file copies.\n\n**Verify further:** [Copy activity fault tolerance](https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-fault-tolerance) and [data consistency verification](https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-data-consistency)."
+        },
+        {
+          "heading": "Transform and enrich",
+          "md": "Mapping data flows run transformation graphs on Spark without you managing clusters. If you prefer to code transformations by hand, ADF supports external activities that run them on compute services such as HDInsight, Azure Databricks and Machine Learning. A stored procedure or script runs inside a database. Sources: [Mapping data flows](https://learn.microsoft.com/en-us/azure/data-factory/concepts-data-flow-overview), [Transform data](https://learn.microsoft.com/en-us/azure/data-factory/transform-data).",
+          "table": {
+            "head": [
+              "Mechanism",
+              "Where the work runs",
+              "Strength",
+              "Cost and ownership to weigh"
+            ],
+            "rows": [
+              [
+                "Mapping data flow",
+                "Spark clusters that ADF starts and stops for you",
+                "Visual, no Spark code; debug mode with data preview at each step; runs inside the pipeline's monitoring",
+                "Billed in vCore-hours while it runs; cluster start-up time; logic lives in ADF's graph model"
+              ],
+              [
+                "External compute activity (Databricks, HDInsight, Machine Learning and others)",
+                "The service you call; ADF dispatches and waits",
+                "Full control of code, libraries and engine; reuse of existing Spark or ML work",
+                "That service's own bill, cluster sizing and logs; a failure inside it is diagnosed there"
+              ],
+              [
+                "Database-side processing (Stored Procedure or Script activity)",
+                "The database engine that holds the data",
+                "Data does not leave the database; reuses SQL skills and existing procedures",
+                "Load lands on that database; logic lives in the database, not in the pipeline"
+              ],
+              [
+                "Copy activity itself",
+                "The integration runtime",
+                "Format conversion, column mapping and compression while moving",
+                "Not a general transformation engine; keep it to movement and light shaping"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "Choosing a transformation mechanism",
+          "md": "**Pitfall:** treating one mechanism as the right answer for every workload. \"Everything in data flows\" strands heavy or code-centric work in a visual tool; \"everything in Databricks\" pays for a cluster to do a trivial rename.\n\nDecide per step with these questions instead of a rule:\n\n- **Where does the data already live?** If it is in a database and the change is set-based SQL, do it there.\n- **Who will maintain it?** A team with Spark skills may prefer notebooks; a team without them may prefer the visual graph.\n- **How complex and how big is it?** Complex logic, custom libraries, machine learning and very large volumes point to external compute.\n- **How will you debug it?** Data flows give per-step preview in debug mode; external compute is debugged in the external service.\n- **How often does it run, and how long must it take?** Start-up time and billing per run matter more for many small runs.\n- **Who owns the cost and the on-call?** The pipeline owner, or a platform team that runs the cluster?\n\nChapter 11 covers data flows and the other transformation options in depth."
+        },
+        {
+          "heading": "What Microsoft Doesn't Say: orchestration does not remove the compute decision",
+          "md": "**Practical implication:** when an activity calls Databricks, HDInsight or a database, ADF only dispatches the work. The linked service for such an activity represents a compute resource, and the integration runtime just routes the request.\n\n**Why it matters:** cluster sizing, library versions, performance and most error detail belong to the external service, and it is billed by that service. A failed pipeline run may only tell you \"the notebook activity failed\".\n\n**What to do:** name an owner for each external engine, size and tune it there, and during an incident open that service's own run page after the ADF Monitor view points you to the failing activity.\n\n**Verify further:** [Integration runtime: activity dispatch](https://learn.microsoft.com/en-us/azure/data-factory/concepts-integration-runtime) and [plan and manage costs](https://learn.microsoft.com/en-us/azure/data-factory/plan-manage-costs)."
+        },
+        {
+          "heading": "CI/CD and publish",
+          "md": "Out of the box, the ADF user interface authors directly against the data factory service, and **Publish all** saves changes straight to it. That has no version history and no review. Microsoft therefore lets you connect a Git repository (Azure Repos or GitHub) so changes are tracked, reviewed and saved as drafts.\n\n**Microsoft fact:** the lifecycle Microsoft describes for ADF with Git:\n\n1. A development factory is connected to Git.\n2. A developer creates a **feature branch**, changes pipelines and debugs them.\n3. A **pull request** merges the branch into the **collaboration branch** (`main` by default) after review.\n4. **Publish** in the development factory sends the collaboration branch to the Data Factory service and generates Azure Resource Manager (ARM) templates in a publish branch (`adf_publish` by default). Publishing is possible only from the collaboration branch, not from a private branch, and it publishes all changes: ADF does not support selective publishing or cherry-picking.\n5. A release pipeline (for example Azure Pipelines) deploys those ARM templates to test and then production, applying **ARM template parameters** for environment-specific values. Manually uploading a template is the other supported way.\n\nTwo distinctions matter. First, the merged branch is not what is deployed: Microsoft states that the main branch does not represent what is in the service and must be published. Second, ADF's authoring and publishing workflow (steps 1 to 4) is separate from the external CI/CD deployment to other environments (steps 5 and 6).\n\n**Recommended practice (Microsoft):** attach Git only to the development factory and update test and production through the release pipeline. That is advice, not an enforced rule: Microsoft also documents that several factories can use different branches of one GitHub repository.\n\n**Triggers:** Microsoft recommends pre- and post-deployment PowerShell scripts that stop and restart triggers around the ARM deployment, and offers a script variant that toggles only the triggers that changed. Whether triggers must be stopped depends on your deployment approach, so follow the current guidance for the one you use. Keep separate Key Vaults per environment with the same secret names so connection strings need no parameter per environment.\n\nSources: [Source control](https://learn.microsoft.com/en-us/azure/data-factory/source-control), [Continuous integration and delivery](https://learn.microsoft.com/en-us/azure/data-factory/continuous-integration-delivery)."
+        },
+        {
+          "heading": "What Microsoft Doesn't Say: a successful deployment is not a safe release",
+          "md": "**Practical implication:** the release pipeline finishing green means the definitions arrived, not that production will behave.\n\n**Why it matters:** publishing is all-or-nothing, so a merged but unfinished pipeline ships with everything else. Triggers are a separate concern from the template, so a trigger can fire mid-deployment or stay stopped after it. Microsoft's own advice for merged-but-not-ready logic is a feature flag: combine global parameters with the If Condition activity to hide logic per environment.\n\n**What to do:** handle triggers explicitly in the release, gate unfinished work behind a flag, run one smoke pipeline run after deployment, and review pull requests for what is switched on, not only for syntax.\n\n**Verify further:** [Best practices for CI/CD](https://learn.microsoft.com/en-us/azure/data-factory/continuous-integration-delivery)."
+        },
+        {
+          "heading": "Monitor",
+          "md": "After you deploy, you watch the scheduled work succeed or fail. Microsoft lists built-in support through ADF Studio, Azure Monitor, an API, PowerShell, Azure Monitor logs and health panels in the Azure portal.\n\nThree kinds of run, each answering a different question:\n\n- **Trigger run:** did the trigger fire? A schedule trigger is fire-and-forget: its run is successful as long as a pipeline run started. A tumbling window trigger run waits for its pipeline run and mirrors its state. Trigger runs are also recorded in the TriggerRuns log category.\n- **Pipeline run:** one execution of a pipeline, with a unique run ID, a status (Succeeded, Failed, In Progress, Canceled or Queued), its parameters and the run error.\n- **Activity run:** one step inside a pipeline run, with its status, the integration runtime it used, JSON input and output, and an error with code, failure type and details.\n\n**Alerts and history.** You can raise Azure Monitor alerts on metrics such as failed pipeline runs. ADF keeps pipeline run data for only 45 days, so route diagnostic logs to Azure Monitor (for example Log Analytics, which has ADFPipelineRun, ADFActivityRun and ADFTriggerRun tables) if you need more. You can promote up to five activity properties as user properties to show as columns, and see per-run consumption for cost.\n\nSources: [Visually monitor](https://learn.microsoft.com/en-us/azure/data-factory/monitor-visually), [Monitor ADF](https://learn.microsoft.com/en-us/azure/data-factory/monitor-data-factory)."
+        },
+        {
+          "heading": "Rerun and recovery",
+          "md": "**Microsoft fact:** from the Monitor view you can **rerun** a whole pipeline, **rerun from a chosen activity**, or **rerun from the failed activity** when an activity failed, timed out or was canceled. Rerunning with new parameters counts as a new pipeline run. Container activities (ForEach, If, Switch, Until, Execute Pipeline) re-evaluate their conditions and loops, and inner activities may still be skipped by the rerun rules.\n\n**Copy activity resume** is narrower. The Copy activity can continue from the last failure point only when you copy files as-is in binary format between file-based stores and keep the folder and file hierarchy, for example S3 to Azure Data Lake Storage Gen2, on the listed file-based connectors. It works through activity-level retry or rerun from the failed activity; resume is at file level (the failing file is copied again); the copy settings must not change between runs; and a self-hosted runtime needs version 5.43.8935.2 or later. For other scenarios, Microsoft states that a copy rerun starts from the beginning. Source: [Copy activity: resume from last failed run](https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-overview)."
+        },
+        {
+          "heading": "What Microsoft Doesn't Say: a rerun can repeat work you already did",
+          "md": "**Practical implication:** \"rerun from failed activity\" saves you from repeating the earlier activities, but if the failed activity is a Copy that is not a binary file copy, it starts again from row one.\n\n**Why it matters:** if the first attempt had already written part of the data to the sink, the second can duplicate it unless the load is built to be repeated safely. This is an engineering inference from the documented behaviour, not a Microsoft warning.\n\n**What to do:** design loads to be idempotent (overwrite a partition, or merge on a key) before relying on reruns; chapter 13 covers recovery patterns.\n\n**Verify further:** [Rerun pipelines and activities](https://learn.microsoft.com/en-us/azure/data-factory/monitor-visually)."
+        },
+        {
+          "heading": "Worked example: investigating a failed run",
+          "md": "The nightly **retail sales load** alerts on failed pipeline runs. An engineer would:\n\n1. Open **Monitor**, filter pipeline runs by status Failed and the pipeline name, and note the error and run ID.\n2. Open that pipeline run to see its activity runs and find the **first** failed activity; later failures are often just consequences.\n3. Read the activity's error code, failure type and details, and check which **integration runtime** it used. A self-hosted runtime that is offline looks very different from a data error.\n4. For a Copy, open its monitoring details; for a Databricks activity, open the linked run in Databricks.\n5. Fix the cause, then pick the rerun that fits: from the failed activity if earlier steps are sound and the load is safe to repeat; the whole pipeline otherwise.\n6. If the run is older than 45 days, query the diagnostic logs in Log Analytics instead."
+        },
+        {
+          "heading": "Top-level concepts: the map",
+          "md": "Microsoft lists these as the key components of ADF. An Azure subscription can hold one or more data factories. Sources: [Introduction: top-level concepts](https://learn.microsoft.com/en-us/azure/data-factory/introduction).",
+          "table": {
+            "head": [
+              "Concept",
+              "In one line",
+              "Relates to"
+            ],
+            "rows": [
+              [
+                "Pipeline",
+                "A logical group of activities that performs one unit of work",
+                "Contains activities; started by triggers"
+              ],
+              [
+                "Activity",
+                "One processing step: data movement, data transformation or control",
+                "Lives in a pipeline; reads and writes datasets"
+              ],
+              [
+                "Mapping data flow",
+                "A visually designed transformation that runs on Spark",
+                "Run by a Data Flow activity on an Azure integration runtime"
+              ],
+              [
+                "Dataset",
+                "A named view of data inside a store",
+                "Points to a linked service"
+              ],
+              [
+                "Linked service",
+                "Connection information to a data store or a compute resource",
+                "Names the integration runtime with connectVia"
+              ],
+              [
+                "Integration runtime",
+                "The compute that runs or dispatches activities",
+                "Bridge between activities and linked services"
+              ],
+              [
+                "Trigger",
+                "The rule that decides when a pipeline starts",
+                "Starts pipeline runs"
+              ],
+              [
+                "Pipeline run",
+                "One execution of a pipeline",
+                "Created by a trigger or manually; takes parameter values"
+              ],
+              [
+                "Parameter",
+                "Read-only configuration set when a run starts",
+                "Defined on pipelines; consumed by activities"
+              ],
+              [
+                "Control flow",
+                "How activities are ordered, branched and looped",
+                "Built from control activities inside a pipeline"
+              ],
+              [
+                "Variable",
+                "A temporary value that can change during a run",
+                "Set and read by activities in a pipeline"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "Pipelines, activities and control flow",
+          "md": "**Pipeline.** A logical grouping of activities that together do one task, so you manage them as a set. Activities can be chained in sequence or run in parallel. **Example:** the retail pipeline copies, cleans and loads. **Misunderstanding:** a pipeline is not a job that runs by itself; it does nothing until a trigger or a manual run starts it.\n\n**Activity.** One processing step. Microsoft names three types: **data movement** (Copy), **data transformation** (data flow, Databricks, stored procedure and similar) and **control** (steps that steer the flow). **Example:** Copy sales, then a notebook activity. **Misunderstanding:** an activity defines an action; where it runs depends on its integration runtime.\n\n**Control flow.** The orchestration inside a pipeline: chaining activities in sequence, branching, defining parameters at the pipeline level, passing arguments, looping containers such as ForEach, and passing custom state. **Example:** ForEach over a list of table names, copying each. **Misunderstanding:** control flow moves no data; it decides which activity runs next."
+        },
+        {
+          "heading": "Data: mapping data flows, datasets and linked services",
+          "md": "**Mapping data flows.** Reusable transformation graphs run by the Data Flow activity on Spark that ADF starts and stops as needed. **Example:** deduplicate returns. **Misunderstanding:** a data flow is not a pipeline; it is one activity's worth of work inside one.\n\n**Datasets.** Represent data structures inside a data store and point to the data used as an activity's input or output. **Example:** the `Sales` table, or the `raw/returns/` folder. **Misunderstanding:** a dataset holds no data and no credentials; it names data. (Data Factory in Fabric has no datasets; see below.)\n\n**Linked services.** Much like connection strings: they define the connection information ADF needs to reach an external resource. Microsoft's own summary: a linked service defines the connection to the data source and a dataset represents the structure of the data. A linked service can represent a **data store** or a **compute resource** that can host an activity. **Example:** an Azure Storage linked service holds the connection string; an Azure Blob dataset names the container and folder. A linked service may carry a `connectVia` reference to the integration runtime to use. **Misunderstanding:** two datasets in the same account share one linked service; you do not create one per file."
+        },
+        {
+          "heading": "Integration runtimes",
+          "md": "**Integration runtime (IR).** The compute infrastructure ADF uses to run data flows, copy data across networks, dispatch transformation activities to other services, and run SQL Server Integration Services (SSIS) packages. An activity defines the action, a linked service defines the target store or compute, and the IR is the bridge between them and decides where the work happens.\n\nMicrosoft names three types:\n\n- **Azure IR:** fully managed and serverless. Runs data flows, copies between cloud stores and dispatches many activity types. By default it auto-resolves its region; you can create one in a region you choose and point linked services to it with `connectVia` if data must stay in a geography.\n- **Self-hosted IR:** software you install on a Windows machine in your own or a private network. It copies between private and cloud stores and dispatches activities to private compute. It makes outbound HTTP-based connections only. It does not run mapping data flows.\n- **Azure-SSIS IR:** a managed cluster of VMs for running existing SSIS packages. (Synapse pipelines support only the first two.)\n\n**Example:** the on-premises SQL Server uses the self-hosted IR; the Blob-to-lake copy uses the Azure IR. **Misunderstanding:** the IR is not the place where Databricks computes. It routes the request to it. Chapter 4 covers runtimes in depth."
+        },
+        {
+          "heading": "Triggers, runs, parameters and variables",
+          "md": "**Triggers.** The unit that decides when a pipeline execution starts. Microsoft documents three kinds, plus manual (on-demand) runs: **schedule** (a wall-clock schedule), **tumbling window** (fixed, non-overlapping, contiguous intervals, with state, backfill and retry) and **event-based**, which has two flavours, **storage event** and **custom event**. Triggers and pipelines are many-to-many, except the tumbling window trigger, which starts exactly one pipeline. **Misunderstanding:** a schedule trigger does not wait for its pipeline or retry it; a tumbling window trigger does. Chapter 5 covers triggers in depth.\n\n**Pipeline runs.** One execution of a pipeline, identified by a run ID. Runs are typically created by passing arguments to the pipeline's parameters, manually or in the trigger definition. **Example:** Tuesday's 02:00 run and Wednesday's are two runs of one pipeline.\n\n**Parameters.** Key-value pairs of **read-only** configuration, defined on the pipeline. A run supplies arguments; activities read them. **Example:** a `businessDate` parameter. **Misunderstanding:** a parameter cannot be changed during a run.\n\n**Variables.** Temporary values inside a pipeline that **can** be set during the run, and that can be combined with parameters to pass values between pipelines, data flows and activities. **Example:** a variable that stores a row count returned by a Lookup. **Misunderstanding:** a variable does not persist after the run, so it is not a place to remember last night's watermark."
+        },
+        {
+          "heading": "Where Azure Data Factory fits today",
+          "md": "**Microsoft fact:** pages across the ADF documentation open with a note that Data Factory in Microsoft Fabric is the next generation of Azure Data Factory, with a simpler architecture, built-in AI and new features, that new data-integration learners should start with it, and that existing ADF workloads can be upgraded. Microsoft's comparison page describes ADF as a platform-as-a-service (PaaS) data integration service and Fabric Data Factory as a software-as-a-service (SaaS) one that uses OneLake as its storage layer.\n\n**What carries over (concepts):** pipelines and activities, the expression language, and the idea of parameterised, triggered orchestration. Microsoft says roughly 90% of ADF's activities are already available in Fabric. That is Microsoft's figure on a dated page, so recheck it.\n\n**What changes (do not assume the same behaviour):**\n\n- Linked services become **connections**, and datasets are not used; data properties are defined inline in activities.\n- There is no **publish** step: you save, or save and run.\n- Integration runtimes are not managed by you; the self-hosted runtime is replaced by the **on-premises data gateway**.\n- Mapping data flows map to **Dataflow Gen2 with mapping data flow transforms**, which Microsoft marked as preview on the page used here.\n- Triggers are integrated with Fabric's scheduler and Activator events.\n- Billing moves from per-meter consumption to **capacity-based** (Fabric F SKUs).\n- When that page was written (October 2026), Azure-SSIS integration runtimes and managed virtual networks were listed as \"to be determined\" for Fabric.\n\n**What an engineer should evaluate:** which of your workloads use SSIS runtimes, managed networking, custom or less common activities or connectors (see Microsoft's connector parity article); how your teams do CI/CD and governance; whether you already use OneLake and Fabric capacity; and the cost model for your run pattern. Microsoft provides an upgrade planning guide and a built-in upgrade experience for eligible pipelines. Chapter 20 goes deeper. Sources: [Differences between Data Factory in Fabric and Azure](https://learn.microsoft.com/en-us/fabric/data-factory/compare-fabric-data-factory-and-azure-data-factory), [Upgrade planning](https://learn.microsoft.com/en-us/fabric/data-factory/upgrade-planning-azure-data-factory)."
+        },
+        {
+          "heading": "What Microsoft Doesn't Say: similar concepts are not identical behaviour",
+          "md": "**Practical implication:** the vocabulary overlaps (pipeline, activity, trigger, expression), so ADF experience feels portable, and much of it is. The implementation differs.\n\n**Why it matters:** a design that relies on datasets, publish-time ARM templates, a self-hosted IR, a managed virtual network or SSIS has no one-to-one equivalent in Fabric today, as Microsoft's comparison table shows. Pipeline JSON definitions also differ between the two.\n\n**What to do:** treat a move to Fabric as a migration with an inventory and a test plan, not a rename. Move one representative pipeline first and compare behaviour.\n\n**Verify further:** [Differences between Data Factory in Fabric and Azure](https://learn.microsoft.com/en-us/fabric/data-factory/compare-fabric-data-factory-and-azure-data-factory)."
+        },
+        {
+          "heading": "ADF vs Databricks vs Synapse vs Fabric",
+          "md": "No row of this table is a ranking. Rows summarise what Microsoft's documentation says each product is for; details change, so verify before committing. Sources: ADF [introduction](https://learn.microsoft.com/en-us/azure/data-factory/introduction); [Azure Databricks](https://learn.microsoft.com/en-us/azure/databricks/introduction/); [Azure Synapse Analytics](https://learn.microsoft.com/en-us/azure/synapse-analytics/overview-what-is); [Fabric comparison](https://learn.microsoft.com/en-us/fabric/data-factory/compare-fabric-data-factory-and-azure-data-factory).",
+          "table": {
+            "head": [
+              "Decision factor",
+              "Azure Data Factory",
+              "Azure Databricks",
+              "Azure Synapse Analytics",
+              "Microsoft Fabric"
+            ],
+            "rows": [
+              [
+                "Primary role",
+                "Managed data integration and orchestration service (PaaS)",
+                "Unified analytics and AI platform built around the data lakehouse",
+                "Enterprise analytics service: SQL warehousing, Spark, Data Explorer and pipelines in one workspace",
+                "SaaS analytics platform; Data Factory in Fabric is its data integration workload"
+              ],
+              [
+                "Strongest fit",
+                "Scheduled or event-driven ingestion and coordination across many stores, including hybrid",
+                "ETL and data engineering on Spark and Delta, machine learning, SQL warehouses",
+                "SQL data warehousing (dedicated and serverless pools) next to Spark on a data lake",
+                "Teams building on OneLake that want integration, lakehouse and reporting in one product"
+              ],
+              [
+                "Transformation",
+                "Mapping data flows on managed Spark; or external engines",
+                "Code in SQL, Python, Scala or R on Spark, with managed pipelines",
+                "T-SQL in SQL pools; Spark pools; data flows via its pipelines",
+                "Dataflow Gen2, notebooks and pipelines; mapping data flow transforms in preview"
+              ],
+              [
+                "Orchestration",
+                "Its core purpose: pipelines, triggers, monitoring",
+                "Jobs schedule notebooks, SQL and code; Lakeflow pipelines manage dataset dependencies",
+                "Built-in pipelines; same data integration engine and experience as ADF",
+                "Fabric pipelines, with new activities such as Teams and semantic model refresh"
+              ],
+              [
+                "Who runs the infrastructure",
+                "Serverless for Azure IR; you install and run self-hosted IR machines",
+                "Databricks manages and deploys cloud infrastructure for you in your account",
+                "Managed workspace; dedicated SQL pools reserve processing power, serverless SQL is always available",
+                "Fabric manages compute under a purchased capacity"
+              ],
+              [
+                "Hybrid and private connectivity",
+                "Self-hosted IR and managed virtual network",
+                "Check Databricks networking documentation for your case",
+                "Self-hosted IR in its pipelines; workspace managed virtual network option",
+                "On-premises data gateway; managed virtual network support listed as to be determined (Oct 2026)"
+              ],
+              [
+                "Typical combination",
+                "Orchestrates Databricks notebooks, SQL procedures and Functions",
+                "Called by ADF or Fabric pipelines, or schedules itself with Jobs",
+                "Serving layer for warehouse-style reporting",
+                "Can call Azure Databricks from a pipeline activity"
+              ]
+            ]
+          }
+        },
+        {
+          "heading": "Combining services, and a decision guide",
+          "md": "**Combine rather than force one tool.** Common pairings: ADF (or Fabric pipelines) ingests from on-premises and SaaS sources and calls Databricks notebooks for heavy transformation, then loads a warehouse; Databricks handles its own streaming and lakehouse pipelines while ADF handles hybrid ingestion and cross-system scheduling; Fabric Data Factory orchestrates inside Fabric and can still call Azure Databricks. Fabric Data Factory is not \"ADF as SaaS\", and none of these products replaces all the others.\n\n**Questions to ask before choosing:**\n\n1. Where is the data now, and does any of it sit behind a private network?\n2. Is the work mainly moving and coordinating, or mainly heavy transformation or machine learning?\n3. Who will build and run it, and which skills (SQL, Spark, low-code) do they have?\n4. Does it depend on SSIS, managed virtual networks or other features not yet available in Fabric?\n5. Are you already committed to Fabric capacity and OneLake, or to an existing Azure estate?\n6. How will it be deployed, reviewed and rolled back?\n7. What is the cost model for your run pattern: per-meter consumption, cluster time, or reserved capacity?\n8. What latency and recovery behaviour does the business need?"
+        },
+        {
+          "heading": "A manager's mental model",
+          "md": "For Product Owners, Program and Delivery Managers, ADF reduces to five questions you can ask any team:\n\n- **Ownership:** who owns each pipeline, each external engine it calls (Databricks, databases), and the integration runtime machines if any are self-hosted?\n- **Risk:** what happens when a source is late or sends bad rows? Is a green run proven correct (counts reconciled), or only finished?\n- **Freshness promise (SLA):** what do consumers expect, and do retries, alerts and rerun design support it? A pipeline that is cheap but cannot be rerun safely is a risk to that promise.\n- **Cost framing:** ADF bills by activity runs, copy DIU-hours and data flow vCore-hours, and the engines it calls bill separately. Ask for per-pipeline cost and a forecast, not a single number.\n- **Change safety:** how do changes reach production, who approves them, and how are triggers handled?"
         },
         {
           "heading": "How to read the labels in this guide",
-          "md": "Where it matters, a statement is labelled so you can say in an interview what kind of claim it is.\n\n- **Microsoft fact:** product behaviour taken from Microsoft's own documentation and checked in October 2026. Figures, defaults, limits and connector lists are volatile: re-check them before you rely on one.\n- **Recommended practice:** good engineering advice (sometimes Microsoft's own recommendation). It is not a rule the product enforces.\n- **Interview takeaway:** how to say it in one breath."
+          "md": "Where it matters, a statement is labelled so you can say in an interview what kind of claim it is.\n\n- **Microsoft fact:** product behaviour taken from Microsoft's own documentation and checked in October 2026. Figures, defaults, limits and connector lists are volatile: re-check them before you rely on one.\n- **Recommended practice:** good engineering advice (sometimes Microsoft's own recommendation). It is not a rule the product enforces.\n- **PrepBench example:** an invented scenario for teaching. It is not Microsoft guidance.\n- **What Microsoft Doesn't Say:** a practical implication that an introductory article does not spell out. Each is backed by cited documentation, and where it adds an inference it says so.\n- **Interview takeaway:** how to say it in one breath."
         },
         {
-          "heading": "ADF vs Databricks vs Synapse vs Fabric: architecture selection framework",
-          "md": "In enterprise Azure data architectures, four services frequently appear together: Azure Data Factory (ADF), Azure Databricks, Azure Synapse Analytics, and Microsoft Fabric Data Factory. Choosing between them is not about which tool is 'better'—it is about assigning each service to its architectural sweet spot.\n\n**1. Service Architectural Roles**\n\n- **Azure Data Factory (ADF):** The dedicated cloud-native orchestrator and data movement engine. Its core strength is coordinating hybrid ETL/ELT pipelines across heterogeneous networks (via Self-hosted IR) and managed virtual networks (Managed VNet), connecting to 100+ sources without managing clusters. Use ADF when you need reliable scheduling, dependency management, retries, event-driven triggers, and cloud-to-cloud or on-prem ingestion.\n- **Azure Databricks:** The scalable data engineering, machine learning, and lakehouse transformation engine. Powered by Apache Spark and Delta Lake, Databricks excels at compute-heavy transformations, complex Python/Scala/SQL data processing, machine learning pipelines (MLflow), streaming analytics, and deep Delta Lake capabilities (merge, upsert, liquid clustering, time travel). Use Databricks when transformation complexity or data volume exceeds declarative visual tools.\n- **Azure Synapse Analytics:** The enterprise relational analytics and data warehousing workspace. Synapse combines Dedicated SQL Pools (massively parallel processing relational data warehouses for high-concurrency BI reporting) and Serverless SQL Pools (instant T-SQL queries over data lake Parquet files without cluster provisioning). Use Synapse when your destination is a formal dimensional warehouse or SQL-centric analytics layer.\n- **Fabric Data Factory:** The SaaS data integration engine within Microsoft Fabric. Built on OneLake, Fabric Data Factory unifies data pipelines and Power Query Dataflows Gen2 inside a unified capacity (F-SKU). Use Fabric Data Factory for modern green-field Fabric environments where OneLake eliminates data silos and SaaS simplicity outweighs custom IaaS/VNet controls.\n\n**2. Architecture Selection Matrix**\n\n- **Hybrid Ingestion (On-Premises to Cloud):** Preferred: **ADF** (proven Self-hosted IR, high availability, corporate proxy support). Alternative: Fabric Data Factory (On-premises Data Gateway).\n- **Heavy Data Transformation & Lakehouse Silver/Gold Layers:** Preferred: **Azure Databricks** (fastest Spark engine, full code control, Delta optimization). Alternative: ADF Mapping Data Flows (for visual, code-free ETL teams).\n- **Enterprise Data Warehousing & T-SQL BI Serving:** Preferred: **Azure Synapse** (Dedicated SQL Pool) or **Fabric DW**. Alternative: Databricks SQL Warehouse.\n- **Cross-Service Orchestration:** Preferred: **ADF** (orchestrates Databricks notebooks, Synapse stored procedures, Azure Functions, and webhooks in a unified control flow).\n\n**3. Enterprise Scenarios & Recommended Architecture**\n\n- **Scenario A: Regulated Core Banking Migration (Hybrid):** Ingest 200 tables from on-prem Oracle into ADLS Gen2, cleanse with Spark, and serve to Power BI. *Architecture:* ADF with Self-hosted IR extracts data into Bronze ADLS Gen2 raw zone. ADF triggers Azure Databricks notebooks to cleanse into Silver and build Gold dimensional tables. Power BI reads Gold tables via Direct Lake or Synapse Serverless SQL.\n- **Scenario B: Real-Time Telemetry & Predictive Maintenance:** High-frequency IoT sensor telemetry landing in storage every minute requiring ML scoring. *Architecture:* Databricks Auto Loader and Structured Streaming ingest and score data in real time; ADF is not in the real-time path, but runs daily orchestration for historical reconciliation, model retraining triggers, and audit logging.\n- **Scenario C: Greenfield Mid-Market Cloud BI:** Cloud CRM, ERP, and payment gateway sources feeding finance dashboards with small IT team. *Architecture:* Fabric Data Factory pipelines ingest directly into OneLake Bronze. Dataflows Gen2 or Fabric Notebooks cleanse into OneLake Silver/Gold, and Power BI reports use Direct Lake mode without data movement."
+          "heading": "Practice for this chapter",
+          "md": "- Write a one-minute ADF explanation for a Product or Program interview, using the orchestration-versus-computation distinction.\n- Fill in a service-selection matrix for four scenarios (the gaming example and the three PrepBench examples) using the comparison table and the decision questions.\n- Write a one-page manager mental model covering ownership, risk, SLA and cost framing."
+        },
+        {
+          "heading": "Official documentation used in this chapter",
+          "md": "- [Introduction to Azure Data Factory](https://learn.microsoft.com/en-us/azure/data-factory/introduction)\n- [Copy activity](https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-overview)\n- [Connector overview](https://learn.microsoft.com/en-us/azure/data-factory/connector-overview)\n- [Mapping data flows](https://learn.microsoft.com/en-us/azure/data-factory/concepts-data-flow-overview)\n- [Integration runtime](https://learn.microsoft.com/en-us/azure/data-factory/concepts-integration-runtime)\n- [Pipeline execution and triggers](https://learn.microsoft.com/en-us/azure/data-factory/concepts-pipeline-execution-triggers)\n- [Source control](https://learn.microsoft.com/en-us/azure/data-factory/source-control)\n- [Continuous integration and delivery](https://learn.microsoft.com/en-us/azure/data-factory/continuous-integration-delivery)\n- [Visually monitor](https://learn.microsoft.com/en-us/azure/data-factory/monitor-visually)\n- [Monitor Azure Data Factory](https://learn.microsoft.com/en-us/azure/data-factory/monitor-data-factory)\n- [Plan to manage costs](https://learn.microsoft.com/en-us/azure/data-factory/plan-manage-costs)\n- [Differences between Data Factory in Fabric and Azure](https://learn.microsoft.com/en-us/fabric/data-factory/compare-fabric-data-factory-and-azure-data-factory)"
         }
       ]
     },

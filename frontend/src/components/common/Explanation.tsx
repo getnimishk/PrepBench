@@ -3,7 +3,7 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Link, Typography } from '@mui/material';
 
 /**
  * Question explanations, rendered rather than printed.
@@ -14,18 +14,29 @@ import { Box, Typography } from '@mui/material';
  * product read as `**Why the incorrect options are wrong:**`. That is the
  * paragraph review exists to deliver.
  *
- * This handles the four constructs the bank actually contains and nothing
- * else. It builds React elements rather than HTML, so a question imported
+ * This handles the four constructs the bank actually contains, plus https links
+ * (the study guides cite their sources), and nothing else. It builds React elements rather than HTML, so a question imported
  * from somewhere untrusted cannot inject markup; and it is fifteen lines
  * rather than a dependency, because the alternative is shipping a general
  * Markdown engine to render bold text.
  */
 
-const INLINE = /(\*\*[^*]+\*\*|`[^`]+`)/g;
+const INLINE = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\(https:\/\/[^)\s]+\))/g;
+const LINK = /^\[([^\]]+)\]\((https:\/\/[^)\s]+)\)$/;
 
-/** Bold and code spans within a line. */
+/** Bold and code spans, and https links, within a line. */
 const inline = (text: string): React.ReactNode[] =>
   text.split(INLINE).filter(Boolean).map((part, i) => {
+    const link = part.match(LINK);
+    if (link) {
+      // Only https targets are matched, so a guide can cite its sources but never smuggle in
+      // a javascript: or data: URL.
+      return (
+        <Link key={i} href={link[2]} target="_blank" rel="noopener noreferrer">
+          {link[1]}
+        </Link>
+      );
+    }
     if (part.startsWith('**') && part.endsWith('**')) {
       return <strong key={i}>{part.slice(2, -2)}</strong>;
     }

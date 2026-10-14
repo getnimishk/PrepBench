@@ -52,5 +52,5 @@ test('a guide chapter shows the latest version and says so, for a preparation th
   await page.goto('/learn/guides/adf/what-it-is');
 
   await expect(page.getByText(`Not attached to ${prep.name}`, { exact: false })).toBeVisible();
-  await expect(page.getByRole('heading', { name: /1 · What ADF is/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /1 · Introduction to Azure Data Factory/ })).toBeVisible();
 });
