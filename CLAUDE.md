@@ -399,11 +399,22 @@ or `pip`. Node 22+. Git Bash / PowerShell on Windows.
     via `pytest tests/test_openapi_contract.py` and `pytest tests/test_content_packs.py`.
 17. **Curriculum authoring follows the PrepBench Instructional Standard** (v1.3, approved 2026-10-13):
     [`docs/standards/PrepBench_Instructional_Standard.md`](docs/standards/PrepBench_Instructional_Standard.md)
-    is canonical (see [`docs/standards/README.md`](docs/standards/README.md)). Before changing curriculum
-    or learning-guide content (roadmaps, study guides, learning units, labs, assessments), read the
-    standard and the pack's annex (standard section 14); if the pack has no approved annex, say so and
-    stop rather than proceeding without one. An annex can add rigor but never waive the standard.
-    Changes to the standard are versioned through a pull request, as the README describes.
+    is canonical (see [`docs/standards/README.md`](docs/standards/README.md)).
+    Before changing curriculum or learning-guide content (roadmaps, study guides, learning units, labs,
+    assessments), read the standard and the pack's annex (standard section 14). If the pack has no
+    approved annex, say so and stop rather than proceeding without one.
+    **Narrow pre-approval exception:** this stop rule is overridden only for work that standard section 15
+    explicitly requires before an annex can be approved, and only when the pack's draft annex specifically
+    identifies that work. The permitted work is creating the original Pack Overview Visual (step 2) and
+    reworking the reference chapter (step 3). For ADF, this exception covers `docs/standards/packs/adf.md`,
+    sections 5 and 7.2, and Chapter 1, including the prerequisite block required for the reference-chapter
+    review. Nothing else is permitted under this exception. Any fix not explicitly identified in the draft
+    annex as required pre-approval work remains blocked until the annex is approved. In particular,
+    prerequisite blocks for other chapters, the F16 cross-link, and all other chapter remediation must wait
+    for approval. The two-learner comprehension pilot (standard section 15, step 4) remains mandatory
+    before approval and cannot be waived by this exception.
+    An annex can add rigor but never waive the standard. Changes to the standard are versioned through a
+    pull request, as the README describes.
 
 ## Testing
 
