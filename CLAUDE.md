@@ -525,7 +525,11 @@ docs/
   nothing, never raises.
 - **ADF Roadmap ↔ Study Guide governance**:
   1. The ADF Roadmap (`docs/research/ADF_Master_Roadmap_Mapped.xlsx`) is the curriculum planning source.
-  2. The ADF Study Guide (`backend/app/content/packs/adf/v1.json`) is the learner-facing implementation.
+  2. The ADF Study Guide (`backend/app/content/packs/adf/v<N>.json`) is the learner-facing implementation.
+     It is published one file per version and a skill pins the version it attached. **`v1.json` is the
+     original guide and never changes** (a test pins it by fingerprint); `v2.json` carries the redesigned
+     Chapters 1 to 3. Edit the newest version, and add a new version file for any change a learner could
+     notice. A chapter's `Roadmap alignment` block is shown in its own tab on the chapter page.
   3. Every roadmap topic must map to one or more Study Guide sections (see `docs/research/ADF_Study_Guide_Roadmap_Crosswalk.md`).
   4. Coverage must be labelled Full or Partial honestly; do not convert Partial to Full without dedicated content.
   5. Do not create duplicate chapters simply to satisfy roadmap numbering; preserve the 21-chapter Study Guide structure.

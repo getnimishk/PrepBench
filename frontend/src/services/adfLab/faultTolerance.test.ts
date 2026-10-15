@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import pipeline from '../../../../backend/app/data/lab_packs/semiconductor-v1/pipeline.json';
-import adfPack from '../../../../backend/app/content/packs/adf/v1.json';
+import adfPack from '../../../../backend/app/content/packs/adf/v2.json';
 import { DEFAULT_LEVERS, parseAdf, runPipeline, type SourceRow } from '../lakehouse/adfModel';
 import {
   FAULT_TOLERANCE_COUPLINGS, WHEN_MAIN_STEP_FAILS, runBadRows, runDependency, type FailureKind, type Pattern,

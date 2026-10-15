@@ -3,7 +3,7 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import { describe, expect, it } from 'vitest';
-import adfPack from '../../../../backend/app/content/packs/adf/v1.json';
+import adfPack from '../../../../backend/app/content/packs/adf/v2.json';
 import { BATCH_COUNT, CONCURRENCY_COUPLINGS, PARALLEL_COPIES, SCENARIO, runConcurrency, type ConcurrencyLevers } from './concurrencyModel';
 import { CONCURRENCY, PRESET } from './concurrency';
 import { causesOf } from './definition';

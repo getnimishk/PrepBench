@@ -304,8 +304,9 @@ def test_attach_pack_to_a_skill_and_see_it_on_the_subject():
     assert resp.status_code == 201, resp.text
     body = resp.json()
     assert body["pack_id"] == "adf"
-    assert body["pack_version"] == 1
-    assert body["latest_version"] == 1
+    # A skill attaches at the latest published version; older versions stay readable.
+    assert body["pack_version"] == pack_store.latest("adf").version
+    assert body["latest_version"] == pack_store.latest("adf").version
     assert body["title"] == "Azure Data Factory"
 
     subject = client.get(f"/api/v1/subjects/{subject_id}").json()
@@ -336,6 +337,10 @@ def test_upgrade_refuses_a_downgrade_or_the_same_version():
     client.post(f"/api/v1/subjects/{subject_id}/content-packs", json={"pack_id": "adf"})
 
     resp = client.put(f"/api/v1/subjects/{subject_id}/content-packs/adf", json={"version": 1})
+    assert resp.status_code == 400
+    resp = client.put(
+        f"/api/v1/subjects/{subject_id}/content-packs/adf", json={"version": pack_store.latest("adf").version}
+    )
     assert resp.status_code == 400
 
     resp = client.put(f"/api/v1/subjects/{subject_id}/content-packs/adf", json={"version": 0})
@@ -388,3 +393,57 @@ def test_delete_subject_removes_pack_link_via_cascade():
         assert remaining == 0
     finally:
         db.close()
+
+# ---- published versions are kept, never edited (plan D3/D4) -----------------
+
+# The first published ADF guide, as it shipped before Chapters 1 to 3 were redesigned. A skill that
+# attached at version 1 keeps reading this text until the learner upgrades, and past attempts point
+# at it, so the file must not change. Fix a typo by publishing a new version instead.
+ADF_V1_FINGERPRINT = "1defc4f2bb28e15232c722be4139d07cce4c3891c09cc60286bce2c2201cd26b"
+
+
+def _canonical_hash(pack) -> str:
+    import hashlib
+
+    payload = json.dumps(pack.model_dump(mode="json"), sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def test_the_first_published_adf_guide_is_kept_unchanged():
+    v1 = pack_store.get("adf", 1)
+    assert v1 is not None and v1.version == 1
+    assert v1.chapters[0].title == "What ADF is, and what it isn't"
+    assert _canonical_hash(v1) == ADF_V1_FINGERPRINT
+
+
+def test_every_published_version_is_its_own_file_and_the_newest_is_the_default():
+    versions = pack_store.load_packs()["adf"]
+    assert {1, 2} <= set(versions)
+    assert pack_store.latest("adf").version == max(versions)
+    # Same ids and order in every version, so a link, a scenario or a diagnostic keeps resolving.
+    assert [c.id for c in versions[1].chapters] == [c.id for c in versions[max(versions)].chapters]
+
+    assert client.get("/api/v1/content-packs/adf?version=1").json()["chapters"][0]["title"] == "What ADF is, and what it isn't"
+    assert client.get("/api/v1/content-packs/adf").json()["version"] == max(versions)
+
+
+def test_a_skill_pinned_at_version_one_keeps_it_until_the_learner_upgrades():
+    from app.models.subject_content_pack import SubjectContentPack
+    from tests.conftest import TestingSessionLocal
+
+    subject_id = _make_skill()
+    client.post(f"/api/v1/subjects/{subject_id}/content-packs", json={"pack_id": "adf"})
+    session = TestingSessionLocal()
+    try:
+        link = session.query(SubjectContentPack).filter(SubjectContentPack.subject_id == subject_id).one()
+        link.pack_version = 1
+        session.commit()
+    finally:
+        session.close()
+
+    pinned = client.get(f"/api/v1/subjects/{subject_id}").json()["content_packs"][0]
+    assert (pinned["pack_version"], pinned["latest_version"]) == (1, pack_store.latest("adf").version)
+
+    upgraded = client.put(f"/api/v1/subjects/{subject_id}/content-packs/adf", json={"version": 2})
+    assert upgraded.status_code == 200, upgraded.text
+    assert upgraded.json()["pack_version"] == 2

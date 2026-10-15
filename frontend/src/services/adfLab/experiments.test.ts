@@ -3,7 +3,7 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import { describe, expect, it } from 'vitest';
-import adfPack from '../../../../backend/app/content/packs/adf/v1.json';
+import adfPack from '../../../../backend/app/content/packs/adf/v2.json';
 import { ADF_LAB_EXPERIMENTS, PERSISTENCE, adfLabExperiment, adfLabStatus, hasAdfPack, tracksOf } from './experiments';
 import { DEFINITIONS } from './definitions';
 

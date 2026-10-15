@@ -8,1086 +8,206 @@
   "chapters": [
     {
       "id": "what-it-is",
-      "title": "Introduction to Azure Data Factory",
-      "summary": "ADF is mostly an orchestrator that also copies data itself.",
+      "title": "What ADF is, and what it isn't",
+      "summary": "ADF is an orchestrator: it moves data and tells other services what to do, and when.",
       "sources": "§1, §18.1, §24",
       "blocks": [
         {
           "heading": "Roadmap alignment",
-          "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 1 — What Azure Data Factory Is** (Full)\n  - *Relevant sections:* What is Azure Data Factory?; Features of Azure Data Factory; Usage scenarios; How does it work? (Connect and collect, Transform and enrich, CI/CD and publish, Monitor); Top-level concepts\n  - *Learning evidence:* Write a one-minute ADF explanation for a Product/Program interview.\n- **Topic 2 — ADF vs Databricks vs Synapse vs Fabric Data Factory** (Full)\n  - *Relevant sections:* ADF vs Databricks vs Synapse vs Fabric; Where Azure Data Factory fits today; Ch 20 (ADF and Fabric Data Factory)\n  - *Learning evidence:* Create a service-selection matrix for 4 common enterprise scenarios.\n- **Topic 4 — ADF Mental Model for Managers** (Full)\n  - *Relevant sections:* What is Azure Data Factory? (orchestration versus computation); A manager's mental model; Ch 21 (Pitfalls)\n  - *Learning evidence:* Create a one-page manager mental model covering ownership, risk, SLA, and cost framing.\n\n**How to read the labels in this guide**\n\nExamples in this guide are invented for learning. Figures, defaults, limits and connector lists were checked in October 2026 and change over time: re-check them before you rely on one.\n\n- **Recommended practice:** good engineering advice, sometimes from the documentation itself. It is not a rule the product enforces.\n- **What Microsoft Doesn't Say:** a practical implication that an introductory article does not spell out. Each is backed by cited documentation, and where it adds an inference it says so.\n- **Interview takeaway:** how to say it in one breath."
+          "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 1 — What Azure Data Factory Is** (Full)\n  - *Relevant sections:* What ADF is; The documentation's own example; The four stages the documentation describes; The typical journey of one row\n  - *Learning evidence:* Write a one-minute ADF explanation for a Product/Program interview.\n- **Topic 2 — ADF vs Databricks vs Synapse vs Fabric Data Factory** (Full)\n  - *Relevant sections:* ADF vs Databricks vs Synapse vs Fabric: architecture selection framework; Where it is heading; Ch 20 (ADF and Fabric Data Factory)\n  - *Learning evidence:* Create a service-selection matrix for 4 common enterprise scenarios.\n- **Topic 4 — ADF Mental Model for Managers** (Full)\n  - *Relevant sections:* What ADF is; How to read the labels in this guide; Ch 21 (Pitfalls)\n  - *Learning evidence:* Create a one-page manager mental model covering ownership, risk, SLA, and cost framing."
         },
         {
-          "heading": "What is Azure Data Factory?",
-          "md": "Companies keep data in many places: databases, files, software-as-a-service (SaaS) applications. On its own, that raw data has little context or meaning for the analysts and decision makers who need it. Somebody has to collect it, reshape it, and do that again on a schedule, reliably, with alerts when it breaks. That is the problem Azure Data Factory (ADF) addresses.\n\nADF is a managed cloud service built for complex hybrid extract-transform-load (ETL), extract-load-transform (ELT) and data integration projects. The documentation describes it as a cloud-based ETL and data integration service for creating data-driven workflows, called pipelines, that orchestrate data movement and transform data at scale.\n\nFour terms carry the rest of the chapter:\n\n- **Data movement:** copying data from one store to another.\n- **Data transformation:** changing its shape or content: cleaning, joining, aggregating.\n- **ETL:** extract, transform, then load into the destination. **ELT:** extract and load first, then transform inside the destination or another engine.\n- **Orchestration:** deciding which step runs when, passing results along, retrying, and reporting what happened."
+          "md": "Azure Data Factory (ADF) is Microsoft's managed cloud service for **data integration**. It moves data between systems and runs the steps that clean and reshape it, on a schedule or when something happens.\n\nIt is mostly an **orchestrator**: it does the copying itself, but for heavy transformation it usually hands the work to another service (Databricks, Synapse, a database) and waits for the result. Think of it as the conductor, not the orchestra."
         },
         {
-          "heading": "Orchestration versus computation",
-          "md": "The sentence \"ADF is an orchestrator\" is useful but incomplete. ADF does three different things:\n\n1. It **moves data itself.** The Copy activity reads from a source, can convert formats, map columns and compress or decompress, and writes to a sink. It runs on an integration runtime (the compute ADF uses, explained below).\n2. It **runs transformations itself, in one case.** Mapping data flows are visually designed transformations that run on Apache Spark clusters that ADF manages for you.\n3. It **hands other transformations to other services** (Azure Databricks, Azure HDInsight, a database running a stored procedure, Azure Functions and more), waits, and acts on the result. Dispatching is lightweight; the heavy work happens on the service you chose.\n\nThe conductor analogy fits the third part and breaks on the first two: a conductor never plays a note, but ADF does copy data and does run data flows. Read it as: ADF decides what happens and when, performs the copying itself, and borrows specialised engines for the rest. It is not a replacement for Spark, a data warehouse or a database engine."
+          "heading": "The documentation's own example",
+          "md": "A gaming company has petabytes of game logs in the cloud, and customer and campaign data in its own data centre. It wants to combine them every day, process them with Spark (an engine that spreads work across many machines; Databricks runs it), and publish the result to a data warehouse (a database built for reporting) for reports, and also do it whenever new log files land. ADF is what wires that together and runs it."
         },
         {
-          "heading": "A mental model, and one running example",
-          "md": "Picture ADF as the layer between your sources and the places people use the data:\n\n**sources** (databases, files, SaaS) -> **ADF** (connect, copy, schedule, call compute, monitor) -> **storage and compute** (a data lake, Databricks, a SQL engine) -> **serving** (a warehouse, Power BI reports)\n\nThe rest of this chapter follows one invented example, the **retail sales load**. A retailer keeps store sales in a SQL Server database in its own data centre and receives a daily returns file from a partner into Azure Blob storage. Every night it must land both in a data lake, clean and combine them, load a reporting database, and tell someone if anything fails. It is an invented illustration, not a reference architecture.\n\n**Where ADF sits in a modern platform:** at the ingestion and orchestration layer. Storage (for example Azure Data Lake Storage Gen2), transformation engines and reporting tools sit on either side of it. Chapter 2 starts taking the building blocks apart; this chapter gives you the whole picture first."
+          "heading": "The four stages the documentation describes",
+          "md": "1. **Connect and collect**: copy data from where it is into a central store, usually the data lake (cheap cloud storage that holds files of any shape; ADLS Gen2 has its own guide).\n2. **Transform and enrich**: clean and shape it, in ADF's own data flows (visual transformations, chapter 11) or by calling Databricks and similar services.\n3. **Publish**: load the results where reports read them, and release pipeline changes through Dev, Test and Prod.\n4. **Monitor**: watch every scheduled run succeed or fail."
         },
         {
-          "heading": "Interview takeaway",
-          "md": "**Interview takeaway:** \"Azure Data Factory is a managed service for building scheduled or event-driven data pipelines. It connects to many sources, copies data itself, can run Spark-based data flows, and orchestrates external engines like Databricks, so teams use it to ingest and coordinate rather than to replace their compute. For new work, the documentation now points learners to Data Factory in Microsoft Fabric.\""
+          "heading": "The typical journey of one row",
+          "md": "Microsoft's 2018 white paper tells it this way: data is extracted from an on-premises Oracle database and from Salesforce, landed **raw** in the data lake (cheap, and you decide later what to keep), prepared with Spark (duplicates removed, reshaped), enriched (a machine-learning step adds a churn score), loaded into the warehouse, and read by Power BI (Microsoft's reporting and dashboard tool). On failure, a step sends an email; on success, the next step starts.\n\nThis is a 2018 illustration of the idea, so read it as a pattern, not a current architecture: product names have moved on (what the paper calls SQL Data Warehouse is now an Azure Synapse dedicated SQL pool)."
         },
         {
-          "heading": "The official architecture picture",
-          "md": "The visual guide shows the whole of ADF on one page. Use it as a map: come back to it after each section of this chapter and find where you are.\n\n![The visual guide to Azure Data Factory: a single sketchnote covering the data integration problem, the gaming scenario, how ADF works, the seven things to know, pipelines, activities, datasets, linked services, mapping data flows, integration runtimes, triggers, parameters and variables.](/assets/content/packs/adf/data-factory-visual-guide.png)\n\nFigure: the ADF visual guide, created for the [Sketch the Docs](https://dev.to/azure/a-visual-guide-to-azure-data-factory-53ik) project. Select the image to open it full size."
+          "heading": "Where it is heading",
+          "md": "Almost every ADF page now opens with a note that **Data Factory in Microsoft Fabric** is \"the next generation of Azure Data Factory\", recommended for new users. ADF is still everywhere in existing projects, and the concepts carry over. Chapter 20 covers the difference."
         },
         {
-          "heading": "Features of Azure Data Factory",
-          "md": "The introduction page lists six features. Each is below with what it is for and the limit to remember.\n\n- **Data compression during copy.** The Copy activity can compress or decompress while it moves data, which reduces the bandwidth used. **Limit:** codecs depend on the file format and on the engine. For delimited text, the documentation lists bzip2, gzip, deflate, ZipDeflate, TarGzip, Tar, snappy and lz4, but the Copy activity does not support snappy or lz4, and mapping data flows do not support ZipDeflate, TarGzip or Tar. Check the page for your format ([delimited text](https://learn.microsoft.com/en-us/azure/data-factory/format-delimited-text)).\n- **Broad connectivity.** ADF connects to cloud and on-premises stores, grouped as Azure, database, NoSQL, file, generic protocol and services and apps. **Limit:** support varies by connector, by direction (many connectors are source-only), by activity (Copy, data flow, Lookup, Get Metadata, Delete) and by integration runtime (some need a self-hosted one). This guide quotes no connector count because the list changes; read [the connector overview](https://learn.microsoft.com/en-us/azure/data-factory/connector-overview) for the one you need. A generic ODBC, REST, OData or HTTP connector covers many stores that have no dedicated connector.\n- **Event-based execution.** Besides schedules, a pipeline can start when something happens. Event-based triggers come in two flavours: a storage event trigger (a file arrives or is deleted in Azure Blob Storage) and a custom event trigger (Event Grid custom topics). **Limit:** if you stop and start an event-based trigger it resumes its old pattern, which can start pipelines you did not intend; the documentation says to delete it and create a new one instead ([pipeline execution and triggers](https://learn.microsoft.com/en-us/azure/data-factory/concepts-pipeline-execution-triggers)).\n- **Data preview and validation.** In a mapping data flow with debug mode on, the Data Preview tab shows a snapshot of the data at each transformation. For file-based copies, the Copy activity offers optional data consistency verification and a session log of copied files. **Limit:** these catch copy problems, not wrong business logic.\n- **Customizable data flows.** You build transformation graphs visually, without writing Spark code, and run them from pipelines. **Limit:** data flows run on Spark compute that ADF starts and stops for you, and that compute is billed by the vCore-hour while it runs ([data flow overview](https://learn.microsoft.com/en-us/azure/data-factory/concepts-data-flow-overview)).\n- **Integrated security.** ADF integrates with Microsoft Entra ID and Azure role-based access control (RBAC). The documentation recommends keeping secrets in Azure Key Vault or using managed identity, and notes that ADF does not store secrets in Git. **Limit:** The documentation advises against assigning RBAC to individual pipelines or datasets; consider a second factory if you need many separate roles ([CI/CD](https://learn.microsoft.com/en-us/azure/data-factory/continuous-integration-delivery), [source control](https://learn.microsoft.com/en-us/azure/data-factory/source-control)).\n\n**Cost.** ADF is billed on consumption. The documentation names three meters: orchestration activity runs, Data Integration Unit (DIU) hours for copies on the Azure integration runtime, and vCore-hours for data flow execution and debugging. Other costs can accrue from external activities and from the external services they call. No blanket statement such as \"ADF is cheap\" is safe: use the per-run consumption view and the pricing calculator ([plan and manage costs](https://learn.microsoft.com/en-us/azure/data-factory/plan-manage-costs))."
+          "heading": "How to read the labels in this guide",
+          "md": "Where it matters, a statement is labelled so you can say in an interview what kind of claim it is.\n\n- **Microsoft fact:** product behaviour taken from Microsoft's own documentation and checked in October 2026. Figures, defaults, limits and connector lists are volatile: re-check them before you rely on one.\n- **Recommended practice:** good engineering advice (sometimes Microsoft's own recommendation). It is not a rule the product enforces.\n- **Interview takeaway:** how to say it in one breath."
         },
         {
-          "heading": "Usage scenarios: a gaming company",
-          "md": "The introduction page uses this story. A gaming company collects petabytes of game logs produced in the cloud and wants to learn about customer preferences, demographics and usage. To do it, it must combine the logs with reference data (customer, game and marketing-campaign information) that sits in an on-premises data store. It plans to process the joined data with a Spark cluster in the cloud (Azure HDInsight), publish the result to a cloud data warehouse such as Azure Synapse Analytics for reporting, run the whole workflow on a daily schedule, and also run it when files land in a blob container.\n\nMap it to ADF: **ingest** from two kinds of store (cloud logs and on-premises reference data, the second needing a self-hosted integration runtime); **transform** by calling Spark; **publish** to a warehouse; **trigger** by schedule and by storage event; **monitor** the daily runs.\n\n**Read it as a pattern, not a template.** The page names HDInsight and Synapse because those were the services when the example was written. The same page lists Azure Databricks among the compute services ADF can call, and the documentation now tells new learners to start with Fabric Data Factory. The shape (ingest, process, publish, schedule, monitor) is what still matters."
-        },
-        {
-          "heading": "Example 1: bank moving core-banking data",
-          "md": "- **Business problem:** a regulated bank wants nightly copies of core-banking tables in a data lake for analytics, without opening inbound firewall ports to its data centre.\n- **Data sources:** on-premises Oracle and SQL Server databases.\n- **ADF's responsibility:** connect through a self-hosted integration runtime, which makes only outbound HTTP-based connections; copy each table to the lake; sequence the steps; retry; record every run.\n- **Transformation or compute:** Azure Databricks notebooks (called from ADF) to cleanse and conform the data, or a mapping data flow for simpler shaping.\n- **Target:** Azure Data Lake Storage Gen2, then a SQL serving layer.\n- **Trigger:** a tumbling window trigger, one window per business day, because it keeps state, supports backfill of past windows and a retry policy, which a schedule trigger does not.\n- **Operational consideration:** reconcile counts and totals between source and lake; keep credentials in Key Vault; keep personal data rules in view (chapter 15).\n- **Why ADF fits, and when it does not:** it fits hybrid, scheduled, auditable batch movement. It does not fit when the business needs a continuous low-latency stream; that calls for a streaming service instead."
-        },
-        {
-          "heading": "Example 2: retail micro-batch ingestion",
-          "md": "- **Business problem:** store systems drop sales files every few minutes; managers want dashboards that are minutes, not a day, behind.\n- **Data sources:** CSV files arriving in Azure Blob Storage.\n- **ADF's responsibility:** react to each arrival (storage event trigger), copy and decompress the file, call the transformation, load the result.\n- **Transformation or compute:** a mapping data flow to remove duplicates and standardise columns.\n- **Target:** Azure SQL Database feeding Power BI.\n- **Trigger:** storage event trigger.\n- **Operational consideration:** every data flow run starts Spark compute that ADF spins up and down, so very frequent small runs pay that start-up each time. Measure it before promising freshness; the Azure integration runtime offers a time-to-live setting for exactly this. Also design for duplicate or out-of-order files.\n- **Why ADF fits, and when it does not:** event-driven batches of files are a good match. If latency must be seconds, or one tiny file produces one expensive run, reconsider the design or the tool."
-        },
-        {
-          "heading": "Example 3: Hadoop migration",
-          "md": "- **Business problem:** an on-premises Hadoop cluster is being retired; its data and its nightly jobs must move to Azure.\n- **Data sources:** files in HDFS, and Hive or HBase tables (ADF has HDFS, Hive, HBase and Spark source connectors).\n- **ADF's responsibility:** bulk-copy the files into the lake, then run recurring incremental copies; orchestrate the new jobs that replace the old ones.\n- **Transformation or compute:** Azure Databricks or Synapse Spark running rewritten jobs, called from pipelines. ADF copies data; it does not translate Hive or Spark code or table definitions.\n- **Target:** Azure Data Lake Storage Gen2.\n- **Trigger:** manual runs for the bulk copy, then a schedule or tumbling window trigger for increments.\n- **Operational consideration:** for large binary file copies that keep the folder hierarchy, a rerun can resume from the failure point (conditions in the Monitor section), which matters when a copy takes days.\n- **Why ADF fits, and when it does not:** it is a good bulk mover and scheduler. Rewriting and testing the workloads is the larger job, and it is not ADF's."
-        },
-        {
-          "heading": "How does it work? The whole picture",
-          "md": "![The overview diagram of Azure Data Factory as code-free ETL as a service, with five capability boxes: Ingest, Control Flow, Data Flow, Schedule and Monitor.](/assets/content/packs/adf/data-factory-architecture-overview.svg)\n\nFigure: the five capabilities, as the diagram draws them. The 100+ connectors figure in the diagram is wording from the original page and the connector list changes, so check the connector overview.\n\nThe documentation describes ADF as interconnected systems that form a complete platform for data engineers, and organises its explanation as four steps: **connect and collect, transform and enrich, CI/CD and publish, monitor**. The table shows how the components answer one question each; the four sections below follow the workflow in order. [Source](https://learn.microsoft.com/en-us/azure/data-factory/introduction).",
-          "table": {
-            "head": [
-              "Component",
-              "The question it answers",
-              "Where you meet it"
-            ],
-            "rows": [
-              [
-                "Source and sink data stores",
-                "Where is the data, and where must it go?",
-                "SQL Server, Blob storage, Data Lake, SaaS"
-              ],
-              [
-                "Linked service",
-                "How do I connect to that store or compute?",
-                "A connection definition, like a connection string"
-              ],
-              [
-                "Dataset",
-                "Which data inside the store?",
-                "A table, or a folder and file pattern"
-              ],
-              [
-                "Activity",
-                "What action happens on that data?",
-                "Copy, data flow, notebook, stored procedure, control"
-              ],
-              [
-                "Pipeline",
-                "Which activities run together as one unit of work?",
-                "The thing you schedule, run and monitor"
-              ],
-              [
-                "Integration runtime",
-                "What compute runs or dispatches the activity, and where?",
-                "Azure, self-hosted or Azure-SSIS"
-              ],
-              [
-                "Trigger",
-                "When does the pipeline start?",
-                "Schedule, tumbling window, event"
-              ],
-              [
-                "Monitor",
-                "Did it work, and why not?",
-                "ADF Studio, Azure Monitor, API, PowerShell"
-              ]
-            ]
-          }
-        },
-        {
-          "heading": "Connect and collect",
-          "md": "Enterprises hold data of many types (structured, semi-structured, unstructured), in many places, arriving at different speeds. Step one is to connect to every source, step two is to move the data to a central location for processing. Without a service like ADF, teams write custom movement code and also have to build monitoring, alerting and controls themselves.\n\nIn the **retail sales load** the pieces line up like this:\n\n1. A **linked service** holds the connection to the on-premises SQL Server and another to the lake.\n2. A **dataset** names the sales table (source) and the lake folder (sink).\n3. A **Copy activity** takes exactly one input dataset and one output dataset and copies between them.\n4. An **integration runtime** executes it. The SQL Server sits in a private network, so the linked service points (through its `connectVia` property) to a self-hosted integration runtime installed inside that network.\n\n**Which runtime runs a copy?** Between two public cloud stores, the Azure integration runtime. If either side points to a self-hosted runtime, the copy runs there, and when both sides are private they must use the same self-hosted runtime. A single Copy activity cannot use more than one self-hosted runtime.\n\nCollecting data into a central cloud store such as Azure Data Lake Storage or Blob storage first, then transforming it later, is the pattern the documentation describes."
-        },
-        {
-          "heading": "What Microsoft Doesn't Say: a green copy is not a correct load",
-          "md": "**Practical implication:** a Copy activity that shows Succeeded has moved what it was configured to move, which is not the same as every source row arriving correctly.\n\n**Why it matters:** by default the Copy activity stops and fails on rows incompatible with the sink, but a fault tolerance setting can skip and logs incompatible rows so the copy can succeed. A run configured that way can be green while rows were left behind.\n\n**What to do:** if you enable skipping, also enable logging of skipped rows and alert on a non-zero count; for important tables compare row counts and totals between source and sink after each load (chapter 7 covers bad rows and chapter 8 reconciliation). The optional data consistency verification and session log help for file copies.\n\n**Verify further:** [Copy activity fault tolerance](https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-fault-tolerance) and [data consistency verification](https://learn.microsoft.com/en-us/azure/data-factory/copy-activity-data-consistency)."
-        },
-        {
-          "heading": "Transform and enrich",
-          "md": "Mapping data flows run transformation graphs on Spark without you managing clusters. If you prefer to code transformations by hand, ADF supports external activities that run them on compute services such as HDInsight, Azure Databricks and Machine Learning. A stored procedure or script runs inside a database.",
-          "table": {
-            "head": [
-              "Mechanism",
-              "Where the work runs",
-              "Strength",
-              "Cost and ownership to weigh"
-            ],
-            "rows": [
-              [
-                "Mapping data flow",
-                "Spark clusters that ADF starts and stops for you",
-                "Visual, no Spark code; debug mode with data preview at each step; runs inside the pipeline's monitoring",
-                "Billed in vCore-hours while it runs; cluster start-up time; logic lives in ADF's graph model"
-              ],
-              [
-                "External compute activity (Databricks, HDInsight, Machine Learning and others)",
-                "The service you call; ADF dispatches and waits",
-                "Full control of code, libraries and engine; reuse of existing Spark or ML work",
-                "That service's own bill, cluster sizing and logs; a failure inside it is diagnosed there"
-              ],
-              [
-                "Database-side processing (Stored Procedure or Script activity)",
-                "The database engine that holds the data",
-                "Data does not leave the database; reuses SQL skills and existing procedures",
-                "Load lands on that database; logic lives in the database, not in the pipeline"
-              ],
-              [
-                "Copy activity itself",
-                "The integration runtime",
-                "Format conversion, column mapping and compression while moving",
-                "Not a general transformation engine; keep it to movement and light shaping"
-              ]
-            ]
-          }
-        },
-        {
-          "heading": "Choosing a transformation mechanism",
-          "md": "**Pitfall:** treating one mechanism as the right answer for every workload. \"Everything in data flows\" strands heavy or code-centric work in a visual tool; \"everything in Databricks\" pays for a cluster to do a trivial rename.\n\nDecide per step with these questions instead of a rule:\n\n- **Where does the data already live?** If it is in a database and the change is set-based SQL, do it there.\n- **Who will maintain it?** A team with Spark skills may prefer notebooks; a team without them may prefer the visual graph.\n- **How complex and how big is it?** Complex logic, custom libraries, machine learning and very large volumes point to external compute.\n- **How will you debug it?** Data flows give per-step preview in debug mode; external compute is debugged in the external service.\n- **How often does it run, and how long must it take?** Start-up time and billing per run matter more for many small runs.\n- **Who owns the cost and the on-call?** The pipeline owner, or a platform team that runs the cluster?\n\nChapter 11 covers data flows and the other transformation options in depth."
-        },
-        {
-          "heading": "What Microsoft Doesn't Say: orchestration does not remove the compute decision",
-          "md": "**Practical implication:** when an activity calls Databricks, HDInsight or a database, ADF only dispatches the work. The linked service for such an activity represents a compute resource, and the integration runtime just routes the request.\n\n**Why it matters:** cluster sizing, library versions, performance and most error detail belong to the external service, and it is billed by that service. A failed pipeline run may only tell you \"the notebook activity failed\".\n\n**What to do:** name an owner for each external engine, size and tune it there, and during an incident open that service's own run page after the ADF Monitor view points you to the failing activity.\n\n**Verify further:** [Integration runtime: activity dispatch](https://learn.microsoft.com/en-us/azure/data-factory/concepts-integration-runtime) and [plan and manage costs](https://learn.microsoft.com/en-us/azure/data-factory/plan-manage-costs)."
-        },
-        {
-          "heading": "CI/CD and publish",
-          "md": "Out of the box, the ADF user interface authors directly against the data factory service, and **Publish all** saves changes straight to it. That has no version history and no review. ADF therefore lets you connect a Git repository (Azure Repos or GitHub) so changes are tracked, reviewed and saved as drafts.\n\nThe lifecycle for ADF with Git:\n\n1. A development factory is connected to Git.\n2. A developer creates a **feature branch**, changes pipelines and debugs them.\n3. A **pull request** merges the branch into the **collaboration branch** (`main` by default) after review.\n4. **Publish** in the development factory sends the collaboration branch to the Data Factory service and generates Azure Resource Manager (ARM) templates in a publish branch (`adf_publish` by default). Publishing is possible only from the collaboration branch, not from a private branch, and it publishes all changes: ADF does not support selective publishing or cherry-picking.\n5. A release pipeline (for example Azure Pipelines) deploys those ARM templates to test and then production, applying **ARM template parameters** for environment-specific values. Manually uploading a template is the other supported way.\n\nTwo distinctions matter. First, the merged branch is not what is deployed: the documentation states that the main branch does not represent what is in the service and must be published. Second, ADF's authoring and publishing workflow (steps 1 to 4) is separate from the external CI/CD deployment to other environments (steps 5 and 6).\n\n**Recommended practice:** attach Git only to the development factory and update test and production through the release pipeline. That is advice, not an enforced rule: the documentation also states that several factories can use different branches of one GitHub repository.\n\n**Triggers:** The documentation recommends pre- and post-deployment PowerShell scripts that stop and restart triggers around the ARM deployment, and offers a script variant that toggles only the triggers that changed. Whether triggers must be stopped depends on your deployment approach, so follow the current guidance for the one you use. Keep separate Key Vaults per environment with the same secret names so connection strings need no parameter per environment."
-        },
-        {
-          "heading": "What Microsoft Doesn't Say: a successful deployment is not a safe release",
-          "md": "**Practical implication:** the release pipeline finishing green means the definitions arrived, not that production will behave.\n\n**Why it matters:** publishing is all-or-nothing, so a merged but unfinished pipeline ships with everything else. Triggers are a separate concern from the template, so a trigger can fire mid-deployment or stay stopped after it. The documentation's own advice for merged-but-not-ready logic is a feature flag: combine global parameters with the If Condition activity to hide logic per environment.\n\n**What to do:** handle triggers explicitly in the release, gate unfinished work behind a flag, run one smoke pipeline run after deployment, and review pull requests for what is switched on, not only for syntax.\n\n**Verify further:** [Best practices for CI/CD](https://learn.microsoft.com/en-us/azure/data-factory/continuous-integration-delivery)."
-        },
-        {
-          "heading": "Monitor",
-          "md": "After you deploy, you watch the scheduled work succeed or fail. The documentation lists built-in support through ADF Studio, Azure Monitor, an API, PowerShell, Azure Monitor logs and health panels in the Azure portal.\n\nThree kinds of run, each answering a different question:\n\n- **Trigger run:** did the trigger fire? A schedule trigger is fire-and-forget: its run is successful as long as a pipeline run started. A tumbling window trigger run waits for its pipeline run and mirrors its state. Trigger runs are also recorded in the TriggerRuns log category.\n- **Pipeline run:** one execution of a pipeline, with a unique run ID, a status (Succeeded, Failed, In Progress, Canceled or Queued), its parameters and the run error.\n- **Activity run:** one step inside a pipeline run, with its status, the integration runtime it used, JSON input and output, and an error with code, failure type and details.\n\n**Alerts and history.** You can raise Azure Monitor alerts on metrics such as failed pipeline runs. ADF keeps pipeline run data for only 45 days, so route diagnostic logs to Azure Monitor (for example Log Analytics, which has ADFPipelineRun, ADFActivityRun and ADFTriggerRun tables) if you need more. You can promote up to five activity properties as user properties to show as columns, and see per-run consumption for cost."
-        },
-        {
-          "heading": "Rerun and recovery",
-          "md": "From the Monitor view you can **rerun** a whole pipeline, **rerun from a chosen activity**, or **rerun from the failed activity** when an activity failed, timed out or was canceled. Rerunning with new parameters counts as a new pipeline run. Container activities (ForEach, If, Switch, Until, Execute Pipeline) re-evaluate their conditions and loops, and inner activities may still be skipped by the rerun rules.\n\n**Copy activity resume** is narrower. The Copy activity can continue from the last failure point only when you copy files as-is in binary format between file-based stores and keep the folder and file hierarchy, for example S3 to Azure Data Lake Storage Gen2, on the listed file-based connectors. It works through activity-level retry or rerun from the failed activity; resume is at file level (the failing file is copied again); the copy settings must not change between runs; and a self-hosted runtime needs version 5.43.8935.2 or later. For other scenarios, the documentation states that a copy rerun starts from the beginning."
-        },
-        {
-          "heading": "What Microsoft Doesn't Say: a rerun can repeat work you already did",
-          "md": "**Practical implication:** \"rerun from failed activity\" saves you from repeating the earlier activities, but if the failed activity is a Copy that is not a binary file copy, it starts again from row one.\n\n**Why it matters:** if the first attempt had already written part of the data to the sink, the second can duplicate it unless the load is built to be repeated safely. This is an engineering inference from the documented behaviour, not a documented warning.\n\n**What to do:** design loads to be idempotent (overwrite a partition, or merge on a key) before relying on reruns; chapter 13 covers recovery patterns.\n\n**Verify further:** [Rerun pipelines and activities](https://learn.microsoft.com/en-us/azure/data-factory/monitor-visually)."
-        },
-        {
-          "heading": "Worked example: investigating a failed run",
-          "md": "The nightly **retail sales load** alerts on failed pipeline runs. An engineer would:\n\n1. Open **Monitor**, filter pipeline runs by status Failed and the pipeline name, and note the error and run ID.\n2. Open that pipeline run to see its activity runs and find the **first** failed activity; later failures are often just consequences.\n3. Read the activity's error code, failure type and details, and check which **integration runtime** it used. A self-hosted runtime that is offline looks very different from a data error.\n4. For a Copy, open its monitoring details; for a Databricks activity, open the linked run in Databricks.\n5. Fix the cause, then pick the rerun that fits: from the failed activity if earlier steps are sound and the load is safe to repeat; the whole pipeline otherwise.\n6. If the run is older than 45 days, query the diagnostic logs in Log Analytics instead."
-        },
-        {
-          "heading": "Top-level concepts: the map",
-          "md": "The documentation lists these as the key components of ADF. An Azure subscription can hold one or more data factories.",
-          "table": {
-            "head": [
-              "Concept",
-              "In one line",
-              "Relates to"
-            ],
-            "rows": [
-              [
-                "Pipeline",
-                "A logical group of activities that performs one unit of work",
-                "Contains activities; started by triggers"
-              ],
-              [
-                "Activity",
-                "One processing step: data movement, data transformation or control",
-                "Lives in a pipeline; reads and writes datasets"
-              ],
-              [
-                "Mapping data flow",
-                "A visually designed transformation that runs on Spark",
-                "Run by a Data Flow activity on an Azure integration runtime"
-              ],
-              [
-                "Dataset",
-                "A named view of data inside a store",
-                "Points to a linked service"
-              ],
-              [
-                "Linked service",
-                "Connection information to a data store or a compute resource",
-                "Names the integration runtime with connectVia"
-              ],
-              [
-                "Integration runtime",
-                "The compute that runs or dispatches activities",
-                "Bridge between activities and linked services"
-              ],
-              [
-                "Trigger",
-                "The rule that decides when a pipeline starts",
-                "Starts pipeline runs"
-              ],
-              [
-                "Pipeline run",
-                "One execution of a pipeline",
-                "Created by a trigger or manually; takes parameter values"
-              ],
-              [
-                "Parameter",
-                "Read-only configuration set when a run starts",
-                "Defined on pipelines; consumed by activities"
-              ],
-              [
-                "Control flow",
-                "How activities are ordered, branched and looped",
-                "Built from control activities inside a pipeline"
-              ],
-              [
-                "Variable",
-                "A temporary value that can change during a run",
-                "Set and read by activities in a pipeline"
-              ]
-            ]
-          }
-        },
-        {
-          "heading": "Pipelines, activities and control flow",
-          "md": "**Pipeline.** A logical grouping of activities that together do one task, so you manage them as a set. Activities can be chained in sequence or run in parallel. **Example:** the retail pipeline copies, cleans and loads. **Misunderstanding:** a pipeline is not a job that runs by itself; it does nothing until a trigger or a manual run starts it.\n\n**Activity.** One processing step. The documentation names three types: **data movement** (Copy), **data transformation** (data flow, Databricks, stored procedure and similar) and **control** (steps that steer the flow). **Example:** Copy sales, then a notebook activity. **Misunderstanding:** an activity defines an action; where it runs depends on its integration runtime.\n\n**Control flow.** The orchestration inside a pipeline: chaining activities in sequence, branching, defining parameters at the pipeline level, passing arguments, looping containers such as ForEach, and passing custom state. **Example:** ForEach over a list of table names, copying each. **Misunderstanding:** control flow moves no data; it decides which activity runs next."
-        },
-        {
-          "heading": "Data: mapping data flows, datasets and linked services",
-          "md": "**Mapping data flows.** Reusable transformation graphs run by the Data Flow activity on Spark that ADF starts and stops as needed. **Example:** deduplicate returns. **Misunderstanding:** a data flow is not a pipeline; it is one activity's worth of work inside one.\n\n**Datasets.** Represent data structures inside a data store and point to the data used as an activity's input or output. **Example:** the `Sales` table, or the `raw/returns/` folder. **Misunderstanding:** a dataset holds no data and no credentials; it names data. (Data Factory in Fabric has no datasets; see below.)\n\n**Linked services.** Much like connection strings: they define the connection information ADF needs to reach an external resource. The documentation's own summary: a linked service defines the connection to the data source and a dataset represents the structure of the data. A linked service can represent a **data store** or a **compute resource** that can host an activity. **Example:** an Azure Storage linked service holds the connection string; an Azure Blob dataset names the container and folder. A linked service may carry a `connectVia` reference to the integration runtime to use. **Misunderstanding:** two datasets in the same account share one linked service; you do not create one per file."
-        },
-        {
-          "heading": "Integration runtimes",
-          "md": "**Integration runtime (IR).** The compute infrastructure ADF uses to run data flows, copy data across networks, dispatch transformation activities to other services, and run SQL Server Integration Services (SSIS) packages. An activity defines the action, a linked service defines the target store or compute, and the IR is the bridge between them and decides where the work happens.\n\nThe documentation names three types:\n\n- **Azure IR:** fully managed and serverless. Runs data flows, copies between cloud stores and dispatches many activity types. By default it auto-resolves its region; you can create one in a region you choose and point linked services to it with `connectVia` if data must stay in a geography.\n- **Self-hosted IR:** software you install on a Windows machine in your own or a private network. It copies between private and cloud stores and dispatches activities to private compute. It makes outbound HTTP-based connections only. It does not run mapping data flows.\n- **Azure-SSIS IR:** a managed cluster of VMs for running existing SSIS packages. (Synapse pipelines support only the first two.)\n\n**Example:** the on-premises SQL Server uses the self-hosted IR; the Blob-to-lake copy uses the Azure IR. **Misunderstanding:** the IR is not the place where Databricks computes. It routes the request to it. Chapter 4 covers runtimes in depth."
-        },
-        {
-          "heading": "Triggers, runs, parameters and variables",
-          "md": "**Triggers.** The unit that decides when a pipeline execution starts. There are three kinds, plus manual (on-demand) runs: **schedule** (a wall-clock schedule), **tumbling window** (fixed, non-overlapping, contiguous intervals, with state, backfill and retry) and **event-based**, which has two flavours, **storage event** and **custom event**. Triggers and pipelines are many-to-many, except the tumbling window trigger, which starts exactly one pipeline. **Misunderstanding:** a schedule trigger does not wait for its pipeline or retry it; a tumbling window trigger does. Chapter 5 covers triggers in depth.\n\n**Pipeline runs.** One execution of a pipeline, identified by a run ID. Runs are typically created by passing arguments to the pipeline's parameters, manually or in the trigger definition. **Example:** Tuesday's 02:00 run and Wednesday's are two runs of one pipeline.\n\n**Parameters.** Key-value pairs of **read-only** configuration, defined on the pipeline. A run supplies arguments; activities read them. **Example:** a `businessDate` parameter. **Misunderstanding:** a parameter cannot be changed during a run.\n\n**Variables.** Temporary values inside a pipeline that **can** be set during the run, and that can be combined with parameters to pass values between pipelines, data flows and activities. **Example:** a variable that stores a row count returned by a Lookup. **Misunderstanding:** a variable does not persist after the run, so it is not a place to remember last night's watermark."
-        },
-        {
-          "heading": "Where Azure Data Factory fits today",
-          "md": "Pages across the ADF documentation open with a note that Data Factory in Microsoft Fabric is the next generation of Azure Data Factory, with a simpler architecture, built-in AI and new features, that new data-integration learners should start with it, and that existing ADF workloads can be upgraded. The comparison page describes ADF as a platform-as-a-service (PaaS) data integration service and Fabric Data Factory as a software-as-a-service (SaaS) one that uses OneLake as its storage layer.\n\n**What carries over (concepts):** pipelines and activities, the expression language, and the idea of parameterised, triggered orchestration. The documentation says roughly 90% of ADF's activities are already available in Fabric. That is a figure from a dated page, so recheck it.\n\n**What changes (do not assume the same behaviour):**\n\n- Linked services become **connections**, and datasets are not used; data properties are defined inline in activities.\n- There is no **publish** step: you save, or save and run.\n- Integration runtimes are not managed by you; the self-hosted runtime is replaced by the **on-premises data gateway**.\n- Mapping data flows map to **Dataflow Gen2 with mapping data flow transforms**, which is marked as preview on the page used here.\n- Triggers are integrated with Fabric's scheduler and Activator events.\n- Billing moves from per-meter consumption to **capacity-based** (Fabric F SKUs).\n- When that page was written (October 2026), Azure-SSIS integration runtimes and managed virtual networks were listed as \"to be determined\" for Fabric.\n\n**What an engineer should evaluate:** which of your workloads use SSIS runtimes, managed networking, custom or less common activities or connectors (see the connector parity article); how your teams do CI/CD and governance; whether you already use OneLake and Fabric capacity; and the cost model for your run pattern. An upgrade planning guide and a built-in upgrade experience for eligible pipelines are available. Chapter 20 goes deeper."
-        },
-        {
-          "heading": "What Microsoft Doesn't Say: similar concepts are not identical behaviour",
-          "md": "**Practical implication:** the vocabulary overlaps (pipeline, activity, trigger, expression), so ADF experience feels portable, and much of it is. The implementation differs.\n\n**Why it matters:** a design that relies on datasets, publish-time ARM templates, a self-hosted IR, a managed virtual network or SSIS has no one-to-one equivalent in Fabric today, as the comparison table shows. Pipeline JSON definitions also differ between the two.\n\n**What to do:** treat a move to Fabric as a migration with an inventory and a test plan, not a rename. Move one representative pipeline first and compare behaviour.\n\n**Verify further:** [Differences between Data Factory in Fabric and Azure](https://learn.microsoft.com/en-us/fabric/data-factory/compare-fabric-data-factory-and-azure-data-factory)."
-        },
-        {
-          "heading": "ADF vs Databricks vs Synapse vs Fabric",
-          "md": "No row of this table is a ranking. Rows summarise what the documentation says each product is for; details change, so verify before committing.",
-          "table": {
-            "head": [
-              "Decision factor",
-              "Azure Data Factory",
-              "Azure Databricks",
-              "Azure Synapse Analytics",
-              "Microsoft Fabric"
-            ],
-            "rows": [
-              [
-                "Primary role",
-                "Managed data integration and orchestration service (PaaS)",
-                "Unified analytics and AI platform built around the data lakehouse",
-                "Enterprise analytics service: SQL warehousing, Spark, Data Explorer and pipelines in one workspace",
-                "SaaS analytics platform; Data Factory in Fabric is its data integration workload"
-              ],
-              [
-                "Strongest fit",
-                "Scheduled or event-driven ingestion and coordination across many stores, including hybrid",
-                "ETL and data engineering on Spark and Delta, machine learning, SQL warehouses",
-                "SQL data warehousing (dedicated and serverless pools) next to Spark on a data lake",
-                "Teams building on OneLake that want integration, lakehouse and reporting in one product"
-              ],
-              [
-                "Transformation",
-                "Mapping data flows on managed Spark; or external engines",
-                "Code in SQL, Python, Scala or R on Spark, with managed pipelines",
-                "T-SQL in SQL pools; Spark pools; data flows via its pipelines",
-                "Dataflow Gen2, notebooks and pipelines; mapping data flow transforms in preview"
-              ],
-              [
-                "Orchestration",
-                "Its core purpose: pipelines, triggers, monitoring",
-                "Jobs schedule notebooks, SQL and code; Lakeflow pipelines manage dataset dependencies",
-                "Built-in pipelines; same data integration engine and experience as ADF",
-                "Fabric pipelines, with new activities such as Teams and semantic model refresh"
-              ],
-              [
-                "Who runs the infrastructure",
-                "Serverless for Azure IR; you install and run self-hosted IR machines",
-                "Databricks manages and deploys cloud infrastructure for you in your account",
-                "Managed workspace; dedicated SQL pools reserve processing power, serverless SQL is always available",
-                "Fabric manages compute under a purchased capacity"
-              ],
-              [
-                "Hybrid and private connectivity",
-                "Self-hosted IR and managed virtual network",
-                "Check Databricks networking documentation for your case",
-                "Self-hosted IR in its pipelines; workspace managed virtual network option",
-                "On-premises data gateway; managed virtual network support listed as to be determined (Oct 2026)"
-              ],
-              [
-                "Typical combination",
-                "Orchestrates Databricks notebooks, SQL procedures and Functions",
-                "Called by ADF or Fabric pipelines, or schedules itself with Jobs",
-                "Serving layer for warehouse-style reporting",
-                "Can call Azure Databricks from a pipeline activity"
-              ]
-            ]
-          }
-        },
-        {
-          "heading": "Combining services, and a decision guide",
-          "md": "**Combine rather than force one tool.** Common pairings: ADF (or Fabric pipelines) ingests from on-premises and SaaS sources and calls Databricks notebooks for heavy transformation, then loads a warehouse; Databricks handles its own streaming and lakehouse pipelines while ADF handles hybrid ingestion and cross-system scheduling; Fabric Data Factory orchestrates inside Fabric and can still call Azure Databricks. Fabric Data Factory is not \"ADF as SaaS\", and none of these products replaces all the others.\n\n**Questions to ask before choosing:**\n\n1. Where is the data now, and does any of it sit behind a private network?\n2. Is the work mainly moving and coordinating, or mainly heavy transformation or machine learning?\n3. Who will build and run it, and which skills (SQL, Spark, low-code) do they have?\n4. Does it depend on SSIS, managed virtual networks or other features not yet available in Fabric?\n5. Are you already committed to Fabric capacity and OneLake, or to an existing Azure estate?\n6. How will it be deployed, reviewed and rolled back?\n7. What is the cost model for your run pattern: per-meter consumption, cluster time, or reserved capacity?\n8. What latency and recovery behaviour does the business need?"
-        },
-        {
-          "heading": "A manager's mental model",
-          "md": "For Product Owners, Program and Delivery Managers, ADF reduces to five questions you can ask any team:\n\n- **Ownership:** who owns each pipeline, each external engine it calls (Databricks, databases), and the integration runtime machines if any are self-hosted?\n- **Risk:** what happens when a source is late or sends bad rows? Is a green run proven correct (counts reconciled), or only finished?\n- **Freshness promise (SLA):** what do consumers expect, and do retries, alerts and rerun design support it? A pipeline that is cheap but cannot be rerun safely is a risk to that promise.\n- **Cost framing:** ADF bills by activity runs, copy DIU-hours and data flow vCore-hours, and the engines it calls bill separately. Ask for per-pipeline cost and a forecast, not a single number.\n- **Change safety:** how do changes reach production, who approves them, and how are triggers handled?"
-        },
-        {
-          "heading": "Practice for this chapter",
-          "md": "- Write a one-minute ADF explanation for a Product or Program interview, using the orchestration-versus-computation distinction.\n- Fill in a service-selection matrix for four scenarios (the gaming example and the three other examples) using the comparison table and the decision questions.\n- Write a one-page manager mental model covering ownership, risk, SLA and cost framing."
+          "heading": "ADF vs Databricks vs Synapse vs Fabric: architecture selection framework",
+          "md": "In enterprise Azure data architectures, four services frequently appear together: Azure Data Factory (ADF), Azure Databricks, Azure Synapse Analytics, and Microsoft Fabric Data Factory. Choosing between them is not about which tool is 'better'—it is about assigning each service to its architectural sweet spot.\n\n**1. Service Architectural Roles**\n\n- **Azure Data Factory (ADF):** The dedicated cloud-native orchestrator and data movement engine. Its core strength is coordinating hybrid ETL/ELT pipelines across heterogeneous networks (via Self-hosted IR) and managed virtual networks (Managed VNet), connecting to 100+ sources without managing clusters. Use ADF when you need reliable scheduling, dependency management, retries, event-driven triggers, and cloud-to-cloud or on-prem ingestion.\n- **Azure Databricks:** The scalable data engineering, machine learning, and lakehouse transformation engine. Powered by Apache Spark and Delta Lake, Databricks excels at compute-heavy transformations, complex Python/Scala/SQL data processing, machine learning pipelines (MLflow), streaming analytics, and deep Delta Lake capabilities (merge, upsert, liquid clustering, time travel). Use Databricks when transformation complexity or data volume exceeds declarative visual tools.\n- **Azure Synapse Analytics:** The enterprise relational analytics and data warehousing workspace. Synapse combines Dedicated SQL Pools (massively parallel processing relational data warehouses for high-concurrency BI reporting) and Serverless SQL Pools (instant T-SQL queries over data lake Parquet files without cluster provisioning). Use Synapse when your destination is a formal dimensional warehouse or SQL-centric analytics layer.\n- **Fabric Data Factory:** The SaaS data integration engine within Microsoft Fabric. Built on OneLake, Fabric Data Factory unifies data pipelines and Power Query Dataflows Gen2 inside a unified capacity (F-SKU). Use Fabric Data Factory for modern green-field Fabric environments where OneLake eliminates data silos and SaaS simplicity outweighs custom IaaS/VNet controls.\n\n**2. Architecture Selection Matrix**\n\n- **Hybrid Ingestion (On-Premises to Cloud):** Preferred: **ADF** (proven Self-hosted IR, high availability, corporate proxy support). Alternative: Fabric Data Factory (On-premises Data Gateway).\n- **Heavy Data Transformation & Lakehouse Silver/Gold Layers:** Preferred: **Azure Databricks** (fastest Spark engine, full code control, Delta optimization). Alternative: ADF Mapping Data Flows (for visual, code-free ETL teams).\n- **Enterprise Data Warehousing & T-SQL BI Serving:** Preferred: **Azure Synapse** (Dedicated SQL Pool) or **Fabric DW**. Alternative: Databricks SQL Warehouse.\n- **Cross-Service Orchestration:** Preferred: **ADF** (orchestrates Databricks notebooks, Synapse stored procedures, Azure Functions, and webhooks in a unified control flow).\n\n**3. Enterprise Scenarios & Recommended Architecture**\n\n- **Scenario A: Regulated Core Banking Migration (Hybrid):** Ingest 200 tables from on-prem Oracle into ADLS Gen2, cleanse with Spark, and serve to Power BI. *Architecture:* ADF with Self-hosted IR extracts data into Bronze ADLS Gen2 raw zone. ADF triggers Azure Databricks notebooks to cleanse into Silver and build Gold dimensional tables. Power BI reads Gold tables via Direct Lake or Synapse Serverless SQL.\n- **Scenario B: Real-Time Telemetry & Predictive Maintenance:** High-frequency IoT sensor telemetry landing in storage every minute requiring ML scoring. *Architecture:* Databricks Auto Loader and Structured Streaming ingest and score data in real time; ADF is not in the real-time path, but runs daily orchestration for historical reconciliation, model retraining triggers, and audit logging.\n- **Scenario C: Greenfield Mid-Market Cloud BI:** Cloud CRM, ERP, and payment gateway sources feeding finance dashboards with small IT team. *Architecture:* Fabric Data Factory pipelines ingest directly into OneLake Bronze. Dataflows Gen2 or Fabric Notebooks cleanse into OneLake Silver/Gold, and Power BI reports use Direct Lake mode without data movement."
         }
       ]
     },
     {
       "id": "building-blocks",
       "title": "The building blocks",
-      "summary": "The resource model: how pipeline, activity, linked service, dataset and integration runtime fit, and how parameters make one definition serve many cases.",
+      "summary": "Pipeline, activity, linked service, dataset, integration runtime and trigger, and how they fit.",
       "sources": "§2, §5",
       "blocks": [
         {
           "heading": "Roadmap alignment",
-          "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 3 — ADF Resource Model** (Full)\n  - *Relevant sections:* The resource model; How they connect: the copy example; Parameters: which kind to use; Ch 3 (Pipelines, activities and control flow)\n  - *Learning evidence:* Produce an ADF object relationship diagram.\n- **Topic 5 — Linked Services** (Full)\n  - *Relevant sections:* Linked services; Parameterised linked services; What Microsoft Doesn't Say: a secret in a linked service skips the Git workflow\n  - *Learning evidence:* Build a linked-service decision checklist.\n- **Topic 6 — Datasets and Parameterisation** (Full)\n  - *Relevant sections:* Datasets; The parameterised dataset pattern; Parameters: which kind to use; Ch 3 (Pipelines)\n  - *Learning evidence:* Create a parameterised dataset pattern for table/date.\n- **Topic 8 — Global Parameters and Reusable Configuration** (Full)\n  - *Relevant sections:* Global parameters and reusable configuration; Dev, Test and Prod: what changes and what must not; Ch 18 (From Dev to Prod)\n  - *Learning evidence:* Design Dev/Test/Prod configuration boundaries."
+          "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 3 — ADF Resource Model** (Full)\n  - *Relevant sections:* The building blocks table; How they connect: the documentation's example; Ch 3 (Pipelines, activities and control flow)\n  - *Learning evidence:* Produce an ADF object relationship diagram.\n- **Topic 5 — Linked Services** (Full)\n  - *Relevant sections:* The building blocks table (Linked service); How they connect; Things worth knowing\n  - *Learning evidence:* Build a linked-service decision checklist.\n- **Topic 6 — Datasets and Parameterisation** (Full)\n  - *Relevant sections:* The building blocks table (Dataset); Things worth knowing; Ch 3 (Pipelines)\n  - *Learning evidence:* Create a parameterised dataset pattern for table/date.\n- **Topic 8 — Global Parameters and Reusable Configuration** (Full)\n  - *Relevant sections:* Things worth knowing; Ch 18 (From Dev to Prod)\n  - *Learning evidence:* Design Dev/Test/Prod configuration boundaries."
         },
         {
-          "heading": "The resource model",
-          "md": "A **data factory** is the top-level Azure resource. It holds everything you author, its managed identity, its Git configuration and its global parameters. Inside it live a handful of entity types that each do one job. Keeping those jobs apart is the central design idea of ADF: you can change where data lives, how you connect to it and what you do with it independently of each other.\n\n![The diagram of how the main ADF entities relate: a pipeline is a logical grouping of activities; an activity consumes and produces datasets and runs on a linked service; a dataset represents data items stored in a linked service.](/assets/content/packs/adf/adf-entity-relationships.png)\n\nFigure: how pipeline, activity, dataset and linked service relate.\n\nA factory can hold up to 5,000 entities in total (pipelines, datasets, triggers, linked services, private endpoints and integration runtimes), which is listed as a fixed limit."
-        },
-        {
-          "heading": "The six entity types and what each one is for",
-          "md": "Mapping data flows are a seventh kind of resource: a visual transformation that a Data Flow activity runs. A data flow can use datasets or define its sources and sinks inline. Pipeline names can be up to 140 characters and activity names up to 55; both must start with a letter, number or underscore, and the documentation lists characters such as `.` `+` `?` `/` `<` `>` `*` `%` `&` and `:` as not allowed. For CI/CD, the documentation recommends `_` or `-` instead of spaces in resource names.",
           "table": {
             "head": [
-              "Entity",
-              "Its one job",
-              "What it points to",
-              "Worth knowing"
+              "Block",
+              "Plain meaning",
+              "Analogy"
             ],
             "rows": [
               [
                 "Pipeline",
-                "Groups activities that perform one unit of work; it is what you run, schedule and monitor",
-                "Activities; its own parameters",
-                "Up to 120 activities, counting those inside containers"
+                "A named group of steps that together do one job. You schedule the pipeline, not the steps",
+                "A recipe"
               ],
               [
                 "Activity",
-                "One processing step: movement, transformation or control",
-                "Input and output datasets; a linked service when it needs compute",
-                "Name up to 55 characters"
-              ],
-              [
-                "Dataset",
-                "A named view of data inside a store: a table, file, folder or document",
-                "Exactly one linked service",
-                "Its schema is optional"
+                "One step: copy data, run a transformation, or control the flow (loop, branch, wait)",
+                "One instruction in the recipe"
               ],
               [
                 "Linked service",
-                "Connection information for a data store or a compute resource",
-                "An integration runtime, through connectVia",
-                "Much like a connection string"
+                "How to connect to something: \"much like connection strings\", in the documentation's words",
+                "A supplier's address and key"
+              ],
+              [
+                "Dataset",
+                "Which data inside that connection: a table, folder or file, and its format",
+                "The shelf and box at that supplier"
               ],
               [
                 "Integration runtime",
-                "The compute that runs an activity or dispatches it to another service",
-                "Nothing: it is referenced by linked services and activities",
-                "Azure, self-hosted or Azure-SSIS; chapter 4"
+                "The compute that does the moving, or hands work to other compute",
+                "The truck and driver"
               ],
               [
                 "Trigger",
-                "Decides when a pipeline run starts",
-                "One or more pipelines",
-                "Schedule, tumbling window, event; chapter 5"
-              ]
-            ]
-          }
-        },
-        {
-          "heading": "How they connect: the copy example",
-          "md": "The documentation's own example is a copy from Blob storage to a SQL database. You create **two linked services** (Azure Storage and Azure SQL Database), **two datasets** (a Blob dataset that refers to the first linked service and a SQL table dataset that refers to the second) and **one Copy activity in a pipeline** that reads the first dataset and writes the second. The linked services hold the connection strings used at runtime; the datasets say which container and folder, and which table. An integration runtime does the work.\n\nThe running example from chapter 1, the **retail sales load**, has the same shape:\n\n1. Linked service `OnPremSqlServer` connects to the store database. Its `connectVia` points to a self-hosted integration runtime because the server is on a private network.\n2. Linked service `DataLake` connects to Azure Data Lake Storage Gen2.\n3. Dataset `SalesTable` names the sales table through `OnPremSqlServer`; dataset `RawSalesFiles` names the lake folder through `DataLake`.\n4. A Copy activity reads `SalesTable` and writes `RawSalesFiles`. The pipeline `LoadRetailSales` contains it.\n\nNothing in step 4 mentions a server name, a password or a folder path: those live in the linked services and datasets. That separation is what makes the rest of this chapter possible."
-        },
-        {
-          "heading": "Linked services",
-          "md": "A linked service is much like a connection string: it defines the information ADF needs to connect to an external resource. A way to remember the split: the **linked service** defines the connection to the data source, and the **dataset** represents the structure of the data inside it.\n\nIts definition has four parts:\n\n- `name`, and `type`: for example `AzureBlobStorage` (a data store) or `AzureBatch` (a compute resource).\n- `typeProperties`: different for every store or compute, so read that connector's page.\n- `connectVia`: the integration runtime to use. It is optional: if you leave it out, ADF uses the default Azure integration runtime. Use a self-hosted runtime when the store sits in a private network.\n\nA linked service represents either a **data store** (SQL Server, Oracle, a file share, Blob storage) or a **compute resource** that can host an activity. The compute environments the documentation lists include HDInsight, Azure Batch, Azure Machine Learning, Azure Databricks, Azure SQL, Azure Synapse Analytics and SQL Server (for the Stored Procedure activity), Azure Synapse artifacts and Azure Functions.\n\nTo create a linked service you need permission on the target system. Without it you cannot see the available resources and have to type names in by hand.\n\nYou can create linked services in the Manage hub, or from any activity, dataset or data flow that references them, or with the SDKs, PowerShell, REST API or ARM templates."
-        },
-        {
-          "heading": "Authentication and secrets",
-          "md": "**Recommended practice:** keep secrets such as connection strings and passwords in Azure Key Vault, or use managed identity authentication, rather than putting them in the linked service. The documentation states that ADF does not store secrets in Git. Using Key Vault or managed identity also makes CI/CD simpler because you do not have to supply secrets during the ARM template deployment.\n\nWhich method fits depends on what you connect to. Managed identity works for Azure services that support it; a Key Vault secret reference suits third-party stores that need a password or key; service principals and basic authentication exist but put more secret handling on you. The Web activity, for example, accepts basic, client certificate, managed identity and service principal authentication; the Azure Function linked service accepts a function key or system-assigned managed identity."
-        },
-        {
-          "heading": "What Microsoft Doesn't Say: a secret in a linked service skips the Git workflow",
-          "md": "**Practical implication:** the pull-request workflow does not protect every linked service the way it protects pipelines.\n\n**Why it matters:** The documentation states that changes to a linked service containing a secret such as a password are published to the ADF service immediately, regardless of Git. Its troubleshooting section lists exactly this as a cause of a stale publish branch: a non-Key-Vault linked service created in the UI goes live at once, and the Git copy can disagree with the live factory.\n\n**What to do:** reference Azure Key Vault secrets or use managed identity so linked service changes travel through the same branch, review and publish path as everything else. Audit the factory for linked services that hold a literal secret.\n\n**Verify further:** [Source control: stale publish branch](https://learn.microsoft.com/en-us/azure/data-factory/source-control)."
-        },
-        {
-          "heading": "A linked service decision checklist",
-          "table": {
-            "head": [
-              "Question",
-              "Why it matters",
-              "Where the answer lives"
-            ],
-            "rows": [
-              [
-                "Is it a data store or a compute resource?",
-                "Decides which activities can use it",
-                "Connector overview, compute linked services"
+                "What starts a pipeline run: a clock, a time window, or an event",
+                "The alarm clock or doorbell"
               ],
               [
-                "Is the target reachable from the public internet?",
-                "Decides the integration runtime: Azure or self-hosted",
-                "connectVia; chapter 4"
+                "Pipeline run",
+                "One execution of a pipeline, with its own run ID",
+                "One time the recipe was cooked"
               ],
               [
-                "How does it authenticate?",
-                "Managed identity where supported, otherwise a Key Vault reference",
-                "The connector's linked service page"
-              ],
-              [
-                "Does any secret sit in the definition itself?",
-                "Secrets in the definition are published outside the Git flow",
-                "Key Vault reference instead"
-              ],
-              [
-                "Which values change between Dev, Test and Prod?",
-                "Server, database, vault name: parameterise or override at deployment",
-                "Parameterised linked services; ARM template parameters"
-              ],
-              [
-                "Who may create and edit it?",
-                "Creating one needs permission on the target; publishing needs the contributor role",
-                "Azure RBAC; source control best practices"
-              ],
-              [
-                "Is the name safe for CI/CD?",
-                "Spaces cause ARM template problems; a hyphen in a parameter name has caused errors",
-                "Naming rules"
-              ]
-            ]
-          }
-        },
-        {
-          "heading": "Parameterised linked services",
-          "md": "A linked service can take parameters, so one definition can connect to many targets. The documented example is connecting to different databases on the same logical SQL server by parameterising the database name instead of creating a linked service per database. You can parameterise other properties too, such as the user name.\n\n- **Which types:** The documentation says all linked service types support parameterisation. A long list of types, including Azure Blob Storage, Azure Data Lake Storage Gen2, Azure SQL Database, Azure Synapse Analytics, Azure Databricks, Azure Key Vault, Oracle, Snowflake and SQL Server, has a built-in UI experience. For any other type you edit the JSON: tick **Specify dynamic contents in JSON format**, or open the linked service's code view.\n- **How:** add a `parameters` section to the definition and reference each one as `@{linkedService().paramName}` inside the properties.\n- **Secrets:** The documentation recommends not to parameterise passwords or secrets. Store them in Key Vault and parameterise the **secret name** instead."
-        },
-        {
-          "heading": "Datasets",
-          "md": "A dataset is a named view of data that points to or references the data you use in an activity as input or output. It identifies data inside a store: a table, file, folder or document. A Blob dataset names a container and folder; a SQL table dataset names a table.\n\nA dataset is defined by:\n\n- `name` and `type`: the dataset type, such as `DelimitedText` or `AzureSqlTable`.\n- `linkedServiceName`: the linked service it lives in. You must create the linked service first.\n- `typeProperties`: specific to the type, for example the container, folder and file name, plus format settings such as the column delimiter or compression.\n- `schema`: optional. It represents the physical data types and shape; you can import it from the source or from a local file.\n\n**How a dataset is used.** In a Copy activity, datasets are the source and sink; a schema in the dataset is an optional reference, and column mapping is configured on the activity. In a mapping data flow, datasets define the basic schema in source and sink transformations, and if your data has no schema you can use schema drift. A data flow can also use an inline dataset that is defined inside the transformation and not shared.\n\n**Formats.** For file-based data the format is part of the dataset: the documentation lists Avro, Binary, Delimited text, Excel, Iceberg (only for Azure Data Lake Storage Gen2), JSON, ORC, Parquet and XML for Copy, and its connector overview also lists Delta and Common Data Model. A Binary dataset moves files as they are, without parsing.\n\n**Compared with Data Factory version 1:** scoped datasets (defined inside a pipeline) are not supported, and the old availability and external properties were replaced by triggers."
-        },
-        {
-          "heading": "The parameterised dataset pattern",
-          "md": "Creating one dataset per table or folder does not scale. Instead, define **parameters on the dataset** and use them in its properties, then pass values from the activity that uses it.\n\nFor a table-and-date pattern in the retail example:\n\n- Dataset parameters `schemaName`, `tableName` and `loadDate`, all strings.\n- The dataset's schema and table properties are set to `@dataset().schemaName` and `@dataset().tableName`.\n- For a lake folder, the folder path property uses string interpolation, for example `sales/@{dataset().loadDate}`.\n- The activity supplies the values in the `parameters` of its dataset reference. Inside a ForEach, the value is usually `@item()` or a property of it, such as `@item().tableName`.\n\nThe Lookup page shows this pattern: a Lookup activity reads table names from a JSON file, and the Copy activity's source dataset takes the schema and table as parameters from `@activity('LookupActivity').output.firstRow`. The pipeline needs no redeployment when the list changes.\n\n**Schema strategy (engineering guidance):** import the schema when you read or write a relational table with strict mapping and want a mismatch to fail loudly; leave it empty for generic ingestion, and rely on schema drift in data flows. A fully generic dataset is easier to maintain but hides intent, and mistakes in dynamic content only show up at run time, so keep one generic dataset per pattern rather than one for everything."
-        },
-        {
-          "heading": "Parameters: which kind to use",
-          "md": "One rule of thumb: parameters configure, variables remember. Use a parameter when the value is known when the run starts, a variable for a value the run computes, a global parameter for a constant many pipelines share, and an ARM template parameter for something that differs per environment. Parameter names are best kept free of hyphens: see the callout below.",
-          "table": {
-            "head": [
-              "Kind",
-              "Defined on",
-              "Value supplied by",
-              "Can change during a run?",
-              "Referenced as"
-            ],
-            "rows": [
-              [
-                "Pipeline parameter",
-                "The pipeline",
-                "The run: manually or in the trigger definition",
-                "No: read-only",
-                "@pipeline().parameters.name"
-              ],
-              [
-                "Dataset parameter",
-                "The dataset",
-                "The activity that uses the dataset",
-                "No",
-                "@dataset().name"
-              ],
-              [
-                "Linked service parameter",
-                "The linked service",
-                "Whatever uses the linked service",
-                "No",
-                "@{linkedService().name}"
-              ],
-              [
-                "Global parameter",
-                "The factory (Manage hub)",
-                "The factory; override per environment at deployment",
-                "No: a constant",
-                "@pipeline().globalParameters.name"
+                "Parameter",
+                "A value passed in when a run starts, fixed for the run",
+                "The order ticket"
               ],
               [
                 "Variable",
-                "The pipeline",
-                "Set Variable or Append Variable activities",
-                "Yes, but not safe in parallel loops",
-                "@variables('name')"
-              ],
-              [
-                "ARM template parameter",
-                "The generated ARM template",
-                "The release pipeline at deployment time",
-                "Not applicable: set before any run",
-                "Not an expression"
+                "A value that can change during a run",
+                "A scratch pad"
               ]
             ]
           }
         },
         {
-          "heading": "Global parameters and reusable configuration",
-          "md": "Global parameters are **constants across a data factory** that any pipeline can use in an expression. They help when several pipelines share identical parameter names and values, and when you promote a factory with CI/CD you can override them in each environment.\n\n- **Create** them in the Manage hub, on the Global parameters tab: a name, a data type and a value.\n- **Use** them as `pipeline().globalParameters.<name>`. If the pipeline references a dataset or data flow, pass the value down through that resource's own parameters.\n- **In CI/CD**, the documentation recommends including global parameters in the ARM template through Manage hub, ARM template, **Include global parameters in an ARM template**. That option is only available in Git mode, not in live mode. The older mechanism still works.\n- **Names** cannot contain a hyphen (`-`); an underscore is fine.\n\nTypical uses: an environment name, a storage container prefix, a feature flag (the documentation suggests combining global parameters with an If Condition to hide unfinished logic in some environments), or a default retention in days."
+          "heading": "How they connect: the documentation's example",
+          "md": "To copy files from Blob storage into a SQL database you create **two linked services** (one for the storage account, one for the database), **two datasets** (the blob folder and its format; the SQL table), and **one Copy activity** in **a pipeline** that reads the first dataset and writes the second. An integration runtime does the actual work."
         },
         {
-          "heading": "Dev, Test and Prod: what changes and what must not",
-          "md": "This is the boundary to design for: logic is identical everywhere, and only connection and configuration values change. If you find yourself editing a pipeline in Prod, the design has put something on the wrong side of the line. Chapter 18 covers the full promotion path.",
-          "table": {
-            "head": [
-              "Item",
-              "Differs per environment?",
-              "How it is handled"
-            ],
-            "rows": [
-              [
-                "Pipeline and activity logic",
-                "No",
-                "The same published artifact is deployed to every stage"
-              ],
-              [
-                "Integration runtime name and type",
-                "No",
-                "ADF expects the same name, type and subtype in every stage; share self-hosted runtimes through a shared factory if needed"
-              ],
-              [
-                "Server, database and storage account",
-                "Yes",
-                "ARM template parameters, or parameterised linked services"
-              ],
-              [
-                "Key Vault",
-                "Yes",
-                "A separate vault per environment with the same secret names, so only the vault name is a parameter"
-              ],
-              [
-                "Global parameter values",
-                "Yes",
-                "Included in the ARM template and overridden at deployment"
-              ],
-              [
-                "Trigger state",
-                "Decide per environment",
-                "Pre- and post-deployment script to stop and restart triggers"
-              ],
-              [
-                "Git integration",
-                "Dev only (recommended)",
-                "Test and production are updated by the release pipeline"
-              ]
-            ]
-          }
+          "heading": "Things worth knowing",
+          "md": "- A linked service can point at a **data store** (SQL Server, Oracle, a file share) or at **compute** (Databricks, HDInsight, Batch).\n- Creating a linked service needs **permission on the target system**; without it you can't even browse its tables.\n- A dataset can carry a schema, imported from the source. If the data has no fixed shape, data flows can accept **schema drift** (chapter 11)."
         },
         {
-          "heading": "What Microsoft Doesn't Say: parameter values are visible, and a hyphen can break them",
-          "md": "**Practical implication:** parameters are configuration, not secret storage, and a naming habit that is fine elsewhere can fail here.\n\n**Why it matters:** the Monitor pipeline-run view shows each run's parameters as name and value pairs, so anything passed as a parameter is readable by anyone who can monitor the factory. Separately, errors are documented for a hyphen in a global parameter name (an invalid template expression) and a known bug for a hyphen in linked service parameter names.\n\n**What to do:** never pass a password or key as a parameter; pass a Key Vault secret **name** and let the linked service resolve it. Where an activity output is sensitive, set the activity's secure output and secure input options so they are not logged for monitoring. Use underscores or camelCase in every parameter name from the start.\n\n**Verify further:** [Visually monitor](https://learn.microsoft.com/en-us/azure/data-factory/monitor-visually), [Global parameters](https://learn.microsoft.com/en-us/azure/data-factory/author-global-parameters), [Parameterize linked services](https://learn.microsoft.com/en-us/azure/data-factory/parameterize-linked-services)."
+          "heading": "The ADF Resource Model: Entity Relationships and Decoupling",
+          "md": "An Azure Data Factory deployment is organized around a clean separation of concerns across six primary resource types:\n\n**1. The Six Core Resource Types**\n\n- **Factory:** The top-level Azure resource container and security boundary. Encapsulates identity (Managed Identity), Git integration, and global settings.\n- **Linked Service:** Stores connection metadata and credential references (e.g. host name, database name, authentication mechanism). It defines *how* to reach a system.\n- **Integration Runtime (IR):** The compute infrastructure that executes data movement and dispatches activities. Linked services reference an IR via `connectVia`.\n- **Dataset:** Points to a specific data structure within a linked service (e.g. a specific SQL table, ADLS Gen2 folder, or REST endpoint) and specifies the data format (Parquet, CSV, JSON).\n- **Pipeline & Activity:** The logical units of execution. A pipeline is a workflow container; activities are individual steps (data movement, transformation, or control flow).\n- **Trigger:** Instantiates and schedules pipeline runs based on wall-clock schedules, tumbling time windows, or storage events.\n\n**2. The Decoupled Entity Hierarchy**\n\n```text\nFactory (Security & Identity Boundary)\n   ├── Triggers (Schedule, Tumbling Window, Event Grid)\n   │      └── Pipeline Runs (State: In Progress, Succeeded, Failed, Queued)\n   └── Pipelines (Orchestration & Control Flow Logic)\n          └── Activities (Copy, Web, Function, Script, ForEach)\n                 └── Datasets (Data Structure & Format Definition)\n                        └── Linked Services (Connection String & Auth)\n                               └── Integration Runtime (connectVia: Compute & Network Path)\n```\n\n**3. Why Decoupling Matters for Architects**\n\nIn traditional monolithic ETL tools, connection strings, table names, and transformations were tightly bound. ADF strictly decouples them:\n- **One-to-Many Reusability:** A single Linked Service pointing to an Azure SQL Server can be referenced by hundreds of Datasets.\n- **Connection Parameterization:** A single Parameterized Dataset can dynamically reference any table or file path at runtime, eliminating the need to create static datasets for each table.\n- **Environment Isolation:** In CI/CD promotion, pipeline logic remains 100% identical between Dev, Test, and Prod; only Linked Service connection parameters and IR references change."
         },
         {
-          "heading": "Interview takeaway",
-          "md": "**Interview takeaway:** \"A linked service says how to connect, a dataset says which data, an activity says what to do with it, and a pipeline groups activities. The integration runtime is where it executes. Parameters at each level, plus global parameters and ARM template parameters, let one definition serve many tables and environments, so logic stays identical from Dev to Prod and only configuration changes.\""
+          "heading": "Linked Service Architecture: connectVia, Authentication, and Parameterization",
+          "md": "Linked services define the connection to external data stores or compute resources. For an architect, every linked service design involves three decisions: network path, authentication, and parameterization.\n\n**1. Network Routing via the `connectVia` Property**\n\nEvery linked service JSON definition contains a `connectVia` property that references a specific Integration Runtime:\n- If `connectVia` references the default **AutoResolveIntegrationRuntime**, traffic routes over public endpoints.\n- If it references an **Azure IR inside a Managed Virtual Network**, traffic routes through Managed Private Endpoints, preventing data exfiltration.\n- If it references a **Self-hosted Integration Runtime (SHIR)**, the connection is initiated from the on-premises or private IaaS network node.\n\n**2. Enterprise Authentication Options**\n\n- **Managed Identity (System-Assigned or User-Assigned):** The recommended standard for Azure resources (Azure SQL, ADLS Gen2, Synapse, Key Vault). Eliminates credentials entirely from pipeline definitions.\n- **Azure Key Vault Secret References:** For third-party stores (Oracle, SFTP, Snowflake) that require passwords or API tokens. The linked service stores only the Key Vault secret name, never the raw credential.\n- **Service Principal:** Common for cross-tenant Azure resource access or automated headless API integrations.\n- **SQL / Basic Authentication:** Passwords or access keys stored directly. Considered an enterprise anti-pattern unless stored in Key Vault.\n\n**3. Parameterized Linked Services**\n\nLinked services can accept dynamic parameters defined at runtime. For example, a single Azure SQL Linked Service can parameterize the `ServerName` and `DatabaseName`:\n```json\n{\n  \"name\": \"AzureSqlDatabaseLinkedService\",\n  \"properties\": {\n    \"parameters\": {\n      \"ServerEndpoint\": { \"type\": \"string\" },\n      \"DbName\": { \"type\": \"string\" }\n    },\n    \"type\": \"AzureSqlDatabase\",\n    \"typeProperties\": {\n      \"connectionString\": \"@concat('Server=tcp:', linkedService().ServerEndpoint, ';Database=', linkedService().DbName, ';...')\"\n    }\n  }\n}\n```\nThis enables a single linked service definition to connect to multiple database servers across different development tiers or multi-tenant databases."
         },
         {
-          "heading": "Practice for this chapter",
-          "md": "- Draw an object relationship diagram for the retail sales load: factory, pipeline, activities, datasets, linked services, integration runtimes and trigger, with arrows labelled \"uses\".\n- Fill in the linked service decision checklist for three real systems you know: one cloud database, one on-premises database, one SaaS application.\n- Design a parameterised dataset for a table and a date: list the parameters, the property expressions and the values a ForEach would pass.\n- Write a Dev, Test and Prod configuration boundary table for a pipeline that loads one source into one lake."
+          "heading": "Dataset Architecture: Dynamic Parameters and Schema Strategy",
+          "md": "A dataset represents the data structure you want to ingest or write. Rather than creating a static dataset for every table or folder, architects design **generic parameterized datasets**.\n\n**1. Parameterized Dataset Pattern**\n\nA reusable dataset defines parameters on the dataset itself, then references them in its location properties:\n- **Dataset Parameters:** `SchemaName` (string), `TableName` (string).\n- **Table Property:** Set to `@dataset().SchemaName` and `@dataset().TableName`.\n- **Pipeline Activity Binding:** When a Copy Activity uses this dataset, it passes `@item().TargetSchema` and `@item().TargetTable` from a control table loop.\n\n**2. Format-Specific Dataset Types**\n\n- **Binary Dataset:** Passes files byte-for-byte without parsing (e.g. copying zip, pdf, or raw files directly between storage tiers).\n- **DelimitedText (CSV/TSV):** Supports custom delimiters, escape characters, compression codecs (gzip, bzip2), and encoding (UTF-8).\n- **Parquet & Avro:** Columnar, strongly typed formats optimized for lakehouse storage and analytical query engines.\n- **Delta:** Lakehouse table format supporting ACID transactions and schema evolution.\n\n**3. Schema Strategy: When to Import vs Omit Schema**\n\n- **Import Schema (Strict Mode):** Recommended when reading or writing to relational tables with strict column mapping requirements, where data type mismatches or missing columns must fail immediately.\n- **Omit Schema (Dynamic Mode):** Recommended for generic ingestion pipelines and Data Flows with **Schema Drift** enabled. The dataset contains no hardcoded schema, allowing arbitrary new columns to flow into ADLS Gen2 raw storage without pipeline changes."
         }
       ]
     },
     {
       "id": "pipelines",
       "title": "Pipelines, activities and control flow",
-      "summary": "Activity types and where they run, dependencies, expressions, loops and limits, and how ADF hands work to Databricks and Synapse.",
+      "summary": "The three kinds of activity, the four ways one step leads to the next, and the defaults that surprise people.",
       "sources": "§3, §7, §20, §30",
       "blocks": [
         {
           "heading": "Roadmap alignment",
-          "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 7 — Pipeline Parameters, Variables and Expressions** (Full)\n  - *Relevant sections:* Parameters, variables and expressions\n  - *Learning evidence:* Create a reusable pipeline parameter model.\n- **Topic 9 — Activity Types and Execution Semantics** (Full)\n  - *Relevant sections:* Activity types and where they run; Activity policy: timeout, retry and secure output\n  - *Learning evidence:* Map 15 common activities to their category and execution location.\n- **Topic 10 — Dependencies: Success, Failure, Completion and Skip** (Full)\n  - *Relevant sections:* Dependencies and error handling; Ch 12 (Monitoring, failures and reruns)\n  - *Learning evidence:* Build a Try/Catch-style control-flow design on paper.\n- **Topic 11 — Lookup and Get Metadata** (Full)\n  - *Relevant sections:* Lookup and Get Metadata\n  - *Learning evidence:* Design a control-table discovery flow.\n- **Topic 12 — ForEach, Batch Count and Parallelism** (Full)\n  - *Relevant sections:* ForEach, batch count and parallelism\n  - *Learning evidence:* Design a 1,000-table metadata-driven loop safely.\n- **Topic 13 — If Condition, Switch, Until and Wait** (Full)\n  - *Relevant sections:* If Condition, Switch, Until and Wait\n  - *Learning evidence:* Map 5 workflow requirements to the correct activity.\n- **Topic 14 — Execute Pipeline and Reusable Child Pipelines** (Full)\n  - *Relevant sections:* Execute Pipeline and child pipelines\n  - *Learning evidence:* Design a parent pipeline + reusable child pipeline architecture.\n- **Topic 15 — Web, Function, Script and Stored Procedure Integration** (Full)\n  - *Relevant sections:* Web, Function, Script and Stored Procedure\n  - *Learning evidence:* Create a decision table for Web/Function/Script/Stored Procedure.\n- **Topic 53 — Scale and Concurrency Trade-offs** (Full)\n  - *Relevant sections:* Scale and concurrency: the documented limits; ForEach, batch count and parallelism; Ch 17 (Fine-tuning); Ch 21 (Pitfalls)\n  - *Learning evidence:* Design a concurrency budget for a multi-source platform.\n- **Topic 55 — ADF + Azure Databricks** (Full)\n  - *Relevant sections:* ADF and Azure Databricks; Ch 13 (Recovering from failures)\n  - *Learning evidence:* Design an ADF→Databricks→validation workflow.\n- **Topic 56 — ADF + Azure Synapse** (Full)\n  - *Relevant sections:* ADF and Azure Synapse Analytics; Activity types and where they run; Ch 11 (Transforming data)\n  - *Learning evidence:* Design an ADF + Synapse batch architecture.\n\n*Coverage note:* This chapter carries cross-cutting roadmap topics that also connect to Ch 11, Ch 17, and Ch 21."
+          "md": "**Roadmap topics covered in this chapter:**\n\n- **Topic 7 — Pipeline Parameters, Variables and Expressions** (Full)\n  - *Relevant sections:* Defaults that surprise people\n  - *Learning evidence:* Create a reusable pipeline parameter model.\n- **Topic 9 — Activity Types and Execution Semantics** (Full)\n  - *Relevant sections:* Three kinds of activity\n  - *Learning evidence:* Map 15 common activities to their category and execution location.\n- **Topic 10 — Dependencies: Success, Failure, Completion and Skip** (Full)\n  - *Relevant sections:* How one step leads to the next; Ch 12 (Monitoring, failures and reruns)\n  - *Learning evidence:* Build a Try/Catch-style control-flow design on paper.\n- **Topic 11 — Lookup and Get Metadata** (Full)\n  - *Relevant sections:* Two activities with hard limits\n  - *Learning evidence:* Design a control-table discovery flow.\n- **Topic 12 — ForEach, Batch Count and Parallelism** (Full)\n  - *Relevant sections:* Defaults that surprise people\n  - *Learning evidence:* Design a 1,000-table metadata-driven loop safely.\n- **Topic 13 — If Condition, Switch, Until and Wait** (Full)\n  - *Relevant sections:* Three kinds of activity; How much of this to memorise\n  - *Learning evidence:* Map 5 workflow requirements to the correct activity.\n- **Topic 14 — Execute Pipeline and Reusable Child Pipelines** (Full)\n  - *Relevant sections:* Three kinds of activity; Defaults that surprise people\n  - *Learning evidence:* Design a parent pipeline + reusable child pipeline architecture.\n- **Topic 15 — Web, Function, Script and Stored Procedure Integration** (Full)\n  - *Relevant sections:* External service integration: Web, Azure Function, Script, and Stored Procedure; Three kinds of activity\n  - *Learning evidence:* Create a decision table for Web/Function/Script/Stored Procedure.\n- **Topic 53 — Scale and Concurrency Trade-offs** (Full)\n  - *Relevant sections:* Defaults that surprise people; Ch 17 (Fine-tuning); Ch 21 (Pitfalls)\n  - *Learning evidence:* Design a concurrency budget for a multi-source platform.\n- **Topic 55 — ADF + Azure Databricks** (Full)\n  - *Relevant sections:* Handing work to Databricks; Ch 13 (Recovering from failures)\n  - *Learning evidence:* Design an ADF→Databricks→validation workflow.\n- **Topic 56 — ADF + Azure Synapse** (Full)\n  - *Relevant sections:* ADF and Azure Synapse Analytics: batch architecture and integration patterns; Three kinds of activity; Ch 11 (Transforming data)\n  - *Learning evidence:* Design an ADF + Synapse batch architecture.\n\n*Coverage note:* This chapter carries cross-cutting roadmap topics that also connect to Ch 11, Ch 17, and Ch 21."
         },
         {
-          "heading": "Pipelines and activities in one page",
-          "md": "A pipeline is a logical grouping of activities that together perform a task. You deploy and schedule the pipeline, not its activities, and you manage the activities as a set. An activity can take zero or more input datasets and produce one or more output datasets.\n\n![The diagram of the relationship among dataset, activity and pipeline: an activity consumes and produces datasets, and a pipeline is a logical grouping of activities.](/assets/content/packs/adf/adf-pipeline-activity-dataset.png)\n\nFigure: dataset, activity and pipeline.\n\nA pipeline definition has a name, an optional description, its activities, its parameters, an optional `concurrency` and annotations (tags). Two of these matter for scale:\n\n- **`concurrency`** is the maximum number of concurrent runs of this pipeline. By default there is no maximum. When the limit is reached, further runs are queued until earlier ones finish, and the maximum is 100 queued runs per pipeline.\n- **Size:** A pipeline holds up to 120 activities, counting the inner activities of containers such as ForEach, and 50 parameters per pipeline. Splitting a large pipeline into child pipelines (below) is the standard answer."
+          "heading": "Three kinds of activity",
+          "md": "- **Data movement**: the Copy activity, between the data stores on Microsoft's connector list (roughly a hundred). Each connector supports only some roles (source, sink, data flow, Lookup), so check the connector's own page rather than assume.\n- **Data transformation**: ADF data flows, Databricks notebooks, Synapse notebooks, stored procedures, Azure Functions and more.\n- **Control flow**: Execute Pipeline, For Each, If Condition, Switch, Until, Wait, Lookup, Get Metadata, Set Variable, Append Variable, Filter, Validation, Web, Webhook, Fail."
         },
         {
-          "heading": "Activity types and where they run",
-          "md": "The documentation groups activities into **data movement**, **data transformation** and **control** activities. Its limits page separates two execution terms: *pipeline activities* run on the integration runtime (Lookup, Get Metadata, Delete) and *external activities* are managed by the integration runtime but execute on linked services (Databricks, stored procedure, Web and others). The \"where the work happens\" column matters for cost, quotas and debugging: for an external activity, the compute, the logs and the bill belong to another service.",
+          "heading": "How one step leads to the next",
+          "md": "Every activity has four exits: **on success**, **on failure**, **on completion** (either way) and **on skip** (an earlier step failed, so this one never ran). This is how you build \"on failure, send an alert\" or \"whatever happens, clean up\". Activities with no dependency between them run **in parallel**."
+        },
+        {
+          "heading": "Defaults that surprise people",
+          "md": "- **Retry defaults to 0.** A brief network blip fails the run unless someone set retries.\n- **Timeout defaults to 12 hours** per activity.\n- A pipeline has a default limit of **120 activities**, counting those inside loops.\n- **Parameters** are fixed for a run and make one pipeline serve many tables (\"copy table X for date Y\"). **Variables** change during a run, but they belong to the whole pipeline: changing one inside a parallel For Each gives unpredictable results."
+        },
+        {
+          "heading": "Two activities with hard limits",
           "table": {
             "head": [
               "Activity",
-              "Category",
-              "Where the work happens",
-              "Needs"
+              "Limit",
+              "Why it matters"
             ],
             "rows": [
-              [
-                "Copy",
-                "Data movement",
-                "The integration runtime, reading from and writing to your stores",
-                "Source and sink datasets"
-              ],
-              [
-                "Data Flow",
-                "Data transformation",
-                "Apache Spark clusters that ADF manages, on an Azure integration runtime",
-                "Datasets or inline sources"
-              ],
-              [
-                "Databricks Notebook",
-                "Data transformation (external)",
-                "Azure Databricks",
-                "A Databricks linked service"
-              ],
-              [
-                "HDInsight Hive or Spark",
-                "Data transformation (external)",
-                "Azure HDInsight",
-                "An HDInsight linked service"
-              ],
-              [
-                "Synapse Notebook",
-                "Data transformation (external)",
-                "Azure Synapse Analytics Spark",
-                "A Synapse artifacts linked service"
-              ],
-              [
-                "Stored Procedure",
-                "Data transformation (external)",
-                "The database: Azure SQL, Synapse or SQL Server",
-                "A database linked service"
-              ],
-              [
-                "Script",
-                "Data transformation (external)",
-                "The database",
-                "A database linked service"
-              ],
-              [
-                "Azure Function",
-                "Data transformation (external)",
-                "Azure Functions",
-                "An Azure Function linked service"
-              ],
-              [
-                "Web",
-                "Control (external activity)",
-                "The HTTP endpoint you call",
-                "A URL; datasets and linked services can be passed"
-              ],
               [
                 "Lookup",
-                "Control (pipeline activity)",
-                "The integration runtime of the dataset's linked service",
-                "A dataset"
+                "Returns at most 5,000 rows and 4 MB; beyond 5,000 rows it silently keeps the first 5,000",
+                "A list of 6,000 tables to load quietly loses 1,000 of them"
               ],
               [
-                "Get Metadata",
-                "Control (pipeline activity)",
-                "The integration runtime of the dataset's linked service",
-                "A dataset"
-              ],
-              [
-                "ForEach, If Condition, Switch, Until",
-                "Control",
-                "ADF itself: they decide which activities run; no external compute",
-                "Expressions"
-              ],
-              [
-                "Wait, Set Variable, Append Variable, Filter",
-                "Control",
-                "ADF itself",
-                "Expressions"
-              ],
-              [
-                "Execute Pipeline",
-                "Control",
-                "ADF starts another pipeline",
-                "A pipeline reference"
-              ],
-              [
-                "Validation, Webhook",
-                "Control",
-                "Checks a dataset, or waits for an HTTP callback",
-                "A dataset, or an endpoint"
+                "For Each",
+                "Runs in parallel by default (20 at a time, at most 50); can't be nested inside another For Each or an Until; at most 100,000 items",
+                "The workaround for most limits is a parent pipeline calling a child pipeline"
               ]
             ]
           }
         },
         {
-          "heading": "Activity policy: timeout, retry and secure output",
-          "md": "Execution activities (movement and transformation) have a `policy` that sets their run-time behaviour. Control activities do not.\n\n- **Timeout defaults to 12 hours** on the activity page, with a minimum of 10 minutes; its limits page gives a maximum of 7 days for pipeline activity runs. Activities authored in the current UI are often saved with `7.00:00:00`, so **read the value in your own pipeline** instead of trusting either number. Individual activities have their own limits too: the Lookup activity times out after 24 hours, the Until activity defaults to seven days, and the Web activity to one minute.\n- **Retry defaults to 0.** A brief network blip fails the activity unless someone sets retries. **Retry interval:** default 30 seconds.\n- **Secure input and secure output:** when true, the activity's input or output is treated as secure and is not logged for monitoring. The default is false.\n\n**Recommended practice:** set an explicit timeout and a retry count on every activity that touches the network, and set secure output on anything that returns a secret, such as a token from a Web activity. A retry on a Copy activity can continue from the failure point only in the binary-file case covered in chapter 1."
+          "heading": "How much of this to memorise",
+          "md": "**Microsoft fact:** the numbers above come from Microsoft's activity and limits pages, checked in October 2026. Limits change, and some can be raised through Microsoft support.\n\n**Interview takeaway:** remember the consequence, not the figure. A Lookup silently drops rows past its cap, a loop can't nest, and the way round both is a parent pipeline calling a child. Then say you would check the current limits page before designing around one."
         },
         {
-          "heading": "Dependencies and error handling",
-          "md": "Activities are chained with **dependency conditions**. Every activity has four exits, and an activity can depend on one or more earlier activities, each with its own condition:\n\n- **Upon success** (the default): runs if the earlier activity succeeded.\n- **Upon failure:** runs if it failed.\n- **Upon completion:** runs once it finished, whether it succeeded or failed.\n- **Upon skip:** runs if the earlier activity itself did not run. In X, then Y, then Z, each on success, a failure in X leaves Y and Z with a status of Skipped.\n\nYou can attach several branches to one activity, with one exception: *Upon completion* cannot coexist with *Upon success* or *Upon failure*. For each run, at most one path is activated for that activity's outcome. Activities with no dependency between them may run in parallel.\n\n**Combining conditions.** Declaring several dependencies on one activity gives an **and**: it runs only when all of them are met (all succeeded, or each on its chosen condition). An **or** needs *Upon completion* paths into an If Condition whose expression reads each earlier activity's status, such as `@or(equals(activity('A').Status, 'Failed'), equals(activity('B').Status, 'Failed'))`. A **best-effort** step, such as informational logging, hangs off *Upon completion* so that its failure does not block the rest."
+          "heading": "Handing work to Databricks",
+          "md": "The **Databricks Notebook activity** runs a notebook, passing values in as `baseParameters`. The notebook can send a value back with `dbutils.notebook.exit(...)`, which the pipeline reads as `@activity('name').output.runOutput` (up to 2 MB), for example a row count to check."
         },
         {
-          "heading": "Three error-handling patterns and the run status each produces",
-          "md": "The rule: ADF evaluates the outcome of all leaf activities (if a leaf was skipped, its parent is evaluated instead), and the pipeline succeeds only if all evaluated nodes succeeded. For a Try-Catch on paper: put the risky activity first, attach the error handler (a Script or Web activity that logs or alerts) to its Upon failure path, then connect both the handler's Upon failure and Upon skip paths to the next activity so the pipeline carries on either way.",
-          "table": {
-            "head": [
-              "Pattern",
-              "What you define",
-              "Activity succeeds: pipeline shows",
-              "Activity fails: pipeline shows"
-            ],
-            "rows": [
-              [
-                "Try-Catch",
-                "Only an Upon failure path",
-                "Succeeded",
-                "Succeeded"
-              ],
-              [
-                "Do-If-Else",
-                "Upon failure and Upon success paths",
-                "Succeeded",
-                "Failed"
-              ],
-              [
-                "Do-If-Skip-Else",
-                "Upon failure and Upon success, with a dummy Upon skip activity at the end",
-                "Succeeded",
-                "Succeeded"
-              ]
-            ]
-          }
+          "heading": "External service integration: Web, Azure Function, Script, and Stored Procedure",
+          "md": "ADF pipelines do not execute complex procedural code internally; they delegate work to external execution engines. Choosing the right activity depends on where the code runs, security requirements, execution duration, and payload size.\n\n**1. The Four Integration Activities**\n\n- **Web Activity:** Sends an HTTP/REST request to an external endpoint and waits for the response. Supports GET, POST, PUT, DELETE. Payload limit: 4 MB output. Timeout: up to 10 minutes. Authentication: System- or User-assigned Managed Identity, Client Certificate, Basic, or Anonymous. Best for: Calling REST APIs, querying Azure Resource Manager, triggering external automation, or polling job status.\n- **Azure Function Activity:** Invokes a serverless Azure Function (C#, Python, JavaScript) via an Azure Function linked service. Execution limit: 230 seconds on Consumption plan (longer on Premium/Dedicated). Best for: Small custom business logic calculations, proprietary token generation, cryptographic payload decryption, or complex JSON reshaping that ADF expressions cannot perform.\n- **Script Activity:** Executes SQL statements or queries directly on relational databases (Azure SQL, Synapse, Snowflake, Oracle, SQL Server) via linked services. Supports DDL and DML (e.g. TRUNCATE, INSERT, CREATE), parameters, and multi-statement batches. Returns result sets up to 5,000 rows / 4 MB. Best for: Pre-copy staging table truncation, post-copy index maintenance, and dynamic SQL execution.\n- **Stored Procedure Activity:** Invokes a pre-compiled stored procedure in a relational database with strongly typed input parameters. Best for: Encapsulated enterprise database transformations, legacy ETL procedures, and transactional multi-table merge routines inside SQL.\n\n**2. Activity Selection Decision Table**\n\n- *Requirement: Call third-party SaaS REST API to fetch an auth token.* → **Preferred: Web Activity**. Direct REST call using Managed Identity or client secret.\n- *Requirement: Truncate staging table before starting daily ingestion.* → **Preferred: Script Activity**. Executes `TRUNCATE TABLE staging.orders;` without deploying a stored procedure.\n- *Requirement: Execute complex multi-table transaction with rollbacks inside Azure SQL.* → **Preferred: Stored Procedure Activity**. Database engine manages ACID transaction isolation.\n- *Requirement: Calculate a SHA-256 HMAC signature using a private key from Key Vault.* → **Preferred: Azure Function Activity**. C#/Python code performs cryptographic math unsupported by ADF expressions.\n- *Requirement: Trigger an external Logic App workflow and wait for callback.* → **Preferred: Web Activity or Webhook Activity**. Webhook waits asynchronously for Logic App to complete.\n\n**3. Practical Exercise: Architectural Defense**\n\nWhen designing an automated error escalation flow upon pipeline failure, explain why a Web Activity calling Azure Logic Apps (or Webhook Activity) is superior to a Script Activity writing directly to a database: Web/Webhook decouples ADF from internal notification mechanisms, supports native Managed Identity authentication, handles ServiceNow/Teams/Slack APIs natively, and does not require opening database ports to the factory."
         },
         {
-          "heading": "What Microsoft Doesn't Say: a handled failure can leave the pipeline green",
-          "md": "**Practical implication:** with a Try-Catch design the pipeline run shows **Succeeded** even though an activity failed, as long as the handler succeeds.\n\n**Why it matters:** The summary table says exactly that. Anything watching run status, including the Azure Monitor alert on failed pipeline runs from chapter 1, will not fire, and a person reading the Monitor list sees a green row.\n\n**What to do:** decide per pipeline whether the business wants it to **show** failure. If yes, use Do-If-Else, or end the catch path with a Fail activity. If no, make the handler itself raise the alert (an email, a Teams message, a log row) so a handled failure is never silent. Write the choice down.\n\n**Verify further:** [Pipeline failure and error message](https://learn.microsoft.com/en-us/azure/data-factory/tutorial-pipeline-failure-error-handling) and chapter 12."
+          "heading": "ADF and Azure Synapse Analytics: batch architecture and integration patterns",
+          "md": "Azure Synapse Analytics integrates closely with ADF, providing relational data warehousing and lake analytics that ADF orchestrates.\n\n**1. ADF vs Synapse Pipelines**\n\nSynapse Pipelines share the underlying ADF orchestration codebase, but exist inside the Synapse workspace. In enterprise architectures, standalone ADF is preferred as the central cross-service orchestrator when the platform spans multiple technologies (Databricks, Snowflake, on-prem data centres, separate storage accounts) rather than living entirely inside one Synapse workspace.\n\n**2. Synapse Activities in ADF**\n\n- **Synapse Notebook Activity:** Dispatches Spark notebooks directly to Synapse Spark pools with parameter passing and exit values.\n- **Synapse Spark Job Definition:** Submits pre-compiled Spark batch jobs (JAR/Python) to Synapse Spark compute.\n- **Stored Procedure & Script Activities:** Connects to Synapse Dedicated SQL Pools (massively parallel processing DW) or Serverless SQL Pools.\n\n**3. High-Throughput Synapse Batch Architecture Pattern**\n\n1. *Landing (ADF Copy Activity):* Extracts raw files from source systems into ADLS Gen2 Bronze container.\n2. *Staging Validation (Synapse Serverless SQL):* ADF executes a Script activity querying Synapse Serverless SQL over external tables to validate record counts and schema conformity without running a dedicated cluster.\n3. *High-Speed Loading (COPY INTO):* ADF triggers a Synapse Stored Procedure running `COPY INTO` to ingest staging files directly into Dedicated SQL Pool tables using Managed Identity authentication. This bypasses row-by-row insertion and achieves gigabyte-per-second ingestion.\n4. *Dimensional Merging & Indexing:* Synapse Stored Procedure performs partition switching or ELT merge into production star-schema tables.\n5. *Audit Logging:* ADF captures duration and rows loaded, updating the platform control table."
         },
         {
-          "heading": "Parameters, variables and expressions",
-          "md": "**Pipeline parameters** are read-only key-value configuration defined on the pipeline; a run supplies the arguments, either manually or in the trigger definition. A pipeline can have up to 50. They are what lets one pipeline serve many tables: copy table X for date Y.\n\n**Variables** hold temporary values that can change during a run. They are documented as String, Bool or Array, and they are **scoped to the whole pipeline**. That makes them not thread-safe: changing one inside a parallel ForEach gives unpredictable results. A Set Variable activity cannot reference the variable it is setting, so an increment uses a temporary variable and a second Set Variable. Append Variable adds to an array variable. A special **pipeline return value** (preview) lets a child pipeline pass a value back to its caller.\n\n**Expressions** are how everything dynamic is written:\n\n- A JSON string value that starts with `@` is an expression. To start a literal string with `@`, write `@@`.\n- A whole-value expression such as `@pipeline().parameters.myNumber` keeps its native type; inside a larger string, wrap it as `@{...}` and the result is always a string.\n- String literals use single quotes; double a single quote to include one.\n- An expression can be up to 8,192 characters.\n- Functions fall into groups: string (`concat`, `substring`, `replace`, `split`), date and time (`utcNow`, `addDays`, `formatDateTime`, `convertTimeZone`), collection (`contains`, `first`, `last`, `union`, `length`), logical (`equals`, `and`, `or`, `not`, `if`, `greater`), conversion (`int`, `string`, `bool`, `json`, `coalesce`) and math (`add`, `mod`, `range`).\n- You read values with `@pipeline().parameters.name`, `@variables('name')`, `@pipeline().globalParameters.name`, `@activity('Name').output...` and, in a ForEach, `@item()`. System values include `@pipeline().Pipeline` and `@pipeline().TriggerTime`.\n\nThe dynamic content editor escapes double quotes and backslashes when you finish editing, which can mangle values such as `\\n`; fix them in the code view."
+          "heading": "ADF Expression Language and Dynamic Content",
+          "md": "ADF expressions allow pipelines to dynamically compute parameters, evaluate conditions, format strings, and inspect activity outputs at runtime.\n\n**1. Syntax and Expression Rules**\n\n- **Expression Prefix:** Any dynamic value in ADF begins with the `@` character. If you need a literal string starting with `@`, escape it with `@@`.\n- **String Interpolation:** Use `@{...}` inside string expressions to combine literals and dynamic values:\n  `@concat('data/landing/', pipeline().parameters.SourceFolder, '/', formatDateTime(utcNow(), 'yyyy/MM/dd'))`\n- **Case Sensitivity:** Expression function names are case-sensitive (e.g. `@concat`, `@equals`, `@toUpper`).\n\n**2. Built-in Function Categories**\n\n- **String Functions:** `@concat()`, `@substring()`, `@replace()`, `@toUpper()`, `@toLower()`, `@split()`.\n- **Collection Functions:** `@contains()`, `@intersection()`, `@union()`, `@first()`, `@last()`.\n- **Logical & Comparison:** `@equals()`, `@and()`, `@or()`, `@not()`, `@greater()`, `@lessOrEquals()`.\n- **Date & Time Functions:** `@utcNow()`, `@addDays()`, `@addHours()`, `@formatDateTime()`, `@convertFromUtc()`.\n- **Conversion Functions:** `@int()`, `@string()`, `@bool()`, `@json()`.\n\n**3. Accessing Pipeline State and Activity Outputs**\n\n- **System Variables:** `@pipeline().DataFactory`, `@pipeline().Pipeline`, `@pipeline().RunId`, `@pipeline().TriggerTime`.\n- **Pipeline Parameters:** `@pipeline().parameters.BatchDate`.\n- **Pipeline Variables:** `@variables('CurrentWatermark')`.\n- **Activity Outputs:** `@activity('GetMetadata').output.childItems`, `@activity('LookupControl').output.firstRow.HighWatermark`."
         },
         {
-          "heading": "A reusable pipeline parameter model",
-          "md": "Keep the model small: every parameter is something an operator may legitimately change per run. Values that never change belong in the pipeline or in a global parameter, and secrets belong in Key Vault, not in a parameter (chapter 2). Remember that an Execute Pipeline activity passes an array parameter to the child as a string; convert it back with `json()` or `array()` in the child.",
-          "table": {
-            "head": [
-              "Parameter",
-              "Kind of value",
-              "Example",
-              "What it controls"
-            ],
-            "rows": [
-              [
-                "loadDate",
-                "Text, in a fixed format",
-                "2026-10-15",
-                "Which day's data to load; also used in folder paths"
-              ],
-              [
-                "sourceSchema and sourceTable",
-                "Text",
-                "dbo and Sales",
-                "Which table the generic source dataset reads"
-              ],
-              [
-                "targetFolder",
-                "Text",
-                "raw/sales",
-                "Where the lake sink writes"
-              ],
-              [
-                "fullReload",
-                "True or false",
-                "false",
-                "Whether to ignore the watermark and reload everything"
-              ],
-              [
-                "batchSize or rowLimit",
-                "Whole number",
-                "100000",
-                "A tunable the operator can change without editing the pipeline"
-              ],
-              [
-                "tableList",
-                "A list",
-                "A list of table names",
-                "Which tables a parent pipeline passes to a loop"
-              ]
-            ]
-          }
+          "heading": "Advanced Control Flow: If Condition, Switch, Until, and Wait",
+          "md": "Beyond linear sequences and ForEach loops, enterprise workflows require conditional branching and iterative polling:\n\n**1. If Condition Activity**\n\nEvaluates a boolean expression (e.g. `@greater(activity('LookupRowCount').output.count, 0)`).\n- Contains two distinct internal activity canvases: **True Activities** and **False Activities**.\n- *Constraint:* Activities inside an If Condition cannot contain another nested If Condition, Switch, or ForEach activity.\n\n**2. Switch Activity**\n\nEvaluates a string expression and matches it against defined cases:\n- Supports multiple case blocks plus a **Default** case.\n- Ideal for routing ingestion based on file format (Case 'CSV' → Copy CSV; Case 'JSON' → Copy JSON; Case 'PARQUET' → Copy Parquet).\n\n**3. Until Activity (Polling Loops)**\n\nExecutes a set of child activities repeatedly until a condition evaluates to `true` or a timeout is reached.\n- *Use Case:* Polling an external long-running job (e.g. an asynchronous REST job or Databricks job) until its status returns 'SUCCESS'.\n- *Configuration:* `timeout` (e.g. `01:00:00` for 1 hour). If the loop does not finish before the timeout, it fails with a timeout error.\n- *Constraint:* Cannot contain another Until or ForEach activity inside its execution block.\n\n**4. Wait Activity**\n\nPauses pipeline execution for a specified duration in seconds (between 1 and 86400 seconds).\n- Essential inside Until polling loops to prevent tight-loop API spamming (e.g. wait 60 seconds between polling calls)."
         },
         {
-          "heading": "Lookup and Get Metadata",
-          "md": "Both activities let a pipeline decide at run time what to do instead of hard-coding it. Both are pipeline activities that run on the integration runtime.\n\n**Lookup** reads a file, a table or the result of a query or stored procedure and returns it. The source dataset's options depend on its type, and the source settings are the same as for the Copy activity.\n\n- **`firstRowOnly`** defaults to true and returns a single object under `firstRow`: use `@activity('X').output.firstRow.columnName`. Set it to false to get a `count` and a `value` array, usually fed to a ForEach with `@activity('X').output.value`.\n- **Limits:** up to 5,000 rows and 4 MB of output; a longer result returns only the first 5,000 rows, and output over 4 MB fails the activity. A query or stored procedure must return exactly one result set. The longest duration before a time-out is 24 hours. `ByteArray` columns are not supported.\n\n**Get Metadata** takes a dataset and returns what you list in its field list: `itemName`, `itemType`, `size`, `created`, `lastModified`, `childItems` (the files and subfolders of a folder), `contentMD5`, `structure`, `columnCount` and `exists`. Details that matter:\n\n- The returned metadata is limited to 4 MB.\n- **`exists`:** if it is in the field list, the activity does not fail when the object is missing; it returns `exists: false`. Without it, a missing object fails the activity.\n- For folders you need LIST or EXECUTE permission. Wildcard filters are not supported. The modified-time filters list every file in the folder to check dates, so avoid pointing them at a folder with a very large number of files.\n- `structure` for delimited text and Excel needs **First row as header** to be meaningful.\n\n**Design: a control-table discovery flow.**\n\n1. A Lookup with `firstRowOnly` false reads the control table (table name, schema, enabled flag).\n2. An If Condition checks that `@activity('Lookup').output.count` matches what you expect.\n3. A ForEach iterates `output.value`; each iteration runs a child pipeline for one table.\n4. For file sources, a Get Metadata with `childItems` and `exists` finds what arrived before the Copy runs."
+          "heading": "Execute Pipeline: Parent-Child Pipeline Architecture",
+          "md": "The **Execute Pipeline** activity invokes another pipeline from within a parent pipeline. This is the cornerstone of modular enterprise pipeline architecture.\n\n**1. Synchronous vs Asynchronous Invocation (`waitOnCompletion`)**\n\n- **`waitOnCompletion: true` (Synchronous):** The parent pipeline blocks and waits for the child pipeline to finish. If the child pipeline fails, the Execute Pipeline activity fails, enabling parent-level error handling.\n- **`waitOnCompletion: false` (Asynchronous / Fire-and-Forget):** The parent pipeline triggers the child pipeline and immediately proceeds to the next activity without waiting. The activity output returns the child's `runId`, which can be logged or monitored separately.\n\n**2. Overcoming Platform Limits**\n\n- **Loop Nesting Workaround:** ADF forbids nesting a `ForEach` inside another `ForEach`. To achieve nested iteration (e.g. loop through Databases, then loop through Tables), the outer ForEach invokes a child pipeline via Execute Pipeline, and the child pipeline contains its own ForEach.\n- **Activity Count Ceiling:** ADF pipelines have a default soft limit of 120 activities, counting those inside containers (increased by Microsoft from the historical 40 limit). Decomposing complex workflows into modular child pipelines keeps pipelines maintainable and promotes reuse."
         },
         {
-          "heading": "What Microsoft Doesn't Say: a long control table can quietly drop work",
-          "md": "**Practical implication:** if the control table has more than 5,000 rows, Lookup returns the first 5,000 and the pipeline carries on, successfully.\n\n**Why it matters:** The cap is stated in the activity's capabilities notes: results beyond 5,000 rows are cut off. Nothing in the run says rows were left out, so 6,000 tables to load becomes 5,000 loaded, a green run and 1,000 tables that nobody notices are stale.\n\n**What to do:** compare `output.count` with an independent `SELECT COUNT(*)` of the control table and fail the run (a Fail activity) on a mismatch. If the table can legitimately exceed the cap, page it: an outer pipeline iterates over inner pipelines that each look up a bounded slice, which is the documented workaround.\n\n**Verify further:** [Lookup activity: limitations and workarounds](https://learn.microsoft.com/en-us/azure/data-factory/control-flow-lookup-activity)."
-        },
-        {
-          "heading": "ForEach: the settings and limits that matter",
-          "md": "In each iteration `@item()` is the current element, and `@range(0,10)` iterates ten times from 0. Parallel iterations that write to different files in one folder are fine; concurrent writes to the same file most likely fail.",
-          "table": {
-            "head": [
-              "Setting or limit",
-              "Value",
-              "Consequence"
-            ],
-            "rows": [
-              [
-                "isSequential",
-                "Default false: iterations run in parallel",
-                "Parallel is the default, so concurrent writers must not collide on the same file"
-              ],
-              [
-                "batchCount",
-                "Default 20; maximum 50",
-                "An upper limit on concurrency; the loop does not always reach it"
-              ],
-              [
-                "Items",
-                "Up to 100,000",
-                "A longer list needs an outer and an inner pipeline"
-              ],
-              [
-                "Nesting",
-                "A ForEach cannot contain another ForEach or an Until",
-                "Use an Execute Pipeline activity whose child holds the inner loop"
-              ],
-              [
-                "Set Variable in a parallel loop",
-                "Not safe: variables are pipeline-wide",
-                "Run sequentially, or move the work to a child pipeline"
-              ],
-              [
-                "Several activities per iteration",
-                "Possible",
-                "Use one Execute Pipeline activity instead; there can be a delay exiting the loop"
-              ]
-            ]
-          }
-        },
-        {
-          "heading": "Designing a 1,000-table loop safely",
-          "md": "The roadmap's exercise, using only documented behaviour:\n\n1. **Lookup** the control table with `firstRowOnly` false, and check the count (see the callout above).\n2. **ForEach** over `@activity('Lookup').output.value` with an explicit `batchCount`, chosen from a budget rather than left at the default of 20.\n3. Inside it, **one Execute Pipeline activity** per table, so each table's Copy, validation and logging live in a child pipeline with its own run history.\n4. The child takes `schemaName` and `tableName` as parameters and passes them to a parameterised source dataset.\n5. The child **logs its own result** (rows copied, duration, status) to a table. Do not collect results into a shared variable from parallel iterations.\n6. The parent's pipeline `concurrency` and the trigger's concurrency are set so that a late run cannot start a second wave on top of the first.\n\n**The connection budget.** As a planning model, not an exact law: the pressure on a source can approach *pipeline runs × batchCount × parallel copies per Copy activity*. With, illustratively, one run, a batchCount of 10 and up to 4 parallel copies per table, plan for up to 40 concurrent connections to the source database, and check that the source and its connection limits can take that. ADF chooses the effective copy parallelism itself and connectors differ, so treat the product as an upper bound."
-        },
-        {
-          "heading": "If Condition, Switch, Until and Wait",
-          "md": "",
-          "table": {
-            "head": [
-              "Activity",
-              "How it decides",
-              "Key facts",
-              "Use it for"
-            ],
-            "rows": [
-              [
-                "If Condition",
-                "A boolean expression: true runs one set of activities, false another",
-                "Two activity sets: ifTrueActivities and ifFalseActivities",
-                "A single yes or no branch, such as only copy when the row count is above zero"
-              ],
-              [
-                "Switch",
-                "A string expression matched against cases",
-                "At least one case, at most 25; a default set of activities is required",
-                "Routing by a value, such as file type or source system"
-              ],
-              [
-                "Until",
-                "A do-until loop: the expression is evaluated after the child activities run",
-                "Timeout default seven days, maximum 90; if an inner activity fails the loop does not stop",
-                "Polling an external job until it reports done"
-              ],
-              [
-                "Wait",
-                "Pauses for a number of seconds",
-                "waitTimeInSeconds is an integer and can be an expression",
-                "Spacing out polls inside an Until"
-              ]
-            ]
-          }
-        },
-        {
-          "heading": "Mapping five requirements to the right activity",
-          "md": "1. **Load only if yesterday's file exists.** Get Metadata with `exists`, then If Condition on the result.\n2. **Send CSV, JSON and Parquet files to different copy branches.** Switch on a file-type expression, with a default for anything unexpected.\n3. **Wait for a long-running REST job to finish.** Until, with a Wait and a Web call inside, and an explicit timeout.\n4. **Process every table in a list.** Lookup then ForEach.\n5. **Run a shared cleanup whether or not the load worked.** An *Upon completion* path to the cleanup activity."
-        },
-        {
-          "heading": "What Microsoft Doesn't Say: an Until loop can run for a week",
-          "md": "**Practical implication:** a polling loop with no explicit timeout, and no exit on failure, keeps polling.\n\n**Why it matters:** The documentation states that the Until timeout defaults to seven days and that if an inner activity fails the Until activity does not stop. A job that failed permanently, or an endpoint that returns an error each time, keeps the loop spinning, and every iteration's activity runs are billed as orchestration activity runs.\n\n**What to do:** always set a realistic timeout, put a Wait between polls, include the failure state in the exit expression (for example stop when the status is `Failed` as well as `Succeeded`), and branch afterwards on what actually happened.\n\n**Verify further:** [Until activity](https://learn.microsoft.com/en-us/azure/data-factory/control-flow-until-activity) and [plan and manage costs](https://learn.microsoft.com/en-us/azure/data-factory/plan-manage-costs)."
-        },
-        {
-          "heading": "Execute Pipeline and child pipelines",
-          "md": "The Execute Pipeline activity lets one pipeline invoke another. It takes a pipeline reference, optional `parameters` and `waitOnCompletion`, which **defaults to true**: the parent waits for the child to finish. With false, the parent moves on straight away (fire and forget).\n\nWhy split work into parent and child pipelines:\n\n- **Reuse:** one tested child serves many parents.\n- **Nesting:** a ForEach cannot hold another ForEach or an Until; a ForEach that calls a child with its own loop gets you two levels.\n- **Size limits:** a pipeline holds at most 120 activities and a ForEach 100,000 items; children keep each one inside the limits.\n- **Isolation:** each iteration's work has its own run, its own variables (variables are pipeline-scoped) and its own monitoring.\n- **Variables in parallel loops:** the child handles variables and parameters, so the loop does not share them.\n\n**Passing values.** Parameters go down as arguments. A child can return a value with the **pipeline return value** (Set Variable, preview). Note the documented warning: an Execute Pipeline activity passes an **array parameter as a string**, because the payload reaches the child as a string; convert it in the child.\n\nA parent-child architecture to sketch: `ParentNightlyLoad` runs Lookup, then a ForEach with one Execute Pipeline per source system; `ChildLoadOneSource` takes `sourceName` and `loadDate`, does Copy, validation and logging; a final activity in the parent summarises from the log table."
-        },
-        {
-          "heading": "Web, Azure Function, Script and Stored Procedure",
-          "md": "Two related facts. A **Webhook** activity calls an endpoint and passes a callback URL, and the run waits for the callback before the next activity. And a Copy activity can call a stored procedure itself as a SQL sink or source option, though not when the sink is Azure Synapse Analytics.",
-          "table": {
-            "head": [
-              "Activity",
-              "What it does",
-              "Documented limits",
-              "Choose it when"
-            ],
-            "rows": [
-              [
-                "Web",
-                "Calls a REST endpoint with GET, POST, PUT, PATCH or DELETE; can pass datasets and linked services",
-                "Response must be a JSON object and at most 4 MB; times out after 1 minute by default, up to 10 minutes via httpRequestTimeout; endpoints using the async request-reply pattern can be waited on for up to 7 days",
-                "Calling an API, an Azure management endpoint or a workflow trigger"
-              ],
-              [
-                "Azure Function",
-                "Runs an Azure Function through a linked service; GET, POST or PUT",
-                "The function must return a JSON object; Azure Functions time out after 230 seconds regardless of the configured function timeout",
-                "Small custom logic that expressions cannot do; use Durable Functions plus a Web poll for long work"
-              ],
-              [
-                "Script",
-                "Runs DML (INSERT, UPDATE, DELETE, SELECT) and DDL (CREATE, ALTER, DROP) in one or more script blocks; can return result sets",
-                "Result sets up to 5,000 rows and 4 MB; output is truncated in the order logs, then parameters, then rows; works on Azure SQL, Synapse, SQL Server, Oracle, Snowflake and PostgreSQL v2",
-                "Truncating a staging table, creating objects, running statements without deploying a procedure"
-              ],
-              [
-                "Stored Procedure",
-                "Invokes a procedure with typed parameters in Azure SQL, Azure Synapse or SQL Server",
-                "Does not support output parameters; use Lookup or Script for results",
-                "Logic that already lives in the database, or must run as one database transaction"
-              ]
-            ]
-          }
-        },
-        {
-          "heading": "Choosing between the four",
-          "md": "- **Call a third-party API for a token:** Web, with managed identity, certificate or a secret from Key Vault. Mark the output secure.\n- **Truncate a staging table before the load:** Script; no procedure to deploy.\n- **A multi-table transaction with rollback inside Azure SQL:** Stored Procedure; the database owns the transaction.\n- **Compute a signature with custom code:** Azure Function.\n- **Trigger a Logic App and wait for it to call back:** Web to start it, or Webhook to wait for the callback.\n\n**Pitfall:** using a Web activity on a long job. One minute is the default timeout, and an endpoint that does not follow the async request-reply pattern simply times out. Likewise do not hang a long computation on an Azure Function: it is cut off at 230 seconds. For error notification, a Web or Webhook call to a Logic App keeps ADF decoupled from your notification channel, while writing straight to a database needs a database connection and credential the factory may not otherwise have (an engineering view). When Git is configured, store credentials for basic or certificate authentication in Key Vault, because ADF does not store passwords in Git."
-        },
-        {
-          "heading": "ADF and Azure Databricks",
-          "md": "The **Databricks Notebook activity** runs a notebook in your Azure Databricks workspace. ADF only dispatches and waits; the notebook runs on Databricks compute.\n\n**Cluster choice, in the Databricks linked service:**\n\n- A **new job cluster** (set the node type, Spark version and worker count, which can autoscale, for example `1:10`).\n- An **existing interactive cluster** (an `existingClusterId`). The documentation's own note: you might need to restart it manually if it stops responding, and Databricks suggests running jobs on new clusters for greater reliability.\n- An **instance pool** (`instancePoolId`).\n\n**Authentication:** an access token (store it in Key Vault) or the factory's system-assigned managed identity, so no token is needed.\n\n**Passing values.** Send values in with `baseParameters`; the notebook reads them as widgets. If the notebook takes a parameter you did not supply, its own default is used. To return a value, the notebook calls `dbutils.notebook.exit(\"returnValue\")` and the pipeline reads `@activity('name').output.runOutput`, up to 2 MB. If the value is a JSON object, add the property name: `@activity('name').output.runOutput.PropertyName`. You can also list libraries (jar, egg, whl, maven, pypi, cran) to install on the cluster.\n\n**A workflow to design: ADF, Databricks, validation.**\n\n1. Copy the source files into the lake.\n2. The Notebook activity transforms and writes the output, returning row counts as JSON through `runOutput`.\n3. A Script or Lookup activity counts rows in the target.\n4. An If Condition compares the notebook's reported count with the target count; a mismatch goes to a Fail activity and an alert.\n5. A final step logs the run.\n\nStartup time, price and sizing of the Databricks side belong to Databricks, so measure them there rather than assuming a figure from this guide. Chapter 13 covers rerunning this safely."
-        },
-        {
-          "heading": "ADF and Azure Synapse Analytics",
-          "md": "Azure Synapse contains the same data integration engine and experiences as ADF, so a Synapse pipeline and an ADF pipeline are close relatives. In an engineering view, a standalone ADF factory is still a sensible choice when the platform spans more than one Synapse workspace or other technologies.\n\nADF can use Synapse in several ways:\n\n- **Stored Procedure and Script activities** against a Synapse dedicated SQL pool (supported data stores for both).\n- **Synapse Notebook** and **Synapse Spark job definition** activities, through a Synapse artifacts linked service (system-assigned managed identity by default; a self-hosted integration runtime is not supported for it).\n- **Copy** into Synapse. The documentation says the fastest and most scalable way to load a dedicated pool is the **COPY statement or PolyBase**, and recommends them over bulk insert. Only one of `allowCopyCommand` and `allowPolyBase` can be true. A copy activity cannot invoke a stored procedure when the sink is Synapse, so do that step with a Stored Procedure activity afterwards.\n\n**A batch pattern (engineering synthesis):**\n\n1. Copy source data into the lake's raw area.\n2. A Script or Lookup activity validates counts and schema.\n3. Copy into a staging table in the dedicated pool with the COPY statement.\n4. A Stored Procedure activity merges staging into the production tables.\n5. A final activity writes duration and row counts to a control or audit table."
-        },
-        {
-          "heading": "Scale and concurrency: the documented limits",
-          "md": "Figures from The Azure subscription and service limits page, read in October 2026. They change; check the page before designing around one. The pipeline and external activity run limits do not apply to the self-hosted integration runtime.",
-          "table": {
-            "head": [
-              "Limit",
-              "Default",
-              "Maximum"
-            ],
-            "rows": [
-              [
-                "Entities per data factory",
-                "5,000",
-                "5,000"
-              ],
-              [
-                "Concurrent pipeline runs per data factory",
-                "10,000",
-                "10,000"
-              ],
-              [
-                "Queued runs per pipeline",
-                "100",
-                "100"
-              ],
-              [
-                "Activities per pipeline (including inner activities)",
-                "120",
-                "120"
-              ],
-              [
-                "Parameters per pipeline",
-                "50",
-                "50"
-              ],
-              [
-                "ForEach items",
-                "100,000",
-                "100,000"
-              ],
-              [
-                "ForEach parallelism",
-                "20",
-                "50"
-              ],
-              [
-                "Concurrent pipeline activity runs per subscription per Azure IR region",
-                "1,000",
-                "1,000"
-              ],
-              [
-                "Concurrent external activity runs per subscription per Azure IR region",
-                "3,000",
-                "3,000"
-              ],
-              [
-                "Characters per expression",
-                "8,192",
-                "8,192"
-              ],
-              [
-                "Timeout for pipeline activity runs",
-                "10 minutes minimum",
-                "7 days maximum"
-              ],
-              [
-                "Tumbling window trigger minimum interval",
-                "5 minutes",
-                "15 minutes"
-              ],
-              [
-                "Bytes per payload for each activity run",
-                "896 KB",
-                "896 KB"
-              ],
-              [
-                "Data integration units per Copy activity run",
-                "256",
-                "256"
-              ]
-            ]
-          }
-        },
-        {
-          "heading": "Building a concurrency budget",
-          "md": "A concurrency budget is a deliberate allocation of the shared ceilings above and of the systems ADF talks to. For a platform that loads many sources:\n\n1. **List the shared ceilings.** Pipeline activity runs and external activity runs are counted per subscription per Azure integration runtime region, so every factory in the subscription draws on the same pool.\n2. **Set per-pipeline controls.** The pipeline `concurrency` property caps parallel runs of one pipeline; a tumbling window trigger has its own concurrency setting of 1 to 50 runs and waits for its pipeline to finish; ForEach `batchCount` caps parallel iterations.\n3. **Budget the sources and sinks.** Multiply runs, `batchCount` and parallel copies for an upper bound on connections, and compare it with what each source database or API allows. A throttled source produces retries and slower runs.\n4. **Stagger heavy loads.** Offset start times of large pipelines instead of letting them all start at midnight.\n5. **Write the budget down** next to the pipeline, with the numbers and the date the limits were checked.\n\nFor a multi-source platform, an illustrative budget might give each of three sources a batchCount of 8 and cap each source's pipeline at one concurrent run: a ceiling of roughly 24 parallel iterations across the platform, which you then check against the source systems. Chapter 17 covers tuning and chapter 21 the common pitfalls."
-        },
-        {
-          "heading": "What Microsoft Doesn't Say: the payload limit is about configuration, not data",
-          "md": "**Practical implication:** an activity can fail with a \"payload too large\" error even though you move very little data.\n\n**Why it matters:** The limits page defines the 896 KB payload as the activity's configuration, its associated datasets and linked service configurations and some system properties, and says the limit does not relate to the amount of data ADF can move. Large inline values, such as a big array passed through parameters or built into a ForEach `items` expression, count towards it.\n\n**What to do:** keep large lists in storage or a table and pass a small reference (a file path or a key) rather than the list. Read the troubleshooting guide's entry for this error if you hit it.\n\n**Verify further:** [Azure subscription and service limits](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/azure-subscription-service-limits) and [troubleshooting: payload is too large](https://learn.microsoft.com/en-us/azure/data-factory/data-factory-troubleshoot-guide)."
-        },
-        {
-          "heading": "Interview takeaway",
-          "md": "**Interview takeaway:** \"Pipelines chain activities with success, failure, completion and skip paths. Expressions and parameters make them dynamic; Lookup and ForEach make them metadata-driven; Execute Pipeline keeps them modular and inside the limits. The things I check first are the silent ones: Lookup's 5,000-row cap, a Try-Catch that leaves the run green, an Until with no timeout, and the shared concurrency ceilings.\""
-        },
-        {
-          "heading": "Practice for this chapter",
-          "md": "- Map 15 activities to their category and execution location, then compare with the table above.\n- Draw a Try/Catch control flow on paper for a Copy followed by a load, and state what status the pipeline shows when the Copy fails.\n- Design a control-table discovery flow with a count check.\n- Design a 1,000-table metadata-driven loop and its concurrency budget.\n- Map five workflow requirements of your own to If, Switch, Until, Wait or ForEach.\n- Write a parent and reusable child pipeline design for three source systems.\n- Build a decision table for Web, Function, Script and Stored Procedure.\n- Design an ADF, Databricks and validation workflow, and an ADF plus Synapse batch architecture."
+          "heading": "ADF and Azure Databricks: Cluster Selection, Authentication, and Output Handling",
+          "md": "Orchestrating Azure Databricks from ADF requires designing cluster allocation, security credentials, and exit parameter handling:\n\n**1. Cluster Selection Trade-offs**\n\n- **New Job Cluster (Recommended for Production Batch):** ADF requests Databricks to spin up a dedicated ephemeral cluster for the notebook run and terminate it upon completion. Cost-effective (billed at lower automated job compute rates) and provides clean resource isolation. Startup latency: 2 to 4 minutes.\n- **Existing Interactive Cluster:** Reuses a running cluster. Zero startup latency, making it ideal for rapid development and testing. Expensive if left running idle.\n- **Existing Instance Pool:** Pre-allocates warm VM instances to reduce job cluster startup time down to ~30 seconds while retaining job pricing.\n\n**2. Authentication Strategies**\n\n- **Azure Key Vault with Managed Identity:** The Databricks Linked Service accesses a personal access token (PAT) stored as a secret in Azure Key Vault.\n- **User-Assigned Managed Identity:** Where supported, authenticates without long-lived personal access tokens.\n\n**3. Parameter Passing and Exit Values**\n\n- **Passing Parameters to Databricks:** Configure `baseParameters` in the Databricks Notebook activity. Inside the Databricks notebook, parameters are retrieved using `dbutils.widgets.get(\"ParameterName\")`.\n- **Returning Data to ADF:** The notebook calls `dbutils.notebook.exit(\"{\"status\":\"success\", \"rowsProcessed\": 150000}\")`. ADF captures this string via `@activity('RunNotebook').output.runOutput` (up to a 2 MB payload limit) and parses it using `@json()`."
         }
       ]
     },
