@@ -5,7 +5,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link as RouterLink, useParams } from 'react-router-dom';
 import {
-  Box, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Box, Button, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs,
 } from '@mui/material';
 import { getContentPack } from '../services/api';
 import { apiErrorMessage } from '../services/apiError';
@@ -14,6 +14,8 @@ import type { ContentPackDetail } from '../types/contentPack';
 import { Explanation } from '../components/common/Explanation';
 import { ErrorState, LoadingState } from '../components/common/States';
 import { Actions, Detail, Good, Note, PageHead, Panel, PanelHead, Section } from '../components/ui/primitives';
+
+const ALIGNMENT_HEADING = 'Roadmap alignment';
 
 /**
  * One chapter of a built-in guide, read in the Study Library.
@@ -30,6 +32,10 @@ export const GuideChapterPage: React.FC = () => {
   const [pack, setPack] = useState<ContentPackDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [view, setView] = useState<'chapter' | 'alignment'>('chapter');
+
+  // A new chapter starts on its text, whichever tab the last one was left on.
+  useEffect(() => { setView('chapter'); }, [chapterId]);
 
   useEffect(() => {
     if (!packId) return undefined;
@@ -72,6 +78,11 @@ export const GuideChapterPage: React.FC = () => {
     );
   }
 
+  // The pack's "Roadmap alignment" block says which roadmap topics the chapter covers. The server
+  // reads it wherever it sits in the chapter, so the page shows it in its own tab, not above the text.
+  const alignment = chapter.blocks.find((b) => b.heading === ALIGNMENT_HEADING) ?? null;
+  const body = chapter.blocks.filter((b) => b !== alignment);
+
   const prev = pack.chapters[index - 1];
   const next = pack.chapters[index + 1];
 
@@ -102,7 +113,33 @@ export const GuideChapterPage: React.FC = () => {
         </Note>
       )}
 
-      {chapter.blocks.map((b, i) => (
+      {alignment && (
+        <Tabs
+          value={view}
+          onChange={(_, v: 'chapter' | 'alignment') => setView(v)}
+          aria-label="Chapter views"
+          sx={{ mb: '16px', borderBottom: 1, borderColor: 'divider' }}
+        >
+          <Tab value="chapter" label="Chapter" id="chapter-tab-chapter" aria-controls="chapter-panel" />
+          <Tab value="alignment" label="Roadmap alignment" id="chapter-tab-alignment" aria-controls="chapter-panel" />
+        </Tabs>
+      )}
+
+      <Box id="chapter-panel" role={alignment ? 'tabpanel' : undefined} aria-labelledby={alignment ? `chapter-tab-${view}` : undefined}>
+      {alignment && view === 'alignment' && (
+        <Section sx={{ mt: 0 }}>
+          <Panel component="section" aria-labelledby="alignment-title">
+            <PanelHead title="Roadmap alignment" titleId="alignment-title" />
+            {/* The pack writes the labels as *italic*, which Explanation does not draw: show them bold. */}
+            <Explanation
+              text={(alignment.md ?? '').replace(/(?<!\*)\*([A-Za-z][A-Za-z ]*:)\*(?!\*)/g, '**$1**')}
+              variant="body1"
+            />
+          </Panel>
+        </Section>
+      )}
+
+      {view === 'chapter' && body.map((b, i) => (
         <Section key={b.heading ?? i} sx={i === 0 ? { mt: 0 } : undefined}>
           <Panel component="section" aria-labelledby={b.heading ? `block-${i}` : undefined}>
             {b.heading && <PanelHead title={b.heading} titleId={`block-${i}`} />}
@@ -129,6 +166,7 @@ export const GuideChapterPage: React.FC = () => {
           </Panel>
         </Section>
       ))}
+      </Box>
 
       <Section>
         {practice.length > 0 && (

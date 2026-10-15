@@ -5,6 +5,7 @@
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { GuideChapterPage } from './GuideChapterPage';
 
@@ -64,6 +65,37 @@ describe('GuideChapterPage: version selection', () => {
 
     expect(await screen.findByRole('heading', { name: 'Chapter not found' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Back to Azure Data Factory/ })).toBeInTheDocument();
+  });
+});
+
+describe('GuideChapterPage: roadmap alignment tab', () => {
+  const ALIGN = '**Roadmap topics covered in this chapter:**\n\n- **Topic 1 — Intro** (Full)\n  - *Relevant sections:* Intro\n  - *Learning evidence:* Explain it.';
+  const withAlignment = {
+    ...PACK,
+    chapters: [
+      { ...PACK.chapters[0], blocks: [{ heading: 'Roadmap alignment', md: ALIGN }, { heading: 'Body', md: 'Some text.' }] },
+      PACK.chapters[1],
+    ],
+  };
+
+  it('keeps the alignment out of the chapter text and shows it in its own tab', async () => {
+    api.getContentPack.mockResolvedValue(withAlignment);
+    renderPage('/learn/guides/adf/what-it-is');
+
+    expect(await screen.findByRole('tab', { name: 'Roadmap alignment' })).toBeInTheDocument();
+    expect(screen.getByText('Some text.')).toBeInTheDocument();
+    expect(screen.queryByText(/Learning evidence/)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Roadmap alignment' }));
+    expect(screen.getByText(/Learning evidence/)).toBeInTheDocument();
+    expect(screen.queryByText('Some text.')).not.toBeInTheDocument();
+    expect(screen.queryByText(/\*Relevant sections/)).not.toBeInTheDocument();
+  });
+
+  it('shows no tabs for a chapter without an alignment block', async () => {
+    renderPage('/learn/guides/adf/what-it-is');
+    expect(await screen.findByText('Some text.')).toBeInTheDocument();
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
   });
 });
 
