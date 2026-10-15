@@ -4,7 +4,7 @@ This crosswalk maps all 60 ADF Master Roadmap topics to the Study Guide chapters
 
 | # | Roadmap Topic | Study Guide Mapping | Coverage | What the Study Guide Provides |
 |---:|---|---|---|---|
-| 1 | What Azure Data Factory Is | Ch 1 — What ADF is, and what it isn't | Full | Core definition, orchestration vs transformation, manager mental model. |
+| 1 | What Azure Data Factory Is | Ch 1 — Introduction to Azure Data Factory | Full | Core definition, orchestration vs transformation, manager mental model. |
 | 2 | ADF vs Databricks vs Synapse vs Fabric Data Factory | Ch 1; Ch 20 — ADF and Fabric Data Factory | Full | Dedicated 4-service architecture-selection framework, decision matrix, and 3 enterprise scenarios in Ch 1; Fabric deep-dive in Ch 20. |
 | 3 | ADF Resource Model | Ch 2 — The building blocks; Ch 3 — Pipelines, activities and control flow | Full | Factory resources, pipeline/activity/dataset/linked service/trigger/run relationships. |
 | 4 | ADF Mental Model for Managers | Ch 1; Ch 21 — Pitfalls | Full | Manager lens, ownership/risk/SLA/cost framing. |

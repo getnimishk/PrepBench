@@ -2,7 +2,7 @@
 
 Use these as the explicit `Roadmap alignment` blocks at the start of each existing Study Guide chapter. All 60 topics are mapped with Full coverage across the 21 chapters.
 
-## Chapter 1 — What ADF is, and what it isn't
+## Chapter 1 — Introduction to Azure Data Factory
 
 **Roadmap alignment**
 Roadmap topics: Topic 1 (Full); Topic 2 (Full); Topic 4 (Full).

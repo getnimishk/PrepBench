@@ -6,6 +6,18 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { Explanation } from './Explanation';
 
+describe('Explanation images', () => {
+  it('renders a local /assets image on its own line, with its alt text', () => {
+    render(<Explanation text="![A diagram](/assets/content/packs/adf/x.png)" />);
+    expect(screen.getByRole('img', { name: 'A diagram' })).toHaveAttribute('src', '/assets/content/packs/adf/x.png');
+  });
+
+  it('never renders an image from anywhere but /assets', () => {
+    render(<Explanation text={'![a](https://example.com/x.png)\n![b](//evil.test/x.png)'} />);
+    expect(screen.queryByRole('img')).toBeNull();
+  });
+});
+
 describe('Explanation links', () => {
   it('renders an https link as an anchor that opens safely in a new tab', () => {
     render(<Explanation text="See [the intro](https://learn.microsoft.com/en-us/azure/data-factory/introduction) first." />);

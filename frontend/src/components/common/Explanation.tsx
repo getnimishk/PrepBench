@@ -66,6 +66,24 @@ export const Explanation: React.FC<{ text: string; variant?: 'body1' | 'body2' }
         const line = raw.trimEnd();
         if (!line.trim()) return <Box key={i} sx={{ height: 10 }} />;
 
+        // A line that is only `![alt](/assets/...)` is a figure. Only the app's own /assets
+        // folder is accepted, so a guide cannot pull in an image from elsewhere.
+        const image = line.match(/^!\[([^\]]*)\]\((\/assets\/[^)\s]+)\)$/);
+        if (image) {
+          return (
+            <Box key={i} component="figure" sx={{ m: 0, my: 1 }}>
+              <Link href={image[2]} target="_blank" rel="noopener noreferrer" aria-label={`${image[1]} (opens full size)`}>
+                <Box
+                  component="img"
+                  src={image[2]}
+                  alt={image[1]}
+                  sx={{ display: 'block', maxWidth: '100%', height: 'auto', border: 1, borderColor: 'divider', borderRadius: 1 }}
+                />
+              </Link>
+            </Box>
+          );
+        }
+
         const bullet = line.match(/^\s*[-*]\s+(.*)$/);
         const numbered = line.match(/^\s*(\d+)\.\s+(.*)$/);
 
