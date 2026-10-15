@@ -2,6 +2,8 @@
 
 Use these as the explicit `Roadmap alignment` blocks of each Study Guide chapter. All 60 topics are mapped with Full coverage across the 21 chapters.
 
+For the full list of rules when redesigning a chapter, see `docs/implementation/ADF-CHAPTER-REDESIGN-CHECKLIST.md`.
+
 ## How the blocks work
 
 - **Where they show.** The server finds a chapter's block by its heading, `Roadmap alignment`, wherever it sits in the chapter. The chapter page shows it in its own **Roadmap alignment** tab beside the chapter text, not above it.
