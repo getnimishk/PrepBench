@@ -89,9 +89,22 @@ export const Explanation: React.FC<{ text: string; variant?: 'body1' | 'body2' }
 
         if (bullet || numbered) {
           return (
-            <Box key={i} sx={{ display: 'flex', gap: 1, pl: 0.5, mt: 0.4 }}>
-              <Typography variant={variant} sx={{ color: 'text.secondary', flexShrink: 0 }}>
-                {numbered ? `${numbered[1]}.` : '·'}
+            <Box key={i} sx={{ display: 'flex', alignItems: 'baseline', gap: 1, pl: 0.5, mt: 0.4 }}>
+              {/* A real bullet, bold and at text colour: the old middle dot was tiny and faint. */}
+              <Typography
+                variant={variant}
+                component="span"
+                aria-hidden="true"
+                sx={{
+                  flexShrink: 0,
+                  fontWeight: 700,
+                  color: 'text.primary',
+                  minWidth: numbered ? undefined : '0.9em',
+                  lineHeight: 1,
+                  ...(numbered ? {} : { fontSize: (t) => t.typography.pxToRem(22) }),
+                }}
+              >
+                {numbered ? `${numbered[1]}.` : '•'}
               </Typography>
               <Typography variant={variant} sx={{ lineHeight: 1.65 }}>
                 {inline(numbered ? numbered[2] : bullet![1])}

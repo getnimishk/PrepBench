@@ -9,7 +9,7 @@
     {
       "id": "what-it-is",
       "title": "Introduction to Azure Data Factory",
-      "summary": "ADF is mostly an orchestrator that also copies data itself: what it is, how it works from connect to monitor, its core concepts, and where it fits next to Databricks, Synapse and Fabric.",
+      "summary": "ADF is mostly an orchestrator that also copies data itself.",
       "sources": "§1, §18.1, §24",
       "blocks": [
         {
