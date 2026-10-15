@@ -147,8 +147,8 @@ export const CONCURRENCY_COUPLINGS: FactoryCoupling[] = [
   },
   {
     id: 'parallel-copies', type: 'fact',
-    formula: 'parallel copies 1 to 32 threads per copy activity',
-    uiLabel: 'From the ADF guide: parallel copies are the threads within one copy activity, 1 to 32.',
+    formula: 'parallel copies: threads per copy activity (lab planning range 1 to 32)',
+    uiLabel: 'Parallel copies are the threads within one copy activity. The ADF guide states no upper limit; this lab allows 1 to 32 as a planning range.',
     effect: 'Each copy holds as many connections as it has parallel copies.',
   },
   {

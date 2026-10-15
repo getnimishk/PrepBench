@@ -46,7 +46,7 @@ describe('the concurrency model', () => {
     expect(limited.minutes).toBeGreaterThan(run({ batchCount: 5, parallelCopies: 1 }).minutes);
   });
 
-  it('refuses settings outside the ranges the ADF guide states', () => {
+  it('refuses settings outside the ranges the lab allows (the ForEach batch count maximum is documented; 1 to 32 parallel copies is a planning range)', () => {
     expect(() => run({ batchCount: 0 })).toThrow(RangeError);
     expect(() => run({ batchCount: 51 })).toThrow(RangeError);
     expect(() => run({ batchCount: 2.5 })).toThrow(RangeError);

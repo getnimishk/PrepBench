@@ -32,6 +32,19 @@ describe('Explanation links', () => {
     expect(screen.queryByRole('link')).toBeNull();
   });
 
+  it('renders a fenced block as one code example, without interpreting its contents', () => {
+    const fence = '`'.repeat(3);
+    const text = ['Before', `${fence}json`, '{ "a": "**not bold**" }', '', '  "b": 1', fence, 'After'].join('\n');
+    const { container } = render(<Explanation text={text} />);
+    const pre = container.querySelector('pre');
+    expect(pre).not.toBeNull();
+    expect(pre?.textContent).toBe('{ "a": "**not bold**" }\n\n  "b": 1');
+    expect(pre).toHaveAttribute('role', 'region');
+    expect(container.querySelector('strong')).toBeNull();
+    expect(screen.getByText('Before')).toBeInTheDocument();
+    expect(screen.getByText('After')).toBeInTheDocument();
+  });
+
   it('keeps bold and code working next to a link', () => {
     render(<Explanation text="**Bold** `code` [docs](https://learn.microsoft.com/) end" />);
     expect(screen.getByText('Bold').tagName).toBe('STRONG');

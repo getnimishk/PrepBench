@@ -57,7 +57,7 @@ const positiveWhole = (x: number, max: number, what: string) => {
 };
 
 function core(l: CopyLevers, s: typeof SCENARIO) {
-  // The guide: DIUs are "the copy's power on an Azure IR, up to 256"; parallel copies are threads, 1 to 32.
+  // The guide: DIUs are "the copy's power on an Azure IR, up to 256"; parallel copies are threads (the guide gives no upper limit; 1 to 32 is the lab's planning range).
   positiveWhole(l.dius, 256, 'DIUs');
   positiveWhole(l.parallelCopies, 32, 'Parallel copies');
   if (!(l.sourceGbPerHour > 0)) throw new RangeError(`The source's read limit must be positive; got ${l.sourceGbPerHour}.`);

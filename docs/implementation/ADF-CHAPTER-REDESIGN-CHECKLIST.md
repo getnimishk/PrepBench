@@ -24,8 +24,12 @@ rules settled while Chapters 1 to 3 were rebuilt, so the next chapter starts fro
 - [ ] State conditions and limits exactly as documented. No blanket claims.
 - [ ] Where two pages disagree, say so and tell the learner to check their own value.
 - [ ] No connector counts, prices, performance figures or percentages.
+  - Interpretation, applied to the whole pack: no vendor connector counts, prices, benchmark or performance figures, or percentages stated as product facts. Documented limits are allowed when they carry their source and date (see the limits register in Chapter 21). In scenarios, invented values (a story's 60% through a copy, an 80 TB exercise) are allowed when they are plainly fictional or labelled as an assumption. A quiz distractor must not look like a benchmark.
 - [ ] Label your own inference as inference.
 - [ ] Never ask the learner to fact-check the content.
+
+- [ ] Where a deployment step depends on the approach (stopping triggers, for example), say what is documented and under what condition. Do not write "always".
+- [ ] Where two pages disagree (the tumbling window minimum interval, the checkpoint key), show both and name the page each came from.
 
 ## 4. Structure
 
@@ -33,6 +37,8 @@ rules settled while Chapters 1 to 3 were rebuilt, so the next chapter starts fro
 - [ ] Cover every roadmap topic of the chapter. Flag anything added outside its scope.
 - [ ] 3 to 5 "What Microsoft Doesn't Say" callouts: practical implication, why it matters, what to do, verify further. Leave one out rather than invent it.
 - [ ] End with an Interview takeaway and a practice block tied to the roadmap's learning evidence.
+- [ ] Every block has a heading. Text that follows a table goes before the table in the same block, or gets its own heading. A table-only block has no `md` key.
+- [ ] A chapter that teaches an object includes a small annotated JSON example when the object is something a learner may be asked to write.
 - [ ] Examples are plain examples: no "PrepBench example" or vendor labels.
 - [ ] Tables only where they help a decision.
 

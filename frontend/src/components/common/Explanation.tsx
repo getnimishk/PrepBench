@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { Box, Link, Typography } from '@mui/material';
+import { MONO_STACK, NARROW_QUERY } from '../../theme/tokens';
 
 /**
  * Question explanations, rendered rather than printed.
@@ -59,10 +60,54 @@ export const Explanation: React.FC<{ text: string; variant?: 'body1' | 'body2' }
   variant = 'body2',
 }) => {
   const lines = text.split('\n');
+  // A fenced block (three backticks) is kept as one code example; everything else is read line by line.
+  const items: ({ code: string[] } | { raw: string })[] = [];
+  for (let k = 0; k < lines.length; k += 1) {
+    if (lines[k].trimStart().startsWith('```')) {
+      const code: string[] = [];
+      k += 1;
+      while (k < lines.length && !lines[k].trimStart().startsWith('```')) {
+        code.push(lines[k]);
+        k += 1;
+      }
+      items.push({ code });
+    } else {
+      items.push({ raw: lines[k] });
+    }
+  }
 
   return (
     <Box>
-      {lines.map((raw, i) => {
+      {items.map((item, i) => {
+        if ('code' in item) {
+          return (
+            <Box
+              key={i}
+              component="pre"
+              tabIndex={0}
+              role="region"
+              aria-label="Code example"
+              sx={{
+                m: 0,
+                my: 1,
+                p: 1.5,
+                overflowX: 'auto',
+                maxWidth: '100%',
+                bgcolor: 'pb.surface2',
+                border: 1,
+                borderColor: 'divider',
+                borderRadius: 1,
+                fontFamily: MONO_STACK,
+                fontSize: (t) => t.typography.pxToRem(12.5),
+                lineHeight: 1.5,
+                '&:focus-visible': { outline: '2px solid', outlineColor: 'pb.accent' },
+              }}
+            >
+              <code>{item.code.join('\n')}</code>
+            </Box>
+          );
+        }
+        const raw = item.raw;
         const line = raw.trimEnd();
         if (!line.trim()) return <Box key={i} sx={{ height: 10 }} />;
 
@@ -71,13 +116,21 @@ export const Explanation: React.FC<{ text: string; variant?: 'body1' | 'body2' }
         const image = line.match(/^!\[([^\]]*)\]\((\/assets\/[^)\s]+)\)$/);
         if (image) {
           return (
-            <Box key={i} component="figure" sx={{ m: 0, my: 1 }}>
-              <Link href={image[2]} target="_blank" rel="noopener noreferrer" aria-label={`${image[1]} (opens full size)`}>
+            // On a phone the figure keeps its natural size and scrolls sideways, so a wide diagram's labels stay readable.
+            <Box
+              key={i}
+              component="figure"
+              tabIndex={0}
+              role="region"
+              aria-label={image[1]}
+              sx={{ m: 0, my: 1, overflowX: 'auto', maxWidth: '100%', '&:focus-visible': { outline: '2px solid', outlineColor: 'pb.accent' } }}
+            >
+              <Link href={image[2]} target="_blank" rel="noopener noreferrer" aria-label={`${image[1]} (opens full size)`} sx={{ display: 'block', width: 'fit-content', maxWidth: '100%', [NARROW_QUERY]: { maxWidth: 'none' } }}>
                 <Box
                   component="img"
                   src={image[2]}
                   alt={image[1]}
-                  sx={{ display: 'block', maxWidth: '100%', height: 'auto', border: 1, borderColor: 'divider', borderRadius: 1 }}
+                  sx={{ display: 'block', maxWidth: '100%', height: 'auto', border: 1, borderColor: 'divider', borderRadius: 1, [NARROW_QUERY]: { maxWidth: 'none' } }}
                 />
               </Link>
             </Box>
