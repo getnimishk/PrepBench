@@ -27,7 +27,7 @@ export const GuideChapterPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const roadmapId = searchParams.get('roadmapId');
   const topicId = searchParams.get('topicId');
-  const hasTopicContext = Boolean(roadmapId && topicId && /^\\d+$/.test(roadmapId) && /^\\d+$/.test(topicId));
+  const hasTopicContext = Boolean(roadmapId && topicId && /^\d+$/.test(roadmapId) && /^\d+$/.test(topicId));
   const contextQuery = hasTopicContext ? `?roadmapId=${roadmapId}&topicId=${topicId}` : '';
   const { selected } = usePreparation();
   const linkedVersion = selected?.content_packs?.find((cp) => cp.pack_id === packId)?.pack_version ?? null;
