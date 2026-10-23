@@ -352,6 +352,10 @@ export const RoadmapDetailPage: React.FC = () => {
   const journeyKey = tabs.find((t) => t.kind === 'tracker' || t.kind === 'journey')?.key ?? 'view:journey';
   const syllabusKey = tabs.find((t) => t.kind === 'syllabus')?.key;
   const perTopic = totalHours != null && p.total_topics > 0 ? totalHours / p.total_topics : null;
+  // Resume an active topic first; otherwise choose the first topic not completed or skipped.
+  const orderedTopics = roadmap.phases.flatMap((phase) => phase.topics);
+  const nextTopic = orderedTopics.find((topic) => topic.status === 'in_progress')
+    ?? orderedTopics.find((topic) => topic.status !== 'completed' && topic.status !== 'skipped');
 
   return (
     <Box>
@@ -375,6 +379,15 @@ export const RoadmapDetailPage: React.FC = () => {
               </Button>
             )}
             <Button variant="outlined" component={RouterLink} to="/learn">Study Library →</Button>
+            {nextTopic && (
+              <Button
+                variant="contained"
+                color="ink"
+                onClick={() => { window.history.replaceState(window.history.state, ''); window.location.assign(`/roadmaps/${id}/topics/${nextTopic.id}`); }}
+              >
+                Continue learning: {nextTopic.title}
+              </Button>
+            )}
             <Button variant="outlined" onClick={() => setTabKey(journeyKey)}>Phase overview</Button>
             <Button variant="outlined" component={RouterLink} to={`/roadmaps/${id}/edit`}>Edit plan</Button>
             {!multiSheet && roadmap.resources.length > 0 && (
