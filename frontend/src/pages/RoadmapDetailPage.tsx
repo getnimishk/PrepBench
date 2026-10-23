@@ -352,6 +352,10 @@ export const RoadmapDetailPage: React.FC = () => {
   const journeyKey = tabs.find((t) => t.kind === 'tracker' || t.kind === 'journey')?.key ?? 'view:journey';
   const syllabusKey = tabs.find((t) => t.kind === 'syllabus')?.key;
   const perTopic = totalHours != null && p.total_topics > 0 ? totalHours / p.total_topics : null;
+  // Resume an active topic first; otherwise choose the first topic not completed or skipped.
+  const orderedTopics = roadmap.phases.flatMap((phase) => phase.topics);
+  const nextTopic = orderedTopics.find((topic) => topic.status === 'in_progress')
+    ?? orderedTopics.find((topic) => topic.status !== 'completed' && topic.status !== 'skipped');
 
   return (
     <Box>
@@ -385,6 +389,53 @@ export const RoadmapDetailPage: React.FC = () => {
           </>
         )}
       />
+
+      <Section>
+        <Panel component="section" aria-labelledby="roadmap-next-step">
+          <Box sx={{ display: 'flex', alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+            <Box sx={{ minWidth: 0, flex: '1 1 320px' }}>
+              <Eyebrow component="h2" id="roadmap-next-step">Your learning path</Eyebrow>
+              {nextTopic ? (
+                <>
+                  <Typography variant="h5" component="h2" sx={{ mt: '4px' }}>{nextTopic.title}</Typography>
+                  <Detail sx={{ mt: '4px' }}>
+                    {roadmap.phases.find((phase) => phase.topics.some((topic) => topic.id === nextTopic.id))?.name ?? 'Next topic'}
+                    {' · '}
+                    {nextTopic.status === 'in_progress' ? 'Resume where you left off' : 'Recommended next topic'}
+                    {nextTopic.estimated_hours != null ? ` · ${nextTopic.estimated_hours}h estimated` : ''}
+                  </Detail>
+                  {nextTopic.learning_objective && (
+                    <Typography variant="body2" sx={{ mt: '8px', color: 'text.secondary' }}>
+                      {nextTopic.learning_objective}
+                    </Typography>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Typography variant="h5" component="h2" sx={{ mt: '4px' }}>All roadmap topics are accounted for</Typography>
+                  <Detail sx={{ mt: '4px' }}>Review completed topics, revisit anything due for recheck, or update the plan.</Detail>
+                </>
+              )}
+            </Box>
+            {nextTopic ? (
+              <Button
+                variant="contained"
+                color="ink"
+                size="large"
+                component={RouterLink}
+                to={`/roadmaps/${id}/topics/${nextTopic.id}`}
+                sx={{ flexShrink: 0, minHeight: 44 }}
+              >
+                {nextTopic.status === 'in_progress' ? 'Resume learning' : 'Start next topic'} →
+              </Button>
+            ) : (
+              <Button variant="outlined" component={RouterLink} to={`/roadmaps/${id}/edit`} sx={{ minHeight: 44 }}>
+                Review roadmap
+              </Button>
+            )}
+          </Box>
+        </Panel>
+      </Section>
 
       <Section>
         <Grid columns={4}>

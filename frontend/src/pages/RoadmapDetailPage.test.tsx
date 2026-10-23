@@ -146,6 +146,8 @@ describe('RoadmapDetailPage', () => {
     expect(screen.getByText('Core Foundations')).toBeInTheDocument();
     expect(screen.getByText('Topic 1')).toBeInTheDocument();
     expect(screen.getByText('Topic 2')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Your learning path' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Start next topic/ })).toHaveAttribute('href', '/roadmaps/1/topics/2');
   });
 
   it('updates a topic status and refreshes progress without a full reload', async () => {

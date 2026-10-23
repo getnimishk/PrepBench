@@ -52,6 +52,9 @@ export const RoadmapJourneyView: React.FC<Props> = ({ roadmapId, phases, onOpenP
             : null;
           const firstTopics = phase.topics.slice(0, 2).map((t) => t.title).join(', ')
             + (phase.topics.length > 2 ? '…' : '');
+          // Put a direct next action on each phase, not just a phase-filter action.
+          const phaseNext = phase.topics.find((t) => t.status === 'in_progress')
+            ?? phase.topics.find((t) => t.status !== 'completed' && t.status !== 'skipped');
           // Where the learner is: the first phase with a topic still to do.
           const current = index === phases.findIndex((ph) => ph.topics.some((t) => t.status === 'not_started' || t.status === 'in_progress'));
           return (
@@ -75,9 +78,22 @@ export const RoadmapJourneyView: React.FC<Props> = ({ roadmapId, phases, onOpenP
                 </Box>
               )}
               action={(
-                <Button variant="outlined" onClick={() => onOpenPhase(phase.id)} aria-label={`Open ${phase.name}`}>
-                  Open
-                </Button>
+                <Box sx={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  {phaseNext && (
+                    <Button
+                      variant={current ? 'contained' : 'outlined'}
+                      color={current ? 'ink' : 'primary'}
+                      component={RouterLink}
+                      to={`/roadmaps/${roadmapId}/topics/${phaseNext.id}`}
+                      aria-label={`Continue ${phase.name}: ${phaseNext.title}`}
+                    >
+                      {current ? 'Continue learning' : 'Start phase'}
+                    </Button>
+                  )}
+                  <Button variant="text" onClick={() => onOpenPhase(phase.id)} aria-label={`View topics in ${phase.name}`}>
+                    View topics
+                  </Button>
+                </Box>
               )}
             />
           );
