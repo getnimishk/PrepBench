@@ -14,6 +14,7 @@ import { RoadmapTopicPage } from './RoadmapTopicPage';
 import { TopicGuidePage } from './TopicGuidePage';
 import { TopicDemonstratePage } from './TopicDemonstratePage';
 import { StudyLibraryPage } from './StudyLibraryPage';
+import { GuideChapterPage } from './GuideChapterPage';
 import type { RoadmapDetail, RoadmapSchedule, RoadmapSummary } from '../types/roadmap';
 import type { Subject } from '../types/subject';
 import adfRoadmap from '../test/fixtures/adfSampleRoadmap.json';
@@ -178,7 +179,7 @@ const renderApp = (initialRoute: string) => render(
       <Route path="/roadmaps/:roadmapId/topics/:topicId/demonstrate" element={<TopicDemonstratePage />} />
       <Route path="/learn" element={<StudyLibraryPage />} />
       <Route path="/learn/guides/:packId" element={<div>Guide Pack Detail</div>} />
-      <Route path="/learn/guides/:packId/:chapterId" element={<div>Guide Chapter Detail</div>} />
+      <Route path="/learn/guides/:packId/:chapterId" element={<GuideChapterPage />} />
     </Routes>
   </MemoryRouter>,
 );
@@ -448,6 +449,7 @@ describe('PrepBench Core Learning & Planning Flows', () => {
 
   it('Flow E: Topic with PR #73 Mapped Curriculum → Read Study Guide → Demonstrate', async () => {
     const user = userEvent.setup();
+    mockApi.getContentPack.mockResolvedValue(adfPack);
     const topicWithCurriculum = {
       ...mockTopic,
       mapped_chapters: [{
@@ -477,7 +479,17 @@ describe('PrepBench Core Learning & Planning Flows', () => {
     expect(screen.getByText('Full Coverage')).toBeInTheDocument();
 
     const readGuideLink = screen.getByRole('link', { name: 'Read Study Guide' });
-    expect(readGuideLink).toHaveAttribute('href', '/learn/guides/adf/what-it-is');
+    expect(readGuideLink).toHaveAttribute('href', '/learn/guides/adf/what-it-is?roadmapId=1&topicId=10');
+
+    // 2. The chapter keeps the roadmap topic available while reading.
+    await user.click(readGuideLink);
+    expect(await screen.findByRole('navigation', { name: 'Roadmap learning context' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Back to topic' })).toHaveAttribute('href', '/roadmaps/1/topics/10');
+    expect(screen.getByRole('link', { name: 'Demonstrate mastery' })).toHaveAttribute('href', '/roadmaps/1/topics/10/demonstrate');
+    const nextChapter = screen.getByRole('link', { name: /^Next:/ });
+    expect(nextChapter.getAttribute('href')).toContain('?roadmapId=1&topicId=10');
+
+    await user.click(screen.getByRole('link', { name: 'Demonstrate mastery' }));
 
     // 2. Click Demonstrate mastery to go directly to demonstration
     const demoBtn = screen.getByRole('button', { name: 'Demonstrate mastery' });
