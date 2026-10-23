@@ -8,7 +8,7 @@ import { createCertification, createSkillWithPack, pickPreparation } from './hel
 /**
  * Built-in guides in the Study Library (skills-and-content-packs-plan.md Phase 2).
  *
- * A learner with an ADF skill can read all 21 chapters. The version shown is
+ * A learner with an ADF skill can read all 23 chapters. The version shown is
  * the one their preparation actually pinned -- so with the pack attached
  * (the normal case here), the "not attached" note must never appear.
  */
@@ -21,20 +21,20 @@ test('a preparation with the ADF pack lists its guide in the Study Library, and 
   await page.goto('/learn');
 
   const guidePanel = page.getByRole('region', { name: 'Azure Data Factory' });
-  await expect(guidePanel.getByText('21 chapters')).toBeVisible();
+  await expect(guidePanel.getByText('23 chapters')).toBeVisible();
   await expect(page.getByText('Not attached', { exact: false })).toHaveCount(0);
 
   await page.getByRole('link', { name: 'All chapters' }).click();
   await expect(page).toHaveURL('/learn/guides/adf');
-  await expect(page.getByRole('heading', { name: 'Azure Data Factory' })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Read chapter \d+/ })).toHaveCount(21);
+  await expect(page.getByRole('heading', { name: 'Azure Data Factory', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Read chapter \d+/ })).toHaveCount(23);
   await expect(page.getByText('Not attached', { exact: false })).toHaveCount(0);
 
-  // The longest chapter: Pitfalls, chapter 21, four tables.
-  await page.getByRole('link', { name: 'Read chapter 21: Pitfalls: every trap in one place' }).click();
+  // The longest chapter: Pitfalls, chapter 23, six tables.
+  await page.getByRole('link', { name: 'Read chapter 23: Pitfalls: every trap in one place' }).click();
   await expect(page).toHaveURL('/learn/guides/adf/pitfalls');
-  await expect(page.getByRole('heading', { name: /21 · Pitfalls/ })).toBeVisible();
-  await expect(page.getByRole('table')).toHaveCount(4);
+  await expect(page.getByRole('heading', { name: /23 · Pitfalls/ })).toBeVisible();
+  await expect(page.getByRole('table')).toHaveCount(6);
   await expect(page.getByText('Not attached', { exact: false })).toHaveCount(0);
 
   // Chapter navigation and the way back.

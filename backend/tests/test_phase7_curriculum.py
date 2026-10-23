@@ -435,7 +435,7 @@ def test_attached_packs_report_what_they_hold():
     assert packs["adls"]["written_scenario_count"] == 0  # a guide, never a scenario source
     adf = _preparation(pack="adf")
     adf_pack = {p["pack_id"]: p for p in _subject(adf)["content_packs"]}["adf"]
-    assert adf_pack["chapter_count"] == 21 and adf_pack["written_scenario_count"] > 0
+    assert adf_pack["chapter_count"] == 23 and adf_pack["written_scenario_count"] > 0
 
 
 def test_a_guide_only_pack_maps_no_roadmap_chapters():
