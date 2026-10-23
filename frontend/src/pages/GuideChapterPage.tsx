@@ -3,7 +3,7 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React, { useEffect, useState } from 'react';
-import { Link as RouterLink, useParams } from 'react-router-dom';
+import { Link as RouterLink, useParams, useSearchParams } from 'react-router-dom';
 import {
   Box, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
 } from '@mui/material';
@@ -24,6 +24,11 @@ import { Actions, Detail, Good, Note, PageHead, Panel, PanelHead, Section } from
  */
 export const GuideChapterPage: React.FC = () => {
   const { packId, chapterId } = useParams<{ packId: string; chapterId: string }>();
+  const [searchParams] = useSearchParams();
+  const roadmapId = searchParams.get('roadmapId');
+  const topicId = searchParams.get('topicId');
+  const hasTopicContext = Boolean(roadmapId && topicId && /^\\d+$/.test(roadmapId) && /^\\d+$/.test(topicId));
+  const contextQuery = hasTopicContext ? `?roadmapId=${roadmapId}&topicId=${topicId}` : '';
   const { selected } = usePreparation();
   const linkedVersion = selected?.content_packs?.find((cp) => cp.pack_id === packId)?.pack_version ?? null;
 
@@ -82,6 +87,7 @@ export const GuideChapterPage: React.FC = () => {
     .filter((s): s is NonNullable<typeof s> => Boolean(s) && !own.includes(s!));
   const practice = [...new Set([...own, ...linked])];
   const scenarioPath = (id: string) => `/scenarios/${pack.pack_id}/${id}`;
+  const topicPath = `/roadmaps/${roadmapId}/topics/${topicId}`;
 
   return (
     <Box>
@@ -93,6 +99,16 @@ export const GuideChapterPage: React.FC = () => {
           <Button variant="contained" color="ink" component={RouterLink} to={scenarioPath(practice[0].id)}>Practise this</Button>
         )}
       />
+
+      {hasTopicContext && (
+        <Panel component="nav" aria-label="Roadmap learning context" sx={{ mb: '16px' }}>
+          <Detail>Reading for a roadmap topic</Detail>
+          <Actions sx={{ mt: '8px' }}>
+            <Button variant="outlined" component={RouterLink} to={topicPath}>Back to topic</Button>
+            <Button variant="contained" color="ink" component={RouterLink} to={`${topicPath}/demonstrate`}>Demonstrate mastery</Button>
+          </Actions>
+        </Panel>
+      )}
 
       {linkedVersion === null && (
         <Note sx={{ mb: '16px' }}>
@@ -143,8 +159,8 @@ export const GuideChapterPage: React.FC = () => {
           </Good>
         )}
         <Actions>
-          {prev && <Button variant="outlined" component={RouterLink} to={`/learn/guides/${pack.pack_id}/${prev.id}`}>Previous: {prev.title}</Button>}
-          {next && <Button variant="outlined" component={RouterLink} to={`/learn/guides/${pack.pack_id}/${next.id}`}>Next: {next.title}</Button>}
+          {prev && <Button variant="outlined" component={RouterLink} to={`/learn/guides/${pack.pack_id}/${prev.id}${contextQuery}`}>Previous: {prev.title}</Button>}
+          {next && <Button variant="outlined" component={RouterLink} to={`/learn/guides/${pack.pack_id}/${next.id}${contextQuery}`}>Next: {next.title}</Button>}
           <Button variant="text" component={RouterLink} to={`/learn/guides/${pack.pack_id}`}>All chapters</Button>
         </Actions>
         <Detail sx={{ mt: '8px' }}>Source: {pack.docs_url}</Detail>
