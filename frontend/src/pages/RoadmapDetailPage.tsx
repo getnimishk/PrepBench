@@ -383,7 +383,8 @@ export const RoadmapDetailPage: React.FC = () => {
               <Button
                 variant="contained"
                 color="ink"
-                onClick={() => { window.history.replaceState(window.history.state, ''); window.location.assign(`/roadmaps/${id}/topics/${nextTopic.id}`); }}
+                component={RouterLink}
+                to={`/roadmaps/${id}/topics/${nextTopic.id}`}
               >
                 Continue learning: {nextTopic.title}
               </Button>
