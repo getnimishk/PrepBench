@@ -3,13 +3,15 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React, { useEffect, useState } from 'react';
-import { Link as RouterLink, useParams } from 'react-router-dom';
+import { Link as RouterLink, useParams, useSearchParams } from 'react-router-dom';
 import {
   Box, Button, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs,
 } from '@mui/material';
 import { getContentPack } from '../services/api';
 import { apiErrorMessage } from '../services/apiError';
 import { usePreparation } from '../context/PreparationContext';
+import { guideChapterPath, readTopicContext } from '../services/topicContext';
+import { ChapterTopicContext } from '../components/roadmap/ChapterTopicContext';
 import type { ContentPackDetail } from '../types/contentPack';
 import { Explanation } from '../components/common/Explanation';
 import { ErrorState, LoadingState } from '../components/common/States';
@@ -27,6 +29,9 @@ const ALIGNMENT_HEADING = 'Roadmap alignment';
 export const GuideChapterPage: React.FC = () => {
   const { packId, chapterId } = useParams<{ packId: string; chapterId: string }>();
   const { selected } = usePreparation();
+  const [searchParams] = useSearchParams();
+  // The topic this chapter was opened from, if any; carried through previous/next.
+  const topicContext = readTopicContext(searchParams);
   const linkedVersion = selected?.content_packs?.find((cp) => cp.pack_id === packId)?.pack_version ?? null;
 
   const [pack, setPack] = useState<ContentPackDetail | null>(null);
@@ -105,6 +110,10 @@ export const GuideChapterPage: React.FC = () => {
         )}
       />
 
+      {topicContext && packId && chapterId && (
+        <ChapterTopicContext packId={packId} chapterId={chapterId} context={topicContext} />
+      )}
+
       {linkedVersion === null && (
         <Note sx={{ mb: '16px' }}>
           {selected
@@ -181,8 +190,8 @@ export const GuideChapterPage: React.FC = () => {
           </Good>
         )}
         <Actions>
-          {prev && <Button variant="outlined" component={RouterLink} to={`/learn/guides/${pack.pack_id}/${prev.id}`}>Previous: {prev.title}</Button>}
-          {next && <Button variant="outlined" component={RouterLink} to={`/learn/guides/${pack.pack_id}/${next.id}`}>Next: {next.title}</Button>}
+          {prev && <Button variant="outlined" component={RouterLink} to={guideChapterPath(pack.pack_id, prev.id, topicContext)}>Previous: {prev.title}</Button>}
+          {next && <Button variant="outlined" component={RouterLink} to={guideChapterPath(pack.pack_id, next.id, topicContext)}>Next: {next.title}</Button>}
           <Button variant="text" component={RouterLink} to={`/learn/guides/${pack.pack_id}`}>All chapters</Button>
         </Actions>
         <Detail sx={{ mt: '8px' }}>Source: {pack.docs_url}</Detail>

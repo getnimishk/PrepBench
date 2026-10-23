@@ -429,9 +429,9 @@ describe('PrepBench Core Learning & Planning Flows', () => {
     expect(within(refPanel).getByText('Study Guide Crosswalk')).toBeInTheDocument();
     expect(within(refPanel).queryByText('Portfolio & Scenarios')).not.toBeInTheDocument();
 
-    // 4. Verify Relevant Guide renders ADF content pack with 21 chapters
+    // 4. Verify Relevant Guide renders ADF content pack with all its chapters
     expect(screen.getByRole('heading', { name: 'Azure Data Factory', level: 2 })).toBeInTheDocument();
-    expect(screen.getByText('21 chapters · Shared study reference material')).toBeInTheDocument();
+    expect(screen.getByText(`${adfPack.chapters.length} chapters · Shared study reference material`)).toBeInTheDocument();
 
     // 5. Navigate to Roadmap Detail to verify 60 topics and multi-sheet tabs
     const viewRoadmapBtn = screen.getByRole('link', { name: 'View roadmap' });
@@ -477,7 +477,7 @@ describe('PrepBench Core Learning & Planning Flows', () => {
     expect(screen.getByText('Full Coverage')).toBeInTheDocument();
 
     const readGuideLink = screen.getByRole('link', { name: 'Read Study Guide' });
-    expect(readGuideLink).toHaveAttribute('href', '/learn/guides/adf/what-it-is');
+    expect(readGuideLink).toHaveAttribute('href', '/learn/guides/adf/what-it-is?roadmap=1&topic=10');
 
     // 2. Click Demonstrate mastery to go directly to demonstration
     const demoBtn = screen.getByRole('button', { name: 'Demonstrate mastery' });

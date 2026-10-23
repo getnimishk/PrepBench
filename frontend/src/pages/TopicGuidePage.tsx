@@ -4,6 +4,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
+import { guideChapterPath } from '../services/topicContext';
 import {
   Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent,
   DialogTitle, Link, Stack, TextField, Typography,
@@ -389,7 +390,7 @@ export const TopicGuidePage: React.FC = () => {
                         variant="contained"
                         color="ink"
                         component={RouterLink}
-                        to={`/learn/guides/${ch.pack_id}/${ch.chapter_id}`}
+                        to={guideChapterPath(ch.pack_id, ch.chapter_id, { roadmapId: rid, topicId: tid })}
                       >
                         Read Chapter {ch.chapter_number}
                       </Button>

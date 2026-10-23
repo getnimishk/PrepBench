@@ -138,7 +138,7 @@ describe('TopicDemonstratePage and TopicGuidePage when they cannot load', () => 
     expect(await screen.findByText("Ch 1 · What ADF is, and what it isn't")).toBeInTheDocument();
     expect(screen.getByText('Full Coverage')).toBeInTheDocument();
     const readBtn = screen.getByRole('link', { name: 'Read Study Guide' });
-    expect(readBtn).toHaveAttribute('href', '/learn/guides/adf/what-it-is');
+    expect(readBtn).toHaveAttribute('href', '/learn/guides/adf/what-it-is?roadmap=3&topic=7');
     expect(screen.getByRole('button', { name: 'Notes & AI draft' })).toBeInTheDocument();
   });
 
@@ -169,7 +169,7 @@ describe('TopicDemonstratePage and TopicGuidePage when they cannot load', () => 
     expect(screen.getByText('Personal notes & AI synthesis')).toBeInTheDocument();
     expect(screen.queryByText('No study guide yet')).not.toBeInTheDocument();
     const readLink = screen.getByRole('link', { name: 'Read Chapter 1' });
-    expect(readLink).toHaveAttribute('href', '/learn/guides/adf/what-it-is');
+    expect(readLink).toHaveAttribute('href', '/learn/guides/adf/what-it-is?roadmap=3&topic=7');
   });
 });
 
@@ -224,7 +224,7 @@ describe('a topic\'s curriculum links and evidence', () => {
     api.getRoadmap.mockResolvedValue(adfRoadmap(6));
     renderAt('/roadmaps/6/topics/7');
 
-    expect(await screen.findByRole('link', { name: 'Ch 9 · Loading only new data' })).toHaveAttribute('href', '/learn/guides/adf/incremental');
+    expect(await screen.findByRole('link', { name: 'Ch 9 · Loading only new data' })).toHaveAttribute('href', '/learn/guides/adf/incremental?roadmap=6&topic=7');
     expect(screen.getByText('Partial Coverage')).toBeInTheDocument();
     // The pack is read at the version the preparation pins.
     // Read in an effect after the roadmap renders: waited for, not assumed to have run already.
