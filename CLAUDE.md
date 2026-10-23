@@ -532,7 +532,7 @@ docs/
      notice. A chapter's `Roadmap alignment` block is shown in its own tab on the chapter page.
   3. Every roadmap topic must map to one or more Study Guide sections (see `docs/research/ADF_Study_Guide_Roadmap_Crosswalk.md`).
   4. Coverage must be labelled Full or Partial honestly; do not convert Partial to Full without dedicated content.
-  5. Do not create duplicate chapters simply to satisfy roadmap numbering; The guide has 23 chapters since the 2026-10-21 rewrite (the fixed 21 was lifted by the user); keep every original chapter id and title, because the Behaviour Lab pins them. The roadmap is `docs/research/ADF_Master_Roadmap_Aligned.xlsx` (61 topics, numbers 1-60 unchanged).
+  5. Do not create duplicate chapters simply to satisfy roadmap numbering; The guide has 23 chapters since the 2026-10-21 rewrite (the fixed 21 was lifted by the user); keep every original chapter id and title, because the Behaviour Lab pins them. The roadmap is `docs/research/ADF_Master_Roadmap.xlsx` (61 topics, numbers 1-60 unchanged).
   6. When ADF Study Guide content changes, update the roadmap mapping.
   7. When roadmap topics change, review the Study Guide crosswalk.
   8. The existing technical accuracy and research discipline still applies (grounded claim-by-claim in Microsoft Learn).
