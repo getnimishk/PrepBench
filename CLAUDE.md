@@ -493,7 +493,7 @@ docs/
   - *System Design (id: 3)*: Interview (32 architecture prompts, 10 design reviews), Roadmap (id: 4: Storage FileSystems to Cloud Mastery Roadmap, 13 phases, 63 topics, 188h), Workspace, Evidence.
   - *Kafka CCDAK (id: 4)*: Certification (0 questions loaded in database, mock assembly disabled), Roadmap (id: 1), Workspace, Evidence.
   - *Agentic AI (id: 5)*: Roadmap (id: 5), Workspace, Evidence.
-  - *ADF (id: 6)*: Interview (18 scenarios), Learning Lab (5 behaviour labs), Roadmap (60 topics), Study Guide (21 chapters), Scenarios (18), Workspace, Evidence. (**ADF is a Skill, not a Certification**).
+  - *ADF (id: 6)*: Interview (18 scenarios), Learning Lab (5 behaviour labs), Roadmap (61 topics), Study Guide (23 chapters), Scenarios (18), Workspace, Evidence. (**ADF is a Skill, not a Certification**).
   All frontend capability guards, sidebar entries, and routing MUST consume `usePreparation().capabilities` or `isCapabilityAvailable(subjectOrId, capability)` — never inspect `subject.kind === 'certification'` or hardcode per-page assumptions.
 - **Readiness is computed from full mocks only.** A drill is never a readiness signal.
   Zero mocks reads "needs evaluation", never `0%`. See `docs/wiki/Readiness.md`.
@@ -527,12 +527,12 @@ docs/
   1. The ADF Roadmap (`docs/research/ADF_Master_Roadmap_Mapped.xlsx`) is the curriculum planning source.
   2. The ADF Study Guide (`backend/app/content/packs/adf/v<N>.json`) is the learner-facing implementation.
      It is published one file per version and a skill pins the version it attached. **`v1.json` is the
-     original guide and never changes** (a test pins it by fingerprint); `v2.json` carries the redesigned
-     Chapters 1 to 3. Edit the newest version, and add a new version file for any change a learner could
+     original guide and never changes** (a test pins it by fingerprint); `v2.json` is the rewritten guide
+     (23 chapters, from 2026-10-21). Edit the newest version, and add a new version file for any change a learner could
      notice. A chapter's `Roadmap alignment` block is shown in its own tab on the chapter page.
   3. Every roadmap topic must map to one or more Study Guide sections (see `docs/research/ADF_Study_Guide_Roadmap_Crosswalk.md`).
   4. Coverage must be labelled Full or Partial honestly; do not convert Partial to Full without dedicated content.
-  5. Do not create duplicate chapters simply to satisfy roadmap numbering; preserve the 21-chapter Study Guide structure.
+  5. Do not create duplicate chapters simply to satisfy roadmap numbering; The guide has 23 chapters since the 2026-10-21 rewrite (the fixed 21 was lifted by the user); keep every original chapter id and title, because the Behaviour Lab pins them. The roadmap is `docs/research/ADF_Master_Roadmap_Aligned.xlsx` (61 topics, numbers 1-60 unchanged).
   6. When ADF Study Guide content changes, update the roadmap mapping.
   7. When roadmap topics change, review the Study Guide crosswalk.
   8. The existing technical accuracy and research discipline still applies (grounded claim-by-claim in Microsoft Learn).
