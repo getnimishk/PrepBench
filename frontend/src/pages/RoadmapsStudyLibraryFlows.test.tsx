@@ -501,10 +501,7 @@ describe('PrepBench Core Learning & Planning Flows', () => {
 
     await user.click(screen.getByRole('link', { name: 'Demonstrate mastery' }));
 
-    // 2. Click Demonstrate mastery to go directly to demonstration
-    const demoBtn = screen.getByRole('button', { name: 'Demonstrate mastery' });
-    await user.click(demoBtn);
-
+    // 3. The topic's demonstration page opens directly from the chapter context.
     expect(await screen.findByRole('heading', { name: 'Kafka Producer Internals', level: 1 })).toBeInTheDocument();
     expect(screen.getByText('The criterion you are meeting')).toBeInTheDocument();
   });
