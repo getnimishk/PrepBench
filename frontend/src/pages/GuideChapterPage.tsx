@@ -27,8 +27,9 @@ export const GuideChapterPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const roadmapId = searchParams.get('roadmapId');
   const topicId = searchParams.get('topicId');
+  const topicTitle = searchParams.get('topicTitle');
   const hasTopicContext = Boolean(roadmapId && topicId && /^\d+$/.test(roadmapId) && /^\d+$/.test(topicId));
-  const contextQuery = hasTopicContext ? `?roadmapId=${roadmapId}&topicId=${topicId}` : '';
+  const contextQuery = hasTopicContext ? `?roadmapId=${roadmapId}&topicId=${topicId}${topicTitle ? `&topicTitle=${encodeURIComponent(topicTitle)}` : ''}` : '';
   const { selected } = usePreparation();
   const linkedVersion = selected?.content_packs?.find((cp) => cp.pack_id === packId)?.pack_version ?? null;
 
@@ -102,7 +103,7 @@ export const GuideChapterPage: React.FC = () => {
 
       {hasTopicContext && (
         <Panel component="nav" aria-label="Roadmap learning context" sx={{ mb: '16px' }}>
-          <Detail>Reading for a roadmap topic</Detail>
+          <Detail>Reading for: {topicTitle || 'Roadmap topic'}</Detail>
           <Actions sx={{ mt: '8px' }}>
             <Button variant="outlined" component={RouterLink} to={topicPath}>Back to topic</Button>
             <Button variant="contained" color="ink" component={RouterLink} to={`${topicPath}/demonstrate`}>Demonstrate mastery</Button>
