@@ -286,6 +286,17 @@ export const RoadmapTopicPage: React.FC = () => {
                 <Button variant="outlined" onClick={() => navigate(`/roadmaps/${rid}`)}>Return to roadmap</Button>
               </>
             )
+          ) : unevidenced ? (
+            <>
+              <Typography variant="h6" sx={{ mt: '4px' }}>Confirm mastery before moving on</Typography>
+              <Sub sx={{ mt: '4px', mb: '12px' }}>
+                This topic is marked complete, but PrepBench has no demonstration recorded for it. Explain the success criterion now to establish evidence, or return to the roadmap and correct the status.
+              </Sub>
+              <Actions>
+                <Button variant="contained" color="ink" onClick={() => navigate(`/roadmaps/${rid}/topics/${topic.id}/demonstrate`)} disabled={!topic.success_criteria}>Demonstrate mastery</Button>
+                <Button variant="outlined" onClick={() => navigate(`/roadmaps/${rid}`)}>Review roadmap</Button>
+              </Actions>
+            </>
           ) : links.chapters.length > 0 ? (
             <>
               <Typography variant="h6" sx={{ mt: '4px' }}>{topic.status === 'in_progress' ? 'Continue learning this topic' : 'Start by learning the concept'}</Typography>
