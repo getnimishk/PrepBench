@@ -287,7 +287,7 @@ export const RoadmapTopicPage: React.FC = () => {
                 <Box component="ul" sx={{ listStyle: 'none', p: 0, m: '4px 0 0' }}>
                   {links.chapters.map((c) => (
                     <Box component="li" key={c.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', py: '4px' }}>
-                      <Link component={RouterLink} to={`/learn/guides/${links.packId}/${c.id}`} sx={{ fontWeight: 600 }}>
+                      <Link component={RouterLink} to={`/learn/guides/${links.packId}/${c.id}?roadmapId=${rid}&topicId=${topic.id}`} sx={{ fontWeight: 600 }}>
                         Ch {c.number} · {c.title}
                       </Link>
                       {c.coverage && <Pill tone={c.coverage.toLowerCase() === 'full' ? 'success' : 'warning'}>{c.coverage} Coverage</Pill>}
@@ -321,7 +321,7 @@ export const RoadmapTopicPage: React.FC = () => {
                   </>
                 )}
                 <Actions sx={{ mt: '12px' }}>
-                  <Button variant="contained" color="ink" component={RouterLink} to={`/learn/guides/${links.packId}/${links.chapters[0].id}`}>
+                  <Button variant="contained" color="ink" component={RouterLink} to={`/learn/guides/${links.packId}/${links.chapters[0].id}?roadmapId=${rid}&topicId=${topic.id}`}>
                     Read Study Guide
                   </Button>
                   <Button variant="outlined" onClick={() => navigate(`/roadmaps/${rid}/topics/${topic.id}/guide`)}>
