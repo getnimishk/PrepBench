@@ -53,7 +53,7 @@ export const UNASSIGNED_CAPABILITIES: SubjectCapabilityProfile = Object.freeze({
  * 5. Agentic AI (id: 5): SKILL with Agentic AI Mastery Roadmap (id: 5). No interview questions loaded in database yet.
  * 6. ADF (id: 6): SKILL (ADF IS A SKILL, NOT A CERTIFICATION!). Supported via 18 authored incident scenarios,
  *    60 Roadmap topics, and 21 Study Guide chapters.
- *    Interview is genuine and subject-scoped: the shipped pack (backend/app/content/packs/adf/v1.json) has a
+ *    Interview is genuine and subject-scoped: the shipped pack (backend/app/content/packs/adf/v2.json) has a
  *    Say-it question for each of 4 roles in each of its 18 scenarios (72 in all), and ScenarioPage saves the
  *    learner's answer as an interview question under this preparation (PUT /interview-questions/by-source,
  *    unique on source_ref + subject_id). It is NOT the shared, subject-less interview library, and nothing

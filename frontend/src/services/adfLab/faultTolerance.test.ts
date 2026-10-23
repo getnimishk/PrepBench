@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import pipeline from '../../../../backend/app/data/lab_packs/semiconductor-v1/pipeline.json';
-import adfPack from '../../../../backend/app/content/packs/adf/v1.json';
+import adfPack from '../../../../backend/app/content/packs/adf/v2.json';
 import { DEFAULT_LEVERS, parseAdf, runPipeline, type SourceRow } from '../lakehouse/adfModel';
 import {
   FAULT_TOLERANCE_COUPLINGS, WHEN_MAIN_STEP_FAILS, runBadRows, runDependency, type FailureKind, type Pattern,
@@ -18,15 +18,15 @@ const PATTERNS: Pattern[] = ['none', 'try-catch', 'do-if-else', 'do-if-skip-else
 
 describe('mode A, dependency failure paths', () => {
   it('reports exactly the ADF guide’s table when the main step fails', () => {
-    const table = chapter('monitoring').blocks.find((b) => b.table)!.table!.rows;
-    expect(table).toEqual([
-      ['Try-catch: only an on-failure step after it', 'Succeeded'],
-      ['Do-if-else: an on-success and an on-failure step', 'Failed'],
-      ['Do-if-skip-else: plus a dummy on-skip step', 'Succeeded'],
+    const table = chapter('pipelines').blocks.find((b) => b.table?.rows[0]?.[0] === 'Try-Catch')!.table!.rows;
+    expect(table.map((r) => [r[0], r[3]])).toEqual([
+      ['Try-Catch', 'Succeeded'],
+      ['Do-If-Else', 'Failed'],
+      ['Do-If-Skip-Else', 'Succeeded'],
     ]);
-    expect(WHEN_MAIN_STEP_FAILS['try-catch']).toBe(table[0][1]);
-    expect(WHEN_MAIN_STEP_FAILS['do-if-else']).toBe(table[1][1]);
-    expect(WHEN_MAIN_STEP_FAILS['do-if-skip-else']).toBe(table[2][1]);
+    expect(WHEN_MAIN_STEP_FAILS['try-catch']).toBe(table[0][3]);
+    expect(WHEN_MAIN_STEP_FAILS['do-if-else']).toBe(table[1][3]);
+    expect(WHEN_MAIN_STEP_FAILS['do-if-skip-else']).toBe(table[2][3]);
     for (const pattern of PATTERNS) {
       expect(runDependency({ pattern, failureKind: 'type-conversion', retries: 0 }).status).toBe(WHEN_MAIN_STEP_FAILS[pattern]);
     }

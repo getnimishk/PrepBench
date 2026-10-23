@@ -1,8 +1,18 @@
 # Study Guide → Roadmap Alignment Blocks
 
-Use these as the explicit `Roadmap alignment` blocks at the start of each existing Study Guide chapter. All 60 topics are mapped with Full coverage across the 21 chapters.
+Use these as the explicit `Roadmap alignment` blocks of each Study Guide chapter. All 60 topics are mapped with Full coverage across the 21 chapters.
 
-## Chapter 1 — What ADF is, and what it isn't
+For the full list of rules when redesigning a chapter, see `docs/implementation/ADF-CHAPTER-REDESIGN-CHECKLIST.md`.
+
+## How the blocks work
+
+- **Where they show.** The server finds a chapter's block by its heading, `Roadmap alignment`, wherever it sits in the chapter. The chapter page shows it in its own **Roadmap alignment** tab beside the chapter text, not above it.
+- **What stays fixed.** Keep each topic line (`- **Topic N — Title** (Full)`) and its learning evidence as they are: the roadmap's "Read the guide" links, the curriculum links and the Behaviour Lab all read them.
+- **What you update.** The `Relevant sections` line must name headings that exist in that chapter. When a chapter is redesigned, repoint it. Chapters 1 to 3 were repointed in version 2.
+- **Chapter 1 only.** Its block also holds "How to read the labels in this guide", after the topic list.
+- **Versions.** The guide is published as one file per version (`backend/app/content/packs/adf/v<N>.json`) and a skill pins the version it attached. `v1.json` is the original guide and never changes; `v2.json` carries the redesigned Chapters 1 to 3. Edit the newest version, and publish a new version file for any change a learner could notice. A test pins `v1.json` by fingerprint.
+
+## Chapter 1 — Introduction to Azure Data Factory
 
 **Roadmap alignment**
 Roadmap topics: Topic 1 (Full); Topic 2 (Full); Topic 4 (Full).

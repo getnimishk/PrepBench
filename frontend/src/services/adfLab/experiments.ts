@@ -11,7 +11,7 @@
  * INTEGRATION_PENDING until all five are ready.
  *
  * Topics and chapters are references into the ADF content pack, not curriculum of our own:
- * every pair is a "Roadmap alignment" entry in backend/app/content/packs/adf/v1.json, and
+ * every pair is a "Roadmap alignment" entry in backend/app/content/packs/adf/v2.json, and
  * experiments.test.ts checks each one there so they cannot drift.
  */
 

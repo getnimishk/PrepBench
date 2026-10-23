@@ -287,10 +287,8 @@ def test_adf_topic_guide_includes_mapped_content_pack_chapters():
         assert "orchestrator" in g1["mapped_chapters"][0]["chapter_summary"].lower()
 
         g2 = client.get(_base(roadmap["id"], t2["id"])).json()
-        assert len(g2["mapped_chapters"]) == 2
-        chapter_ids = [c["chapter_id"] for c in g2["mapped_chapters"]]
-        assert "what-it-is" in chapter_ids
-        assert "fabric" in chapter_ids
+        # In v2 the four-service comparison has its own chapter, so this topic maps to it alone.
+        assert [c["chapter_id"] for c in g2["mapped_chapters"]] == ["service-selection"]
 
         # Also verify roadmap detail has linked_pack_id and topic mapped_chapters
         detail = client.get(f"/api/v1/roadmaps/{roadmap['id']}").json()

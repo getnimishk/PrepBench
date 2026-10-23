@@ -9,6 +9,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ContentPackDetail } from '../types/contentPack';
 import type { Role, RoleDiagnostic } from '../types/role';
+// These tests record answers against version 1 (refs read adf@1/...), the guide those answers were taken on.
 import adfPack from '../../../backend/app/content/packs/adf/v1.json';
 import adlsPack from '../../../backend/app/content/packs/adls/v1.json';
 import { RolePreparationNewPage } from './RolePreparationNewPage';

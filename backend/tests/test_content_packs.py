@@ -34,26 +34,172 @@ CHAPTER_REF_RE = re.compile(r"[Cc]hapter (\d+)")
 # reference should break this test, not silently point at the wrong chapter.
 EXPECTED_CHAPTER_REFERENCES = {
     "adf": [
-        ("what-it-is", 11, "transform"),
-        ("what-it-is", 20, "fabric"),
-        ("building-blocks", 11, "transform"),
-        ("reconciliation", 7, "bad-rows"),
-        ("reconciliation", 7, "bad-rows"),
-        ("incremental", 10, "cdc"),
-        ("cdc", 9, "incremental"),
-        ("monitoring", 13, "recovery"),
-        ("recovery", 3, "pipelines"),
-        ("recovery", 5, "triggers"),
-        ("recovery", 7, "bad-rows"),
-        ("recovery", 8, "reconciliation"),
-        ("recovery", 10, "cdc"),
-        ("recovery", 12, "monitoring"),
-        ("recovery", 18, "cicd"),
-        ("recovery", 19, "migration"),
-        ("security", 15, "sensitive-data"),
-        ("sensitive-data", 8, "reconciliation"),
-        ("performance-cost", 17, "fine-tuning"),
-        ("fine-tuning", 16, "performance-cost"),
+        ("what-it-is", 19, "cicd"),
+        ("what-it-is", 2, "how-adf-works"),
+        ("what-it-is", 3, "building-blocks"),
+        ("what-it-is", 16, "sensitive-data"),
+        ("what-it-is", 7, "copy"),
+        ("what-it-is", 17, "performance-cost"),
+        ("what-it-is", 22, "fabric"),
+        ("what-it-is", 1, "what-it-is"),
+        ("what-it-is", 2, "how-adf-works"),
+        ("what-it-is", 3, "building-blocks"),
+        ("how-adf-works", 1, "what-it-is"),
+        ("how-adf-works", 8, "bad-rows"),
+        ("how-adf-works", 9, "reconciliation"),
+        ("how-adf-works", 12, "transform"),
+        ("how-adf-works", 4, "pipelines"),
+        ("how-adf-works", 19, "cicd"),
+        ("how-adf-works", 13, "monitoring"),
+        ("how-adf-works", 14, "recovery"),
+        ("building-blocks", 5, "integration-runtimes"),
+        ("building-blocks", 6, "triggers"),
+        ("building-blocks", 1, "what-it-is"),
+        ("building-blocks", 5, "integration-runtimes"),
+        ("building-blocks", 4, "pipelines"),
+        ("building-blocks", 19, "cicd"),
+        ("pipelines", 7, "copy"),
+        ("pipelines", 2, "how-adf-works"),
+        ("pipelines", 13, "monitoring"),
+        ("pipelines", 3, "building-blocks"),
+        ("pipelines", 18, "fine-tuning"),
+        ("pipelines", 14, "recovery"),
+        ("pipelines", 6, "triggers"),
+        ("pipelines", 18, "fine-tuning"),
+        ("integration-runtimes", 1, "what-it-is"),
+        ("integration-runtimes", 15, "security"),
+        ("copy", 1, "what-it-is"),
+        ("copy", 5, "integration-runtimes"),
+        ("copy", 3, "building-blocks"),
+        ("copy", 8, "bad-rows"),
+        ("copy", 8, "bad-rows"),
+        ("copy", 8, "bad-rows"),
+        ("copy", 17, "performance-cost"),
+        ("copy", 8, "bad-rows"),
+        ("copy", 14, "recovery"),
+        ("copy", 17, "performance-cost"),
+        ("bad-rows", 9, "reconciliation"),
+        ("bad-rows", 16, "sensitive-data"),
+        ("bad-rows", 9, "reconciliation"),
+        ("reconciliation", 8, "bad-rows"),
+        ("reconciliation", 8, "bad-rows"),
+        ("reconciliation", 22, "fabric"),
+        ("reconciliation", 20, "migration"),
+        ("incremental", 11, "cdc"),
+        ("incremental", 11, "cdc"),
+        ("incremental", 14, "recovery"),
+        ("incremental", 11, "cdc"),
+        ("incremental", 4, "pipelines"),
+        ("cdc", 10, "incremental"),
+        ("cdc", 10, "incremental"),
+        ("cdc", 9, "reconciliation"),
+        ("transform", 2, "how-adf-works"),
+        ("transform", 21, "service-selection"),
+        ("transform", 4, "pipelines"),
+        ("transform", 4, "pipelines"),
+        ("transform", 5, "integration-runtimes"),
+        ("transform", 22, "fabric"),
+        ("transform", 11, "cdc"),
+        ("transform", 9, "reconciliation"),
+        ("transform", 9, "reconciliation"),
+        ("transform", 18, "fine-tuning"),
+        ("monitoring", 4, "pipelines"),
+        ("monitoring", 14, "recovery"),
+        ("monitoring", 4, "pipelines"),
+        ("monitoring", 19, "cicd"),
+        ("monitoring", 5, "integration-runtimes"),
+        ("monitoring", 9, "reconciliation"),
+        ("recovery", 13, "monitoring"),
+        ("recovery", 6, "triggers"),
+        ("recovery", 20, "migration"),
+        ("recovery", 8, "bad-rows"),
+        ("recovery", 11, "cdc"),
+        ("recovery", 6, "triggers"),
+        ("recovery", 7, "copy"),
+        ("recovery", 8, "bad-rows"),
+        ("recovery", 19, "cicd"),
+        ("recovery", 13, "monitoring"),
+        ("recovery", 9, "reconciliation"),
+        ("recovery", 13, "monitoring"),
+        ("recovery", 20, "migration"),
+        ("security", 5, "integration-runtimes"),
+        ("security", 5, "integration-runtimes"),
+        ("security", 3, "building-blocks"),
+        ("security", 5, "integration-runtimes"),
+        ("security", 5, "integration-runtimes"),
+        ("security", 5, "integration-runtimes"),
+        ("security", 4, "pipelines"),
+        ("security", 13, "monitoring"),
+        ("security", 16, "sensitive-data"),
+        ("security", 19, "cicd"),
+        ("security", 19, "cicd"),
+        ("sensitive-data", 15, "security"),
+        ("sensitive-data", 15, "security"),
+        ("sensitive-data", 5, "integration-runtimes"),
+        ("sensitive-data", 5, "integration-runtimes"),
+        ("sensitive-data", 15, "security"),
+        ("sensitive-data", 4, "pipelines"),
+        ("sensitive-data", 15, "security"),
+        ("sensitive-data", 15, "security"),
+        ("sensitive-data", 9, "reconciliation"),
+        ("performance-cost", 7, "copy"),
+        ("performance-cost", 18, "fine-tuning"),
+        ("performance-cost", 10, "incremental"),
+        ("performance-cost", 5, "integration-runtimes"),
+        ("performance-cost", 12, "transform"),
+        ("performance-cost", 5, "integration-runtimes"),
+        ("fine-tuning", 17, "performance-cost"),
+        ("fine-tuning", 5, "integration-runtimes"),
+        ("fine-tuning", 7, "copy"),
+        ("fine-tuning", 10, "incremental"),
+        ("fine-tuning", 12, "transform"),
+        ("fine-tuning", 12, "transform"),
+        ("fine-tuning", 12, "transform"),
+        ("fine-tuning", 5, "integration-runtimes"),
+        ("fine-tuning", 6, "triggers"),
+        ("fine-tuning", 4, "pipelines"),
+        ("fine-tuning", 10, "incremental"),
+        ("cicd", 3, "building-blocks"),
+        ("cicd", 3, "building-blocks"),
+        ("cicd", 6, "triggers"),
+        ("cicd", 15, "security"),
+        ("cicd", 13, "monitoring"),
+        ("cicd", 14, "recovery"),
+        ("migration", 17, "performance-cost"),
+        ("migration", 10, "incremental"),
+        ("migration", 7, "copy"),
+        ("migration", 10, "incremental"),
+        ("migration", 5, "integration-runtimes"),
+        ("migration", 10, "incremental"),
+        ("migration", 18, "fine-tuning"),
+        ("migration", 9, "reconciliation"),
+        ("migration", 19, "cicd"),
+        ("migration", 14, "recovery"),
+        ("migration", 9, "reconciliation"),
+        ("service-selection", 22, "fabric"),
+        ("service-selection", 5, "integration-runtimes"),
+        ("service-selection", 22, "fabric"),
+        ("service-selection", 5, "integration-runtimes"),
+        ("service-selection", 6, "triggers"),
+        ("service-selection", 22, "fabric"),
+        ("fabric", 21, "service-selection"),
+        ("fabric", 5, "integration-runtimes"),
+        ("fabric", 6, "triggers"),
+        ("fabric", 17, "performance-cost"),
+        ("fabric", 21, "service-selection"),
+        ("pitfalls", 14, "recovery"),
+        ("pitfalls", 17, "performance-cost"),
+        ("pitfalls", 19, "cicd"),
+        ("pitfalls", 1, "what-it-is"),
+        ("pitfalls", 17, "performance-cost"),
+        ("pitfalls", 18, "fine-tuning"),
+        ("pitfalls", 5, "integration-runtimes"),
+        ("pitfalls", 8, "bad-rows"),
+        ("pitfalls", 19, "cicd"),
+        ("pitfalls", 9, "reconciliation"),
+        ("pitfalls", 19, "cicd"),
+        ("pitfalls", 13, "monitoring"),
+        ("pitfalls", 10, "incremental"),
     ],
     "adls": [
         ("what-it-is", 2, "namespace"),
@@ -77,7 +223,7 @@ def _pack(pack_id: str):
 
 def test_adf_pack_shape():
     pack = _pack("adf")
-    assert pack.chapter_count == 21
+    assert pack.chapter_count == 23
     assert pack.scenario_count == 18
     assert pack.written_scenario_count == 18
     assert len(pack.diagnostic_questions) == 10
@@ -266,7 +412,7 @@ def test_list_content_packs():
     resp = client.get("/api/v1/content-packs")
     assert resp.status_code == 200
     by_id = {p["pack_id"]: p for p in resp.json()}
-    assert by_id["adf"]["chapter_count"] == 21
+    assert by_id["adf"]["chapter_count"] == 23
     assert by_id["adls"]["chapter_count"] == 11
 
 
@@ -274,7 +420,7 @@ def test_get_content_pack_detail_and_unknown_pack_404():
     resp = client.get("/api/v1/content-packs/adf")
     assert resp.status_code == 200
     assert resp.json()["pack_id"] == "adf"
-    assert len(resp.json()["chapters"]) == 21
+    assert len(resp.json()["chapters"]) == 23
 
     resp = client.get("/api/v1/content-packs/no-such-pack")
     assert resp.status_code == 404
@@ -286,8 +432,9 @@ def test_attach_pack_to_a_skill_and_see_it_on_the_subject():
     assert resp.status_code == 201, resp.text
     body = resp.json()
     assert body["pack_id"] == "adf"
-    assert body["pack_version"] == 1
-    assert body["latest_version"] == 1
+    # A skill attaches at the latest published version; older versions stay readable.
+    assert body["pack_version"] == pack_store.latest("adf").version
+    assert body["latest_version"] == pack_store.latest("adf").version
     assert body["title"] == "Azure Data Factory"
 
     subject = client.get(f"/api/v1/subjects/{subject_id}").json()
@@ -318,6 +465,10 @@ def test_upgrade_refuses_a_downgrade_or_the_same_version():
     client.post(f"/api/v1/subjects/{subject_id}/content-packs", json={"pack_id": "adf"})
 
     resp = client.put(f"/api/v1/subjects/{subject_id}/content-packs/adf", json={"version": 1})
+    assert resp.status_code == 400
+    resp = client.put(
+        f"/api/v1/subjects/{subject_id}/content-packs/adf", json={"version": pack_store.latest("adf").version}
+    )
     assert resp.status_code == 400
 
     resp = client.put(f"/api/v1/subjects/{subject_id}/content-packs/adf", json={"version": 0})
@@ -370,3 +521,59 @@ def test_delete_subject_removes_pack_link_via_cascade():
         assert remaining == 0
     finally:
         db.close()
+
+# ---- published versions are kept, never edited (plan D3/D4) -----------------
+
+# The first published ADF guide, as it shipped before Chapters 1 to 3 were redesigned. A skill that
+# attached at version 1 keeps reading this text until the learner upgrades, and past attempts point
+# at it, so the file must not change. Fix a typo by publishing a new version instead.
+ADF_V1_FINGERPRINT = "1defc4f2bb28e15232c722be4139d07cce4c3891c09cc60286bce2c2201cd26b"
+
+
+def _canonical_hash(pack) -> str:
+    import hashlib
+
+    payload = json.dumps(pack.model_dump(mode="json"), sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def test_the_first_published_adf_guide_is_kept_unchanged():
+    v1 = pack_store.get("adf", 1)
+    assert v1 is not None and v1.version == 1
+    assert v1.chapters[0].title == "What ADF is, and what it isn't"
+    assert _canonical_hash(v1) == ADF_V1_FINGERPRINT
+
+
+def test_every_published_version_is_its_own_file_and_the_newest_is_the_default():
+    versions = pack_store.load_packs()["adf"]
+    assert {1, 2} <= set(versions)
+    assert pack_store.latest("adf").version == max(versions)
+    # Every earlier chapter keeps its id and relative order in the newest version (which may add
+    # chapters), so a link, a scenario or a diagnostic keeps resolving.
+    newest_ids = iter(c.id for c in versions[max(versions)].chapters)
+    assert all(c.id in newest_ids for c in versions[1].chapters)
+
+    assert client.get("/api/v1/content-packs/adf?version=1").json()["chapters"][0]["title"] == "What ADF is, and what it isn't"
+    assert client.get("/api/v1/content-packs/adf").json()["version"] == max(versions)
+
+
+def test_a_skill_pinned_at_version_one_keeps_it_until_the_learner_upgrades():
+    from app.models.subject_content_pack import SubjectContentPack
+    from tests.conftest import TestingSessionLocal
+
+    subject_id = _make_skill()
+    client.post(f"/api/v1/subjects/{subject_id}/content-packs", json={"pack_id": "adf"})
+    session = TestingSessionLocal()
+    try:
+        link = session.query(SubjectContentPack).filter(SubjectContentPack.subject_id == subject_id).one()
+        link.pack_version = 1
+        session.commit()
+    finally:
+        session.close()
+
+    pinned = client.get(f"/api/v1/subjects/{subject_id}").json()["content_packs"][0]
+    assert (pinned["pack_version"], pinned["latest_version"]) == (1, pack_store.latest("adf").version)
+
+    upgraded = client.put(f"/api/v1/subjects/{subject_id}/content-packs/adf", json={"version": 2})
+    assert upgraded.status_code == 200, upgraded.text
+    assert upgraded.json()["pack_version"] == 2

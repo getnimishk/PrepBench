@@ -3,7 +3,7 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import { describe, expect, it } from 'vitest';
-import adfPack from '../../../../backend/app/content/packs/adf/v1.json';
+import adfPack from '../../../../backend/app/content/packs/adf/v2.json';
 import { COPY_PERF_COUPLINGS, runCopy, type CopyLevers } from './copyPerfModel';
 import { COPY_PERF, PRESET } from './copyPerf';
 import { causesOf } from './definition';

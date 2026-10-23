@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { ContentPackDetail } from '../types/contentPack';
+// These tests record answers against version 1 (refs read adf@1/...), the guide those answers were taken on.
 import adfPack from '../../../backend/app/content/packs/adf/v1.json';
 import { ScenarioSandboxPage } from './ScenarioSandboxPage';
 

@@ -3,7 +3,7 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import { describe, expect, it } from 'vitest';
-import adfPack from '../../../../backend/app/content/packs/adf/v1.json';
+import adfPack from '../../../../backend/app/content/packs/adf/v2.json';
 import { BATCH_COUNT, CONCURRENCY_COUPLINGS, PARALLEL_COPIES, SCENARIO, runConcurrency, type ConcurrencyLevers } from './concurrencyModel';
 import { CONCURRENCY, PRESET } from './concurrency';
 import { causesOf } from './definition';
@@ -46,7 +46,7 @@ describe('the concurrency model', () => {
     expect(limited.minutes).toBeGreaterThan(run({ batchCount: 5, parallelCopies: 1 }).minutes);
   });
 
-  it('refuses settings outside the ranges the ADF guide states', () => {
+  it('refuses settings outside the ranges the lab allows (the ForEach batch count maximum is documented; 1 to 32 parallel copies is a planning range)', () => {
     expect(() => run({ batchCount: 0 })).toThrow(RangeError);
     expect(() => run({ batchCount: 51 })).toThrow(RangeError);
     expect(() => run({ batchCount: 2.5 })).toThrow(RangeError);

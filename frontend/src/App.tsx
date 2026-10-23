@@ -4,6 +4,7 @@
 
 import React, { createContext, useContext, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { ScrollToTop } from './components/common/ScrollToTop';
 import { Box } from '@mui/material';
 import { CustomThemeProvider } from './context/ThemeContext';
 import { PreparationProvider } from './context/PreparationContext';
@@ -183,6 +184,7 @@ const App: React.FC = () => {
     <CustomThemeProvider>
       <SidebarContext.Provider value={{ collapsed, toggleCollapsed }}>
         <BrowserRouter>
+          <ScrollToTop />
           <PreparationProvider>
           <ImportLauncherProvider>
           <Routes>

@@ -65,7 +65,7 @@ test('a topic links to its chapters, scenarios and experiments, shows its own ev
   await page.goto(`/roadmaps/${rid}/topics/${tid}`);
 
   // Read: the chapter the pack maps to the topic, by its title.
-  await expect(page.getByRole('link', { name: /^Ch \d+ · Loading only new data$/ })).toHaveAttribute('href', '/learn/guides/adf/incremental');
+  await expect(page.getByRole('link', { name: /^Ch \d+ · Loading only new data$/ })).toHaveAttribute('href', '/learn/guides/adf/incremental?roadmap=' + rid + '&topic=' + tid);
   // Practise: the written scenario on that chapter. Explore: the experiment for topic 32.
   await expect(page.getByRole('link', { name: 'Scenario 1 · The missing lots' })).toHaveAttribute('href', '/scenarios/adf/1');
   const lab = page.getByRole('heading', { name: 'Explore in lab' }).locator('xpath=following-sibling::ul[1]');

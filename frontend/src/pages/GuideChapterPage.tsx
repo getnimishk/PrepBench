@@ -3,17 +3,21 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React, { useEffect, useState } from 'react';
-import { Link as RouterLink, useParams } from 'react-router-dom';
+import { Link as RouterLink, useParams, useSearchParams } from 'react-router-dom';
 import {
-  Box, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Box, Button, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs,
 } from '@mui/material';
 import { getContentPack } from '../services/api';
 import { apiErrorMessage } from '../services/apiError';
 import { usePreparation } from '../context/PreparationContext';
+import { guideChapterPath, readTopicContext } from '../services/topicContext';
+import { ChapterTopicContext } from '../components/roadmap/ChapterTopicContext';
 import type { ContentPackDetail } from '../types/contentPack';
 import { Explanation } from '../components/common/Explanation';
 import { ErrorState, LoadingState } from '../components/common/States';
 import { Actions, Detail, Good, Note, PageHead, Panel, PanelHead, Section } from '../components/ui/primitives';
+
+const ALIGNMENT_HEADING = 'Roadmap alignment';
 
 /**
  * One chapter of a built-in guide, read in the Study Library.
@@ -25,11 +29,18 @@ import { Actions, Detail, Good, Note, PageHead, Panel, PanelHead, Section } from
 export const GuideChapterPage: React.FC = () => {
   const { packId, chapterId } = useParams<{ packId: string; chapterId: string }>();
   const { selected } = usePreparation();
+  const [searchParams] = useSearchParams();
+  // The topic this chapter was opened from, if any; carried through previous/next.
+  const topicContext = readTopicContext(searchParams);
   const linkedVersion = selected?.content_packs?.find((cp) => cp.pack_id === packId)?.pack_version ?? null;
 
   const [pack, setPack] = useState<ContentPackDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [view, setView] = useState<'chapter' | 'alignment'>('chapter');
+
+  // A new chapter starts on its text, whichever tab the last one was left on.
+  useEffect(() => { setView('chapter'); }, [chapterId]);
 
   useEffect(() => {
     if (!packId) return undefined;
@@ -72,6 +83,11 @@ export const GuideChapterPage: React.FC = () => {
     );
   }
 
+  // The pack's "Roadmap alignment" block says which roadmap topics the chapter covers. The server
+  // reads it wherever it sits in the chapter, so the page shows it in its own tab, not above the text.
+  const alignment = chapter.blocks.find((b) => b.heading === ALIGNMENT_HEADING) ?? null;
+  const body = chapter.blocks.filter((b) => b !== alignment);
+
   const prev = pack.chapters[index - 1];
   const next = pack.chapters[index + 1];
 
@@ -94,6 +110,10 @@ export const GuideChapterPage: React.FC = () => {
         )}
       />
 
+      {topicContext && packId && chapterId && (
+        <ChapterTopicContext packId={packId} chapterId={chapterId} context={topicContext} />
+      )}
+
       {linkedVersion === null && (
         <Note sx={{ mb: '16px' }}>
           {selected
@@ -102,7 +122,33 @@ export const GuideChapterPage: React.FC = () => {
         </Note>
       )}
 
-      {chapter.blocks.map((b, i) => (
+      {alignment && (
+        <Tabs
+          value={view}
+          onChange={(_, v: 'chapter' | 'alignment') => setView(v)}
+          aria-label="Chapter views"
+          sx={{ mb: '16px', borderBottom: 1, borderColor: 'divider' }}
+        >
+          <Tab value="chapter" label="Chapter" id="chapter-tab-chapter" aria-controls="chapter-panel" />
+          <Tab value="alignment" label="Roadmap alignment" id="chapter-tab-alignment" aria-controls="chapter-panel" />
+        </Tabs>
+      )}
+
+      <Box id="chapter-panel" role={alignment ? 'tabpanel' : undefined} aria-labelledby={alignment ? `chapter-tab-${view}` : undefined}>
+      {alignment && view === 'alignment' && (
+        <Section sx={{ mt: 0 }}>
+          <Panel component="section" aria-labelledby="alignment-title">
+            <PanelHead title="Roadmap alignment" titleId="alignment-title" />
+            {/* The pack writes the labels as *italic*, which Explanation does not draw: show them bold. */}
+            <Explanation
+              text={(alignment.md ?? '').replace(/(?<!\*)\*([A-Za-z][A-Za-z ]*:)\*(?!\*)/g, '**$1**')}
+              variant="body1"
+            />
+          </Panel>
+        </Section>
+      )}
+
+      {view === 'chapter' && body.map((b, i) => (
         <Section key={b.heading ?? i} sx={i === 0 ? { mt: 0 } : undefined}>
           <Panel component="section" aria-labelledby={b.heading ? `block-${i}` : undefined}>
             {b.heading && <PanelHead title={b.heading} titleId={`block-${i}`} />}
@@ -129,6 +175,7 @@ export const GuideChapterPage: React.FC = () => {
           </Panel>
         </Section>
       ))}
+      </Box>
 
       <Section>
         {practice.length > 0 && (
@@ -143,8 +190,8 @@ export const GuideChapterPage: React.FC = () => {
           </Good>
         )}
         <Actions>
-          {prev && <Button variant="outlined" component={RouterLink} to={`/learn/guides/${pack.pack_id}/${prev.id}`}>Previous: {prev.title}</Button>}
-          {next && <Button variant="outlined" component={RouterLink} to={`/learn/guides/${pack.pack_id}/${next.id}`}>Next: {next.title}</Button>}
+          {prev && <Button variant="outlined" component={RouterLink} to={guideChapterPath(pack.pack_id, prev.id, topicContext)}>Previous: {prev.title}</Button>}
+          {next && <Button variant="outlined" component={RouterLink} to={guideChapterPath(pack.pack_id, next.id, topicContext)}>Next: {next.title}</Button>}
           <Button variant="text" component={RouterLink} to={`/learn/guides/${pack.pack_id}`}>All chapters</Button>
         </Actions>
         <Detail sx={{ mt: '8px' }}>Source: {pack.docs_url}</Detail>

@@ -5,7 +5,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ContentPackDetail, ScenarioContent } from '../../types/contentPack';
 import type { WireLearningAttempt } from '../../types/learning';
-import adfPack from '../../../../backend/app/content/packs/adf/v1.json';
+import adfPack from '../../../../backend/app/content/packs/adf/v2.json';
 
 vi.mock('../api', () => ({
   getLearningAttempts: vi.fn(),

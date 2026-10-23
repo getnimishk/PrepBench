@@ -85,7 +85,7 @@ test('a scenario is worked end to end as a Product Owner and its Say-it question
 
   // A second, different answer to a locked check is refused by the server.
   const refused = await request.patch(
-    `/api/v1/learning/attempts/${encodeURIComponent(`s${prep.id}:adf@1:1:c0`)}`,
+    `/api/v1/learning/attempts/${encodeURIComponent(`s${prep.id}:adf@2:1:c0`)}`,
     { params: { subject_id: prep.id }, data: { prediction: '1' } },
   );
   expect(refused.status()).toBe(400);
@@ -95,7 +95,7 @@ test('a scenario is worked end to end as a Product Owner and its Say-it question
   await expect(page.getByText(/Updated in your interview question library/)).toBeVisible();
   // It is this preparation's question: asked for by its preparation, it is there once;
   // the shared library (no preparation) never lists it (Phase 8).
-  const ref = encodeURIComponent('adf@1/scenario/1/lens/po');
+  const ref = encodeURIComponent('adf@2/scenario/1/lens/po');
   const saved = await (await request.get(`/api/v1/interview-questions?source_ref=${ref}&subject_id=${prep.id}`)).json();
   expect(saved.total).toBe(1);
   expect((await (await request.get(`/api/v1/interview-questions?source_ref=${ref}`)).json()).total).toBe(0);

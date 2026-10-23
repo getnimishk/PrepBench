@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { ContentPackDetail, ScenarioRole } from '../../types/contentPack';
+// These tests record answers against version 1 (refs read adf@1/...), the guide those answers were taken on.
 import adfPack from '../../../../backend/app/content/packs/adf/v1.json';
 import adlsPack from '../../../../backend/app/content/packs/adls/v1.json';
 import {

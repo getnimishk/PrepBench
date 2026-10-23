@@ -9,6 +9,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ContentPackDetail, ScenarioContent } from '../types/contentPack';
 import type { WireLearningAttempt } from '../types/learning';
+// These tests record answers against version 1 (refs read adf@1/...), the guide those answers were taken on.
 import adfPack from '../../../backend/app/content/packs/adf/v1.json';
 import { ScenarioPage } from './ScenarioPage';
 
