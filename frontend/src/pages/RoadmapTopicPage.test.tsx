@@ -139,6 +139,8 @@ describe('TopicDemonstratePage and TopicGuidePage when they cannot load', () => 
     expect(screen.getByText('Full Coverage')).toBeInTheDocument();
     const readBtn = screen.getByRole('link', { name: 'Read Study Guide' });
     expect(readBtn).toHaveAttribute('href', '/learn/guides/adf/what-it-is?roadmap=3&topic=7');
+    expect(screen.getByRole('region', { name: 'Recommended next step' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Start learning' })).toHaveAttribute('href', '/learn/guides/adf/what-it-is?roadmap=3&topic=7');
     expect(screen.getByRole('button', { name: 'Notes & AI draft' })).toBeInTheDocument();
   });
 
