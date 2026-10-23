@@ -71,6 +71,8 @@ describe('RoadmapTopicPage', () => {
 
     expect(await screen.findByText(/Marked complete without a demonstration/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Demonstrate' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Confirm mastery before moving on' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Demonstrate mastery' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Demonstrate again' })).not.toBeInTheDocument();
   });
 
