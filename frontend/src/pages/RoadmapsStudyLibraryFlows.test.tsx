@@ -447,6 +447,15 @@ describe('PrepBench Core Learning & Planning Flows', () => {
     expect(screen.getByText('12h')).toBeInTheDocument();
   }, 15000);
 
+  it('direct chapter access works without roadmap context', async () => {
+    mockApi.getContentPack.mockResolvedValue(adfPack);
+    renderApp('/learn/guides/adf/what-it-is');
+
+    expect(await screen.findByRole('heading', { name: /What ADF is, and what it isn't/ })).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Roadmap learning context' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /^Next:/ }).getAttribute('href')).not.toContain('roadmapId=');
+  });
+
   it('Flow E: Topic with PR #73 Mapped Curriculum → Read Study Guide → Demonstrate', async () => {
     const user = userEvent.setup();
     mockApi.getContentPack.mockResolvedValue(adfPack);
