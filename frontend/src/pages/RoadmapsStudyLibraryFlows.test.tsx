@@ -488,11 +488,12 @@ describe('PrepBench Core Learning & Planning Flows', () => {
     expect(screen.getByText('Full Coverage')).toBeInTheDocument();
 
     const readGuideLink = screen.getByRole('link', { name: 'Read Study Guide' });
-    expect(readGuideLink).toHaveAttribute('href', '/learn/guides/adf/what-it-is?roadmapId=1&topicId=10');
+    expect(readGuideLink).toHaveAttribute('href', '/learn/guides/adf/what-it-is?roadmapId=1&topicId=10&topicTitle=Kafka%20Producer%20Internals');
 
     // 2. The chapter keeps the roadmap topic available while reading.
     await user.click(readGuideLink);
     expect(await screen.findByRole('navigation', { name: 'Roadmap learning context' })).toBeInTheDocument();
+    expect(screen.getByText('Reading for: Kafka Producer Internals')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Back to topic' })).toHaveAttribute('href', '/roadmaps/1/topics/10');
     expect(screen.getByRole('link', { name: 'Demonstrate mastery' })).toHaveAttribute('href', '/roadmaps/1/topics/10/demonstrate');
     const nextChapter = screen.getByRole('link', { name: /^Next:/ });
