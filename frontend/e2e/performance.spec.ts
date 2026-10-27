@@ -103,7 +103,7 @@ test('screens stay usable with a large bank, a large roadmap and many areas', as
   await page.goto(`/roadmaps/${roadmapId}`);
   await expect(page.getByRole('link', { name: 'Large topic 299', exact: true })).toBeAttached({ timeout: 60_000 });
   await page.getByRole('tab', { name: 'Phase overview' }).click();
-  await expect(page.getByRole('button', { name: 'Open Phase 19' })).toBeAttached({ timeout: 60_000 });
+  await expect(page.getByRole('button', { name: 'View topics in Phase 19' })).toBeAttached({ timeout: 60_000 });
   await timed('roadmap: 300 topics, syllabus', async () => {
     await page.getByRole('tab', { name: 'Syllabus' }).click();
     await expect(page.getByRole('link', { name: 'Large topic 299', exact: true })).toBeAttached({ timeout: 60_000 });
@@ -114,7 +114,7 @@ test('screens stay usable with a large bank, a large roadmap and many areas', as
       await expect(page.getByRole('tab', { name: new RegExp(view) })).toHaveAttribute('aria-selected', 'true');
       if (view === 'Phase overview') {
         // One row a phase; the last one drawn means the view is done.
-        await expect(page.getByRole('button', { name: 'Open Phase 19' })).toBeAttached({ timeout: 60_000 });
+        await expect(page.getByRole('button', { name: 'View topics in Phase 19' })).toBeAttached({ timeout: 60_000 });
       } else {
         // The schedule opens on one bar per phase, and can be switched to one per topic.
         await expect(page.getByText('Phase 19', { exact: true })).toBeAttached({ timeout: 60_000 });

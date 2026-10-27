@@ -15,6 +15,7 @@ import {
   RoadmapDetail, RoadmapResource, RoadmapResourcePurpose, RoadmapSchedule, RoadmapTopic, RoadmapTopicStatus,
 } from '../types/roadmap';
 import { RoadmapTableView, type StatusFilter } from '../components/roadmap/RoadmapTableView';
+import { nextRoadmapTopic } from '../services/roadmapNext';
 import { RoadmapJourneyView } from '../components/roadmap/RoadmapJourneyView';
 import { RoadmapGanttView } from '../components/roadmap/RoadmapGanttView';
 import { formatPercentage } from '../components/roadmap/progressDisplay';
@@ -353,9 +354,8 @@ export const RoadmapDetailPage: React.FC = () => {
   const syllabusKey = tabs.find((t) => t.kind === 'syllabus')?.key;
   const perTopic = totalHours != null && p.total_topics > 0 ? totalHours / p.total_topics : null;
   // Resume an active topic first; otherwise choose the first topic not completed or skipped.
-  const orderedTopics = roadmap.phases.flatMap((phase) => phase.topics);
-  const nextTopic = orderedTopics.find((topic) => topic.status === 'in_progress')
-    ?? orderedTopics.find((topic) => topic.status !== 'completed' && topic.status !== 'skipped');
+  const nextPick = nextRoadmapTopic(roadmap.phases);
+  const nextTopic = nextPick?.topic ?? null;
 
   return (
     <Box>
@@ -399,7 +399,7 @@ export const RoadmapDetailPage: React.FC = () => {
                 <>
                   <Typography variant="h5" component="h2" sx={{ mt: '4px' }}>{nextTopic.title}</Typography>
                   <Detail sx={{ mt: '4px' }}>
-                    {roadmap.phases.find((phase) => phase.topics.some((topic) => topic.id === nextTopic.id))?.name ?? 'Next topic'}
+                    {nextPick?.phase.name ?? 'Next topic'}
                     {' · '}
                     {nextTopic.status === 'in_progress' ? 'Resume where you left off' : 'Recommended next topic'}
                     {nextTopic.estimated_hours != null ? ` · ${nextTopic.estimated_hours}h estimated` : ''}
