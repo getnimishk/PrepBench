@@ -20,9 +20,9 @@ const renderView = (phases: RoadmapPhase[]) => render(
 describe('RoadmapJourneyView actions', () => {
   it('puts the primary action on the phase holding the roadmap\'s next topic, in progress first', () => {
     renderView([phase(1, 'Phase A', [[1, 'not_started']]), phase(2, 'Phase B', [[2, 'in_progress']])]);
-    const cont = screen.getByRole('link', { name: 'Continue learning: Phase B, Topic 2' });
+    const cont = screen.getByRole('link', { name: 'Resume learning: Phase B, Topic 2' });
     expect(cont).toHaveAttribute('href', '/roadmaps/1/topics/2');
-    expect(cont).toHaveTextContent('Continue learning');
+    expect(cont).toHaveTextContent('Resume learning');
     const other = screen.getByRole('link', { name: 'Start phase: Phase A, Topic 1' });
     expect(other).toHaveAttribute('href', '/roadmaps/1/topics/1');
     expect(other).toHaveTextContent('Start phase');
@@ -32,11 +32,11 @@ describe('RoadmapJourneyView actions', () => {
     renderView([phase(1, 'Phase A', [[1, 'completed'], [2, 'skipped']]), phase(2, 'Phase B', [[3, 'not_started']])]);
     expect(screen.queryByRole('link', { name: /Phase A, / })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'View topics in Phase A' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Continue learning: Phase B, Topic 3' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Start next topic: Phase B, Topic 3' })).toBeInTheDocument();
   });
 
   it('shows no action for a phase without topics', () => {
     renderView([phase(1, 'Empty', [])]);
-    expect(screen.queryByRole('link', { name: /Continue|Start/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Resume|Continue|Start/ })).not.toBeInTheDocument();
   });
 });

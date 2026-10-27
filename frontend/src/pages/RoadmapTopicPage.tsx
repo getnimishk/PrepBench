@@ -15,7 +15,7 @@ import type { EvidenceItem } from '../types/portfolio';
 import type {
   RoadmapDetail, RoadmapTopic, RoadmapTopicStatus, TopicDemonstration,
 } from '../types/roadmap';
-import { topicAfter } from '../services/roadmapNext';
+import { nextRoadmapTopic } from '../services/roadmapNext';
 import { LoadingState } from '../components/common/States';
 import {
   Actions, Bar, Detail, Eyebrow, Good, Grid, Metric, MetricRow, Note, PageHead, Panel, Pill, Row, Section, Sub,
@@ -175,8 +175,9 @@ export const RoadmapTopicPage: React.FC = () => {
 
   const previous = index > 0 ? ordered[index - 1].topic : null;
   const next = index < ordered.length - 1 ? ordered[index + 1].topic : null;
-  // Where the hero sends a finished topic: the next one still to do, not merely the next in order.
-  const afterThis = topicAfter(roadmap.phases, topic.id);
+  // Where the hero sends a finished topic: the roadmap's own next topic, so this
+  // page and the roadmap's "Resume learning" never disagree.
+  const afterThis = nextRoadmapTopic(roadmap.phases)?.topic ?? null;
   const latest = history[0] ?? null;
   const recheckDue = latest ? new Date(latest.next_recheck_at).getTime() <= Date.now() : false;
   const completed = topic.status === 'completed';
@@ -279,7 +280,7 @@ export const RoadmapTopicPage: React.FC = () => {
             ) : afterThis ? (
               <>
                 <Typography variant="h6" component="h3" sx={{ mt: '4px' }}>Continue to the next topic</Typography>
-                <Sub sx={{ mt: '4px', mb: '12px' }}>You have demonstrated this topic. Continue with the next topic still to do.</Sub>
+                <Sub sx={{ mt: '4px', mb: '12px' }}>You have demonstrated this topic. Continue with the next topic still to do on this roadmap.</Sub>
                 <Button variant="contained" color="ink" onClick={() => navigate(`/roadmaps/${rid}/topics/${afterThis.id}`)}>Next: {afterThis.title}</Button>
               </>
             ) : (
@@ -383,7 +384,7 @@ export const RoadmapTopicPage: React.FC = () => {
                   </>
                 )}
                 <Actions sx={{ mt: '12px' }}>
-                  <Button variant="contained" color="ink" component={RouterLink} to={guideChapterPath(links.packId!, links.chapters[0].id, { roadmapId: rid, topicId: topic.id })}>
+                  <Button variant="outlined" component={RouterLink} to={guideChapterPath(links.packId!, links.chapters[0].id, { roadmapId: rid, topicId: topic.id })}>
                     Read Study Guide
                   </Button>
                   <Button variant="outlined" onClick={() => navigate(`/roadmaps/${rid}/topics/${topic.id}/guide`)}>

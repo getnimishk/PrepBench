@@ -63,7 +63,10 @@ export const RoadmapJourneyView: React.FC<Props> = ({ roadmapId, phases, onOpenP
             : (phase.topics.find((t) => t.status === 'in_progress')
               ?? phase.topics.find((t) => t.status !== 'completed' && t.status !== 'skipped'));
           // The accessible name starts with the visible label (WCAG 2.5.3).
-          const phaseLabel = current ? 'Continue learning' : phaseNext?.status === 'in_progress' ? 'Continue phase' : 'Start phase';
+          // The current phase's label is the roadmap panel's own, so the two read as one action.
+          const phaseLabel = current
+            ? (next.topic.status === 'in_progress' ? 'Resume learning' : 'Start next topic')
+            : phaseNext?.status === 'in_progress' ? 'Continue phase' : 'Start phase';
           return (
             <Row
               key={phase.id}

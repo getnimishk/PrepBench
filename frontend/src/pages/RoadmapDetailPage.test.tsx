@@ -172,6 +172,25 @@ describe('RoadmapDetailPage', () => {
     const hero = await screen.findByRole('region', { name: 'Your learning path' });
     expect(within(hero).queryByRole('link', { name: /Start next topic|Resume learning/ })).not.toBeInTheDocument();
     expect(within(hero).getByRole('link', { name: 'Review roadmap' })).toHaveAttribute('href', '/roadmaps/1/edit');
+    expect(within(hero).getByRole('heading', { name: 'Roadmap topics complete', level: 3 })).toBeInTheDocument();
+  });
+
+  it('does not call a roadmap with no topics complete', async () => {
+    mockGetRoadmap.mockResolvedValue(makeDetail({
+      phases: [{ id: 1, roadmap_id: 1, name: 'Phase A', order_index: 0, topics: [] }],
+    }));
+    renderPage();
+    const hero = await screen.findByRole('region', { name: 'Your learning path' });
+    expect(within(hero).getByRole('heading', { name: 'No topics yet', level: 3 })).toBeInTheDocument();
+    expect(within(hero).queryByText(/complete/i)).not.toBeInTheDocument();
+    expect(within(hero).getByRole('link', { name: 'Add topics' })).toHaveAttribute('href', '/roadmaps/1/edit');
+  });
+
+  it('names the next topic in a heading below the section heading', async () => {
+    renderPage();
+    const hero = await screen.findByRole('region', { name: 'Your learning path' });
+    expect(within(hero).getByRole('heading', { name: 'Your learning path', level: 2 })).toBeInTheDocument();
+    expect(within(hero).getByRole('heading', { name: 'Topic 2', level: 3 })).toBeInTheDocument();
   });
 
   it('updates a topic status and refreshes progress without a full reload', async () => {

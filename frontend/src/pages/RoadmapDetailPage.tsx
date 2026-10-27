@@ -356,6 +356,7 @@ export const RoadmapDetailPage: React.FC = () => {
   // Resume an active topic first; otherwise choose the first topic not completed or skipped.
   const nextPick = nextRoadmapTopic(roadmap.phases);
   const nextTopic = nextPick?.topic ?? null;
+  const hasTopics = roadmap.phases.some((ph) => ph.topics.length > 0);
 
   return (
     <Box>
@@ -397,7 +398,7 @@ export const RoadmapDetailPage: React.FC = () => {
               <Eyebrow component="h2" id="roadmap-next-step">Your learning path</Eyebrow>
               {nextTopic ? (
                 <>
-                  <Typography variant="h5" component="h2" sx={{ mt: '4px' }}>{nextTopic.title}</Typography>
+                  <Typography variant="h5" component="h3" sx={{ mt: '4px' }}>{nextTopic.title}</Typography>
                   <Detail sx={{ mt: '4px' }}>
                     {nextPick?.phase.name ?? 'Next topic'}
                     {' · '}
@@ -410,10 +411,16 @@ export const RoadmapDetailPage: React.FC = () => {
                     </Typography>
                   )}
                 </>
+              ) : !hasTopics ? (
+                // Nothing to learn yet is not the same as everything learnt.
+                <>
+                  <Typography variant="h5" component="h3" sx={{ mt: '4px' }}>No topics yet</Typography>
+                  <Detail sx={{ mt: '4px' }}>Add topics to this roadmap to get a recommended next step.</Detail>
+                </>
               ) : (
                 <>
-                  <Typography variant="h5" component="h2" sx={{ mt: '4px' }}>All roadmap topics are accounted for</Typography>
-                  <Detail sx={{ mt: '4px' }}>Review completed topics, revisit anything due for recheck, or update the plan.</Detail>
+                  <Typography variant="h5" component="h3" sx={{ mt: '4px' }}>Roadmap topics complete</Typography>
+                  <Detail sx={{ mt: '4px' }}>Every topic is completed or skipped. Review your evidence, revisit anything due for a recheck, or update the plan.</Detail>
                 </>
               )}
             </Box>
@@ -430,7 +437,7 @@ export const RoadmapDetailPage: React.FC = () => {
               </Button>
             ) : (
               <Button variant="outlined" component={RouterLink} to={`/roadmaps/${id}/edit`} sx={{ minHeight: 44 }}>
-                Review roadmap
+                {hasTopics ? 'Review roadmap' : 'Add topics'}
               </Button>
             )}
           </Box>
