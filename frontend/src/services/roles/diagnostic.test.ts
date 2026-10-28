@@ -107,6 +107,22 @@ describe('the question bank', () => {
     expect(pickQuestions('po', [{ text: 'Build pipelines and loads', kind: 'mandatory' }], [ADF], ALL).every((q) => !q.fits)).toBe(true);
   });
 
+  it('gives every Kafka scenario keywords, so a job that names its topic can select it', () => {
+    for (const q of packQuestions(KAFKA, 'em').filter((x) => x.ref.includes('/scenario/'))) {
+      expect(q.keywords.length, q.ref).toBeGreaterThan(0);
+    }
+    const job = [
+      { text: 'Design Avro schemas and manage schema evolution', kind: 'mandatory' as const },
+      { text: 'Own disaster recovery for our streaming platform', kind: 'mandatory' as const },
+    ];
+    const fits = pickQuestions('em', job, [KAFKA], ALL).filter((q) => q.fits).map((q) => q.ref);
+    expect(fits).toContain('kafka@2/scenario/12/lens/em');
+    expect(fits).toContain('kafka@2/scenario/15/lens/em');
+    // A job that only names an Oracle database matches no security scenario through "acl".
+    const oracle = pickQuestions('em', [{ text: 'Oracle database administration', kind: 'mandatory' }], [KAFKA], ALL);
+    expect(oracle.filter((q) => q.fits).map((q) => q.ref)).not.toContain('kafka@2/scenario/14/lens/em');
+  });
+
   it('gives every question, in every role, key points and somewhere to study it', () => {
     for (const lens of LENSES) {
       for (const q of ALL.flatMap((p) => packQuestions(p, lens))) {
