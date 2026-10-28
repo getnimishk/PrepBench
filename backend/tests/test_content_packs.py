@@ -17,6 +17,7 @@ The content-pack foundation (skills-and-content-packs-plan.md, Phase 1):
 import json
 import re
 import uuid
+from collections import Counter
 
 import pytest
 from fastapi.testclient import TestClient
@@ -619,9 +620,30 @@ def test_the_first_published_adf_guide_is_kept_unchanged():
     assert _canonical_hash(v1) == ADF_V1_FINGERPRINT
 
 
+# The rewritten guide (23 chapters, 2026-10-21), as published. Version 3 only moved each scenario
+# check's correct option so the answers no longer sit in the middle; skills pinned at 2 keep this.
+ADF_V2_FINGERPRINT = "d6740d889522e6ce8fcc55d339c1e5d68c9674aa4b7632b24a40991fc58e78bd"
+
+
+def test_the_second_published_adf_guide_is_kept_unchanged():
+    v2 = pack_store.get("adf", 2)
+    assert v2 is not None and v2.version == 2
+    assert _canonical_hash(v2) == ADF_V2_FINGERPRINT
+
+
+def test_correct_answers_are_spread_over_the_option_positions():
+    # v2 put 64 of 72 correct answers at index 1, so always picking the middle option passed. No
+    # position may hold more than half the answers in the newest version.
+    checks = [q for level in _pack("adf").scenario_levels for s in level.scenarios for q in (s.content or {}).get("check", [])]
+    assert checks
+    positions = Counter(q["answer"] for q in checks)
+    assert max(positions.values()) <= len(checks) / 2, positions
+    assert set(positions) == {0, 1, 2}
+
+
 def test_every_published_version_is_its_own_file_and_the_newest_is_the_default():
     versions = pack_store.load_packs()["adf"]
-    assert {1, 2} <= set(versions)
+    assert {1, 2, 3} <= set(versions)
     assert pack_store.latest("adf").version == max(versions)
     # Every earlier chapter keeps its id and relative order in the newest version (which may add
     # chapters), so a link, a scenario or a diagnostic keeps resolving.
