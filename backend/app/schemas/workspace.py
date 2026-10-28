@@ -9,7 +9,7 @@ from typing import Dict, List, Literal, Optional
 from pydantic import BaseModel
 
 WorkspaceKind = Literal[
-    "lab_run",               # ADF Behaviour Lab: one run's prediction, levers, observation, explanation
+    "lab_run",               # A lab run (ADF Behaviour Lab, Kafka Lab): its prediction, levers, observation, explanation
     "lakehouse_challenge",   # Lakehouse Lab: a challenge with a committed prediction
     "scenario_notes",        # Scenario lens: case notes and the Say-it answer
     "interview_answer",      # An interview question with the learner's prepared answer

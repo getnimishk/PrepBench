@@ -13,7 +13,8 @@ import { apiErrorMessage } from '../services/apiError';
 import { usePreparation } from '../context/PreparationContext';
 import { useLinkedTopics } from '../hooks/useLinkedTopics';
 import { ActivityNext } from '../components/curriculum/ActivityNext';
-import { ADF_LAB_EXPERIMENTS } from '../services/adfLab/experiments';
+import { ADF_LAB } from '../services/adfLab/lab';
+import { KAFKA_LAB } from '../services/kafkaLab/lab';
 import {
   EXPLANATION_MAX, NOTE_MAX, ROLES, SAY_IT_MAX,
   answerCheck, commitCaseNotes, fetchPreparationAttempts, lastRole, lensTasks, saveCoverage, saveLensText,
@@ -534,11 +535,9 @@ export const ScenarioPage: React.FC = () => {
             topics={linkedTopics}
             related={[
               { label: `Re-read ${chapterIndex >= 0 ? `chapter ${chapterIndex + 1}` : 'the chapter'}`, to: chapterPath },
-              ...(packId === 'adf'
-                ? ADF_LAB_EXPERIMENTS
-                  .filter((e) => e.ready && e.chapters.some((c) => c.id === scenario.chapter))
-                  .map((e) => ({ label: `Try the lab: ${e.title}`, to: `/lab/adf/${e.slug}` }))
-                : []),
+              ...([ADF_LAB, KAFKA_LAB].find((l) => l.packId === packId)?.experiments ?? [])
+                .filter((e) => e.ready && e.chapters.some((c) => c.id === scenario.chapter))
+                .map((e) => ({ label: `Try the lab: ${e.title}`, to: `${packId === 'adf' ? ADF_LAB.basePath : KAFKA_LAB.basePath}/${e.slug}` })),
             ]}
           />
         </>

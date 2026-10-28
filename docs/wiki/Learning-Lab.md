@@ -11,12 +11,13 @@ The prediction is write-once, so you cannot change it after seeing the result. E
 
 This page explains how the labs are built and the rules behind them. To learn how to *use* them, station by station, see **[How to use the Learning Lab](Learning-Lab-Guide)**.
 
-There are three sandboxes.
+There are four sandboxes.
 
 | Sandbox | Route | Who it is for |
 |---|---|---|
 | **Agile Metrics** | `/chart-sandbox` | Everyone. No preparation is needed |
 | **ADF Behaviour Lab** | `/lab/adf` | A preparation with the `adf` content pack attached |
+| **Kafka Lab** | `/lab/kafka` | A preparation with the `kafka` content pack attached |
 | **Lakehouse Lab** | `/databricks-sandbox` | The preparation whose slug is `databricks` |
 
 ## The rules every sandbox holds to
@@ -26,7 +27,7 @@ There are three sandboxes.
   - **arithmetic:** follows from definitions;
   - **assumption:** a claim the sandbox makes so the lesson lands;
   - **convention:** a counting choice.
-  - **fact** (ADF only): stated by the ADF study guide.
+  - **fact** (ADF and Kafka labs): stated by that lab's study guide.
 
   Each one is shown to the learner with its kind, so a modelling choice is never presented as a law.
 - **The model grades, never AI.** A prediction is checked against the model's own outcome, and only that sets `correct`. The [AI feedback](AI-Providers) on acceptance criteria is advice only. It never sets `correct` and never raises an evidence level.
@@ -48,6 +49,18 @@ Five experiments on how Azure Data Factory pipelines behave, at `/lab/adf/:slug`
 Each experiment runs eight stages: *Understand → Predict → Manipulate → Observe → Reason → Apply → Explain → Retrieve*.
 
 The lab is open to any preparation with the `adf` content pack attached, not only a preparation called ADF. A run is stored as four learning attempts: predict, reason, apply and retrieve. A finished run is never edited; starting again begins run *n + 1*. The facts the models rest on come from the ADF study guide. Every screen says it is a teaching simulation, never Azure running.
+
+## Kafka Lab
+
+Six experiments for a beginner who has never seen Kafka run, at `/lab/kafka/:slug`, each on a small simulated cluster drawn on screen:
+- **The log, not a queue** (`log`)
+- **Keys, partitions and order** (`keys`)
+- **Consumer groups and parallelism** (`groups`)
+- **Commits and crashes** (`commits`)
+- **Copies, acks and min ISR** (`replication`)
+- **When things go wrong** (`failures`). It has two modes: `?mode=poison` and `?mode=retries`.
+
+It runs on the ADF Behaviour Lab's runner, with the same eight stages and the same way of keeping a run, under its own attempt ids (`kb:`, `kafka.lab.`) so the two labs' work never mixes. The facts its models rest on come from the Kafka study guide, each labelled with its chapter; every other rule is labelled an assumption, a convention or arithmetic. The design is `docs/implementation/KAFKA-LAB-CONTRACT.md`.
 
 ## Lakehouse Lab
 

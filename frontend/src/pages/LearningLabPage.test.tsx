@@ -43,8 +43,9 @@ describe('LearningLabPage', () => {
     expect(screen.getByRole('heading', { level: 3, name: 'Scenarios' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'Lakehouse Lab' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'ADF Behaviour Lab' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: 'Kafka Lab' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: 'Financial Learning' })).toBeInTheDocument();
-    expect(within(section).getAllByRole('heading', { level: 3 })).toHaveLength(5);
+    expect(within(section).getAllByRole('heading', { level: 3 })).toHaveLength(6);
   });
 
   it('marks Agile Metrics as live with active link to /chart-sandbox', () => {
@@ -95,6 +96,13 @@ describe('LearningLabPage', () => {
     expect(within(adf).getByText('Live')).toBeInTheDocument();
     expect(within(adf).getByRole('link', { name: 'Open sandbox: ADF Behaviour Lab' })).toHaveAttribute('href', '/lab/adf');
     expect(within(adf).queryByText(/Lakehouse/i)).not.toBeInTheDocument();
+  });
+
+  it('offers the Kafka Lab, live, at /lab/kafka', () => {
+    renderPage();
+    const kafka = screen.getByRole('heading', { level: 3, name: 'Kafka Lab' }).closest('article')!;
+    expect(within(kafka).getByText('Live')).toBeInTheDocument();
+    expect(within(kafka).getByRole('link', { name: 'Open sandbox: Kafka Lab' })).toHaveAttribute('href', '/lab/kafka');
   });
 
   it('renders Financial Learning as coming soon with a disabled button', () => {

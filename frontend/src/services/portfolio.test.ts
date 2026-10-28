@@ -12,6 +12,9 @@ describe('naming lab work from the registries that already name it', () => {
     for (const e of ADF_LAB_EXPERIMENTS) expect(adfTrackTitle(e.slug)).toBe(e.title);
     expect(adfTrackTitle('fault-tolerance.bad-rows')).toBe('Fault Tolerance: Bad-row handling');
     expect(adfTrackTitle('no-such-experiment')).toBeNull();
+    // The Kafka Lab's runs carry ref.lab, and are named from its own registry.
+    expect(titleOf({ title: 'fallback', ref: { track: 'failures.poison', lab: 'kafka' } })).toBe('When things go wrong: A record that can’t be read');
+    expect(titleOf({ title: 'fallback', ref: { track: 'log', lab: 'kafka' } })).toBe('The log, not a queue');
   });
 
   it('names Lakehouse challenges as their stations do, and keeps the server title for anything unknown', () => {

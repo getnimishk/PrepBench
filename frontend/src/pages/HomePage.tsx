@@ -4,6 +4,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { KAFKA_LAB, hasKafkaPack } from '../services/kafkaLab/lab';
 import { Alert, Box, Button, Stack, Typography, useTheme } from '@mui/material';
 import {
   Activity, ArrowRight, Award, BookOpen, ChevronRight, Database, FileCheck2, FlaskConical,
@@ -836,6 +837,11 @@ export const HomePage: React.FC = () => {
   // Read from the record and its capabilities -- never from which id it has (Phase 7).
   const has0Questions = isCertification && primary.question_count === 0;
   const hasLakehouse = capabilities.lakehouseLab;
+  // Which lab this preparation's Learning Lab opens: the Lakehouse Lab, else the Kafka Lab for a preparation with the
+  // Kafka guide, else the ADF Behaviour Lab (the only other lab a preparation can have).
+  const hasKafkaLab = !hasLakehouse && hasKafkaPack(primary);
+  const labPath = hasLakehouse ? '/databricks-sandbox' : hasKafkaLab ? KAFKA_LAB.basePath : '/lab/adf';
+  const labOpen = hasLakehouse ? 'Open Lakehouse Lab' : hasKafkaLab ? 'Open Kafka Lab' : 'Open Behaviour Lab';
 
   const unmeasured = isCertification && r.mock_count === 0 && r.state === 'needs_evaluation';
   const averageScore = r.recent_scores.length > 0
@@ -887,9 +893,9 @@ export const HomePage: React.FC = () => {
         <Button
           variant="contained"
           component={RouterLink}
-          to={hasLakehouse ? '/databricks-sandbox' : '/lab/adf'}
+          to={labPath}
         >
-          {hasLakehouse ? 'Open Lakehouse Lab' : 'Open Behaviour Lab'}
+          {labOpen}
         </Button>
       );
     }
@@ -1182,11 +1188,15 @@ export const HomePage: React.FC = () => {
             {capabilities.learningLab && (
               isLabAvailable ? (
                 <Row
-                  title={hasLakehouse ? 'Lakehouse Simulation Lab' : 'ADF Behaviour Labs'}
-                  detail={hasLakehouse ? 'Interactive Delta Lake & ADLS Gen2 pipeline sandbox' : 'Manipulate pipeline parameters, inject transient faults, and observe mechanistic causality'}
+                  title={hasLakehouse ? 'Lakehouse Simulation Lab' : hasKafkaLab ? 'Kafka Lab' : 'ADF Behaviour Labs'}
+                  detail={hasLakehouse
+                    ? 'Interactive Delta Lake & ADLS Gen2 pipeline sandbox'
+                    : hasKafkaLab
+                      ? 'Predict what a small simulated Kafka cluster does, change it, and watch: from the log to acks and failures'
+                      : 'Manipulate pipeline parameters, inject transient faults, and observe mechanistic causality'}
                   action={
-                    <Button size="small" variant="contained" component={RouterLink} to={hasLakehouse ? '/databricks-sandbox' : '/lab/adf'}>
-                      {hasLakehouse ? 'Open Lakehouse Lab' : 'Open Behaviour Lab'}
+                    <Button size="small" variant="contained" component={RouterLink} to={labPath}>
+                      {labOpen}
                     </Button>
                   }
                 />
@@ -1253,9 +1263,9 @@ export const HomePage: React.FC = () => {
                 variant="outlined"
                 size="small"
                 component={RouterLink}
-                to={hasLakehouse ? '/databricks-sandbox' : '/lab/adf'}
+                to={labPath}
               >
-                {hasLakehouse ? 'Lakehouse Sandbox' : 'All five experiments'}
+                {hasLakehouse ? 'Lakehouse Sandbox' : hasKafkaLab ? 'All six experiments' : 'All five experiments'}
               </Button>
             ) : isLabPending ? (
               <Pill tone="warning">Integration Pending (Phase 5)</Pill>
@@ -1275,7 +1285,7 @@ export const HomePage: React.FC = () => {
               Learning Lab Not Configured for {primary.name}
             </Typography>
             <Typography variant="body2" sx={{ color: t.muted, mt: '6px', maxWidth: 600, mx: 'auto' }}>
-              Interactive behavioural simulations and fault injection sandboxes are currently available for <b>Azure Data Factory</b> and <b>Databricks Lakehouse</b>. Preparation for {primary.name} is driven by its supported capabilities.
+              Interactive behavioural simulations and fault injection sandboxes are currently available for <b>Azure Data Factory</b>, <b>Apache Kafka</b> and <b>Databricks Lakehouse</b>. Preparation for {primary.name} is driven by its supported capabilities.
             </Typography>
             <Stack direction="row" spacing={1.5} sx={{ mt: (t) => t.typography.pxToRem(16), justifyContent: 'center' }}>
               {isCertification && (
@@ -1350,6 +1360,25 @@ export const HomePage: React.FC = () => {
                   </Button>
                 </Actions>
               </Box>
+            ) : hasKafkaLab ? (
+              <>
+                {KAFKA_LAB.experiments.slice(0, 2).map((e) => (
+                  <Box key={e.slug} sx={{ p: (t) => t.typography.pxToRem(14), borderRadius: '8px', border: `1px solid ${t.line}`, bgcolor: t.surface2 }}>
+                    <Pill tone="accent">Kafka Lab</Pill>
+                    <Typography variant="subtitle1" component="p" sx={{ fontWeight: 800, mt: '8px' }}>
+                      {e.title}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: t.muted, mt: '4px' }}>
+                      {e.purpose}
+                    </Typography>
+                    <Actions sx={{ mt: (t) => t.typography.pxToRem(12) }}>
+                      <Button size="small" variant="contained" component={RouterLink} to={`${KAFKA_LAB.basePath}/${e.slug}`} aria-label={`Launch ${e.title}`}>
+                        Launch Experiment
+                      </Button>
+                    </Actions>
+                  </Box>
+                ))}
+              </>
             ) : (
               <>
                 <Box sx={{ p: (t) => t.typography.pxToRem(14), borderRadius: '8px', border: `1px solid ${t.line}`, bgcolor: t.surface2 }}>

@@ -101,6 +101,20 @@ const SANDBOXES: SandboxCard[] = [
     iconBgKey: 'primary',
   },
   {
+    id: 'kafka',
+    label: 'Kafka Lab',
+    domain: 'Apache Kafka, from zero',
+    description:
+      'For someone who has never seen Kafka run: predict what a small simulated cluster will do, change it, and watch. '
+      + 'From what a log is to why an acknowledged write can be lost. Works in a preparation with the Apache Kafka guide attached.',
+    metricFamilies: ['The log', 'Keys & order', 'Consumer groups', 'Commits & crashes', 'Copies & acks', 'Failures'],
+    familiesLabel: 'Six experiments',
+    path: '/lab/kafka',
+    live: true,
+    icon: <FlaskConical size={22} aria-hidden />,
+    iconBgKey: 'warning',
+  },
+  {
     id: 'finance',
     label: 'Financial Learning',
     domain: 'Company financial modelling',

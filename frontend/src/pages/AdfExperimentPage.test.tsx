@@ -10,7 +10,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 // An experiment the registry has not marked built must say so, not open half a lab.
 vi.mock('../services/adfLab/experiments', async (importOriginal) => {
   const real = await importOriginal<typeof import('../services/adfLab/experiments')>();
-  return { ...real, adfLabExperiment: (slug: string | undefined) => { const e = real.adfLabExperiment(slug); return e ? { ...e, ready: false } : null; } };
+  return { ...real, ADF_LAB_EXPERIMENTS: real.ADF_LAB_EXPERIMENTS.map((e) => (e.slug === 'triggers' ? { ...e, ready: false } : e)) };
 });
 vi.mock('../context/PreparationContext', () => ({
   usePreparation: () => ({

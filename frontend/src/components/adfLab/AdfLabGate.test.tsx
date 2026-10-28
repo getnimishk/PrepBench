@@ -14,6 +14,7 @@ vi.mock('../../services/adfLab/experiments', async (importOriginal) => {
 });
 
 import { IntegrationNotice } from './AdfLabGate';
+import { ADF_LAB } from '../../services/adfLab/lab';
 import { getSubjectCapabilities } from '../../services/capabilities';
 import type { Subject } from '../../types/subject';
 
@@ -30,7 +31,7 @@ describe('the lab while an experiment is not built', () => {
   });
 
   it('says so on its pages', () => {
-    render(<IntegrationNotice prep={ADF} />);
+    render(<IntegrationNotice lab={ADF_LAB} />);
     expect(screen.getByText(/Integration in progress/)).toBeInTheDocument();
   });
 });
