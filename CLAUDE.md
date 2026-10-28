@@ -59,12 +59,16 @@ learner's Apache Kafka Mastery Roadmap (every topic Full), with hands-on steps f
 install on Windows, written against the 4.3 docs. Every fact traces to `docs/research/kafka-documentation-notes.md`
 (Apache Kafka 4.3 and named Confluent pages, plus the 4.3 source where the docs are silent); §20 there records where the
 learner's ChatGPT-era notes and images disagree with the docs, and the guide follows the docs. Chapters are written
-as Markdown in `backend/app/content/packs/kafka/src/` and built into `v1.json` by `backend/scripts/build_content_pack.py`;
-edit the sources and rebuild, never the JSON (`tests/test_kafka_pack.py` fails if they differ, a table isn't last in
+as Markdown in `backend/app/content/packs/kafka/src/` and built into the newest `v<N>.json` by
+`backend/scripts/build_content_pack.py`; edit the sources and rebuild, never the JSON (`tests/test_kafka_pack.py` fails if they differ, a table isn't last in
 its section, a section is cited that the notes lack, or a 4.3-deprecated tool option appears). Packs attach only to
 skills (the settled D1; the learner chose to keep it), so the guide is for a **separate "Kafka" skill**: CCDAK stays
 the certification. Moving the Kafka roadmap from CCDAK to that skill is a learner action (Roadmaps: unlink, then
-assign), never done from code. No Kafka scenarios, lab or CCDAK question bank yet; those are the next steps.
+assign), never done from code. **v2 (2026-10-28) adds 18 written scenarios** in four levels, in ADF's format (check,
+case, debrief, a lens and a Say-it question per role), one JSON file each under `src/scenarios/`; chapters' practice
+links are built from the scenarios, and scenario facts trace to the same notes. **v1 (the guide alone, PR #109) is
+published and never changes** (pinned by fingerprint); the learner upgrades to v2 in the app. No Kafka lab or CCDAK
+question bank yet.
 
 **Settled decisions, don't reopen these:**
 - The header Settings button stays, even though it isn't in the prototype — kept for
@@ -90,7 +94,7 @@ assign), never done from code. No Kafka scenarios, lab or CCDAK question bank ye
     six-subject table when the record's slug matches an entry **exactly** -- never by id, so a recreated
     System Design at id 33 keeps its rounds and another preparation holding id 3 gets nothing of System
     Design's (a bare numeric id still reads the table: avoid passing one); a derived profile gets
-    `interview` from the ADF pack (its Say-it questions) or from `lab_interview_question_count > 0`
+    `interview` from the ADF pack or any attached pack with written scenarios (their Say-it questions; Kafka v2, 2026-10-28) or from `lab_interview_question_count > 0`
     (P1-1, PR #86 -- never a hand-set flag); question counts always come from the record (so Kafka
     unlocks the moment a bank is really imported); a preparation the table does not describe (every
     learner-created one) gets a profile derived from its own `kind`, `question_count` and

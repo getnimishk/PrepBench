@@ -1,0 +1,234 @@
+{
+  "id": "15",
+  "number": 15,
+  "title": "The region that went dark",
+  "outcome": "A standby cluster existed, nobody had rehearsed using it, and a one-hour regional outage became five hours of downtime.",
+  "sources": "§7, §14, §19",
+  "chapter": "multi-cluster",
+  "content": {
+    "bookmark": "Cross-cluster replication is asynchronous, so the recovery point is at least the replication lag. A failover that has never been rehearsed is a plan on paper only.",
+    "check": [
+      {
+        "prompt": "MirrorMaker 2 replicates the topic orders from a cluster aliased primary. What is it called on the standby, by default?",
+        "options": [
+          "orders",
+          "orders-mirror",
+          "primary.orders"
+        ],
+        "answer": 2,
+        "why": "The default replication policy prefixes the source cluster's alias. Consumers failing over must read the renamed topic."
+      },
+      {
+        "prompt": "Besides topic data, what does MirrorMaker 2 replicate?",
+        "options": [
+          "Topic configurations, consumer group offsets and ACLs",
+          "Nothing else",
+          "Broker configurations"
+        ],
+        "answer": 0,
+        "why": "Replicated group offsets let a consumer group resume on the standby near where it stopped."
+      },
+      {
+        "prompt": "With asynchronous cross-cluster replication, what is the least data you can expect to lose in a sudden regional failure?",
+        "options": [
+          "None",
+          "Whatever had not yet been replicated: the replication lag at that moment",
+          "Everything since the last backup"
+        ],
+        "answer": 1,
+        "why": "Records are copied after they are written to the source, so the most recent ones may not have crossed. Measure the lag and state the RPO honestly."
+      },
+      {
+        "prompt": "Which tool keeps the same offsets on the destination as on the source?",
+        "options": [
+          "MirrorMaker 2",
+          "Kafka Connect's file connector",
+          "Confluent Cluster Linking, a Confluent feature rather than part of Apache Kafka"
+        ],
+        "answer": 2,
+        "why": "Cluster Linking mirror topics are byte-for-byte copies with the same offsets. MirrorMaker 2 offsets on the target don't necessarily match the source."
+      }
+    ],
+    "caseStudy": {
+      "setting": "A payments processor (fictional) runs its primary Kafka cluster in one cloud region, with MirrorMaker 2 replicating to a standby cluster in another region. The disaster recovery plan says \"fail over to the standby\". It has never been tested end to end.",
+      "events": [
+        {
+          "when": "Tuesday 09:12",
+          "what": "The primary region has a major network outage. Every service there is unreachable."
+        },
+        {
+          "when": "Tuesday 09:12 to 13:30",
+          "what": "Nobody is sure who can declare a disaster. Producers' configs point at the primary's addresses. Consumers expect topic names without the primary. prefix. Credentials for the standby are missing for two services. Each fix is made by hand."
+        },
+        {
+          "when": "Tuesday 14:10",
+          "what": "Payments resume on the standby. The primary region had recovered at 10:15. About 30 seconds of payments before the outage never reached the standby."
+        }
+      ],
+      "pipeline": [
+        "Primary cluster · region A, all producers and consumers",
+        "MirrorMaker 2 · primary to standby, topics renamed primary.<name>",
+        "Standby cluster · region B, idle",
+        "DR plan · one line, never rehearsed"
+      ],
+      "tasks": [
+        "Why did failover take five hours when the outage lasted one?",
+        "What should the DR plan have stated?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why it took so long",
+        "text": [
+          "Every step of failover was being done for the first time: deciding, re-pointing producers, changing consumers to the prefixed topic names, finding credentials.",
+          "The standby had the data, but the systems around it weren't ready to use it. By the time they were, the primary was back, and failing back became a second problem."
+        ]
+      },
+      {
+        "title": "What could be lost",
+        "text": [
+          "MirrorMaker 2 copies records after they are written to the primary, so the last moments before an outage may never cross. Here, about 30 seconds.",
+          "That is the recovery point (RPO) this design really offers. It should be measured from the replication lag and agreed with the business, not discovered."
+        ]
+      },
+      {
+        "title": "A plan worth having",
+        "text": [
+          "Stated RPO and RTO per service. Who declares a disaster, and on what signals.",
+          "How producers find the standby; how each consumer group resumes, from replicated offsets and on prefixed names; what isn't replicated (schemas, connector configs, credentials).",
+          "How to fail back, and a scheduled rehearsal measured against the RPO and RTO."
+        ]
+      }
+    ],
+    "takeaway": [
+      "A standby you've never used is not a recovery plan.",
+      "Asynchronous replication means RPO is at least the lag.",
+      "Rehearse failover and failback, and measure them."
+    ],
+    "honesty": "If you haven't run a regional failover, say so and walk through the plan you would write. If you have, lead with what surprised you.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What would you ask about the DR plan?",
+          "What would you require before calling it done?"
+        ],
+        "debrief": [
+          {
+            "title": "Questions",
+            "text": [
+              "\"How much data could we lose, and how long would we be down?\"",
+              "\"When was this last tested?\""
+            ]
+          },
+          {
+            "title": "Done means",
+            "text": [
+              "RPO and RTO agreed and written; a rehearsal that meets them; repeated on a schedule."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you know a disaster recovery plan actually works?",
+          "points": [
+            "It states RPO and RTO, agreed with the business.",
+            "It names who decides and how.",
+            "It covers producers, consumers and what isn't replicated.",
+            "It has been rehearsed, with results measured.",
+            "It is rehearsed again regularly."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What do you tell merchants and regulators?",
+          "How do you decide what RPO and RTO to aim for?"
+        ],
+        "debrief": [
+          {
+            "title": "Communication",
+            "text": [
+              "Tell merchants the window and the lost payments; work with them to resubmit. Report to regulators as required."
+            ]
+          },
+          {
+            "title": "Targets",
+            "text": [
+              "Set RPO and RTO from what the business can tolerate and what it will pay for; active-passive with asynchronous replication can't promise zero loss."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you set recovery targets for a critical product?",
+          "points": [
+            "Ask what loss and downtime the business can tolerate.",
+            "Translate into RPO and RTO.",
+            "Show the cost of each level of protection.",
+            "Choose an architecture that meets it, honestly stated.",
+            "Fund and schedule rehearsals."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you organise the next failover?",
+          "How do you make rehearsal routine?"
+        ],
+        "debrief": [
+          {
+            "title": "Organising",
+            "text": [
+              "A runbook with steps, owners and timings; a named incident commander with authority to declare."
+            ]
+          },
+          {
+            "title": "Routine rehearsal",
+            "text": [
+              "A failover game day each quarter, measured against RPO and RTO, with findings tracked to closure."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you prepare an organisation to fail over a critical system?",
+          "points": [
+            "A runbook with owners and timings.",
+            "Clear authority to declare a disaster.",
+            "Credentials and configs ready in the standby.",
+            "Regular rehearsals, measured.",
+            "Track findings to closure."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "What do you change technically?",
+          "MirrorMaker 2 or Cluster Linking?"
+        ],
+        "debrief": [
+          {
+            "title": "Technical changes",
+            "text": [
+              "Make topic names and cluster addresses configuration, switchable in one place. Alert on MM2 replication lag and checkpoint-latency-ms.",
+              "Replicate or recreate what MM2 doesn't carry: schemas, connector configs, credentials."
+            ]
+          },
+          {
+            "title": "MM2 or Cluster Linking",
+            "text": [
+              "MM2 is part of Apache Kafka and runs on Connect; topics are prefixed and offsets differ. Cluster Linking (Confluent only) keeps names and offsets, which simplifies consumer failover, at the cost of a vendor dependency."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you design Kafka for surviving the loss of a region?",
+          "points": [
+            "Replication within a cluster handles brokers and zones; a region needs a second cluster.",
+            "MirrorMaker 2 replicates topics, configs, group offsets and ACLs, with prefixed names.",
+            "It is asynchronous, so RPO is at least the replication lag.",
+            "Plan producer and consumer failover, and what isn't replicated.",
+            "Rehearse failover and failback against stated targets."
+          ]
+        }
+      }
+    }
+  }
+}

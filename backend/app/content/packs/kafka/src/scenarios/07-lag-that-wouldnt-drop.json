@@ -1,0 +1,237 @@
+{
+  "id": "7",
+  "number": 7,
+  "title": "The lag that wouldn't drop",
+  "outcome": "Lag kept growing, the team doubled the consumers, six of them sat idle, and the database got slower.",
+  "sources": "§2, §5, §6, §12",
+  "chapter": "consumer",
+  "content": {
+    "bookmark": "In a consumer group each partition has one owner, so the partition count caps how many consumers can work. Find what is slow before adding consumers.",
+    "check": [
+      {
+        "prompt": "A topic has 6 partitions and a group has 12 consumers. How many consumers receive records?",
+        "options": [
+          "6; the other 6 sit idle",
+          "12",
+          "3"
+        ],
+        "answer": 0,
+        "why": "Each partition is consumed by exactly one member of a group at a time, so at most 6 members have work."
+      },
+      {
+        "prompt": "In kafka-consumer-groups --describe, what is LAG?",
+        "options": [
+          "The time since the last record",
+          "The log-end offset minus the group's committed offset for that partition",
+          "The number of consumers in the group"
+        ],
+        "answer": 1,
+        "why": "The tool shows CURRENT-OFFSET (committed), LOG-END-OFFSET and LAG, the difference, per partition."
+      },
+      {
+        "prompt": "Lag grows on every partition evenly, and each consumer is busy waiting on database writes. What helps most?",
+        "options": [
+          "More consumers than partitions",
+          "Raising the topic's retention",
+          "Making each consumer's processing faster, for example by batching the database writes"
+        ],
+        "answer": 2,
+        "why": "The bottleneck is the work per record. Extra consumers past the partition count idle; below it, they add load to the same slow database."
+      },
+      {
+        "prompt": "Which Kafka 4.2+ feature lets more consumers than partitions share the work?",
+        "options": [
+          "Share groups, which acknowledge records one by one and give up per-partition ordering",
+          "Static membership",
+          "Tiered storage"
+        ],
+        "answer": 0,
+        "why": "In a share group, consumers share partitions cooperatively, so there can be more consumers than partitions. The cost is ordering within a partition."
+      }
+    ],
+    "caseStudy": {
+      "setting": "A ride-hailing company (fictional) streams trip-completed events to a trips topic with 6 partitions. A billing consumer group of 6 instances reads each trip and writes a fare row to a relational database, one insert per trip.",
+      "events": [
+        {
+          "when": "Friday 18:00",
+          "what": "Evening demand doubles. Lag on trips climbs steadily on all six partitions."
+        },
+        {
+          "when": "Friday 18:30",
+          "what": "The on-call engineer scales the billing group from 6 to 12 instances. Lag keeps climbing."
+        },
+        {
+          "when": "Friday 19:00",
+          "what": "The database team reports connection pressure and slower inserts. Six of the new instances show no assigned partitions."
+        }
+      ],
+      "pipeline": [
+        "trips topic · 6 partitions",
+        "Billing group · scaled from 6 to 12 instances",
+        "Each record · one INSERT into the fares database",
+        "Commit · after each poll's records are written"
+      ],
+      "tasks": [
+        "Why didn't doubling the consumers help?",
+        "What would actually bring the lag down?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why more consumers didn't help",
+        "text": [
+          "With 6 partitions, at most 6 members of a group can be assigned work. The 6 new instances joined, triggered a rebalance, and received nothing.",
+          "The real limit was the database: each consumer spent most of its time waiting for single-row inserts. The new instances that did get partitions after the rebalance only added connections to the same database."
+        ]
+      },
+      {
+        "title": "What brings lag down",
+        "text": [
+          "Make each consumer faster: write a poll's records to the database in one batch, instead of one insert per record.",
+          "If one consumer per partition is truly at its limit, more partitions raise the ceiling, sized with headroom and planned, because adding them moves keys (scenario 4).",
+          "If per-partition order doesn't matter for this work, a share group (production-ready since 4.2) allows more consumers than partitions."
+        ]
+      },
+      {
+        "title": "Reading lag correctly",
+        "text": [
+          "Lag that grows evenly on all partitions points to slow processing or too little parallelism. Lag on one partition only points to a hot key (scenario 8) or a stuck record (scenario 9).",
+          "The consumer's own records-lag-max metric is based on its current position, not the committed offset, so it can differ from the tool's LAG column."
+        ]
+      }
+    ],
+    "takeaway": [
+      "The partition count caps a group's parallelism.",
+      "Find the slow step before adding consumers.",
+      "Even lag says slow work; lag on one partition says a hot key or a stuck record."
+    ],
+    "honesty": "If you haven't tuned a lagging consumer, say so and explain how you'd diagnose it. If you have, lead with what the bottleneck turned out to be.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What questions would you ask before approving more instances?",
+          "What should the team commit to measuring?"
+        ],
+        "debrief": [
+          {
+            "title": "Questions",
+            "text": [
+              "\"Is lag the same on every partition or concentrated on one?\" That separates slow work from a hot key.",
+              "\"What is each consumer waiting on?\" That finds the bottleneck."
+            ]
+          },
+          {
+            "title": "Measures",
+            "text": [
+              "Time from trip end to fare recorded, with a target.",
+              "Throughput per consumer before and after any change."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Billing fell behind during a peak. How would you work with the team to fix it?",
+          "points": [
+            "Ask for the shape of the lag before any fix.",
+            "Ask what the slow step is.",
+            "Know the ceiling: more consumers than partitions do nothing.",
+            "Agree a measurable target, like time from trip to fare.",
+            "Prefer the fix that addresses the bottleneck over adding capacity."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What is the customer impact?",
+          "How do you plan capacity for the next peak?"
+        ],
+        "debrief": [
+          {
+            "title": "Impact",
+            "text": [
+              "Fares recorded late may delay receipts and driver payouts. Check whether either was affected and tell drivers if payouts slip."
+            ]
+          },
+          {
+            "title": "Planning",
+            "text": [
+              "Agree peak volumes with the business, test billing at twice that, and size partitions and database capacity together."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you plan capacity for a known demand peak?",
+          "points": [
+            "Get peak volumes from the business, with growth.",
+            "Test the whole path, including the database, at a multiple of peak.",
+            "Size Kafka partitions and downstream capacity together.",
+            "Watch time-to-processed as the customer-facing measure.",
+            "Review after the peak."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "What do you do during the incident?",
+          "What goes in the runbook?"
+        ],
+        "debrief": [
+          {
+            "title": "During the incident",
+            "text": [
+              "Scale back to 6 instances to stop pointless rebalances and database load.",
+              "Agree with the database team whether a quick batching change or more database capacity is faster tonight."
+            ]
+          },
+          {
+            "title": "Runbook",
+            "text": [
+              "Check lag per partition first. Never scale a group beyond its partition count. Check downstream latency before scaling up."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "A consumer group is falling behind. Walk me through your first steps.",
+          "points": [
+            "Look at lag per partition: even, or on one?",
+            "Check consumers' processing time and what they wait on.",
+            "Know that consumers beyond the partition count idle.",
+            "Coordinate with downstream owners before adding load.",
+            "Record the steps in a runbook."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "How do you speed up the consumer?",
+          "When would you add partitions or use a share group?"
+        ],
+        "debrief": [
+          {
+            "title": "Speeding it up",
+            "text": [
+              "Batch the inserts per poll, inside one database transaction, and commit offsets after it succeeds.",
+              "Tune max.poll.records with the batch size, keeping each poll's work inside max.poll.interval.ms."
+            ]
+          },
+          {
+            "title": "Partitions or a share group",
+            "text": [
+              "More partitions if one consumer per partition is at its limit and order per trip still matters; plan it.",
+              "A share group if order doesn't matter and you want to scale consumers freely; records are acknowledged one by one."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you scale Kafka consumption, and what limits it?",
+          "points": [
+            "Parallelism within a group is capped by the partition count.",
+            "Diagnose before scaling: lag shape, processing time, downstream latency.",
+            "Make each consumer efficient: batch downstream writes.",
+            "Add partitions with headroom when the per-partition ceiling is reached, knowing keys move.",
+            "Share groups (4.2+) allow more consumers than partitions at the cost of ordering."
+          ]
+        }
+      }
+    }
+  }
+}

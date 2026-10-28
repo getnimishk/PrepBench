@@ -1,0 +1,234 @@
+{
+  "id": "17",
+  "number": 17,
+  "title": "The sink that wrote twice",
+  "outcome": "A sink connector stopped on one bad record; the quick fix skipped 2,300 records silently and wrote thousands of others twice.",
+  "sources": "§5, §14, §23",
+  "chapter": "connect",
+  "content": {
+    "bookmark": "A sink connector fails fast on a bad record by default. Tolerating errors needs a dead-letter topic, and a sink is at-least-once, so the target must be safe to write twice.",
+    "check": [
+      {
+        "prompt": "By default, what does a connector do when a record fails conversion or a transform?",
+        "options": [
+          "Skips it",
+          "Fails fast: errors.tolerance defaults to none, and the task stops",
+          "Retries forever"
+        ],
+        "answer": 1,
+        "why": "The defaults are errors.tolerance=none, errors.retry.timeout=0 and errors.log.enable=false: stop on the first error."
+      },
+      {
+        "prompt": "errors.tolerance=all is set with nothing else. What happens to bad records?",
+        "options": [
+          "They go to a dead-letter topic",
+          "They are retried later",
+          "They are skipped, with no record kept unless logging or a dead-letter topic is configured"
+        ],
+        "answer": 2,
+        "why": "Tolerating errors only skips. errors.log.enable logs them; errors.deadletterqueue.topic.name sends them, for sink connectors, to a dead-letter topic."
+      },
+      {
+        "prompt": "A sink connector restarts after a crash. Where does it resume?",
+        "options": [
+          "From its last committed offset, so records written after that commit are written again",
+          "Exactly after the last row written to the database",
+          "From the beginning of the topic"
+        ],
+        "answer": 0,
+        "why": "Connect manages offsets automatically, but a crash between writing and committing redelivers those records: at-least-once, Kafka's default."
+      },
+      {
+        "prompt": "Which mode should run production connectors?",
+        "options": [
+          "Standalone",
+          "Distributed: fault tolerant, scalable, managed through the REST API",
+          "Either, they are the same"
+        ],
+        "answer": 1,
+        "why": "Standalone is one process with no fault tolerance. Distributed workers share work and keep configs, offsets and status in Kafka topics."
+      }
+    ],
+    "caseStudy": {
+      "setting": "An energy company (fictional) streams smart-meter readings to meter.readings. A sink connector in a distributed Connect cluster writes them to an analytics database table, as plain inserts. Billing uses the table at month end.",
+      "events": [
+        {
+          "when": "Friday 22:00",
+          "what": "A firmware bug makes some meters send readings with a malformed timestamp. The connector's task fails on the first one and stops. Lag grows all night."
+        },
+        {
+          "when": "Saturday 07:00",
+          "what": "To get data flowing, the on-call engineer sets errors.tolerance=all and restarts the connector. It catches up within the hour."
+        },
+        {
+          "when": "Month end",
+          "what": "Billing finds about 2,300 readings missing with no trace of them anywhere, and thousands of readings in the table twice, from the hour before the failure."
+        }
+      ],
+      "pipeline": [
+        "Smart meters · send readings to meter.readings",
+        "Connect · distributed, sink connector, tasks.max 6",
+        "Error handling · default (fail fast), then errors.tolerance=all",
+        "Analytics database · plain INSERT per reading"
+      ],
+      "tasks": [
+        "Where did the 2,300 readings go?",
+        "Why were other readings written twice?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Where the readings went",
+        "text": [
+          "errors.tolerance=all tells the connector to skip records that fail conversion or transforms. Without errors.log.enable or a dead-letter topic, skipping leaves no trace.",
+          "The readings are still in meter.readings until retention removes them, so they can be found and replayed if acted on in time."
+        ]
+      },
+      {
+        "title": "Why others were written twice",
+        "text": [
+          "The task had written records to the database after its last offset commit. On restart it resumed from the committed offset and wrote them again.",
+          "A sink is at-least-once unless the target cooperates. With plain inserts, every redelivery is a duplicate row. An upsert on a reading's natural key (meter ID and timestamp) makes a rewrite harmless."
+        ]
+      },
+      {
+        "title": "The right configuration",
+        "text": [
+          "errors.tolerance=all only together with errors.deadletterqueue.topic.name, errors.deadletterqueue.context.headers.enable=true and errors.log.enable=true.",
+          "An alert on records arriving in the dead-letter topic, with an owner who fixes and replays them.",
+          "Writes keyed so repeating them changes nothing."
+        ]
+      }
+    ],
+    "takeaway": [
+      "Fail-fast is the default; tolerance without a dead-letter topic is silent loss.",
+      "A sink is at-least-once; make the target safe to write twice.",
+      "A bad record is a signal, not just an obstacle."
+    ],
+    "honesty": "If you haven't run Kafka Connect, say so and explain how errors and offsets work. If you have, lead with how you handled bad records.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What questions would you ask?",
+          "What would you require of the integration?"
+        ],
+        "debrief": [
+          {
+            "title": "Questions",
+            "text": [
+              "\"When a record can't be loaded, where does it go and who is told?\"",
+              "\"If a load repeats, do we get duplicates?\""
+            ]
+          },
+          {
+            "title": "Requirements",
+            "text": [
+              "No reading is lost silently: every rejected reading is kept, alerted and owned.",
+              "Reloading the same readings never creates duplicates."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "What would you require of a pipeline that loads events into an analytics database?",
+          "points": [
+            "No silent loss: rejected records kept and alerted.",
+            "No duplicates when loads repeat.",
+            "An owner for rejected records.",
+            "Reconciliation of counts against the source.",
+            "Tested failure handling before go-live."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What is the billing impact?",
+          "What do you tell customers?"
+        ],
+        "debrief": [
+          {
+            "title": "Billing",
+            "text": [
+              "Hold affected bills until readings are corrected: no bills from duplicated or missing readings."
+            ]
+          },
+          {
+            "title": "Customers",
+            "text": [
+              "If bills went out, correct them and explain; fix the firmware with the meter supplier."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Data feeding customer bills was incomplete and duplicated. How do you handle it?",
+          "points": [
+            "Stop wrong bills going out.",
+            "Correct the data from the source.",
+            "Tell affected customers.",
+            "Work with the supplier on the root cause.",
+            "Make data completeness a measured part of billing."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you recover the data?",
+          "What goes in the runbook?"
+        ],
+        "debrief": [
+          {
+            "title": "Recovery",
+            "text": [
+              "Remove duplicates by natural key, find the skipped readings in meter.readings before retention removes them, fix and reload them, reconcile counts."
+            ]
+          },
+          {
+            "title": "Runbook",
+            "text": [
+              "When a connector fails on bad data: enable the dead-letter topic, never tolerance alone; restart; review the dead-letter topic."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "A connector has stopped on bad data at night. What should on-call do?",
+          "points": [
+            "Find the bad records from the task's error.",
+            "Restart with a dead-letter topic, not plain tolerance.",
+            "Confirm data flows and dead-letter alerts work.",
+            "Hand the rejected records to their owner.",
+            "Check for duplicates from the restart."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "Write the connector's error settings.",
+          "How do you make the sink idempotent?"
+        ],
+        "debrief": [
+          {
+            "title": "Error settings",
+            "text": [
+              "errors.tolerance=all, errors.log.enable=true, errors.deadletterqueue.topic.name=meter.readings.dlq, errors.deadletterqueue.context.headers.enable=true."
+            ]
+          },
+          {
+            "title": "Idempotent sink",
+            "text": [
+              "Write with an upsert keyed on meter ID and reading timestamp, so a redelivered record overwrites itself. Or have the connector store offsets with the data in the same transaction, if it supports that."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you run Kafka Connect reliably?",
+          "points": [
+            "Distributed mode for fault tolerance, managed by REST.",
+            "Fail-fast by default; tolerance only with a dead-letter topic and logging.",
+            "Sinks are at-least-once; make writes idempotent.",
+            "Exactly-once for sources with exactly.once.source.support where the connector supports it.",
+            "Monitor task status, lag and the dead-letter topic."
+          ]
+        }
+      }
+    }
+  }
+}

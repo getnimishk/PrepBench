@@ -1,0 +1,233 @@
+{
+  "id": "16",
+  "number": 16,
+  "title": "The dashboard that counted twice",
+  "outcome": "A stream-processing instance restarted, some sales were counted twice, and late sales were dropped without a trace.",
+  "sources": "§5, §15",
+  "chapter": "streams",
+  "content": {
+    "bookmark": "Kafka Streams is at-least-once by default; exactly_once_v2 makes reading, updating state and writing results one transaction. Late records past a window's grace period are dropped.",
+    "check": [
+      {
+        "prompt": "What is Kafka Streams' default processing.guarantee?",
+        "options": [
+          "at_least_once",
+          "exactly_once_v2",
+          "at_most_once"
+        ],
+        "answer": 0,
+        "why": "The default is at_least_once. After a failure, some records can be processed again, so a count can go up twice."
+      },
+      {
+        "prompt": "What does exactly_once_v2 do?",
+        "options": [
+          "Removes duplicates from the input topic",
+          "Commits the input offsets, state changes and output in one transaction, so a failure replays none of it twice",
+          "Makes the external database exactly-once"
+        ],
+        "answer": 1,
+        "why": "Within Kafka, the transactional producer writes output and consumer offsets atomically. It doesn't reach outside Kafka."
+      },
+      {
+        "prompt": "A sale arrives after its hourly window's grace period has passed. What happens?",
+        "options": [
+          "It is added to the window",
+          "It goes into the next window",
+          "It is dropped"
+        ],
+        "answer": 2,
+        "why": "The grace period is how long a window waits for out-of-order records. After it, records for that window are dropped."
+      },
+      {
+        "prompt": "A downstream app reads the Streams output topic. What should it set to see only committed results?",
+        "options": [
+          "isolation.level=read_committed",
+          "acks=all",
+          "auto.offset.reset=earliest"
+        ],
+        "answer": 0,
+        "why": "read_committed hides records from aborted transactions, and those not yet committed."
+      }
+    ],
+    "caseStudy": {
+      "setting": "A retail chain (fictional) runs a Kafka Streams application that counts sales per store per hour from the sales topic and writes totals to sales.hourly. A dashboard used by store managers reads sales.hourly. The app runs three instances with default settings and an hourly window with a 5-minute grace period.",
+      "events": [
+        {
+          "when": "Saturday 11:20",
+          "what": "One instance is killed during a deployment. Its tasks move to the other instances, which restore state and continue from the last committed offsets."
+        },
+        {
+          "when": "Saturday afternoon",
+          "what": "Several stores' 11:00 totals on the dashboard are higher than their tills show."
+        },
+        {
+          "when": "Monday",
+          "what": "Finance also finds sales from stores with poor connectivity missing entirely from Saturday's hourly totals. Those tills uploaded in batches up to 30 minutes late."
+        }
+      ],
+      "pipeline": [
+        "Tills · send sales events, sometimes in late batches",
+        "sales topic · 12 partitions, so up to 12 tasks",
+        "Streams app · 3 instances, count per store per hour, grace 5 minutes, at_least_once",
+        "sales.hourly · read by the dashboard"
+      ],
+      "tasks": [
+        "Why were some totals too high?",
+        "Why were late sales missing?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why totals were too high",
+        "text": [
+          "With at_least_once, an instance that dies has processed records whose offsets weren't yet committed. The task restarts from the last commit and counts them again.",
+          "exactly_once_v2 commits offsets, state updates and output together. A restart then replays nothing that was already counted."
+        ]
+      },
+      {
+        "title": "Why late sales vanished",
+        "text": [
+          "Windows use event time. A sale from 11:40 belongs in the 11:00 window, whatever time it arrives.",
+          "With a 5-minute grace period, the 11:00 window stopped accepting records at about 12:05 of stream time. Sales uploaded later than that were dropped.",
+          "Set the grace period from how late data really arrives, here at least 30 minutes, and accept that totals for an hour change until it closes."
+        ]
+      },
+      {
+        "title": "What readers must know",
+        "text": [
+          "An aggregation's output is a table that updates: a later record revises the total. The dashboard should show the latest value per store and hour, not add them up.",
+          "Readers of the output should use read_committed once exactly_once_v2 is on."
+        ]
+      }
+    ],
+    "takeaway": [
+      "Streams defaults to at-least-once; counts need exactly_once_v2.",
+      "Records later than the grace period are dropped.",
+      "Windowed totals are updates; read the latest value."
+    ],
+    "honesty": "If you haven't run Kafka Streams in production, say so and explain the guarantees and windows. If you have, lead with how you chose the grace period.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What questions would you ask?",
+          "What would you specify for these totals?"
+        ],
+        "debrief": [
+          {
+            "title": "Questions",
+            "text": [
+              "\"Can a sale ever be counted twice or not at all?\"",
+              "\"How late can sales arrive, and do we still count them?\""
+            ]
+          },
+          {
+            "title": "Specification",
+            "text": [
+              "Hourly totals match the tills once an hour is closed, including sales arriving up to an agreed lateness; tested with a restart and with late batches."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you make sure real-time totals can be trusted?",
+          "points": [
+            "Specify: every sale counted once.",
+            "Agree how late data may arrive and still count.",
+            "Show when a total is final versus still updating.",
+            "Test restarts and late data.",
+            "Reconcile against the system of record."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What do you tell store managers?",
+          "How do you set expectations for real-time numbers?"
+        ],
+        "debrief": [
+          {
+            "title": "Store managers",
+            "text": [
+              "Saturday's hourly figures were wrong for some stores; give corrected totals and the date of the fix."
+            ]
+          },
+          {
+            "title": "Expectations",
+            "text": [
+              "Real-time figures are provisional until late data is in. Label them on the dashboard."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Users saw real-time numbers that were wrong. How do you rebuild trust?",
+          "points": [
+            "Correct the numbers and say so.",
+            "Explain simply: some sales counted twice after a restart, some arrived too late.",
+            "Label provisional versus final figures.",
+            "Reconcile against the tills automatically.",
+            "Prioritise the fix."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you deliver the fix safely?",
+          "How do deployments change?"
+        ],
+        "debrief": [
+          {
+            "title": "Delivering",
+            "text": [
+              "Change the guarantee and grace period, reprocess Saturday from the sales topic, compare with tills, then switch the dashboard."
+            ]
+          },
+          {
+            "title": "Deployments",
+            "text": [
+              "Rolling restarts are normal events; test them as part of release."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you validate a fix to a streaming calculation?",
+          "points": [
+            "Reprocess the affected period from the source topic.",
+            "Compare with the system of record.",
+            "Test the failure that caused it: a restart, late data.",
+            "Switch users over once it matches.",
+            "Keep the comparison running."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "Which settings change?",
+          "How does the app scale?"
+        ],
+        "debrief": [
+          {
+            "title": "Settings",
+            "text": [
+              "processing.guarantee=exactly_once_v2; grace period of at least 30 minutes; dashboard consumers with isolation.level=read_committed."
+            ]
+          },
+          {
+            "title": "Scaling",
+            "text": [
+              "Tasks come from input partitions: 12 partitions means up to 12 tasks spread over instances. State stores are backed by changelog topics; standby replicas cut restore time after a failure."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Explain exactly-once processing and windowing in Kafka Streams.",
+          "points": [
+            "Default is at_least_once; a failure can reprocess records.",
+            "exactly_once_v2 commits offsets, state and output in one transaction.",
+            "It holds inside Kafka; external systems need their own idempotency.",
+            "Windows use event time; the grace period decides how late a record can be.",
+            "Aggregations produce a table of updates; parallelism is capped by input partitions."
+          ]
+        }
+      }
+    }
+  }
+}

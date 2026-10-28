@@ -1,0 +1,233 @@
+{
+  "id": "13",
+  "number": 13,
+  "title": "The alert nobody had",
+  "outcome": "Partitions ran on one copy for nine days without anyone knowing, until the last copy's broker failed.",
+  "sources": "§7, §12, §23",
+  "chapter": "monitoring",
+  "content": {
+    "bookmark": "UnderReplicatedPartitions should be 0. A value above zero that lasts means the cluster is running with fewer copies than you think.",
+    "check": [
+      {
+        "prompt": "What is the normal value of the broker metric UnderReplicatedPartitions?",
+        "options": [
+          "0",
+          "Any value below 10",
+          "Equal to the replication factor"
+        ],
+        "answer": 0,
+        "why": "In a healthy cluster every partition has its full set of in-sync replicas. Non-zero means some followers have fallen out of the ISR."
+      },
+      {
+        "prompt": "How many brokers should report ActiveControllerCount = 1?",
+        "options": [
+          "All of them",
+          "Exactly one",
+          "None"
+        ],
+        "answer": 1,
+        "why": "One active controller at a time. Zero or more than one is a problem to investigate."
+      },
+      {
+        "prompt": "Which two consumer signals do the Kafka docs say to watch?",
+        "options": [
+          "CPU and memory",
+          "Number of partitions and topics",
+          "Max lag below a threshold, and minimum fetch rate above zero"
+        ],
+        "answer": 2,
+        "why": "Lag shows falling behind; a fetch rate of zero shows a consumer that has stopped fetching altogether."
+      },
+      {
+        "prompt": "A topic has replication factor 3 and min.insync.replicas 1 (the default). Two followers drop out of the ISR. Are acks=all writes accepted?",
+        "options": [
+          "Yes, with only the leader holding them",
+          "No, they are refused",
+          "Only with acks=1"
+        ],
+        "answer": 0,
+        "why": "acks=all waits for the current ISR, here just the leader, and min ISR 1 allows it. Writes succeed with one copy."
+      }
+    ],
+    "caseStudy": {
+      "setting": "An insurer (fictional) runs a 5-broker Kafka cluster for claims processing. Monitoring was set up quickly at launch: consumer lag dashboards and broker CPU. Topics use replication factor 3 and the default min.insync.replicas of 1.",
+      "events": [
+        {
+          "when": "Day 1",
+          "what": "A broker's network card starts dropping packets. Its followers can't keep up, and after replica.lag.time.max.ms the leaders remove it from the ISR of many partitions. A second broker is under maintenance and down."
+        },
+        {
+          "when": "Days 1 to 9",
+          "what": "Producers and consumers work normally. Lag is fine. Nobody looks at replication."
+        },
+        {
+          "when": "Day 9",
+          "what": "The broker leading many of those partitions fails. With no in-sync replica left, the partitions go offline. Claims processing stops."
+        }
+      ],
+      "pipeline": [
+        "Claims producers · acks=all",
+        "Topics · replication factor 3, min.insync.replicas 1",
+        "Monitoring · consumer lag, broker CPU",
+        "Alerts · lag above threshold only"
+      ],
+      "tasks": [
+        "Which metric would have shown the problem on day 1?",
+        "Why did writes keep succeeding with one copy?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "The signal that was there",
+        "text": [
+          "UnderReplicatedPartitions went above zero on day 1 and stayed there. IsrShrinksPerSec spiked too. Both are standard broker metrics with a normal value of 0.",
+          "Nobody alerted on them. Lag and CPU looked healthy, because producers and consumers were unaffected while one copy remained."
+        ]
+      },
+      {
+        "title": "Why writes kept working",
+        "text": [
+          "acks=all waits for the current in-sync replicas, not all assigned ones. With the ISR shrunk to the leader, acks=all was satisfied by one broker.",
+          "min.insync.replicas of 1 allowed it. At 2, writes would have been refused on day 1, which is disruptive but loud. UnderMinIsrPartitionCount would have shown it."
+        ]
+      },
+      {
+        "title": "What happened on day 9",
+        "text": [
+          "With every in-sync replica gone, Kafka by default waits for one to return rather than electing an out-of-sync replica (unclean.leader.election.enable=false). The partitions were unavailable rather than wrong.",
+          "The minimum alert set: UnderReplicatedPartitions > 0, UnderMinIsrPartitionCount > 0, ActiveControllerCount, UncleanLeaderElectionsPerSec, and consumer max lag and minimum fetch rate."
+        ]
+      }
+    ],
+    "takeaway": [
+      "Healthy clients can hide an unhealthy cluster.",
+      "Alert on under-replicated and under-min-ISR partitions, not just lag.",
+      "min ISR 2 turns silent risk into a loud error."
+    ],
+    "honesty": "If you haven't set up Kafka monitoring, say so and name the metrics you'd alert on and why. If you have, lead with the alert that mattered most.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What would you ask about monitoring before launch?",
+          "What would you require?"
+        ],
+        "debrief": [
+          {
+            "title": "Questions",
+            "text": [
+              "\"How would we know if we were one failure away from losing data?\"",
+              "\"Who is paged, for which signals?\""
+            ]
+          },
+          {
+            "title": "Requirements",
+            "text": [
+              "Alerts on reduced redundancy, with an owner and a response time, tested before launch."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "What would you expect monitoring to cover before a Kafka-based service goes live?",
+          "points": [
+            "Client health: consumer lag and that consumers are fetching.",
+            "Cluster health: under-replicated and under-min-ISR partitions, exactly one active controller.",
+            "Business health: events flowing at the expected rate.",
+            "An owner and response time for each alert.",
+            "A test that the alerts fire."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What do you tell claims handlers and customers?",
+          "How do you treat operational work in the roadmap?"
+        ],
+        "debrief": [
+          {
+            "title": "Communication",
+            "text": [
+              "Tell handlers claims are paused and when they resume; check whether any customer deadline was missed."
+            ]
+          },
+          {
+            "title": "Roadmap",
+            "text": [
+              "Monitoring done quickly at launch was never revisited. Schedule operational readiness as roadmap work with acceptance criteria."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "An outage happened because a warning went unnoticed for days. What do you change?",
+          "points": [
+            "Communicate impact and recovery time.",
+            "Own that monitoring was incomplete.",
+            "Put operational readiness on the roadmap, not as leftover work.",
+            "Agree alert ownership.",
+            "Review monitoring after every incident."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you recover?",
+          "What becomes part of operational readiness?"
+        ],
+        "debrief": [
+          {
+            "title": "Recovery",
+            "text": [
+              "Bring back a broker that held the data, let replicas catch up and rejoin the ISR, confirm UnderReplicatedPartitions returns to 0."
+            ]
+          },
+          {
+            "title": "Operational readiness",
+            "text": [
+              "A standard alert set for every cluster, tested; a weekly review of cluster health metrics."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you set up operational readiness for a Kafka platform?",
+          "points": [
+            "A standard set of cluster and client alerts.",
+            "Named on-call owners with response times.",
+            "Alert tests and runbooks.",
+            "Regular review of health metrics, not just incidents.",
+            "Maintenance procedures that check redundancy first."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "Which alerts and thresholds would you set?",
+          "Which topic settings would you change?"
+        ],
+        "debrief": [
+          {
+            "title": "Alerts",
+            "text": [
+              "UnderReplicatedPartitions > 0 for a few minutes; UnderMinIsrPartitionCount > 0 immediately; ActiveControllerCount sum ≠ 1; IsrShrinksPerSec sustained; consumer records-lag-max above threshold and fetch rate at 0."
+            ]
+          },
+          {
+            "title": "Settings",
+            "text": [
+              "min.insync.replicas=2 on claims topics, so a shrinking ISR stops writes instead of silently reducing copies.",
+              "Before maintenance, check UnderReplicatedPartitions is 0."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Which Kafka metrics would you alert on, and why?",
+          "points": [
+            "UnderReplicatedPartitions: should be 0; above means fewer copies.",
+            "UnderMinIsrPartitionCount: writes with acks=all are being refused.",
+            "ActiveControllerCount: exactly one across the cluster.",
+            "Consumer max lag and minimum fetch rate.",
+            "Request latency and handler idle time for capacity."
+          ]
+        }
+      }
+    }
+  }
+}
