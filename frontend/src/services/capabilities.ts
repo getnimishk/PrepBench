@@ -369,10 +369,12 @@ function isLiveSubject(value: unknown): value is LiveSubject {
  *
  * Only what the record states is claimed: a certification is one by its kind;
  * questions by its own count; guides and scenarios by its attached packs.
- * Interview needs content of its own, and the one source a record can show is the
- * ADF pack: each of its scenarios ends with a Say-it question per role, which
- * ScenarioPage saves under whichever preparation holds the pack -- so a recreated
- * ADF keeps its rounds whatever its new slug is. Otherwise it stays off. The
+ * Interview needs content of its own. A record can show it two ways: an attached pack
+ * with written scenarios, each of which ends with a Say-it question per role that
+ * ScenarioPage saves under whichever preparation holds the pack (the ADF and Kafka
+ * packs; tests tie this to their content), or lab interview questions. The ADF pack
+ * counts even before the record says how many scenarios it has, so a recreated ADF
+ * keeps its rounds whatever its new slug is. Otherwise it stays off. The
  * Learning Lab is on when the ADF pack is attached: the ADF Behaviour Lab's
  * experiments are that pack's. Roadmaps are not withheld: the Roadmaps screen is
  * where any preparation's first roadmap is created or imported.
@@ -384,9 +386,10 @@ function deriveCapabilities(s: LiveSubject): SubjectCapabilityProfile {
   // one: its experiments are the pack's, and the lab pages check for the pack themselves.
   const adfLab = hasAdfPack(s);
   const hasLabQuestions = typeof s.lab_interview_question_count === 'number' && s.lab_interview_question_count > 0;
+  const hasScenarioQuestions = Boolean(s.content_packs?.some((p) => (p.written_scenario_count ?? 0) > 0));
   return Object.freeze({
     certification: s.kind.toLowerCase() === 'certification',
-    interview: adfLab || hasLabQuestions,
+    interview: adfLab || hasLabQuestions || hasScenarioQuestions,
     learningLab: adfLab,
     lab: adfLab,
     lakehouseLab: s.slug === LAKEHOUSE_SLUG,

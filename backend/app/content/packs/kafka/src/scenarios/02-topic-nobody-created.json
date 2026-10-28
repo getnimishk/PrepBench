@@ -1,0 +1,244 @@
+{
+  "id": "2",
+  "number": 2,
+  "title": "The topic nobody created",
+  "outcome": "A typo in one producer's config, a topic Kafka made on its own, and three days of dispatch events gone with one disk.",
+  "sources": "§3, §4, §12, §21",
+  "chapter": "topic-design",
+  "content": {
+    "bookmark": "Every production topic is created on purpose, with its partitions, replication factor and retention chosen. The broker defaults are one partition and one copy.",
+    "check": [
+      {
+        "prompt": "With the broker defaults, what happens when a producer writes to a topic name that doesn't exist?",
+        "options": [
+          "The write is refused with an unknown-topic error",
+          "The broker creates the topic, because auto.create.topics.enable defaults to true",
+          "The record is held until an administrator creates the topic"
+        ],
+        "answer": 1,
+        "why": "Automatic creation is on unless you turn it off, so a misspelt name quietly becomes a new topic."
+      },
+      {
+        "prompt": "What settings does an automatically created topic get, with the broker defaults?",
+        "options": [
+          "Three partitions, replication factor 3",
+          "The same settings as the most similar existing topic",
+          "One partition, replication factor 1"
+        ],
+        "answer": 2,
+        "why": "num.partitions and default.replication.factor both default to 1. The topic has a single copy on a single broker."
+      },
+      {
+        "prompt": "A topic has replication factor 1 and the broker holding it loses its disk. What happens to the data?",
+        "options": [
+          "It is gone: there was only one copy",
+          "Another broker takes over as leader with a full copy",
+          "Kafka rebuilds it from the consumers' offsets"
+        ],
+        "answer": 0,
+        "why": "Replication is the only copy Kafka keeps. With a factor of 1, losing that broker's data loses the topic's data."
+      },
+      {
+        "prompt": "Which change stops a typo from silently creating a topic in a shared cluster?",
+        "options": [
+          "Raise num.partitions to 6",
+          "Turn auto.create.topics.enable off and create every topic from a reviewed definition",
+          "Use underscores instead of periods in names"
+        ],
+        "answer": 1,
+        "why": "With automatic creation off, a write to an unknown name fails loudly, and every real topic is created by its owner with its settings stated."
+      }
+    ],
+    "caseStudy": {
+      "setting": "A logistics company (fictional) runs one shared Kafka cluster for several teams. The dispatch team publishes an event each time a parcel leaves a depot to logistics.parcel.dispatched, a topic created months ago with 12 partitions and replication factor 3. The tracking service reads it to update customers.",
+      "events": [
+        {
+          "when": "Monday",
+          "what": "A config change is deployed to the dispatch service. Its topic name is now logistics.parcel.dispached, missing a t. Sends succeed and the service's dashboards stay green."
+        },
+        {
+          "when": "Monday to Thursday",
+          "what": "Customers complain that tracking shows no movement. The tracking service is healthy and has no lag: nothing new is arriving on the topic it reads."
+        },
+        {
+          "when": "Thursday",
+          "what": "Someone finds the misspelt topic, with three days of events in one partition. That afternoon the broker holding it loses a disk, before anyone has copied the data."
+        }
+      ],
+      "pipeline": [
+        "Dispatch service · producer, topic name read from config",
+        "Broker settings · automatic topic creation on, defaults: 1 partition, replication factor 1",
+        "logistics.parcel.dispatched · 12 partitions, replication factor 3, read by tracking",
+        "logistics.parcel.dispached · created by the first write, 1 partition, 1 copy, read by nobody"
+      ],
+      "tasks": [
+        "Why did nothing look wrong for three days?",
+        "Why was the data lost when one disk failed?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why nothing looked wrong",
+        "text": [
+          "The producer's sends succeeded, because the broker created the misspelt topic on first use. From the dispatch service's side, everything worked.",
+          "The tracking service had no lag, because lag is measured on the topic it reads, and nothing new was written there. A consumer that receives nothing looks healthy.",
+          "The only signal was business-level: parcels not moving. Nothing watched the expected event rate on the real topic."
+        ]
+      },
+      {
+        "title": "Why one disk lost three days",
+        "text": [
+          "An automatically created topic takes the broker defaults: one partition and replication factor 1. There was exactly one copy of every event, on one broker.",
+          "On the real topic, replication factor 3 would have kept the data on two other brokers. The typo bypassed every decision the team had made about durability."
+        ]
+      },
+      {
+        "title": "What a shared cluster needs",
+        "text": [
+          "Turn automatic topic creation off, so writing to an unknown name fails loudly.",
+          "Create topics from a reviewed definition with partitions, replication factor, min ISR and retention stated, owned by one team.",
+          "Watch the event rate on topics that should always have traffic, so silence is an alert, not a comfort."
+        ]
+      }
+    ],
+    "takeaway": [
+      "With the defaults, a typo becomes a topic with one partition and one copy.",
+      "A consumer with no lag can still be missing everything.",
+      "Topics are created on purpose, by their owner, with their settings written down."
+    ],
+    "honesty": "If you haven't hit an auto-created topic yourself, say so and explain what the defaults are and why you'd turn creation off. If you have a story of data going to the wrong place, lead with it.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "Which two questions would you ask the team first?",
+          "What would you add to the definition of done for any change that touches topic names?"
+        ],
+        "debrief": [
+          {
+            "title": "Good questions for the team",
+            "text": [
+              "\"Which topic is the dispatch service writing to right now, and which one does tracking read?\" That finds the mismatch.",
+              "\"Can we recover the three days from anywhere, such as the depot systems?\" That decides what customers are told."
+            ]
+          },
+          {
+            "title": "A definition of done that would have caught it",
+            "text": [
+              "Topic names come from one shared definition, not typed into each service's config.",
+              "A release that changes where a service writes is checked end to end: an event sent appears for the consumer that needs it.",
+              "Every topic the product depends on has an expected event rate and an alert when it drops to zero."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you make sure a change in one team's service can't silently stop data reaching another team?",
+          "points": [
+            "Name the risk: a topic is an interface between teams, and a wrong name breaks it silently.",
+            "Say what Kafka does by default: it creates unknown topics with one partition and one copy.",
+            "Ask for the guard: automatic creation off, topics created and owned explicitly.",
+            "Ask for an end-to-end check in the release: an event sent is seen by its consumer.",
+            "Ask for a business signal: alert when an always-busy topic goes quiet."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "Who is affected, and what do you tell customers and depots?",
+          "What would make silent data loss visible in the product?"
+        ],
+        "debrief": [
+          {
+            "title": "This week",
+            "text": [
+              "Scope it: which parcels, which days, and whether the depots' own records can restore their tracking.",
+              "Tell affected customers that tracking was wrong for those days and when it will be corrected."
+            ]
+          },
+          {
+            "title": "After",
+            "text": [
+              "Show freshness in the product: \"last update from the depot\" per parcel, so a stall is visible to people who can act.",
+              "Treat the shared cluster's guard rails as platform work with an owner, not a side task of each team."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Tracking showed no movement for three days because events went to the wrong place. How do you handle it?",
+          "points": [
+            "Scope the impact from data: which parcels and which days.",
+            "Say whether the data can be recovered from the source systems, and when.",
+            "Tell customers honestly what was wrong and when it will be right.",
+            "Make freshness visible in the product so stalls are seen early.",
+            "Fund the platform guard rails, not just the fix."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you run the recovery?",
+          "What changes in how teams share the cluster?"
+        ],
+        "debrief": [
+          {
+            "title": "Running the recovery",
+            "text": [
+              "Fix the name and redeploy first, so new events reach tracking.",
+              "Then rebuild the lost days from the depots' records if they exist, with a date and an owner.",
+              "Review blamelessly: a one-letter typo reached production because nothing checked it."
+            ]
+          },
+          {
+            "title": "Sharing the cluster safely",
+            "text": [
+              "A platform owner for the cluster, with automatic creation off and a request process for new topics.",
+              "A registry of topics with owner, purpose and consumers, so a change's impact is known before it ships."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Several teams share a Kafka cluster. How do you keep one team's change from breaking another?",
+          "points": [
+            "Name an owner for the cluster and an owner for every topic.",
+            "Require topics to be created through a reviewed request, with automatic creation off.",
+            "Keep a register of topics, owners and consumers.",
+            "Check end to end when a change touches a topic.",
+            "Run blameless reviews and turn findings into guard rails."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "What do you change in the cluster and the services?",
+          "How do you catch this in testing?"
+        ],
+        "debrief": [
+          {
+            "title": "Engineering changes",
+            "text": [
+              "Set auto.create.topics.enable=false on the brokers, so a write to an unknown topic fails.",
+              "Define topics in code or configuration under review, with partitions, replication factor 3, min.insync.replicas 2 and retention stated.",
+              "Restrict who may create topics with ACLs (chapter 19), so a service principal can't create one by writing."
+            ]
+          },
+          {
+            "title": "Testing and monitoring",
+            "text": [
+              "Integration tests run against a cluster with automatic creation off, so a wrong name fails in the pipeline.",
+              "Alert on BytesInPerSec dropping to zero for topics that should always be busy."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "What broker defaults would you change before putting a Kafka cluster into production, and why?",
+          "points": [
+            "Automatic topic creation: off, so typos fail loudly.",
+            "Default replication factor of 1: never what production wants; create topics with 3.",
+            "min.insync.replicas defaults to 1: set 2 with replication factor 3 and acks=all.",
+            "num.partitions of 1: choose per topic from throughput and parallelism.",
+            "Say how you enforce it: topics defined under review, ACLs on topic creation."
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,235 @@
+{
+  "id": "11",
+  "number": 11,
+  "title": "The disk full by morning",
+  "outcome": "A size limit set as if it were for the whole topic was per partition, and a broker's disk ran out of room overnight.",
+  "sources": "§3, §8, §13",
+  "chapter": "retention",
+  "content": {
+    "bookmark": "retention.bytes is per partition, and retention removes whole segments. Multiply by partitions and replicas before you promise a disk budget.",
+    "check": [
+      {
+        "prompt": "A topic has 24 partitions and retention.bytes set to 50 GB. Roughly how much can one copy of the topic hold?",
+        "options": [
+          "50 GB",
+          "About 1.2 TB: the limit applies to each partition",
+          "2 GB per partition"
+        ],
+        "answer": 1,
+        "why": "retention.bytes is a per-partition limit. 24 × 50 GB is 1.2 TB for one copy, and each replica holds its own."
+      },
+      {
+        "prompt": "How does Kafka delete old data under the delete policy?",
+        "options": [
+          "Record by record, as each expires",
+          "Only when a consumer has read it",
+          "A whole segment file at a time, once the segment qualifies"
+        ],
+        "answer": 2,
+        "why": "Retention and cleaning work a file at a time (segment.bytes defaults to 1 GiB), so usage moves in steps of a segment, not record by record."
+      },
+      {
+        "prompt": "What is the default time retention for a topic?",
+        "options": [
+          "7 days",
+          "1 day",
+          "Forever"
+        ],
+        "answer": 0,
+        "why": "retention.ms defaults to 604800000, seven days, and records are not deleted when consumed."
+      },
+      {
+        "prompt": "A topic holds the latest price for each product, and old prices don't matter. Which cleanup policy fits?",
+        "options": [
+          "delete with a long retention",
+          "compact: keep at least the latest value for each key",
+          "No cleanup"
+        ],
+        "answer": 1,
+        "why": "Compaction keeps the last known value per key, so the topic stays roughly the size of the product catalogue."
+      }
+    ],
+    "caseStudy": {
+      "setting": "A media company (fictional) streams video-player telemetry to player.events. The topic has 24 partitions and replication factor 3 on a 6-broker cluster, each broker with a 2 TB data disk. Finance asked the team to cap storage, and an engineer set retention.bytes=50000000000 (about 50 GB), meaning \"50 GB for the topic\".",
+      "events": [
+        {
+          "when": "Launch of a new series, Friday 20:00",
+          "what": "Telemetry volume triples. The topic now fills far faster than the team's estimate."
+        },
+        {
+          "when": "Saturday 03:00",
+          "what": "A disk alert fires on one broker: 95% used. Two more brokers are above 85%. The on-call engineer doesn't know which topic is filling them."
+        },
+        {
+          "when": "Saturday 05:00",
+          "what": "The team finds player.events holding about 1.2 TB per copy, three copies across the cluster, with several other topics still to fit."
+        }
+      ],
+      "pipeline": [
+        "Video players · send telemetry",
+        "player.events · 24 partitions, replication factor 3, retention.bytes 50 GB",
+        "Cluster · 6 brokers, 2 TB data disk each, 12 TB in total",
+        "Analytics consumers · read the last few hours"
+      ],
+      "tasks": [
+        "Why did a 50 GB cap not cap the topic at 50 GB?",
+        "What should the team have calculated?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why the cap didn't cap",
+        "text": [
+          "retention.bytes is per partition. 50 GB on each of 24 partitions allows 1.2 TB for one copy of the topic.",
+          "With replication factor 3, that is up to 3.6 TB across the cluster, about 30% of all its disk, for one topic.",
+          "Retention also removes whole segments, so usage drops in steps of a segment file, not smoothly."
+        ]
+      },
+      {
+        "title": "The calculation that was missing",
+        "text": [
+          "Disk for a topic = data rate × retention time × replication factor, or retention.bytes × partitions × replication factor, whichever is smaller.",
+          "Check it against free disk per broker, leaving room to re-copy a failed broker's data.",
+          "And ask what consumers need. Here they read only the last few hours, so a time limit (retention.ms of a day) fits better than a size limit."
+        ]
+      },
+      {
+        "title": "Choosing the policy",
+        "text": [
+          "Telemetry is a stream of independent events: delete policy, retention by time sized to how far back consumers must reread.",
+          "Latest-state data, like a price per product, suits compaction instead."
+        ]
+      }
+    ],
+    "takeaway": [
+      "retention.bytes is per partition, and every replica holds its own copy.",
+      "Disk = rate × time × replicas: work it out before launch.",
+      "Choose retention from how far back consumers must read."
+    ],
+    "honesty": "If you haven't sized retention yourself, say so and walk through the arithmetic. If you have, lead with the numbers you used.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What questions would you ask about storage?",
+          "What would you specify?"
+        ],
+        "debrief": [
+          {
+            "title": "Questions",
+            "text": [
+              "\"How far back does anyone need to reread this data?\"",
+              "\"What will this cost in disk at triple the volume?\""
+            ]
+          },
+          {
+            "title": "Specification",
+            "text": [
+              "Retention is stated as a business need (\"one day of telemetry\"), with the disk it implies calculated and reviewed."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you decide how long to keep event data?",
+          "points": [
+            "Start from need: how far back must consumers reread or replay?",
+            "Add regulatory or audit needs.",
+            "Translate into disk: rate × time × replicas.",
+            "Check it at peak volume, not average.",
+            "Review when volumes change."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "How do you answer Finance's cost question properly?",
+          "What do you plan before the next launch?"
+        ],
+        "debrief": [
+          {
+            "title": "Cost",
+            "text": [
+              "Give Finance the formula and the number: storage follows volume, retention and copies. A per-topic cap must be set per partition."
+            ]
+          },
+          {
+            "title": "Before the next launch",
+            "text": [
+              "Expected telemetry volume for launches goes into capacity planning, with storage and alerts checked."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Finance asks you to cap data storage costs on a streaming platform. How do you respond?",
+          "points": [
+            "Explain the drivers: volume, retention time, number of copies.",
+            "Agree retention from business need, not a round number.",
+            "Show the cost at peak and at growth.",
+            "Make sure the cap is set the way Kafka applies it, per partition.",
+            "Revisit at each big launch."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "What do you do at 03:00?",
+          "What do you put in place after?"
+        ],
+        "debrief": [
+          {
+            "title": "At 03:00",
+            "text": [
+              "Find the biggest topics per broker, lower retention on player.events to what consumers need (for example retention.ms of a day), and watch segments being deleted."
+            ]
+          },
+          {
+            "title": "After",
+            "text": [
+              "Disk alerts at 70% with time to act; a per-topic storage review at creation."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Brokers are running out of disk overnight. What do you do?",
+          "points": [
+            "Find which topics are using the space.",
+            "Lower retention on the offending topic to what consumers need.",
+            "Confirm segments are being removed.",
+            "Add earlier alerts and a storage review per topic.",
+            "Review the sizing that let it happen."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "What settings would you choose for player.events?",
+          "How would tiered storage change the picture?"
+        ],
+        "debrief": [
+          {
+            "title": "Settings",
+            "text": [
+              "cleanup.policy=delete, retention.ms of one day (86400000), retention.bytes left at -1 unless a hard guard is needed, and then set per partition.",
+              "Check: peak rate × 1 day × 3 replicas against free disk."
+            ]
+          },
+          {
+            "title": "Tiered storage",
+            "text": [
+              "Tiered storage moves completed segments to a remote store, keeping only recent data on broker disks. It needs a remote storage plugin, as Kafka ships none, and doesn't work with compacted topics."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do Kafka retention and compaction work, and how do you size storage?",
+          "points": [
+            "Delete policy removes whole segments by time (default 7 days) or size.",
+            "retention.bytes is per partition.",
+            "Compaction keeps at least the latest value per key, with tombstones to delete.",
+            "Storage = rate × retention × replication factor, checked against free disk with headroom.",
+            "Tiered storage can move old segments off broker disks, with a plugin and limits."
+          ]
+        }
+      }
+    }
+  }
+}

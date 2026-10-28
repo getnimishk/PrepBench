@@ -1,0 +1,234 @@
+{
+  "id": "8",
+  "number": 8,
+  "title": "The flash sale on one partition",
+  "outcome": "One seller's flash sale, keyed by seller ID, put 80% of the traffic on one partition, and more partitions changed nothing.",
+  "sources": "§1, §5, §12, §13",
+  "chapter": "keys",
+  "content": {
+    "bookmark": "A key always hashes to one partition. If one key carries most of the traffic, one partition and one consumer carry it, however many partitions there are.",
+    "check": [
+      {
+        "prompt": "Lag is high on one partition and near zero on the others. What is the likely cause?",
+        "options": [
+          "Too few consumers in the group",
+          "A skewed key: one key sends far more records than the rest",
+          "The broker's disk is slow"
+        ],
+        "answer": 1,
+        "why": "Lag on one partition only, with one consumer saturated and the rest idle, is the classic sign of a hot key."
+      },
+      {
+        "prompt": "The topic is keyed by seller ID and one seller is hot. You double the partitions. What happens to that seller's records?",
+        "options": [
+          "They spread over two partitions",
+          "They spread over all partitions",
+          "They still all go to one partition"
+        ],
+        "answer": 2,
+        "why": "The same key hashes to one partition whatever the count. More partitions add room for other keys, not for this one."
+      },
+      {
+        "prompt": "You change the key to seller ID plus a bucket number 0 to 3. What do you give up?",
+        "options": [
+          "Ordering across that seller's records: order holds only within each bucket",
+          "Nothing",
+          "Replication"
+        ],
+        "answer": 0,
+        "why": "Bucketing spreads the seller over up to four partitions. Order now holds within each bucket, not across all of the seller's records."
+      },
+      {
+        "prompt": "What does the producer do with a record that has no key?",
+        "options": [
+          "Rejects it",
+          "Sends it to a sticky partition that changes after about a batch, spreading load",
+          "Sends it to partition 0"
+        ],
+        "answer": 1,
+        "why": "With no key the built-in partitioner sticks to a partition until at least batch.size bytes have gone, then moves on, which spreads load well. It gives no per-entity order."
+      }
+    ],
+    "caseStudy": {
+      "setting": "An online marketplace (fictional) publishes order events to marketplace.orders, keyed by seller ID, so each seller's orders are processed in order. A fulfilment group of 12 consumers reads 12 partitions and books couriers.",
+      "events": [
+        {
+          "when": "Thursday 12:00",
+          "what": "One large seller starts a flash sale. Within minutes, about 80% of all orders are theirs."
+        },
+        {
+          "when": "Thursday 12:20",
+          "what": "Lag on partition 7 climbs into the tens of thousands. The other 11 partitions are near zero. Couriers for the sale's orders are booked hours late."
+        },
+        {
+          "when": "Thursday 13:00",
+          "what": "The team raises the topic to 24 partitions and adds consumers. Partition 7's backlog doesn't move."
+        }
+      ],
+      "pipeline": [
+        "Order service · key = seller ID",
+        "marketplace.orders · 12 partitions, raised to 24",
+        "Fulfilment group · one consumer per partition, books a courier per order",
+        "Courier API · called once per order"
+      ],
+      "tasks": [
+        "Why did adding partitions not help?",
+        "Does anything really need all of one seller's orders in order?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why more partitions didn't help",
+        "text": [
+          "Every record with that seller's ID hashes to the same partition, so one partition, and the single consumer that owns it, received 80% of the traffic.",
+          "Adding partitions gave other keys more room. The hot key stayed on one partition, and the change also moved other sellers' keys (scenario 4)."
+        ]
+      },
+      {
+        "title": "Choosing the key from what needs order",
+        "text": [
+          "Booking a courier needs each order's own events in order, not every order of one seller. Keying by order ID spreads the sale evenly and keeps what matters in order.",
+          "Ask of any key: what is the smallest thing whose events must be applied in sequence? That is the key."
+        ]
+      },
+      {
+        "title": "If the key really must stay",
+        "text": [
+          "Bucket it: seller ID plus a bucket number. Load spreads over several partitions, and order holds only within each bucket.",
+          "Or route the known heavy seller to its own topic with its own consumers.",
+          "Watch for skew before it bites: per-partition bytes in, and lag per partition, not just total lag."
+        ]
+      }
+    ],
+    "takeaway": [
+      "One key, one partition, one consumer.",
+      "Key by the smallest thing that needs order.",
+      "More partitions can't split a hot key."
+    ],
+    "honesty": "If you haven't dealt with a hot partition, say so and explain the reasoning. If you have, lead with how you found it and what it cost.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What business rule decides the key?",
+          "What would you specify for large sellers' events?"
+        ],
+        "debrief": [
+          {
+            "title": "The business rule",
+            "text": [
+              "\"Which events must be handled in order?\" Here: each order's own events, not each seller's.",
+              "That answer, from the business, decides the key."
+            ]
+          },
+          {
+            "title": "Specifying for large sellers",
+            "text": [
+              "Fulfilment time stays within target during a sale by the largest seller; tested with a simulated flash sale."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you help a team choose what to key events by?",
+          "points": [
+            "Ask what must happen in order, in business terms.",
+            "Key by the smallest entity that needs order.",
+            "Ask about the biggest key: a large customer, a default value.",
+            "Know that more partitions don't fix a hot key.",
+            "Ask for a test with the largest realistic key."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What is the impact on the seller and their customers?",
+          "How do you plan for large sellers' events?"
+        ],
+        "debrief": [
+          {
+            "title": "Impact",
+            "text": [
+              "Late couriers for the platform's biggest seller during its biggest event; talk to the seller directly."
+            ]
+          },
+          {
+            "title": "Planning",
+            "text": [
+              "Ask large sellers to share sale plans, and test the platform against their expected peak."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Your biggest customer's peak overloaded one part of the system. How do you respond?",
+          "points": [
+            "Talk to the customer directly about impact.",
+            "Explain the cause simply: all their traffic went through one lane.",
+            "Fund the fix: a better key, or a dedicated path.",
+            "Plan with large customers before their peaks.",
+            "Test with the largest realistic customer."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "What do you do during the sale?",
+          "What do you change for next time?"
+        ],
+        "debrief": [
+          {
+            "title": "During the sale",
+            "text": [
+              "Stop changing partitions. Speed up the one hot consumer if possible, and tell the seller about delays."
+            ]
+          },
+          {
+            "title": "Next time",
+            "text": [
+              "Add per-partition lag to dashboards; a known-sale calendar with load tests before each."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you handle a hot partition during a live event?",
+          "points": [
+            "Recognise it: lag on one partition, one busy consumer.",
+            "Don't add partitions mid-event; it doesn't help and moves keys.",
+            "Contain impact and communicate.",
+            "Plan the real fix after: the key.",
+            "Add per-partition monitoring."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "What key would you choose, and why?",
+          "How would you detect skew early?"
+        ],
+        "debrief": [
+          {
+            "title": "The key",
+            "text": [
+              "Order ID: courier booking needs each order's events in order, and order IDs spread evenly.",
+              "If per-seller order were required, bucket the seller ID, accepting order only within each bucket."
+            ]
+          },
+          {
+            "title": "Detecting skew",
+            "text": [
+              "Dashboards of bytes in and lag per partition, with an alert when one partition exceeds the median by a set factor."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "What is a hot partition, and how would you fix one?",
+          "points": [
+            "One partition gets far more traffic, usually from a skewed key.",
+            "Signs: lag on one partition, one consumer saturated.",
+            "More partitions don't help; the key always hashes to one.",
+            "Fix by choosing a finer key, bucketing the key, or isolating the heavy key.",
+            "Each fix trades away some ordering; say which."
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,241 @@
+{
+  "id": "5",
+  "number": 5,
+  "title": "The orders skipped on restart",
+  "outcome": "Records handed to a thread pool, offsets committed in the background, a crash, and 140 orders never picked.",
+  "sources": "§2, §5, §22",
+  "chapter": "consumer",
+  "content": {
+    "bookmark": "Commit an offset only after the records before it are processed. The committed offset is the next record to read: last processed plus one.",
+    "check": [
+      {
+        "prompt": "What are the consumer's auto-commit defaults?",
+        "options": [
+          "Off; you must commit by hand",
+          "On, committing every 5 seconds in the background",
+          "On, committing after every record"
+        ],
+        "answer": 1,
+        "why": "enable.auto.commit defaults to true and auto.commit.interval.ms to 5000."
+      },
+      {
+        "prompt": "When does auto-commit give at-least-once delivery?",
+        "options": [
+          "Always",
+          "Only with acks=all",
+          "Only if every record returned by a poll is processed before the next poll"
+        ],
+        "answer": 2,
+        "why": "Auto-commit commits what poll has handed out. If processing continues elsewhere after the next poll, the committed offset can run ahead of what was processed, and a crash skips those records."
+      },
+      {
+        "prompt": "Which offset should you commit after processing the record at offset 41?",
+        "options": [
+          "42",
+          "41",
+          "40"
+        ],
+        "answer": 0,
+        "why": "The committed offset is the next record to read, so last processed plus one. A restarted consumer begins there."
+      },
+      {
+        "prompt": "Can several threads share one KafkaConsumer?",
+        "options": [
+          "Yes, it is thread-safe",
+          "No: it is not thread-safe, and only wakeup() may be called from another thread",
+          "Yes, if each thread polls a different partition"
+        ],
+        "answer": 1,
+        "why": "The consumer must be used from one thread. Hand records to other threads if you like, but committing must follow what they have finished."
+      }
+    ],
+    "caseStudy": {
+      "setting": "A warehouse operator (fictional) runs a picking service that reads new orders from the orders topic and creates a pick list for each. To go faster, the poll loop hands each record to a pool of worker threads and immediately polls again. Auto-commit was left at its defaults.",
+      "events": [
+        {
+          "when": "Tuesday 14:05",
+          "what": "A worker hits a memory leak and the service is killed and restarted by the platform. The restart takes a few seconds and the service carries on."
+        },
+        {
+          "when": "Tuesday afternoon",
+          "what": "Everything looks normal: no errors, lag near zero, pick lists flowing."
+        },
+        {
+          "when": "Wednesday",
+          "what": "Customer service finds 140 orders that were placed, paid for and never picked. All were read by the service in the seconds before the crash."
+        }
+      ],
+      "pipeline": [
+        "orders topic · 12 partitions",
+        "Picking service · poll loop, auto-commit every 5 s (default)",
+        "Worker pool · processes records handed over by the poll loop",
+        "Pick list database · one row per order"
+      ],
+      "tasks": [
+        "Why were those orders skipped after the restart?",
+        "Why did nothing show an error?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why the orders were skipped",
+        "text": [
+          "Auto-commit commits the offsets of records that poll has returned. The poll loop kept polling while workers were still processing, so commits ran ahead of the work.",
+          "When the service was killed, records in the workers' queue had already been committed. On restart the consumer resumed from the committed offset, past them. They were never processed.",
+          "The documentation states the condition: auto-commit is at-least-once only if a poll's records are processed before the next poll."
+        ]
+      },
+      {
+        "title": "Why it was silent",
+        "text": [
+          "Lag measures how far the group is behind the end of the log. The group was caught up, so lag looked perfect.",
+          "Nothing compared orders placed with pick lists created. Lost work in a consumer is invisible to Kafka's own metrics."
+        ]
+      },
+      {
+        "title": "The fix",
+        "text": [
+          "Turn auto-commit off and commit manually, only up to the highest offset per partition for which every earlier record is finished.",
+          "Commit what is done in onPartitionsRevoked, so a rebalance doesn't hand unfinished work to another consumer with a wrong offset.",
+          "On shutdown, call wakeup() from another thread, finish or abandon in-flight work, commit, and close."
+        ]
+      }
+    ],
+    "takeaway": [
+      "Auto-commit commits what was handed out, not what was done.",
+      "Commit last processed plus one, and only when everything before it is finished.",
+      "Zero lag can hide lost work; reconcile the outcome."
+    ],
+    "honesty": "If you haven't debugged offset commits yourself, say so and walk through the rule. If you have a story of lost or repeated messages after a restart, lead with it.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "Which questions would you ask?",
+          "What would you add to the acceptance criteria?"
+        ],
+        "debrief": [
+          {
+            "title": "Questions",
+            "text": [
+              "\"When the service restarts, how do we know it carries on from the last order it finished, not the last one it read?\"",
+              "\"How would we know if an order never got a pick list?\""
+            ]
+          },
+          {
+            "title": "Acceptance criteria",
+            "text": [
+              "Killing the service mid-load loses no orders, proven by a test that kills it and counts pick lists.",
+              "Every paid order has a pick list within an agreed time, checked automatically."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you make sure a service that processes orders from Kafka never skips one after a crash?",
+          "points": [
+            "Name the rule: an order counts as consumed only after it is processed.",
+            "Name the trap: background auto-commit can mark orders done before they are.",
+            "Ask for manual commits after processing.",
+            "Ask for a kill test during load.",
+            "Ask for a reconciliation: every paid order has a pick list."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What do you do for the 140 customers?",
+          "What would you measure?"
+        ],
+        "debrief": [
+          {
+            "title": "This week",
+            "text": [
+              "Pick and ship the 140 orders with priority, and tell the customers about the delay.",
+              "Check whether earlier restarts skipped orders too."
+            ]
+          },
+          {
+            "title": "Measure",
+            "text": [
+              "Orders placed versus orders picked, per day, as a product health measure.",
+              "Time from payment to pick list, with an alert when it grows."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Some orders silently never reached the warehouse. How do you handle it?",
+          "points": [
+            "Find every affected order from data, including earlier restarts.",
+            "Fulfil them first and tell customers.",
+            "Explain the cause simply: the service marked orders done before finishing them.",
+            "Add a measure that catches gaps: placed versus picked.",
+            "Prioritise the fix with an owner and a date."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you run this?",
+          "What changes in testing?"
+        ],
+        "debrief": [
+          {
+            "title": "Running it",
+            "text": [
+              "Owner and severity: customers' orders were not fulfilled.",
+              "Find the gap across all past restarts, fulfil, fix commits, add reconciliation."
+            ]
+          },
+          {
+            "title": "Testing",
+            "text": [
+              "Add a crash test to the release checklist for every consumer that does work.",
+              "Count outcomes, not just errors."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you make crash-safety part of how a team delivers Kafka consumers?",
+          "points": [
+            "Make a crash test under load a release criterion.",
+            "Check commit strategy in design review.",
+            "Add an outcome reconciliation per business flow.",
+            "Look back across past restarts when a gap is found.",
+            "Review blamelessly and keep the checklist current."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "How do you restructure the consumer?",
+          "How do you shut it down cleanly?"
+        ],
+        "debrief": [
+          {
+            "title": "Restructuring",
+            "text": [
+              "Set enable.auto.commit=false. Track, per partition, the highest offset below which every record is finished.",
+              "Commit that offset plus one with commitSync on a timer and in onPartitionsRevoked.",
+              "Or keep it simple: process each poll's records in the poll thread, then commit. Parallelism comes from partitions and consumers."
+            ]
+          },
+          {
+            "title": "Clean shutdown",
+            "text": [
+              "From the shutdown hook, call consumer.wakeup(). The poll loop catches WakeupException, waits for workers or abandons unstarted work, commits what is finished, and closes."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Explain offset commits and how you avoid losing records with a multi-threaded consumer.",
+          "points": [
+            "Position versus committed offset; a restart resumes from the committed one.",
+            "Commit last processed plus one.",
+            "Auto-commit is at-least-once only if a poll's records finish before the next poll.",
+            "With worker threads, commit only the highest contiguous finished offset per partition.",
+            "The consumer isn't thread-safe; wakeup() for shutdown, commit in onPartitionsRevoked."
+          ]
+        }
+      }
+    }
+  }
+}

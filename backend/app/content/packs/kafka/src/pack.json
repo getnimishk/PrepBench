@@ -1,10 +1,32 @@
 {
   "pack_id": "kafka",
-  "version": 1,
+  "version": 2,
   "title": "Apache Kafka",
   "summary": "Stores events in partitioned, replicated logs that many applications read independently",
   "docs_url": "https://kafka.apache.org/43/",
   "source_notes": "docs/research/kafka-documentation-notes.md",
+  "scenario_levels": [
+    {
+      "name": "Getting events in",
+      "about": "Writing events so they arrive once, in the right place, in the right order, and survive a broker failure.",
+      "scenarios": [1, 2, 3, 4]
+    },
+    {
+      "name": "Consuming correctly",
+      "about": "The failures that live in consumers: commits, rebalances, lag, hot keys, bad records and retries.",
+      "scenarios": [5, 6, 7, 8, 9, 10]
+    },
+    {
+      "name": "Running it",
+      "about": "What anyone accountable for a Kafka platform needs from operations: retention, schemas, monitoring and access.",
+      "scenarios": [11, 12, 13, 14]
+    },
+    {
+      "name": "Designing at scale",
+      "about": "The programme view: regions, stream processing, integration and the size of the platform.",
+      "scenarios": [15, 16, 17, 18]
+    }
+  ],
   "diagnostic_questions": [
     {
       "id": "kafka-vs-queue",

@@ -1,0 +1,236 @@
+{
+  "id": "14",
+  "number": 14,
+  "title": "Who deleted the topic?",
+  "outcome": "A clean-up script deleted a production topic, and the cluster's logs couldn't say who ran it.",
+  "sources": "§4, §16, §19",
+  "chapter": "security",
+  "content": {
+    "bookmark": "Without authentication and ACLs, anyone who can reach the brokers can do anything. And the default authorizer log records refusals, not successful actions.",
+    "check": [
+      {
+        "prompt": "With StandardAuthorizer, what happens to a resource that has no ACLs?",
+        "options": [
+          "Everyone can access it",
+          "Only super users can, unless allow.everyone.if.no.acl.found=true",
+          "Nobody can, including super users"
+        ],
+        "answer": 1,
+        "why": "No ACLs means super users only. The allow.everyone setting reverses that and opens it to all, which is often switched on during setup and forgotten."
+      },
+      {
+        "prompt": "What does the shipped authorizer log record by default?",
+        "options": [
+          "Every request, allowed or denied",
+          "Nothing",
+          "Denied requests at INFO; allowed ones only at DEBUG, which is off by default"
+        ],
+        "answer": 2,
+        "why": "The default log configuration routes the authorizer logger at INFO, so successful actions, like a delete, are not recorded."
+      },
+      {
+        "prompt": "An ALLOW ACL and a DENY ACL both match a request. What happens?",
+        "options": [
+          "DENY wins",
+          "ALLOW wins",
+          "The newer ACL wins"
+        ],
+        "answer": 0,
+        "why": "If any DENY ACL matches, the operation is denied regardless of ALLOW ACLs."
+      },
+      {
+        "prompt": "Can topics be deleted through the admin client by default?",
+        "options": [
+          "No, deletion is off by default",
+          "Yes: delete.topic.enable defaults to true",
+          "Only by the controller"
+        ],
+        "answer": 1,
+        "why": "Topic deletion is enabled by default, so who may delete is controlled by authorization."
+      }
+    ],
+    "caseStudy": {
+      "setting": "A healthcare scheduling company (fictional) runs Kafka for appointment events. During setup the cluster was given SASL/SCRAM authentication, but StandardAuthorizer was enabled with allow.everyone.if.no.acl.found=true \"until ACLs are written\". No ACLs were ever written. Developers have credentials for debugging.",
+      "events": [
+        {
+          "when": "Wednesday 17:40",
+          "what": "A developer runs a script meant to delete test topics in a staging cluster. The script's config points at production. It deletes appointments.booked and three other topics."
+        },
+        {
+          "when": "Wednesday 18:00",
+          "what": "Appointment booking fails. The topics are recreated empty within the hour, but their history is gone."
+        },
+        {
+          "when": "Thursday",
+          "what": "Compliance asks who deleted the topics and when. kafka-authorizer.log has no entry for the deletions. Nobody is sure which credentials were used."
+        }
+      ],
+      "pipeline": [
+        "Authentication · SASL/SCRAM, credentials for services and developers",
+        "Authorization · StandardAuthorizer, no ACLs, allow.everyone.if.no.acl.found=true",
+        "Authorizer log · default configuration (denials at INFO)",
+        "Clean-up script · run by hand with whichever config is loaded"
+      ],
+      "tasks": [
+        "Why could a developer's credentials delete production topics?",
+        "Why can't the logs say who did it?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why it was possible",
+        "text": [
+          "Authentication worked: the cluster knew which user connected. Authorization didn't restrict anything, because with no ACLs and allow.everyone.if.no.acl.found=true, every authenticated principal could do every operation.",
+          "Topic deletion is on by default, so a delete from any principal succeeded."
+        ]
+      },
+      {
+        "title": "Why there is no record",
+        "text": [
+          "The authorizer logs denied requests at INFO and allowed ones only at DEBUG. With the shipped configuration, the file records refusals, not successful actions. The deletion was allowed, so it wasn't written.",
+          "For an audit trail of who changed what, enable allowed-request logging deliberately (at DEBUG, with the volume it brings) or require changes to go through a tool that records them."
+        ]
+      },
+      {
+        "title": "Least privilege",
+        "text": [
+          "Turn allow.everyone.if.no.acl.found off. Grant each service only what it needs, with prefixed ACLs per team namespace: producers WRITE and DESCRIBE, consumers READ on the topic and their group.",
+          "Give Delete, Alter and AlterConfigs on production topics only to a deployment principal used by reviewed automation, not to people.",
+          "Replication is not backup: the deletion removed every replica. Data that must survive this needs a copy outside the cluster."
+        ]
+      }
+    ],
+    "takeaway": [
+      "Authentication says who; ACLs say what they may do.",
+      "allow.everyone with no ACLs means everyone may do everything.",
+      "The default authorizer log shows refusals, not successes."
+    ],
+    "honesty": "If you haven't designed Kafka access control, say so and explain the model. If you have a story of an accidental production change, lead with what you changed afterwards.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What questions would you ask?",
+          "What would you require of access control?"
+        ],
+        "debrief": [
+          {
+            "title": "Questions",
+            "text": [
+              "\"Who can delete or change production topics today?\"",
+              "\"If something is changed, can we say who did it?\""
+            ]
+          },
+          {
+            "title": "Requirements",
+            "text": [
+              "No person can delete production topics directly; changes go through reviewed automation.",
+              "Every production change is traceable to a person and a reason."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you make sure no one can accidentally destroy production data on a shared platform?",
+          "points": [
+            "Separate who can read and write from who can change or delete.",
+            "Give people read access; give destructive rights only to reviewed automation.",
+            "Make every change traceable.",
+            "Keep a copy of critical data outside the platform.",
+            "Test the controls."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What do you tell compliance and patients?",
+          "How do you prioritise the fix?"
+        ],
+        "debrief": [
+          {
+            "title": "Compliance and patients",
+            "text": [
+              "Report what is known and unknown honestly. Check whether bookings were lost and contact affected patients."
+            ]
+          },
+          {
+            "title": "Priority",
+            "text": [
+              "Access control and audit are regulatory needs in healthcare; they go before new features."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "A production incident can't be traced to who caused it. How do you handle it with compliance?",
+          "points": [
+            "State what is known and unknown.",
+            "Find and fix the impact on users first.",
+            "Commit to traceability with a date.",
+            "Prioritise controls over features in a regulated product.",
+            "Report progress until closed."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you run the recovery?",
+          "What changes in how people access production?"
+        ],
+        "debrief": [
+          {
+            "title": "Recovery",
+            "text": [
+              "Recreate topics with the right settings, rebuild state from the systems of record, confirm bookings with clinics."
+            ]
+          },
+          {
+            "title": "Access",
+            "text": [
+              "Separate credentials per environment; production changes only through a pipeline; break-glass access logged and reviewed."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you control human access to a production Kafka cluster?",
+          "points": [
+            "Separate credentials per environment.",
+            "Read-only by default for people.",
+            "Changes through reviewed automation.",
+            "Logged break-glass access for emergencies.",
+            "Regular review of who has what."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "Design the ACLs.",
+          "How do you get an audit trail?"
+        ],
+        "debrief": [
+          {
+            "title": "ACLs",
+            "text": [
+              "Set allow.everyone.if.no.acl.found=false. Per service: kafka-acls --add --producer or --consumer with --resource-pattern-type prefixed for its team's namespace.",
+              "Delete, Alter and AlterConfigs on production topics only for the deployment principal. super.users only for that principal and the brokers."
+            ]
+          },
+          {
+            "title": "Audit trail",
+            "text": [
+              "Make topic changes declarative and reviewed, so the change record lives in version control.",
+              "If authorizer logs must record allowed operations, raise the authorizer logger to DEBUG knowingly and ship the file to central logging."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Explain authentication and authorization in Kafka and how you'd lock down a cluster.",
+          "points": [
+            "Authentication with mTLS or SASL (SCRAM, Kerberos, OAuth); PLAIN and SCRAM only over TLS.",
+            "Authorization with ACLs: no ACLs means super users only, unless allow.everyone is set.",
+            "DENY beats ALLOW; prefixed ACLs per team namespace.",
+            "Least privilege: services get read or write, only automation gets delete.",
+            "The default authorizer log records denials; plan an audit trail on purpose."
+          ]
+        }
+      }
+    }
+  }
+}

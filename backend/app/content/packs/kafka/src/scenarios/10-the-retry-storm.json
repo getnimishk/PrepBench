@@ -1,0 +1,236 @@
+{
+  "id": "10",
+  "number": 10,
+  "title": "The retry storm",
+  "outcome": "A payment provider went down for 40 minutes, every layer retried at once, and the outage lasted three hours.",
+  "sources": "§1, §2, §20, §22, §23",
+  "chapter": "failures",
+  "content": {
+    "bookmark": "When a dependency is down, retrying immediately and everywhere makes it worse. Back off with jitter, retry out of the main path, and stop calling when it is clearly down.",
+    "check": [
+      {
+        "prompt": "A consumer retries a failed call in place, inside its poll loop, for 10 minutes. What else happens?",
+        "options": [
+          "Every record behind it on that partition waits, and the consumer can miss max.poll.interval.ms and be removed from its group",
+          "Nothing, other records keep flowing",
+          "Kafka retries the call for you"
+        ],
+        "answer": 0,
+        "why": "A blocking retry holds up its partition, and if poll isn't called within max.poll.interval.ms (5 minutes by default) the group rebalances."
+      },
+      {
+        "prompt": "Four layers each make 3 attempts at a failing call. How many calls can reach the bottom layer for one request?",
+        "options": [
+          "12",
+          "81",
+          "3"
+        ],
+        "answer": 1,
+        "why": "Retries multiply: 3 × 3 × 3 × 3 = 81. Retry in one place, not every layer."
+      },
+      {
+        "prompt": "Why does the Kafka producer add random jitter to its retry backoff?",
+        "options": [
+          "To make retries slower",
+          "To change partitions",
+          "So many clients don't retry at the same moment"
+        ],
+        "answer": 2,
+        "why": "retry.backoff.ms grows exponentially to retry.backoff.max.ms with ±20% jitter, so clients don't retry in sync. The same idea applies to your own retries."
+      },
+      {
+        "prompt": "Retry topics move a failed record to a delayed topic and process it later. What do you lose?",
+        "options": [
+          "Order: later records for the same key may be processed before the retried one",
+          "Durability",
+          "Nothing"
+        ],
+        "answer": 0,
+        "why": "The main topic keeps flowing, so a retried record is processed after others with its key. Fine for independent events; dangerous where order matters."
+      }
+    ],
+    "caseStudy": {
+      "setting": "An e-commerce company (fictional) has a payment consumer that reads OrderPlaced events and calls an external payment provider. The call goes through an API gateway, an internal payment service and an HTTP client library, each with its own retry policy of 3 attempts, and the consumer itself retries 3 times in its poll loop.",
+      "events": [
+        {
+          "when": "Monday 10:00",
+          "what": "The payment provider has a partial outage and starts timing out."
+        },
+        {
+          "when": "Monday 10:05",
+          "what": "Calls to the provider jump to dozens of times normal volume. The provider starts rate-limiting the company entirely. Consumers block in retries, miss the poll interval and rebalance repeatedly."
+        },
+        {
+          "when": "Monday 13:00",
+          "what": "The provider recovered at 10:40, but the company's payments only resumed at 13:00, after engineers stopped the consumers and restarted them slowly."
+        }
+      ],
+      "pipeline": [
+        "Payment consumer · retries 3 times in the poll loop",
+        "HTTP client · retries 3 times",
+        "Internal payment service · retries 3 times",
+        "API gateway · retries 3 times, then the provider"
+      ],
+      "tasks": [
+        "Why did a 40-minute outage become a three-hour one?",
+        "Where should retries live in this design?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "How the storm grew",
+        "text": [
+          "Four layers of 3 attempts multiply: up to 81 calls to the provider for one order. Every consumer did this at once, immediately, with no backoff.",
+          "The flood made the provider rate-limit the company, so even after it recovered, calls kept failing and being retried.",
+          "Retrying in the poll loop held up whole partitions and pushed consumers past max.poll.interval.ms, so the group kept rebalancing and redelivering."
+        ]
+      },
+      {
+        "title": "Where retries belong",
+        "text": [
+          "Retry in one layer only, with exponential backoff and jitter, and a total time limit.",
+          "Move a record that keeps failing out of the main path: a retry topic with a delay (for example 1 minute, then 10, then an hour), then a dead-letter topic.",
+          "Put a circuit breaker in front of the provider: after a run of failures, stop calling for a while and pause the consumer instead of hammering a dependency that is down."
+        ]
+      },
+      {
+        "title": "What Kafka gives you, and what it doesn't",
+        "text": [
+          "The Kafka producer's own retries already use exponential backoff with jitter. Your calls to other systems don't, unless you build it.",
+          "A consumer can pause its partitions and keep calling poll, so it stays in the group while a dependency recovers."
+        ]
+      }
+    ],
+    "takeaway": [
+      "Retries multiply across layers.",
+      "Back off with jitter, retry in one place, and stop when it's down.",
+      "Move failing records out of the main path; know what order you give up."
+    ],
+    "honesty": "If you haven't lived through a retry storm, say so and explain the arithmetic and the patterns. If you have, lead with how it was finally stopped.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What questions would you ask?",
+          "What behaviour would you specify for a provider outage?"
+        ],
+        "debrief": [
+          {
+            "title": "Questions",
+            "text": [
+              "\"How many layers retry a payment call, and how many times each?\"",
+              "\"When the provider is down, what happens to orders?\""
+            ]
+          },
+          {
+            "title": "Specified behaviour",
+            "text": [
+              "During a provider outage, orders are held and paid when it recovers, within an agreed time; customers see an honest status.",
+              "Our calls to the provider never exceed an agreed rate, even during failures."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "A third-party service your product depends on goes down. What should the product do?",
+          "points": [
+            "Degrade gracefully: hold work, show honest status.",
+            "Never make the outage worse with uncontrolled retries.",
+            "Recover automatically when it returns, within a target time.",
+            "Agree limits and expectations with the third party.",
+            "Test the outage before it happens."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What do you tell customers during the outage?",
+          "What do you agree with the provider afterwards?"
+        ],
+        "debrief": [
+          {
+            "title": "During",
+            "text": [
+              "Tell customers orders are received and payment is delayed, rather than failing them."
+            ]
+          },
+          {
+            "title": "After",
+            "text": [
+              "Agree rate limits and outage communication with the provider, and consider a second provider for resilience."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Our own retries turned a supplier's short outage into a long one. How do you handle it with the supplier and customers?",
+          "points": [
+            "Own our part with the supplier.",
+            "Tell customers the truth about the delay.",
+            "Agree rate limits and a communication path with the supplier.",
+            "Consider a fallback supplier for critical flows.",
+            "Fund the resilience work."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you stop a storm in progress?",
+          "What do you put in place?"
+        ],
+        "debrief": [
+          {
+            "title": "Stopping it",
+            "text": [
+              "Stop or pause the consumers, let the provider recover, then resume gradually and watch error rates."
+            ]
+          },
+          {
+            "title": "Putting in place",
+            "text": [
+              "An inventory of retry policies across layers; a game day that simulates the provider failing."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you stop a retry storm during an incident?",
+          "points": [
+            "Recognise it: call volume far above normal, the dependency rate-limiting.",
+            "Stop the source: pause consumers or open the circuit.",
+            "Let the dependency recover, then resume slowly.",
+            "Map every retry layer afterwards.",
+            "Rehearse the failure."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "Design the retry path for this consumer.",
+          "How does the consumer stay in its group while waiting?"
+        ],
+        "debrief": [
+          {
+            "title": "The retry path",
+            "text": [
+              "Remove retries from the gateway and HTTP client; keep one bounded retry with backoff and jitter in the payment service.",
+              "On repeated failure, publish the order to payments.retry.1m, then .10m, then .1h, then payments.dlq; a circuit breaker opens after a run of failures."
+            ]
+          },
+          {
+            "title": "Staying in the group",
+            "text": [
+              "When the circuit is open, call consumer.pause() on the partitions and keep calling poll, which returns nothing for paused partitions; resume() when it closes."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you handle a downstream outage in a Kafka consumer?",
+          "points": [
+            "Don't retry in place for long: it blocks the partition and breaks the poll interval.",
+            "Retry in one layer with exponential backoff and jitter, with a time limit.",
+            "Use delayed retry topics and a dead-letter topic, knowing it costs ordering.",
+            "Use a circuit breaker and pause the consumer while it is open.",
+            "Make the action idempotent, because retries repeat it."
+          ]
+        }
+      }
+    }
+  }
+}

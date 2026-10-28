@@ -7,7 +7,7 @@ import type { ContentPackDetail, ScenarioRole } from '../../types/contentPack';
 // These tests record answers against version 1 (refs read adf@1/...), the guide those answers were taken on.
 import adfPack from '../../../../backend/app/content/packs/adf/v1.json';
 import adlsPack from '../../../../backend/app/content/packs/adls/v1.json';
-import kafkaPack from '../../../../backend/app/content/packs/kafka/v1.json';
+import kafkaPack from '../../../../backend/app/content/packs/kafka/v2.json';
 import {
   DIAGNOSTIC_LENGTH, MIN_RELEVANCE, NOT_KEYWORDS, guessLens, packQuestions, packVersionsOf, pickQuestions,
   questionByRef, relevance, requirementsFor,
@@ -105,6 +105,22 @@ describe('the question bank', () => {
     }
     // So a job that says only "pipelines" and "loads" fits nothing.
     expect(pickQuestions('po', [{ text: 'Build pipelines and loads', kind: 'mandatory' }], [ADF], ALL).every((q) => !q.fits)).toBe(true);
+  });
+
+  it('gives every Kafka scenario keywords, so a job that names its topic can select it', () => {
+    for (const q of packQuestions(KAFKA, 'em').filter((x) => x.ref.includes('/scenario/'))) {
+      expect(q.keywords.length, q.ref).toBeGreaterThan(0);
+    }
+    const job = [
+      { text: 'Design Avro schemas and manage schema evolution', kind: 'mandatory' as const },
+      { text: 'Own disaster recovery for our streaming platform', kind: 'mandatory' as const },
+    ];
+    const fits = pickQuestions('em', job, [KAFKA], ALL).filter((q) => q.fits).map((q) => q.ref);
+    expect(fits).toContain('kafka@2/scenario/12/lens/em');
+    expect(fits).toContain('kafka@2/scenario/15/lens/em');
+    // A job that only names an Oracle database matches no security scenario through "acl".
+    const oracle = pickQuestions('em', [{ text: 'Oracle database administration', kind: 'mandatory' }], [KAFKA], ALL);
+    expect(oracle.filter((q) => q.fits).map((q) => q.ref)).not.toContain('kafka@2/scenario/14/lens/em');
   });
 
   it('gives every question, in every role, key points and somewhere to study it', () => {

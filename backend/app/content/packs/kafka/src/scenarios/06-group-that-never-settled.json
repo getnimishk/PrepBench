@@ -1,0 +1,240 @@
+{
+  "id": "6",
+  "number": 6,
+  "title": "The group that never settled",
+  "outcome": "A slower API, 500 records a poll, consumers thrown out of their group one after another, and the same invoices sent again and again.",
+  "sources": "§2, §10, §22, §23",
+  "chapter": "rebalancing",
+  "content": {
+    "bookmark": "To stay in its group, a consumer must call poll within max.poll.interval.ms. Slow processing of a big batch breaks that and starts a rebalance.",
+    "check": [
+      {
+        "prompt": "What are the defaults for max.poll.interval.ms and max.poll.records?",
+        "options": [
+          "30 seconds and 100",
+          "45 seconds and 50",
+          "5 minutes and 500"
+        ],
+        "answer": 2,
+        "why": "max.poll.interval.ms is 300000 (5 minutes) and max.poll.records is 500."
+      },
+      {
+        "prompt": "A consumer keeps heartbeating but doesn't call poll within max.poll.interval.ms. What happens?",
+        "options": [
+          "It is treated as failed, leaves the group, and the group rebalances",
+          "Nothing, heartbeats keep it in the group",
+          "The broker slows down delivery"
+        ],
+        "answer": 0,
+        "why": "This is the livelock check: heartbeats prove the process is alive, poll proves it is making progress. Miss the interval and the partitions go to someone else."
+      },
+      {
+        "prompt": "After being removed for missing the poll interval, the consumer calls commitSync(). What happens?",
+        "options": [
+          "The commit succeeds",
+          "It fails with CommitFailedException, because the partitions now belong to another member",
+          "The commit is queued for later"
+        ],
+        "answer": 1,
+        "why": "The consumer no longer owns those partitions, so it can't commit for them. The records it processed are delivered again to the new owner."
+      },
+      {
+        "prompt": "What does static membership (group.instance.id) help with?",
+        "options": [
+          "Slow processing",
+          "Ordering across partitions",
+          "Avoiding rebalances when an instance restarts, as during a deployment"
+        ],
+        "answer": 2,
+        "why": "A static member that restarts within the session timeout gets its partitions back without a rebalance. It doesn't help a consumer that is too slow."
+      }
+    ],
+    "caseStudy": {
+      "setting": "A software company (fictional) has an invoicing service: a consumer group of four instances reads billing events and, for each, calls a tax-calculation API and emails an invoice. It uses the classic group protocol and the default max.poll.records of 500.",
+      "events": [
+        {
+          "when": "Month end, 09:00",
+          "what": "The tax API slows from 100 ms to about 900 ms per call under load. Each poll's 500 records now take over 7 minutes to process."
+        },
+        {
+          "when": "09:10 onwards",
+          "what": "Logs fill with CommitFailedException and rebalance messages. Every few minutes another instance is removed from the group, rejoins, and the partitions move again."
+        },
+        {
+          "when": "Midday",
+          "what": "Customers report receiving the same invoice three or four times. Lag on billing events has grown all morning."
+        }
+      ],
+      "pipeline": [
+        "billing.events topic · 8 partitions",
+        "Invoicing group · 4 instances, classic protocol, max.poll.records 500, max.poll.interval.ms 5 min",
+        "For each record · call the tax API, email the invoice",
+        "Commit · commitSync after each poll's batch"
+      ],
+      "tasks": [
+        "Why did instances keep leaving the group?",
+        "Why were invoices sent several times?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why instances kept leaving",
+        "text": [
+          "500 records at about 900 ms each is over 7 minutes between polls, beyond the 5-minute max.poll.interval.ms. Each instance was treated as failed and removed, even though it was busy working.",
+          "Every removal triggered a rebalance. The partitions moved to other instances, which were in the same position, so the group never settled."
+        ]
+      },
+      {
+        "title": "Why invoices repeated",
+        "text": [
+          "An instance that had been removed finished its batch and called commitSync, which failed with CommitFailedException. Its emails had already gone out.",
+          "The new owner of each partition started from the last successful commit and processed the same records again: more emails. At-least-once delivery plus a side effect that isn't idempotent means duplicates."
+        ]
+      },
+      {
+        "title": "The fix",
+        "text": [
+          "Make each poll's work fit the interval: lower max.poll.records (say to 50), or raise max.poll.interval.ms, sized from the slowest realistic processing time.",
+          "Make the side effect idempotent: record which invoice was emailed, keyed by invoice ID, and skip a repeat.",
+          "The newer consumer group protocol (group.protocol=consumer, KIP-848) makes rebalances incremental and faster, but a consumer that stops polling still loses its partitions."
+        ]
+      }
+    ],
+    "takeaway": [
+      "A busy consumer that doesn't poll in time is treated as dead.",
+      "Size max.poll.records so a batch finishes well inside max.poll.interval.ms.",
+      "Rebalances redeliver, so side effects must be safe to repeat."
+    ],
+    "honesty": "If you haven't fought a rebalance loop, say so and explain the two timeouts. If you have, lead with what you saw in the logs.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What questions would you ask?",
+          "What would you add as a requirement?"
+        ],
+        "debrief": [
+          {
+            "title": "Questions",
+            "text": [
+              "\"What happens to invoicing when the tax API slows down?\"",
+              "\"If the same billing event is processed twice, does the customer get two invoices?\""
+            ]
+          },
+          {
+            "title": "Requirements",
+            "text": [
+              "A customer receives at most one invoice per billing event, even when processing repeats.",
+              "Invoicing keeps working, more slowly, when the tax API is ten times slower; tested before month end."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "A dependency slowed down and customers got duplicate invoices. What would you require so it can't happen again?",
+          "points": [
+            "One invoice per event, whatever the processing does: an idempotent send.",
+            "Graceful slowdown when a dependency is slow, tested at month-end load.",
+            "Monitoring of the dependency's latency and of consumer rebalances.",
+            "A clear owner for the integration with the tax API.",
+            "Proactive correction for customers who received duplicates."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What do you tell customers?",
+          "What would you change in planning for month end?"
+        ],
+        "debrief": [
+          {
+            "title": "Customers",
+            "text": [
+              "Tell affected customers which invoice is valid and that duplicates won't be charged twice.",
+              "Check with billing that no duplicate was collected."
+            ]
+          },
+          {
+            "title": "Month-end planning",
+            "text": [
+              "Month end is a known peak: load test the whole invoicing path, including the tax API, before it.",
+              "Agree response-time expectations with the tax API's owner."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "A known peak period exposed a weakness in a dependency. How do you plan for peaks?",
+          "points": [
+            "Identify the peaks in the calendar.",
+            "Load test the full path, including third-party dependencies.",
+            "Agree performance expectations with dependency owners.",
+            "Make duplicate-safe behaviour a requirement.",
+            "Review after each peak and feed back into planning."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you stabilise the service today?",
+          "What goes into the operational readiness checklist?"
+        ],
+        "debrief": [
+          {
+            "title": "Stabilising today",
+            "text": [
+              "Deploy a smaller max.poll.records so each batch finishes inside the interval; watch rebalances stop.",
+              "Pause invoice emails until the duplicate check is in, then resume."
+            ]
+          },
+          {
+            "title": "Readiness checklist",
+            "text": [
+              "For each consumer: worst-case processing time per batch versus max.poll.interval.ms.",
+              "An alert on rebalance frequency and on CommitFailedException in logs."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you get a consumer group out of a rebalance loop during an incident?",
+          "points": [
+            "Recognise the signs: repeated rebalances, CommitFailedException, growing lag.",
+            "Find the slow step and compare batch time to max.poll.interval.ms.",
+            "Shrink the batch or extend the interval to stop the loop.",
+            "Contain side effects while it settles.",
+            "Add monitoring and a checklist item so it is caught earlier."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "Which settings do you change, and to what?",
+          "How do you make the email idempotent?"
+        ],
+        "debrief": [
+          {
+            "title": "Settings",
+            "text": [
+              "Work out the budget: at 900 ms per record, 50 records is 45 seconds, well inside 5 minutes. Set max.poll.records=50.",
+              "Consider group.protocol=consumer for faster, incremental rebalances; it is the newer protocol, opt-in on the client since Kafka 4.0.",
+              "Use static membership (group.instance.id) as well, so rolling deployments don't trigger rebalances."
+            ]
+          },
+          {
+            "title": "Idempotent emails",
+            "text": [
+              "Store the invoice ID when an email is sent, and check it first. A redelivered event then finds the record and skips the send."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Explain session.timeout.ms versus max.poll.interval.ms, and what causes a rebalance storm.",
+          "points": [
+            "Heartbeats and the session timeout detect a dead process.",
+            "max.poll.interval.ms detects a live process that stopped making progress.",
+            "A batch that takes longer than the interval gets the consumer removed, and the group rebalances.",
+            "Fix by sizing max.poll.records to the slowest processing, or raising the interval.",
+            "Make effects idempotent, because rebalances redeliver; use static membership and the newer protocol to reduce rebalances."
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,241 @@
+{
+  "id": "4",
+  "number": 4,
+  "title": "Delivered before it shipped",
+  "outcome": "Partitions doubled during a busy week, keys moved, and orders showed as delivered before they had shipped.",
+  "sources": "§12, §13, §1",
+  "chapter": "keys",
+  "content": {
+    "bookmark": "Kafka keeps order within a partition, and a key stays on one partition only while the partition count stays the same.",
+    "check": [
+      {
+        "prompt": "What ordering does Kafka guarantee?",
+        "options": [
+          "Within a partition: a consumer reads its events in the order they were written",
+          "Across a whole topic",
+          "Across all topics in a cluster"
+        ],
+        "answer": 0,
+        "why": "Order is per partition. Events with the same key go to the same partition, which is how per-entity order is kept."
+      },
+      {
+        "prompt": "The default partitioner chooses a partition for a keyed record by…",
+        "options": [
+          "round robin",
+          "a hash of the key, so the same key goes to the same partition while the count doesn't change",
+          "the broker with the least load"
+        ],
+        "answer": 1,
+        "why": "The key is hashed to a partition. Change the number of partitions and the result of the hash changes for many keys."
+      },
+      {
+        "prompt": "What happens when you add partitions to a topic?",
+        "options": [
+          "Existing records are redistributed to keep keys together",
+          "Nothing changes for existing keys",
+          "Some keys start going to different partitions, and existing data stays where it is"
+        ],
+        "answer": 2,
+        "why": "The documentation lists it: keys can move, which affects ordering for existing keys, and existing data is not moved."
+      },
+      {
+        "prompt": "After doubling from 6 to 12 partitions, can you go back to 6?",
+        "options": [
+          "No: Kafka cannot reduce a topic's partition count",
+          "Yes, with kafka-topics --alter",
+          "Yes, once consumers have caught up"
+        ],
+        "answer": 0,
+        "why": "Partitions can be added but never removed. The only way back is a new topic."
+      }
+    ],
+    "caseStudy": {
+      "setting": "An online retailer (fictional) publishes each order's lifecycle (Placed, Paid, Shipped, Delivered) to order.lifecycle, keyed by order ID, with 6 partitions. A customer-notification service reads it and texts customers at each step. It must see each order's events in order.",
+      "events": [
+        {
+          "when": "Monday of a sale week",
+          "what": "Lag grows. To add consumers, an engineer raises the partition count from 6 to 12 while traffic is flowing."
+        },
+        {
+          "when": "Monday to Wednesday",
+          "what": "Customers receive \"Your order has been delivered\" followed by \"Your order has shipped\". Some get no shipping text at all."
+        },
+        {
+          "when": "Thursday",
+          "what": "The team finds that orders placed before the change have their first events on one partition and their later events on another."
+        }
+      ],
+      "pipeline": [
+        "Order services · publish lifecycle events, key = order ID",
+        "order.lifecycle · 6 partitions, raised to 12 live",
+        "Notification service · consumer group, auto.offset.reset=latest",
+        "SMS provider · one text per event"
+      ],
+      "tasks": [
+        "Why did events for one order arrive out of order?",
+        "Why did some customers get no shipping text at all?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why the order broke",
+        "text": [
+          "A key is mapped to a partition by hashing it over the number of partitions. Change 6 to 12 and many order IDs map to a different partition.",
+          "An order placed before the change had Placed and Paid on its old partition. Shipped and Delivered went to its new one. Two consumers read the two partitions at different speeds, so Delivered could be read first.",
+          "Kafka never promised order across partitions; the change silently split orders across two of them."
+        ]
+      },
+      {
+        "title": "Why some texts never went",
+        "text": [
+          "New partitions appear to producers and consumers only after a metadata refresh. Producers can write to a new partition before the group has an offset for it.",
+          "With auto.offset.reset=latest, the consumer starts a new partition at the end, skipping what was written there before it noticed. The documentation warns about exactly this."
+        ]
+      },
+      {
+        "title": "Doing it safely",
+        "text": [
+          "Size partitions up front with headroom, because adding them later moves keys.",
+          "If you must add partitions to an ordered topic, plan it: stop producers, let consumers drain the old partitions, make the change, then restart. Or create a new topic with the right count and migrate.",
+          "Use auto.offset.reset=earliest for a group where missing an event matters."
+        ]
+      }
+    ],
+    "takeaway": [
+      "Order is per partition, and the key decides the partition.",
+      "Adding partitions moves keys and can't be undone.",
+      "Lag is a reason to plan a change, not to make one live."
+    ],
+    "honesty": "If you haven't changed partition counts in production, say so, and explain what moves and what you'd plan for. If you have a story of events arriving out of order, lead with it.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What questions would you ask before approving a partition change?",
+          "What acceptance criteria protect the order of customer messages?"
+        ],
+        "debrief": [
+          {
+            "title": "Questions before the change",
+            "text": [
+              "\"Does anything rely on events for one order arriving in order?\" Here, yes: every text.",
+              "\"What happens to orders in flight during the change?\" That finds the split."
+            ]
+          },
+          {
+            "title": "Acceptance criteria",
+            "text": [
+              "A customer never receives a later status before an earlier one; test it across a partition change.",
+              "No status event is skipped; the consumer starts any new partition from its beginning."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you protect the order of events for one customer as a system scales?",
+          "points": [
+            "Name the entity that needs order, here the order, and make it the key.",
+            "Say what Kafka guarantees: order within a partition only.",
+            "Say what breaks it: changing the partition count moves keys.",
+            "Ask for partitions sized with headroom up front.",
+            "Ask for a planned, tested procedure if they must change."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What do you tell customers?",
+          "How do you decide between a quick scaling fix and a planned one?"
+        ],
+        "debrief": [
+          {
+            "title": "This week",
+            "text": [
+              "Apologise for confusing texts; send correct status to affected orders.",
+              "Confirm no deliveries were affected, only messages."
+            ]
+          },
+          {
+            "title": "The decision",
+            "text": [
+              "A sale week makes a live change tempting. The cost here was customer trust in notifications.",
+              "Plan capacity before peak periods, with the partition count decided when the topic is created."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "A scaling change during peak broke the order of customer notifications. What would you do differently?",
+          "points": [
+            "Plan capacity ahead of known peaks.",
+            "Treat partition changes as planned releases, not live fixes.",
+            "Weigh the customer impact of a fix, not just its speed.",
+            "Correct affected customers proactively.",
+            "Make message order a tested requirement."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you plan a partition change on a live topic?",
+          "What goes in the runbook?"
+        ],
+        "debrief": [
+          {
+            "title": "Planning the change",
+            "text": [
+              "Agree a window, stop or pause producers, wait for every consumer group to reach zero lag on the old partitions, add partitions, restart producers.",
+              "Tell every consuming team before the change, because ordering affects them all."
+            ]
+          },
+          {
+            "title": "The runbook",
+            "text": [
+              "Who approves, which groups to check, the commands, and how to confirm order after the change.",
+              "The rule that partitions can't be reduced, so a mistake means a new topic."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you manage a change to the number of partitions on a busy topic?",
+          "points": [
+            "Treat it as a planned change with a window and approvals.",
+            "Identify every consumer group and whether it needs order.",
+            "Drain to zero lag before changing, then resume.",
+            "Have a rollback plan that accepts partitions can't be removed.",
+            "Verify ordering afterwards."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "What would you have done instead of the live change?",
+          "What do you change in the consumer?"
+        ],
+        "debrief": [
+          {
+            "title": "Alternatives",
+            "text": [
+              "First find why lag grew. If processing is slow, more consumers may not help (scenario 7).",
+              "If more partitions are truly needed, drain and change, or create a new topic with the right count and move producers then consumers."
+            ]
+          },
+          {
+            "title": "Consumer changes",
+            "text": [
+              "auto.offset.reset=earliest, so a new partition is read from its start.",
+              "Where order matters, reject an event that goes backwards in an order's lifecycle and park it for review, instead of texting the customer."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "What happens when you add partitions to a Kafka topic?",
+          "points": [
+            "Keyed records are hashed over the partition count, so many keys move.",
+            "Existing data stays where it is, so one key's events span two partitions.",
+            "Consumers may miss new partitions' early records with auto.offset.reset=latest.",
+            "Partitions can never be removed.",
+            "So size with headroom, and drain before any change to an ordered topic."
+          ]
+        }
+      }
+    }
+  }
+}
