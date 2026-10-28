@@ -69,13 +69,23 @@ You can't see any of this with one broker. Add two **broker-only** nodes to your
 kafka-cluster.bat cluster-id --bootstrap-server localhost:9092
 ```
 
-2. Copy Kafka's broker-only template twice. In `E:\workspace\Kafka_Learning\kafka\config`, copy `broker.properties` to `broker-2.properties` and `broker-3.properties`, and edit these lines in each (use ports 9095 and a `broker-3` folder for the second):
+2. Copy Kafka's broker-only template twice. In `E:\workspace\Kafka_Learning\kafka\config`, copy `broker.properties` to `broker-2.properties` and `broker-3.properties`, and edit these lines. Every node in a cluster needs its own `node.id`, port and log folder. In `broker-2.properties`:
 
 ```
 node.id=2
 listeners=PLAINTEXT://localhost:9094
 advertised.listeners=PLAINTEXT://localhost:9094
 log.dirs=E:/workspace/Kafka_Learning/data/broker-2
+controller.quorum.bootstrap.servers=localhost:9093
+```
+
+In `broker-3.properties`:
+
+```
+node.id=3
+listeners=PLAINTEXT://localhost:9095
+advertised.listeners=PLAINTEXT://localhost:9095
+log.dirs=E:/workspace/Kafka_Learning/data/broker-3
 controller.quorum.bootstrap.servers=localhost:9093
 ```
 
