@@ -114,6 +114,27 @@ describe('GuideChapterPage: roadmap alignment tab', () => {
     expect(screen.queryByText(/\*Relevant sections/)).not.toBeInTheDocument();
   });
 
+  it('opens a relevant section from the topic strip even while the alignment tab is showing', async () => {
+    api.getContentPack.mockResolvedValue(withAlignment);
+    api.getRoadmap.mockResolvedValue({
+      ...ROADMAP,
+      phases: [{ ...ROADMAP.phases[0], topics: [topic(12, 'Intro topic', { mapped_chapters: [mapped('what-it-is', 'Body')] })] }],
+    });
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    renderPage('/learn/guides/adf/what-it-is?roadmap=7&topic=12');
+
+    const bar = await screen.findByRole('navigation', { name: 'Roadmap topic' });
+    await userEvent.click(screen.getByRole('tab', { name: 'Roadmap alignment' }));
+    expect(screen.queryByText('Some text.')).not.toBeInTheDocument();
+
+    await userEvent.click(within(bar).getByRole('link', { name: 'Body' }));
+    expect(screen.getByRole('tab', { name: 'Chapter' })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByText('Some text.')).toBeInTheDocument();
+    await waitFor(() => expect(scrolled).toHaveBeenCalled());
+    expect(scrolled.mock.contexts[0]).toBe(screen.getByRole('heading', { name: 'Body' }));
+  });
+
   it('shows no tabs for a chapter without an alignment block', async () => {
     renderPage('/learn/guides/adf/what-it-is');
     expect(await screen.findByText('Some text.')).toBeInTheDocument();

@@ -10,6 +10,8 @@ export interface LinkedTopic {
   roadmapTitle: string;
   topicId: number;
   title: string;
+  /** Whether the topic has a success criterion: without one there is nothing to demonstrate. */
+  hasCriterion: boolean;
 }
 
 /** What a page links back from: a scenario's chapter, or an experiment's topic numbers. */
@@ -48,7 +50,10 @@ export function useLinkedTopics(subjectId: number | null, packId: string | null,
           for (const phase of d.phases) {
             for (const t of phase.topics) {
               if ((t.mapped_chapters ?? []).some((ch) => ch.pack_id === packId && matches(ch))) {
-                found.push({ roadmapId: d.id, roadmapTitle: d.title, topicId: t.id, title: t.title });
+                found.push({
+                  roadmapId: d.id, roadmapTitle: d.title, topicId: t.id, title: t.title,
+                  hasCriterion: Boolean(t.success_criteria?.trim()),
+                });
               }
             }
           }

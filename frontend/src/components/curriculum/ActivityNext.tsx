@@ -40,15 +40,18 @@ export const ActivityNext: React.FC<{
                 <Link component={RouterLink} to={`/roadmaps/${t.roadmapId}/topics/${t.topicId}`} sx={{ fontWeight: 600 }}>
                   {t.title}
                 </Link>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  component={RouterLink}
-                  to={`/roadmaps/${t.roadmapId}/topics/${t.topicId}/demonstrate`}
-                  aria-label={`Demonstrate ${t.title}`}
-                >
-                  Demonstrate
-                </Button>
+                {/* No criterion, nothing to meet: the topic page offers no demonstration then, and nor does this. */}
+                {t.hasCriterion && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    component={RouterLink}
+                    to={`/roadmaps/${t.roadmapId}/topics/${t.topicId}/demonstrate`}
+                    aria-label={`Demonstrate ${t.title}`}
+                  >
+                    Demonstrate
+                  </Button>
+                )}
               </Box>
             ))}
           </Box>

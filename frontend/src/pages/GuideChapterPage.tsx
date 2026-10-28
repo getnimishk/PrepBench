@@ -40,8 +40,26 @@ export const GuideChapterPage: React.FC = () => {
   const [attempt, setAttempt] = useState(0);
   const [view, setView] = useState<'chapter' | 'alignment'>('chapter');
 
+  // A section asked for from the topic strip, scrolled to once the chapter text is showing.
+  const [pendingSection, setPendingSection] = useState<string | null>(null);
+
   // A new chapter starts on its text, whichever tab the last one was left on.
   useEffect(() => { setView('chapter'); }, [chapterId]);
+
+  useEffect(() => {
+    if (!pendingSection || view !== 'chapter') return;
+    const target = document.getElementById(pendingSection);
+    if (target) {
+      target.scrollIntoView?.({ block: 'start' });
+      window.history.replaceState(window.history.state, '', `#${pendingSection}`);
+    }
+    setPendingSection(null);
+  }, [pendingSection, view]);
+
+  const openSection = (anchorId: string) => {
+    setView('chapter');
+    setPendingSection(anchorId);
+  };
 
   useEffect(() => {
     if (!packId) return undefined;
@@ -118,7 +136,7 @@ export const GuideChapterPage: React.FC = () => {
       />
 
       {topicContext && packId && chapterId && (
-        <ChapterTopicContext packId={packId} chapterId={chapterId} context={topicContext} sectionAnchors={sectionAnchors} />
+        <ChapterTopicContext packId={packId} chapterId={chapterId} context={topicContext} sectionAnchors={sectionAnchors} onOpenSection={openSection} />
       )}
 
       {linkedVersion === null && (

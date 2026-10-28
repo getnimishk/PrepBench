@@ -27,8 +27,10 @@ export const ChapterTopicContext: React.FC<{
   context: TopicContext;
   /** The chapter's own section headings and their anchors on this page. */
   sectionAnchors?: { heading: string; id: string }[];
+  /** Brings a section into view, showing the chapter text first if another tab is open. */
+  onOpenSection?: (anchorId: string) => void;
 }> = ({
-  packId, chapterId, context, sectionAnchors = [],
+  packId, chapterId, context, sectionAnchors = [], onOpenSection,
 }) => {
   const { roadmapId, topicId } = context;
   const [roadmap, setRoadmap] = useState<RoadmapDetail | null>(null);
@@ -76,7 +78,15 @@ export const ChapterTopicContext: React.FC<{
             return (
               <React.Fragment key={name}>
                 {i > 0 && '; '}
-                {anchor ? <Link href={`#${anchor.id}`}>{name}</Link> : name}
+                {anchor ? (
+                  <Link
+                    href={`#${anchor.id}`}
+                    // The page decides how to reach it: the section may be on a tab not showing yet.
+                    onClick={onOpenSection ? (e) => { e.preventDefault(); onOpenSection(anchor.id); } : undefined}
+                  >
+                    {name}
+                  </Link>
+                ) : name}
               </React.Fragment>
             );
           })}
