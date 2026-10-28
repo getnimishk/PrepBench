@@ -549,7 +549,11 @@ docs/
   2. The ADF Study Guide (`backend/app/content/packs/adf/v<N>.json`) is the learner-facing implementation.
      It is published one file per version and a skill pins the version it attached. **`v1.json` is the
      original guide and never changes** (a test pins it by fingerprint); `v2.json` is the rewritten guide
-     (23 chapters, from 2026-10-21). Edit the newest version, and add a new version file for any change a learner could
+     (23 chapters, from 2026-10-21), also pinned by fingerprint now that v3 exists; `v3.json` (2026-10-28) is v2
+     with each scenario check's options reordered so the correct answers are spread over positions 0-2 (v2 had
+     64 of 72 in the middle; `test_correct_answers_are_spread_over_the_option_positions` keeps any position
+     under half). Check answers are stored per pack version, so a learner who upgrades answers v3's checks
+     afresh. Edit the newest version, and add a new version file for any change a learner could
      notice. A chapter's `Roadmap alignment` block is shown in its own tab on the chapter page.
   3. Every roadmap topic must map to one or more Study Guide sections (see `docs/research/ADF_Study_Guide_Roadmap_Crosswalk.md`).
   4. Coverage must be labelled Full or Partial honestly; do not convert Partial to Full without dedicated content.

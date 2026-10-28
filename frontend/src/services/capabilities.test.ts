@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { ContentPackDetail } from '../types/contentPack';
-import adfPack from '../../../backend/app/content/packs/adf/v2.json';
+import adfPack from '../../../backend/app/content/packs/adf/v3.json';
 import {
   getSubjectCapabilities,
   getSubjectsWithCapability,

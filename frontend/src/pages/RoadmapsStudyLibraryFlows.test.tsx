@@ -17,7 +17,7 @@ import { StudyLibraryPage } from './StudyLibraryPage';
 import type { RoadmapDetail, RoadmapSchedule, RoadmapSummary } from '../types/roadmap';
 import type { Subject } from '../types/subject';
 import adfRoadmap from '../test/fixtures/adfSampleRoadmap.json';
-import adfPack from '../../../backend/app/content/packs/adf/v2.json';
+import adfPack from '../../../backend/app/content/packs/adf/v3.json';
 
 const mockApi = {
   getRoadmaps: vi.fn(),

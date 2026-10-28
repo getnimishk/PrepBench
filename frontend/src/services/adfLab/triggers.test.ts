@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import pipeline from '../../../../backend/app/data/lab_packs/semiconductor-v1/pipeline.json';
-import adfPack from '../../../../backend/app/content/packs/adf/v2.json';
+import adfPack from '../../../../backend/app/content/packs/adf/v3.json';
 import { parseAdf, runPipeline, type SourceRow } from '../lakehouse/adfModel';
 import { STATION_A_COUPLINGS } from '../lakehouse/pipelineCouplings';
 import { causesOf } from './definition';
