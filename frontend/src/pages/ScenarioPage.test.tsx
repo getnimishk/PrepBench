@@ -188,6 +188,11 @@ describe('ScenarioPage', () => {
     const lens = rows.get('s7:adf@1:1:lens:po')!;
     expect(lens.explanation_text).toContain(`Say it: ${C1.lenses.po.sayIt.question}\nWatermark on success`);
     expect(lens.rubric_coverage).toMatchObject({ 0: true, 1: false });
+
+    // The finished scenario is not a dead end: it leads back to the chapter and on to the lab.
+    const next = screen.getByRole('region', { name: 'What next' });
+    expect(within(next).getByRole('link', { name: 'Re-read chapter 9' })).toHaveAttribute('href', '/learn/guides/adf/incremental');
+    expect(within(next).getByRole('link', { name: 'Try the lab: Watermark & Transient Failure' })).toHaveAttribute('href', '/lab/adf/watermark');
   });
 
   it('keeps each role\'s work separately', async () => {

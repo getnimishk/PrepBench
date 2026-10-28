@@ -210,6 +210,55 @@ describe('GuideChapterPage: roadmap topic context', () => {
     expect(screen.queryByRole('navigation', { name: 'Roadmap topic' })).not.toBeInTheDocument();
   });
 
+  it('links each relevant section to its heading on the page, and leaves a name it cannot match as text', async () => {
+    api.getContentPack.mockResolvedValue({
+      ...PACK,
+      chapters: [{ ...PACK.chapters[0], blocks: [
+        { heading: 'The watermark, step by step', md: 'Steps.' },
+        { heading: 'What a watermark cannot do', md: 'Limits.' },
+      ] }, PACK.chapters[1]],
+    });
+    api.getRoadmap.mockResolvedValue({
+      ...ROADMAP,
+      phases: [{ ...ROADMAP.phases[0], topics: [topic(12, 'Watermark Patterns', {
+        mapped_chapters: [mapped('what-it-is', 'The watermark, step by step; What a watermark cannot do; Ch 2 (the whole picture)')],
+      })] }],
+    });
+    renderPage(`${CHAPTER}?roadmap=7&topic=12`);
+
+    const bar = await strip();
+    expect(within(bar).getByRole('link', { name: 'The watermark, step by step' })).toHaveAttribute('href', '#block-0');
+    expect(within(bar).getByRole('link', { name: 'What a watermark cannot do' })).toHaveAttribute('href', '#block-1');
+    expect(screen.getByRole('heading', { name: 'What a watermark cannot do' })).toHaveAttribute('id', 'block-1');
+    expect(within(bar).queryByRole('link', { name: /Ch 2/ })).not.toBeInTheDocument();
+    expect(bar).toHaveTextContent('Ch 2 (the whole picture)');
+  });
+
+  it('offers the next topic still to do, passing over a completed one', async () => {
+    api.getRoadmap.mockResolvedValue({
+      ...ROADMAP,
+      phases: [{ ...ROADMAP.phases[0], topics: [
+        ROADMAP.phases[0].topics[1],
+        topic(13, 'Triggers', { status: 'completed', completed_at: '2026-10-01T10:00:00' }),
+        topic(14, 'Unmapped'),
+      ] }],
+    });
+    renderPage(`${CHAPTER}?roadmap=7&topic=12`);
+
+    const bar = await strip();
+    expect(within(bar).getByRole('link', { name: 'Next topic: Unmapped' })).toHaveAttribute('href', '/roadmaps/7/topics/14');
+  });
+
+  it('links the Behaviour Lab experiment that practises the chapter', async () => {
+    api.getContentPack.mockResolvedValue({
+      ...PACK,
+      chapters: [{ ...PACK.chapters[0], id: 'incremental', title: 'Loading only new data' }, PACK.chapters[1]],
+    });
+    renderPage('/learn/guides/adf/incremental');
+
+    expect(await screen.findByRole('link', { name: 'Watermark & Transient Failure' })).toHaveAttribute('href', '/lab/adf/watermark');
+  });
+
   it('offers no demonstration when the topic has no success criterion', async () => {
     api.getRoadmap.mockResolvedValue({
       ...ROADMAP,

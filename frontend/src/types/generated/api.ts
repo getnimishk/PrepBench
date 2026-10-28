@@ -4206,6 +4206,8 @@ export interface components {
             at?: string | null;
             /** Basis */
             basis: string;
+            /** Correct */
+            correct?: boolean | null;
             /** Demonstrates */
             demonstrates?: string | null;
             /** Href */

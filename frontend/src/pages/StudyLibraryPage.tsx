@@ -21,6 +21,7 @@ import {
 } from '../components/ui/primitives';
 import { classifyResource } from '../utils/resourceClassification';
 import { chooseRoadmap } from '../services/roadmapChoice';
+import { nextRoadmapTopic } from '../services/roadmapNext';
 
 export { chooseRoadmap };
 
@@ -61,14 +62,14 @@ function excerpt(text: string, max = 120): string {
 const byOrder = <T extends { order_index: number; id: number }>(a: T, b: T) =>
   a.order_index - b.order_index || a.id - b.id;
 
-/** The topic in progress, else the first one not started, in plan order. */
+/** The roadmap's next topic, in plan order, by the rule every screen shares (services/roadmapNext). */
 export function topicToContinue(detail: RoadmapDetail): { topic: RoadmapTopic; phase: RoadmapPhase } | null {
-  const flat = [...detail.phases].sort(byOrder)
-    .flatMap((phase) => [...phase.topics].sort(byOrder).map((topic) => ({ topic, phase })));
-  return flat.find((x) => x.topic.status === 'in_progress')
-    ?? flat.find((x) => x.topic.status === 'not_started')
-    ?? null;
+  return nextRoadmapTopic([...detail.phases].sort(byOrder)
+    .map((phase) => ({ ...phase, topics: [...phase.topics].sort(byOrder) })));
 }
+
+/** True when the roadmap has at least one topic: nothing to do is not the same as all done. */
+const hasTopics = (detail: RoadmapDetail | null) => !!detail && detail.phases.some((ph) => ph.topics.length > 0);
 
 // ---- 1. Recommended ------------------------------------------------------
 
@@ -200,9 +201,11 @@ const ContinuePanel: React.FC<{ detail: RoadmapDetail | null; hasRoadmap: boolea
       <Panel soft component="section" aria-labelledby="continue-title">
         <PanelHead eyebrow="Continue learning" title="Nothing in progress" titleId="continue-title" />
         <Sub sx={{ mb: 0 }}>
-          {hasRoadmap
-            ? 'Every topic in this roadmap is complete.'
-            : 'Topics come from a roadmap. Import one and the topic to work on next appears here.'}
+          {!hasRoadmap
+            ? 'Topics come from a roadmap. Import one and the topic to work on next appears here.'
+            : hasTopics(detail)
+              ? 'Every topic in this roadmap is completed or skipped.'
+              : 'This roadmap has no topics yet. Add some and the topic to work on next appears here.'}
         </Sub>
         {!hasRoadmap && (
           <Actions sx={{ mt: '14px' }}>
@@ -604,9 +607,11 @@ const DemonstrateSection: React.FC<{
           </Box>
         ) : (
           <Sub sx={{ mb: 0 }}>
-            {hasRoadmap
-              ? 'All topics in your active roadmap have been demonstrated! Choose another topic from your roadmap to recheck or keep skills sharp.'
-              : 'Select a roadmap topic to demonstrate mastery against its success criterion.'}
+            {!hasRoadmap
+              ? 'Select a roadmap topic to demonstrate mastery against its success criterion.'
+              : hasTopics(detail)
+                ? 'Every topic in your active roadmap is completed or skipped. Choose a topic from your roadmap to recheck it.'
+                : 'Your active roadmap has no topics yet, so there is nothing to demonstrate.'}
           </Sub>
         )}
       </Panel>

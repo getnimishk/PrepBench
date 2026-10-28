@@ -45,6 +45,15 @@ holds the start of its question's text: a product decision). (Station D's Eviden
 Certification hub's id links were fixed in #90.) Full Playwright runs here use
 `PREPBENCH_E2E_WORKERS=3`; close the learner's app first, and run one suite at a time.
 
+**The learning journey (roadmap → topic → guide → practice → demonstration), 2026-10-28.** One rule names
+the next topic everywhere -- Home (skill tracks), the roadmap panel and phase rows, a finished topic's
+"Next:", the Study Library and the chapter's topic strip: `services/roadmapNext.ts` (in progress first,
+else the first open topic after the most recent completion, wrapping; never a copy of the rule). A skill
+track's Home is led by its roadmap, never by mocks (rule 12). Finished practice (scenario checks, lab
+stages; evidence items carry `correct`) changes a topic's recommended next step and names each miss, but
+never its status: only a demonstration completes a topic. A finished ADF lab run's explanation is
+read-only. Topic prerequisites are not recorded anywhere, so none are shown -- adding them is a data decision.
+
 **Settled decisions, don't reopen these:**
 - The header Settings button stays, even though it isn't in the prototype — kept for
   quick access, at the user's request.

@@ -231,15 +231,42 @@ describe('all five experiments, every fault mode', () => {
     expect(await screen.findByRole('heading', { level: 2, name: 'Retrieve' })).toBeInTheDocument();
     expect(screen.getByRole('textbox')).toHaveValue('The completion exit ran on failure.');
 
-    await user.click(screen.getByRole('button', { name: 'Save your explanation' }));
-
-    // The same words were sent, nothing was erased, and the run did not fall back to Explain.
+    // Unchanged words are already saved: nothing to send, so nothing can be rewritten or erased.
     const api = await import('../../services/api');
+    const before = vi.mocked(api.patchLearningAttempt).mock.calls.length;
+    expect(screen.getByRole('button', { name: 'Saved' })).toBeDisabled();
+    expect(vi.mocked(api.patchLearningAttempt).mock.calls.length).toBe(before);
+
+    // A real edit can still be saved while the run is open, and the run stays at Retrieve.
+    await user.type(screen.getByRole('textbox'), ' So the bookmark moved.');
+    await user.click(screen.getByRole('button', { name: 'Save your explanation' }));
     const calls = vi.mocked(api.patchLearningAttempt).mock.calls;
-    expect(calls[calls.length - 1]).toEqual(['ab:6:watermark:r1:predict', { explanation_text: 'The completion exit ran on failure.' }, 6]);
-    expect(store.find((a) => a.attempt_uid === 'ab:6:watermark:r1:predict')!.explanation_text)
-      .toBe('The completion exit ran on failure.');
+    expect(calls[calls.length - 1]).toEqual(['ab:6:watermark:r1:predict', { explanation_text: 'The completion exit ran on failure. So the bookmark moved.' }, 6]);
     expect(await screen.findByRole('heading', { level: 2, name: 'Retrieve' })).toBeInTheDocument();
+  }, 60_000);
+
+  it('keeps a finished run\'s explanation as written: read-only, with no save', async () => {
+    const row = (stage: string, extra: Partial<WireLearningAttempt> = {}) => ({
+      attempt_uid: `ab:6:watermark:r1:${stage}`, challenge_id: `adf.lab.watermark.${stage}`, concept_id: 'adf.lab.watermark',
+      scenario_fingerprint: 'adf-lab=watermark;run=1;model=semiconductor-v1', mode: 'guided', started_at: '', hint_count: 0,
+      subject_id: 6, prediction: 'x', committed_at: '2026-10-07T09:01:00', completed_at: '2026-10-07T09:02:00', correct: true,
+      ...extra,
+    } as WireLearningAttempt);
+    store.push(
+      row('predict', { explanation_text: 'The completion exit ran on failure.' }),
+      row('reason'), row('apply'), row('retrieve', { prediction: '0' }),
+    );
+    render(
+      <MemoryRouter initialEntries={['/lab/adf/watermark']}>
+        <Routes><Route path="/lab/adf/:slug" element={<AdfExperimentPage />} /></Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole('heading', { level: 2, name: 'Run complete' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox')).toHaveAttribute('readonly');
+    expect(screen.queryByRole('button', { name: /Save your explanation|Saved/ })).not.toBeInTheDocument();
+    // And the finished run leads on: back to its roadmap topics' demonstrations and the chapters.
+    const next = screen.getByRole('region', { name: 'What next' });
+    expect(within(next).getByRole('link', { name: 'Re-read: Loading only new data' })).toHaveAttribute('href', '/learn/guides/adf/incremental');
   }, 60_000);
 
   it('never offers a timeout lever anywhere in the lab', () => {

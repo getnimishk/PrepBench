@@ -185,6 +185,11 @@ export const RoadmapTopicPage: React.FC = () => {
   // the "mark complete" that existed before demonstrations were recorded. Shown
   // the same as an earned completion, it would claim evidence that is not there.
   const unevidenced = completed && history.length === 0;
+  // The graded practice linked to this topic (scenario checks, lab stages), finished. It
+  // changes what the page recommends, never the topic's status: only a demonstration does.
+  const practised = topicEvidence.filter((i) => i.level !== 'activity' && (i.kind === 'scenario_check' || i.kind === 'lab_stage'));
+  const misses = practised.filter((i) => i.correct === false);
+  const rightCount = practised.filter((i) => i.correct === true).length;
 
   const started = topic.started_at ? shortDate(topic.started_at) : null;
 
@@ -299,6 +304,34 @@ export const RoadmapTopicPage: React.FC = () => {
               <Actions>
                 <Button variant="contained" color="ink" onClick={() => navigate(`/roadmaps/${rid}/topics/${topic.id}/demonstrate`)} disabled={!topic.success_criteria}>Demonstrate mastery</Button>
                 <Button variant="outlined" onClick={() => navigate(`/roadmaps/${rid}`)}>Review roadmap</Button>
+              </Actions>
+            </>
+          ) : practised.length > 0 ? (
+            <>
+              <Typography variant="h6" component="h3" sx={{ mt: '4px' }}>
+                {misses.length > 0 ? 'Review what you missed, then demonstrate' : 'Demonstrate what you have practised'}
+              </Typography>
+              <Sub sx={{ mt: '4px', mb: misses.length > 0 ? '8px' : '12px' }}>
+                You have finished {practised.length} practice {practised.length === 1 ? 'check' : 'checks'} linked to this
+                topic{rightCount + misses.length > 0 ? `: ${rightCount} right${misses.length > 0 ? `, ${misses.length} not` : ''}` : ''}.
+                Practice does not complete the topic; explaining the success criterion unprompted does.
+              </Sub>
+              {misses.length > 0 && (
+                <Box component="ul" aria-label="Practice you missed" sx={{ m: '0 0 12px', pl: '20px' }}>
+                  {misses.map((m) => (
+                    <Box component="li" key={m.id} sx={{ py: '2px' }}>
+                      <Link component={RouterLink} to={m.href}>{titleOf(m)}{m.demonstrates ? ` · ${m.demonstrates}` : ''}</Link>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+              <Actions>
+                <Button variant="contained" color="ink" onClick={() => navigate(`/roadmaps/${rid}/topics/${topic.id}/demonstrate`)} disabled={!topic.success_criteria}>Demonstrate mastery</Button>
+                {links.chapters.length > 0 && (
+                  <Button variant="outlined" component={RouterLink} to={guideChapterPath(links.packId!, links.chapters[0].id, { roadmapId: rid, topicId: topic.id })}>
+                    {misses.length > 0 ? 'Re-read the chapter' : 'Read the chapter again'}
+                  </Button>
+                )}
               </Actions>
             </>
           ) : links.chapters.length > 0 ? (

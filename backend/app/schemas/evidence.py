@@ -34,6 +34,10 @@ class EvidenceItem(BaseModel):
     # When it happened, from the row. Null when the row records no time.
     at: Optional[datetime] = None
     ref: Dict[str, str] = {}
+    # The graded outcome of an item that has an answer: true or false once it is finished and judged,
+    # null when it is not finished, not graded, or has no answer to judge. The level says how strong
+    # the evidence is; this says whether the answer was right, so a miss can be named without reading `basis`.
+    correct: Optional[bool] = None
 
 
 class EvidenceCounts(BaseModel):
