@@ -12,6 +12,8 @@ import { getContentPack, getInterviewQuestions, saveInterviewQuestionFromSource 
 import { apiErrorMessage } from '../services/apiError';
 import { usePreparation } from '../context/PreparationContext';
 import { useLinkedTopics } from '../hooks/useLinkedTopics';
+import { ActivityNext } from '../components/curriculum/ActivityNext';
+import { ADF_LAB_EXPERIMENTS } from '../services/adfLab/experiments';
 import {
   EXPLANATION_MAX, NOTE_MAX, ROLES, SAY_IT_MAX,
   answerCheck, commitCaseNotes, fetchPreparationAttempts, lastRole, lensTasks, saveCoverage, saveLensText,
@@ -525,6 +527,20 @@ export const ScenarioPage: React.FC = () => {
                 )}
             </Panel>
           </Section>
+
+          {/* The end of the scenario leads somewhere: the topics it practises, the chapter, the lab. */}
+          <ActivityNext
+            idPrefix="scenario"
+            topics={linkedTopics}
+            related={[
+              { label: `Re-read ${chapterIndex >= 0 ? `chapter ${chapterIndex + 1}` : 'the chapter'}`, to: chapterPath },
+              ...(packId === 'adf'
+                ? ADF_LAB_EXPERIMENTS
+                  .filter((e) => e.ready && e.chapters.some((c) => c.id === scenario.chapter))
+                  .map((e) => ({ label: `Try the lab: ${e.title}`, to: `/lab/adf/${e.slug}` }))
+                : []),
+            ]}
+          />
         </>
       )}
     </Box>

@@ -3172,6 +3172,17 @@
             "title": "Basis",
             "type": "string"
           },
+          "correct": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correct"
+          },
           "demonstrates": {
             "anyOf": [
               {

@@ -446,6 +446,19 @@ describe('topicToContinue', () => {
     expect(topicToContinue(d)?.topic.id).toBe(11);
   });
 
+  it('moves on from the topic completed most recently, as the roadmap does', () => {
+    const d = detail({
+      phases: [
+        { id: 1, roadmap_id: 4, name: 'Foundations', order_index: 0, topics: [
+          topic({ id: 11, order_index: 0, status: 'not_started' }),
+          topic({ id: 12, order_index: 1, status: 'completed', completed_at: '2026-10-20T10:00:00' }),
+          topic({ id: 13, order_index: 2, status: 'not_started' }),
+        ] },
+      ],
+    } as Partial<RoadmapDetail>);
+    expect(topicToContinue(d)?.topic.id).toBe(13);
+  });
+
   it('has nothing to continue when every topic is finished', () => {
     const d = detail({
       phases: [{ id: 1, roadmap_id: 4, name: 'Foundations', order_index: 0, topics: [topic({ status: 'completed' })] }],

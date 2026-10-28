@@ -14,6 +14,7 @@ import { CouplingLedger } from '../lakehouse/CouplingLedger';
 import { LoopSteps } from '../lakehouse/LoopSteps';
 import { IntegrationNotice, SimulationNotice } from './AdfLabGate';
 import { useLinkedTopics } from '../../hooks/useLinkedTopics';
+import { ActivityNext } from '../curriculum/ActivityNext';
 import { apiErrorMessage } from '../../services/apiError';
 import {
   answerStage, commitPrediction, fetchAdfLabAttempts, latestRun, openPredict, openStage, recordObservation, runAttempts,
@@ -205,6 +206,8 @@ export const ExperimentRunner = <C,>({ prep, def, experiment, modeSwitch, titleS
   // What the box shows is what is saved: the learner's edit, or else the explanation already on record.
   // Saving the untouched box after a reload must keep that explanation, never send an empty one.
   const shownExplanation = explanation ?? predictRow?.explanation_text ?? '';
+  const explanationSaved = Boolean(predictRow?.explanation_text)
+    && shownExplanation.trim() === (predictRow?.explanation_text ?? '').trim();
   const explain = () => predictRow && write(() => saveExplanation(prep.id, predictRow.attempt_uid, shownExplanation.trim()));
   const answerRetrieve = () => write(async () => {
     const opened = await openStage(key, 'retrieve', def.model);
@@ -406,17 +409,23 @@ export const ExperimentRunner = <C,>({ prep, def, experiment, modeSwitch, titleS
             multiline minRows={3} fullWidth
             value={shownExplanation}
             onChange={(e) => setExplanation(e.target.value)}
-            slotProps={{ htmlInput: { maxLength: 4000 } }}
+            // A finished run is never edited (docs/wiki/Learning-Lab.md): its explanation is kept as written.
+            slotProps={{ htmlInput: { maxLength: 4000, readOnly: stage === COMPLETE } }}
           />
-          <Detail sx={{ mt: '6px' }}>Your words, kept with this run. Not graded.</Detail>
-          <Actions sx={{ mt: '10px' }}>
-            <Button
-              variant="contained" onClick={explain}
-              disabled={saving || !shownExplanation.trim()}
-            >
-              Save your explanation
-            </Button>
-          </Actions>
+          <Detail sx={{ mt: '6px' }}>
+            {stage === COMPLETE ? 'Your words, kept with this finished run. Not graded.' : 'Your words, kept with this run. Not graded.'}
+          </Detail>
+          {stage !== COMPLETE && (
+            <Actions sx={{ mt: '10px' }}>
+              <Button
+                variant="contained" onClick={explain}
+                // Saving the same words again would only rewrite them: nothing to save until they change.
+                disabled={saving || !shownExplanation.trim() || explanationSaved}
+              >
+                {explanationSaved ? 'Saved' : 'Save your explanation'}
+              </Button>
+            </Actions>
+          )}
         </StagePanel>
       )}
 
@@ -453,6 +462,13 @@ export const ExperimentRunner = <C,>({ prep, def, experiment, modeSwitch, titleS
             <Button variant="outlined" onClick={startAgain}>Start a new run</Button>
           </Actions>
         </Panel>
+      )}
+      {stage === COMPLETE && (
+        <ActivityNext
+          idPrefix={p}
+          topics={linkedTopics}
+          related={experiment.chapters.map((c) => ({ label: `Re-read: ${c.title}`, to: `/learn/guides/adf/${c.id}` }))}
+        />
       )}
 
       <CouplingLedger idPrefix={p} couplings={def.couplings} intro={def.ledgerIntro} />

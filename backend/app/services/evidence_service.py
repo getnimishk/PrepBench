@@ -109,7 +109,10 @@ class EvidenceService:
     def _attempt_item(self, attempt: LearningAttempt, kind: AttemptKind) -> EvidenceItem:
         level = _level(attempt)
         at = latest(attempt.completed_at, attempt.committed_at, attempt.started_at)
-        base = dict(id=f"attempt:{attempt.attempt_uid}", level=level, href=kind.href, at=at, ref=kind.ref)
+        # A verdict only counts once the attempt is finished; an open one has none yet.
+        correct = attempt.correct if attempt.completed_at is not None else None
+        base = dict(id=f"attempt:{attempt.attempt_uid}", level=level, href=kind.href, at=at, ref=kind.ref,
+                    correct=correct)
 
         if kind.family == "adf_lab":
             stage, check = _ADF_STAGE.get(kind.stage or "", ("Stage", "Checked against the model"))

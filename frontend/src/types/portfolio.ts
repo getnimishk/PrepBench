@@ -55,6 +55,8 @@ export interface EvidenceItem {
   href: string;
   at: string | null;
   ref: Record<string, string>;
+  /** The graded outcome: true or false once finished and judged; null when there is no verdict. */
+  correct?: boolean | null;
 }
 
 export interface EvidenceResponse {

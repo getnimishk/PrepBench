@@ -207,6 +207,9 @@ def test_an_adf_lab_run_is_one_workspace_notebook_and_four_graded_stages():
     assert by_stage["reason"]["basis"].endswith("not correct")
     # Retrieve: correct, nothing more on record -> demonstrated.
     assert by_stage["retrieve"]["level"] == "demonstrated"
+    # The verdict itself, so a screen can name a miss without reading the sentence in `basis`.
+    assert {stage: i["correct"] for stage, i in by_stage.items()} == {
+        "predict": True, "reason": False, "apply": True, "retrieve": True}
     assert all(i["assessed_by"] == "model" and i["source"] == "learning_lab" for i in evidence["items"])
     assert evidence["counts"] == {"activity": 0, "completed": 1, "demonstrated": 1, "evidenced": 2}
 
@@ -220,6 +223,7 @@ def test_a_committed_but_unfinished_prediction_is_activity():
     evidence = _evidence(sid)
     assert [(i["ref"]["stage"], i["level"]) for i in evidence["items"]] == [("predict", "activity")]
     assert evidence["items"][0]["basis"] == "Prediction committed; not finished yet"
+    assert evidence["items"][0]["correct"] is None  # not finished: no verdict yet
     workspace = _workspace(sid)["items"]
     assert workspace[0]["detail"] == "0 of 4 graded stages finished"
     assert workspace[0]["excerpt"] is None

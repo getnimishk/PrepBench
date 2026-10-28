@@ -12,6 +12,7 @@ import { apiErrorMessage } from '../services/apiError';
 import { usePreparation } from '../context/PreparationContext';
 import { guideChapterPath, readTopicContext } from '../services/topicContext';
 import { ChapterTopicContext } from '../components/roadmap/ChapterTopicContext';
+import { ADF_LAB_EXPERIMENTS } from '../services/adfLab/experiments';
 import type { ContentPackDetail } from '../types/contentPack';
 import { Explanation } from '../components/common/Explanation';
 import { ErrorState, LoadingState } from '../components/common/States';
@@ -39,8 +40,26 @@ export const GuideChapterPage: React.FC = () => {
   const [attempt, setAttempt] = useState(0);
   const [view, setView] = useState<'chapter' | 'alignment'>('chapter');
 
+  // A section asked for from the topic strip, scrolled to once the chapter text is showing.
+  const [pendingSection, setPendingSection] = useState<string | null>(null);
+
   // A new chapter starts on its text, whichever tab the last one was left on.
   useEffect(() => { setView('chapter'); }, [chapterId]);
+
+  useEffect(() => {
+    if (!pendingSection || view !== 'chapter') return;
+    const target = document.getElementById(pendingSection);
+    if (target) {
+      target.scrollIntoView?.({ block: 'start' });
+      window.history.replaceState(window.history.state, '', `#${pendingSection}`);
+    }
+    setPendingSection(null);
+  }, [pendingSection, view]);
+
+  const openSection = (anchorId: string) => {
+    setView('chapter');
+    setPendingSection(anchorId);
+  };
 
   useEffect(() => {
     if (!packId) return undefined;
@@ -98,6 +117,12 @@ export const GuideChapterPage: React.FC = () => {
     .filter((s): s is NonNullable<typeof s> => Boolean(s) && !own.includes(s!));
   const practice = [...new Set([...own, ...linked])];
   const scenarioPath = (id: string) => `/scenarios/${pack.pack_id}/${id}`;
+  // The ADF lab's experiments name the chapters they practise; only built ones are linked.
+  const experiments = pack.pack_id === 'adf'
+    ? ADF_LAB_EXPERIMENTS.filter((e) => e.ready && e.chapters.some((c) => c.id === chapter.id))
+    : [];
+  // Each section's heading and its anchor on this page, so the topic strip can link straight to it.
+  const sectionAnchors = body.flatMap((b, i) => (b.heading ? [{ heading: b.heading, id: `block-${i}` }] : []));
 
   return (
     <Box>
@@ -111,7 +136,7 @@ export const GuideChapterPage: React.FC = () => {
       />
 
       {topicContext && packId && chapterId && (
-        <ChapterTopicContext packId={packId} chapterId={chapterId} context={topicContext} />
+        <ChapterTopicContext packId={packId} chapterId={chapterId} context={topicContext} sectionAnchors={sectionAnchors} onOpenSection={openSection} />
       )}
 
       {linkedVersion === null && (
@@ -185,6 +210,17 @@ export const GuideChapterPage: React.FC = () => {
               <React.Fragment key={s.id}>
                 {i > 0 && ', '}
                 <RouterLink to={scenarioPath(s.id)}>scenario {s.number}, {s.title}</RouterLink>
+              </React.Fragment>
+            ))}.
+          </Good>
+        )}
+        {experiments.length > 0 && (
+          <Good sx={{ mb: '14px' }}>
+            Explore it in the ADF Behaviour Lab:{' '}
+            {experiments.map((e, i) => (
+              <React.Fragment key={e.slug}>
+                {i > 0 && ', '}
+                <RouterLink to={`/lab/adf/${e.slug}`}>{e.title}</RouterLink>
               </React.Fragment>
             ))}.
           </Good>

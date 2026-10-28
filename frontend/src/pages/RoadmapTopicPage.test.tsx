@@ -303,6 +303,43 @@ describe('a topic\'s curriculum links and evidence', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Not started' })).toBeInTheDocument();
   });
 
+  it('turns finished practice into the next step, naming each miss, without changing the status', async () => {
+    api.getRoadmap.mockResolvedValue(adfRoadmap(6));
+    api.getEvidence.mockResolvedValue({
+      items: [
+        { ...item('a', 'scenario_check', { pack_id: 'adf', scenario_id: 'late-rows', check: '0' }, 'Late rows'), correct: true },
+        { ...item('m', 'scenario_check', { pack_id: 'adf', scenario_id: 'late-rows', check: '1' }, 'Late rows', 'completed'),
+          correct: false, demonstrates: 'Check question 2', href: '/scenarios/adf/late-rows' },
+        { ...item('c', 'lab_stage', { track: 'watermark', run: '1', stage: 'apply' }, 'Watermark run'), correct: true },
+        // Started but not finished: not practice yet.
+        { ...item('o', 'lab_stage', { track: 'watermark', run: '2', stage: 'predict' }, 'Watermark run', 'activity'), correct: null },
+      ],
+    });
+    renderAt('/roadmaps/6/topics/7');
+
+    const hero = await screen.findByRole('region', { name: 'Recommended next step' });
+    expect(await within(hero).findByRole('heading', { name: 'Review what you missed, then demonstrate', level: 3 })).toBeInTheDocument();
+    expect(within(hero).getByText(/finished 3 practice checks linked to this topic: 2 right, 1 not/)).toBeInTheDocument();
+    const missed = within(hero).getByRole('list', { name: 'Practice you missed' });
+    expect(within(missed).getByRole('link', { name: 'Late rows · Check question 2' })).toHaveAttribute('href', '/scenarios/adf/late-rows');
+    expect(within(hero).getByRole('button', { name: 'Demonstrate mastery' })).toBeInTheDocument();
+    expect(within(hero).getByRole('link', { name: 'Re-read the chapter' })).toHaveAttribute('href', '/learn/guides/adf/incremental?roadmap=6&topic=7');
+    // Practice recommends; it never moves the topic.
+    expect(api.updateRoadmapTopic).not.toHaveBeenCalled();
+    expect(screen.getByRole('heading', { level: 2, name: 'Not started' })).toBeInTheDocument();
+  });
+
+  it('with no misses, leads straight to the demonstration', async () => {
+    api.getRoadmap.mockResolvedValue(adfRoadmap(6));
+    api.getEvidence.mockResolvedValue({
+      items: [{ ...item('a', 'scenario_check', { pack_id: 'adf', scenario_id: 'late-rows', check: '0' }, 'Late rows'), correct: true }],
+    });
+    renderAt('/roadmaps/6/topics/7');
+    const hero = await screen.findByRole('region', { name: 'Recommended next step' });
+    expect(await within(hero).findByRole('heading', { name: 'Demonstrate what you have practised', level: 3 })).toBeInTheDocument();
+    expect(within(hero).queryByRole('list', { name: 'Practice you missed' })).not.toBeInTheDocument();
+  });
+
   it('reads no evidence for a roadmap linked to no preparation', async () => {
     api.getRoadmap.mockResolvedValue(adfRoadmap(null));
     renderAt('/roadmaps/6/topics/7');

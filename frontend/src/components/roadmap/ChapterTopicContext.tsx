@@ -4,8 +4,9 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Box, Button } from '@mui/material';
+import { Box, Button, Link } from '@mui/material';
 import { getRoadmap } from '../../services/api';
+import { openTopicAfter } from '../../services/roadmapNext';
 import type { TopicContext } from '../../services/topicContext';
 import type { RoadmapDetail } from '../../types/roadmap';
 import { Actions, Detail, Eyebrow, Panel } from '../ui/primitives';
@@ -20,8 +21,16 @@ import { Actions, Detail, Eyebrow, Panel } from '../ui/primitives';
  * chapter for it. Any other address (a stale link, a topic the chapter does not cover, a
  * roadmap that cannot be read) shows nothing, so a chapter never wears another topic's name.
  */
-export const ChapterTopicContext: React.FC<{ packId: string; chapterId: string; context: TopicContext }> = ({
-  packId, chapterId, context,
+export const ChapterTopicContext: React.FC<{
+  packId: string;
+  chapterId: string;
+  context: TopicContext;
+  /** The chapter's own section headings and their anchors on this page. */
+  sectionAnchors?: { heading: string; id: string }[];
+  /** Brings a section into view, showing the chapter text first if another tab is open. */
+  onOpenSection?: (anchorId: string) => void;
+}> = ({
+  packId, chapterId, context, sectionAnchors = [], onOpenSection,
 }) => {
   const { roadmapId, topicId } = context;
   const [roadmap, setRoadmap] = useState<RoadmapDetail | null>(null);
@@ -41,8 +50,13 @@ export const ChapterTopicContext: React.FC<{ packId: string; chapterId: string; 
     const topic = ordered[index];
     const entries = (topic.mapped_chapters ?? []).filter((m) => m.pack_id === packId && m.chapter_id === chapterId);
     if (entries.length === 0) return null;
-    const sections = [...new Set(entries.map((m) => m.relevant_sections).filter((s): s is string => Boolean(s)))];
-    return { topic, index, count: ordered.length, next: ordered[index + 1] ?? null, sections };
+    const sections = [...new Set(entries
+      .flatMap((m) => (m.relevant_sections ?? '').split(';'))
+      .map((s) => s.trim())
+      .filter(Boolean))];
+    // The next topic still to do, not merely the next in the list (services/roadmapNext).
+    const next = openTopicAfter(roadmap.phases, topic.id)?.topic ?? null;
+    return { topic, index, count: ordered.length, next, sections };
   }, [roadmap, topicId, packId, chapterId]);
 
   if (!found) return null;
@@ -54,7 +68,30 @@ export const ChapterTopicContext: React.FC<{ packId: string; chapterId: string; 
       <Eyebrow>Reading for roadmap topic {index + 1} of {count}</Eyebrow>
       <Box sx={{ fontWeight: 700, mt: '2px' }}>{topic.title}</Box>
       {topic.learning_objective && <Detail sx={{ mt: '4px' }}>{topic.learning_objective}</Detail>}
-      {sections.length > 0 && <Detail sx={{ mt: '4px' }}><strong>Relevant sections:</strong> {sections.join('; ')}</Detail>}
+      {sections.length > 0 && (
+        <Detail sx={{ mt: '4px' }}>
+          <strong>Relevant sections:</strong>{' '}
+          {sections.map((name, i) => {
+            // Linked only when a heading on this page matches the name exactly; anything else
+            // (a section in another chapter, a paraphrase) stays plain text rather than a guess.
+            const anchor = sectionAnchors.find((a) => a.heading.trim().toLowerCase() === name.toLowerCase());
+            return (
+              <React.Fragment key={name}>
+                {i > 0 && '; '}
+                {anchor ? (
+                  <Link
+                    href={`#${anchor.id}`}
+                    // The page decides how to reach it: the section may be on a tab not showing yet.
+                    onClick={onOpenSection ? (e) => { e.preventDefault(); onOpenSection(anchor.id); } : undefined}
+                  >
+                    {name}
+                  </Link>
+                ) : name}
+              </React.Fragment>
+            );
+          })}
+        </Detail>
+      )}
       <Actions sx={{ mt: '10px' }}>
         <Button variant="outlined" size="small" component={RouterLink} to={topicPath}>Back to topic</Button>
         {topic.success_criteria && (

@@ -21,6 +21,7 @@ const mockGetRoadmaps = vi.fn();
 const mockGetRoles = vi.fn();
 const mockGetRole = vi.fn();
 const mockGetEvidence = vi.fn();
+const mockGetRoadmap = vi.fn();
 
 vi.mock('../services/api', () => ({
   getSubjects: (...a: unknown[]) => mockGetSubjects(...a),
@@ -32,6 +33,7 @@ vi.mock('../services/api', () => ({
   getRoles: (...a: unknown[]) => mockGetRoles(...a),
   getRole: (...a: unknown[]) => mockGetRole(...a),
   getEvidence: (...a: unknown[]) => mockGetEvidence(...a),
+  getRoadmap: (...a: unknown[]) => mockGetRoadmap(...a),
 }));
 
 // The learner's own roles: Home names a role only when one of its requirements is this preparation.
@@ -598,5 +600,80 @@ describe('Phase 3 — Unified Home & Certification Readiness Integration', () =>
       expect(within(panel5).getByRole('link', { name: 'All five experiments' })).toHaveAttribute('href', '/lab/adf');
       expect(within(panel5).queryByText(/Phase 5/)).not.toBeInTheDocument();
     });
+  });
+});
+
+describe('Home for a skill track is led by its roadmap, never by mocks (rule 12)', () => {
+  const ADF_ROADMAP = {
+    id: 6, title: 'ADF Master Roadmap', subject_id: 6, is_archived: false, phase_count: 2,
+    updated_at: '2026-10-01T00:00:00', source_filename: null,
+    progress: { total_topics: 3, completed_count: 1, in_progress_count: 1, not_started_count: 1, total_estimated_hours: 6 },
+  };
+  const ADF_DETAIL = {
+    ...ADF_ROADMAP,
+    phases: [
+      { id: 1, name: '1. ADF Foundations', order_index: 0, topics: [
+        { id: 278, title: 'What Azure Data Factory Is', status: 'completed' },
+        { id: 279, title: 'ADF Mental Model', status: 'not_started' },
+      ] },
+      { id: 2, name: '7. Incremental Loading', order_index: 1, topics: [
+        { id: 313, title: 'Watermark Patterns', status: 'in_progress' },
+      ] },
+    ],
+  };
+
+  beforeEach(() => {
+    mockContext.selectedId = 6;
+    mockContext.selected = ADF_SUBJECT;
+    mockContext.capabilities = getSubjectCapabilities(ADF_SUBJECT);
+    mockGetRoadmaps.mockResolvedValue([ADF_ROADMAP]);
+    mockGetRoadmap.mockResolvedValue(ADF_DETAIL);
+    // The server sends a certification goal for every preparation; a skill must not show it.
+    mockGetDailyGoals.mockResolvedValue({
+      certification: {
+        subject_id: 6, subject_name: 'ADF', target: 0, done: 0, remaining: 0, due_for_review: 0,
+        queued_beyond_today: 0, daily_cap: 20, state: 'nothing_due', weakest_area: null,
+      },
+      interview: {
+        target: 1, done: 0, remaining: 1, recorded_today: 0, state: 'not_started',
+        latest_content_signal: null, latest_delivery_signal: null,
+        longest_since_round: 'hiring_manager', longest_since_round_never_practised: true,
+      },
+    });
+  });
+
+  it('shows no mock goal, mock evidence or question import, and names the roadmap\'s next topic', async () => {
+    renderHomePage();
+
+    const next = await screen.findByRole('region', { name: '3. What should I learn next?' });
+    expect(await within(next).findByRole('heading', { name: 'Watermark Patterns', level: 3 })).toBeInTheDocument();
+    expect(within(next).getByRole('link', { name: 'Resume learning' })).toHaveAttribute('href', '/roadmaps/6/topics/313');
+    expect(mockGetRoadmap).toHaveBeenCalledWith(6);
+
+    expect(screen.getByRole('heading', { name: 'Skill track', level: 1 })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: /Interview practice/ })).toBeInTheDocument();
+    expect(screen.queryByText('Certification practice')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Readiness is read from full mocks/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Import questions' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/certification readiness and interview readiness/)).not.toBeInTheDocument();
+
+    const progress = screen.getByRole('region', { name: 'Roadmap progress' });
+    expect(within(progress).getByText('1 / 3')).toBeInTheDocument();
+  });
+
+  it('says the roadmap could not be read rather than naming a topic', async () => {
+    mockGetRoadmap.mockRejectedValue(new Error('down'));
+    renderHomePage();
+    const next = await screen.findByRole('region', { name: '3. What should I learn next?' });
+    expect(await within(next).findByText(/could not be read/)).toBeInTheDocument();
+    expect(within(next).queryByRole('link', { name: /Resume learning|Start next topic/ })).not.toBeInTheDocument();
+  });
+
+  it('points to the roadmaps when the skill has none', async () => {
+    mockGetRoadmaps.mockResolvedValue([]);
+    renderHomePage();
+    const next = await screen.findByRole('region', { name: '3. What should I learn next?' });
+    expect(within(next).getByRole('link', { name: 'Open roadmaps' })).toHaveAttribute('href', '/roadmaps');
+    expect(mockGetRoadmap).not.toHaveBeenCalled();
   });
 });

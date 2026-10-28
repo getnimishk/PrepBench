@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import {
   getSubjects, getHomeSummary, getOtherPreparation, getFocusTopics, getDailyGoals, getRoadmaps,
-  getEvidence, getRoles, getRole,
+  getEvidence, getRoles, getRole, getRoadmap,
 } from '../services/api';
 import type { EvidenceResponse } from '../types/portfolio';
 import { DailyGoals } from '../components/home/DailyGoals';
@@ -21,7 +21,8 @@ import {
   Blocker, DailyGoals as DailyGoalsData,
   FocusTopic, HomeSummary, OtherPreparation, Readiness, Resumable, Subject, READINESS_LABELS,
 } from '../types/subject';
-import type { RoadmapSummary } from '../types/roadmap';
+import type { RoadmapDetail, RoadmapSummary } from '../types/roadmap';
+import { nextRoadmapTopic } from '../services/roadmapNext';
 import { blockerSentence, pct, plateauSentence, readySentence } from '../services/readinessText';
 import { nextAction } from '../services/recommendation';
 import { WhyThis } from '../components/common/WhyThis';
@@ -230,6 +231,93 @@ const CurrentEvidence: React.FC<{ subject: Subject; topicsProgressed: number | n
           <Detail sx={{ mt: (t) => t.typography.pxToRem(10) }}>
             Broad assessments measure certification readiness; focused practice repairs gaps.
           </Detail>
+        </>
+      )}
+    </Panel>
+  );
+};
+
+/**
+ * A skill track's evidence: its roadmap, not mocks. A skill has no pass mark and
+ * no mock exams (CLAUDE.md rule 12), so the mock-based reading above never applies.
+ */
+const SkillProgress: React.FC<{ roadmap: RoadmapSummary | null }> = ({ roadmap }) => (
+  <Panel component="section" aria-labelledby="home-evidence">
+    <Typography variant="overline" component="h2" id="home-evidence" sx={{ display: 'block', color: 'pb.faint' }}>
+      Roadmap progress
+    </Typography>
+    {roadmap && roadmap.progress.total_topics > 0 ? (
+      <>
+        <BigFigure>{roadmap.progress.completed_count} / {roadmap.progress.total_topics}</BigFigure>
+        <Sub sx={{ mb: 0 }}>
+          Topics completed on {roadmap.title}. A topic is completed by demonstrating it against its success
+          criterion, not by time spent.
+        </Sub>
+      </>
+    ) : (
+      <>
+        <BigFigure>—</BigFigure>
+        <Sub sx={{ mb: 0 }}>
+          {roadmap
+            ? `${roadmap.title} has no topics yet, so there is nothing to measure progress against.`
+            : 'No roadmap is linked to this preparation, so there is no plan to measure progress against.'}
+        </Sub>
+      </>
+    )}
+  </Panel>
+);
+
+/**
+ * A skill track's next step: the topic its roadmap recommends, by the same rule the
+ * roadmap screen uses, so the two can never name different topics.
+ */
+const NextTopic: React.FC<{ roadmap: RoadmapSummary | null; detail: RoadmapDetail | null | 'failed' }> = ({
+  roadmap, detail,
+}) => {
+  const pick = detail && detail !== 'failed' ? nextRoadmapTopic(detail.phases) : null;
+  const hasTopics = detail && detail !== 'failed' ? detail.phases.some((ph) => ph.topics.length > 0) : false;
+  return (
+    <Panel component="section" aria-labelledby="home-next">
+      <PanelHead eyebrow="Next useful action" title="3. What should I learn next?" titleId="home-next" sx={{ mb: 0 }} />
+      {!roadmap ? (
+        <>
+          <Sub sx={{ mb: 0 }}>No roadmap is linked to this preparation. Import or link one to get a next topic.</Sub>
+          <Actions sx={{ mt: (t) => t.typography.pxToRem(16) }}>
+            <Button variant="contained" component={RouterLink} to="/roadmaps">Open roadmaps</Button>
+          </Actions>
+        </>
+      ) : detail === null ? (
+        <Sub sx={{ mb: 0 }}>Reading your roadmap…</Sub>
+      ) : detail === 'failed' ? (
+        <>
+          <Sub sx={{ mb: 0 }}>{roadmap.title} could not be read, so no topic is named rather than a guess.</Sub>
+          <Actions sx={{ mt: (t) => t.typography.pxToRem(16) }}>
+            <Button variant="outlined" component={RouterLink} to={`/roadmaps/${roadmap.id}`}>Open roadmap</Button>
+          </Actions>
+        </>
+      ) : pick ? (
+        <>
+          <Typography variant="h6" component="h3" sx={{ mt: '4px' }}>{pick.topic.title}</Typography>
+          <Detail sx={{ mt: '4px' }}>
+            {pick.phase.name} · {pick.topic.status === 'in_progress' ? 'Resume where you left off' : 'Recommended next topic'}
+          </Detail>
+          <Actions sx={{ mt: (t) => t.typography.pxToRem(16) }}>
+            <Button variant="contained" component={RouterLink} to={`/roadmaps/${roadmap.id}/topics/${pick.topic.id}`}>
+              {pick.topic.status === 'in_progress' ? 'Resume learning' : 'Start next topic'}
+            </Button>
+            <Button variant="outlined" component={RouterLink} to={`/roadmaps/${roadmap.id}`}>Open roadmap</Button>
+          </Actions>
+        </>
+      ) : (
+        <>
+          <Sub sx={{ mb: 0 }}>
+            {hasTopics
+              ? `Every topic on ${roadmap.title} is completed or skipped.`
+              : `${roadmap.title} has no topics yet.`}
+          </Sub>
+          <Actions sx={{ mt: (t) => t.typography.pxToRem(16) }}>
+            <Button variant="outlined" component={RouterLink} to={`/roadmaps/${roadmap.id}`}>Open roadmap</Button>
+          </Actions>
         </>
       )}
     </Panel>
@@ -591,6 +679,8 @@ export const HomePage: React.FC = () => {
   // and the learner's own target roles that use it. Null until read, or if the read failed.
   const [evidence, setEvidence] = useState<EvidenceResponse | null>(null);
   const [targetRoles, setTargetRoles] = useState<string[] | null>(null);
+  // A skill track's own roadmap, read in full for its next topic. Null until read.
+  const [skillRoadmap, setSkillRoadmap] = useState<RoadmapDetail | null | 'failed'>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -687,6 +777,24 @@ export const HomePage: React.FC = () => {
       .catch(() => { if (!cancelled) setGoals(null); });
     return () => { cancelled = true; };
   }, [primaryId]);
+
+  // A skill track is led by its roadmap, not by mocks: read the roadmap it owns so
+  // Home can name the same next topic the roadmap screen does.
+  const certificationTrack = !!primary && primary.kind === 'certification' && capabilities.certification;
+  const skillRoadmapId = useMemo(() => {
+    if (!primary || certificationTrack) return null;
+    const pick = chooseRoadmap(roadmaps, primary.id);
+    return pick?.linked ? pick.roadmap.id : null;
+  }, [primary, certificationTrack, roadmaps]);
+  useEffect(() => {
+    setSkillRoadmap(null);
+    if (skillRoadmapId == null) return undefined;
+    let cancelled = false;
+    getRoadmap(skillRoadmapId)
+      .then((d) => { if (!cancelled) setSkillRoadmap(d); })
+      .catch(() => { if (!cancelled) setSkillRoadmap('failed'); });
+    return () => { cancelled = true; };
+  }, [skillRoadmapId]);
 
   if (loading || waitingForProvider) {
     return <LoadingState label="Loading your progress…" />;
@@ -844,8 +952,11 @@ export const HomePage: React.FC = () => {
             {primary.name}
           </Box>
         )}
-        title={unmeasured ? 'Not measured yet' : READINESS_LABELS[r.state]}
-        sub={`${description ? `${description}. ` : ''}Two things stay warm every day: certification readiness and interview readiness.`}
+        // A skill has no exam readiness to state (rule 12): its heading says what it is.
+        title={!isCertification ? 'Skill track' : unmeasured ? 'Not measured yet' : READINESS_LABELS[r.state]}
+        sub={isCertification
+          ? `${description ? `${description}. ` : ''}Two things stay warm every day: certification readiness and interview readiness.`
+          : `${description ? `${description}. ` : ''}Learn each roadmap topic, practise it, and demonstrate it against its success criterion.`}
         actions={
           <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
             <Button variant="outlined" component={RouterLink} to={`/subjects/${primary.id}`}>
@@ -858,7 +969,8 @@ export const HomePage: React.FC = () => {
 
       {goals && (
         <Section>
-          <DailyGoals goals={goals} />
+          {/* The certification goal is mock and review practice, which a skill track does not have. */}
+          <DailyGoals goals={isCertification ? goals : { ...goals, certification: null }} />
         </Section>
       )}
 
@@ -952,7 +1064,9 @@ export const HomePage: React.FC = () => {
         </PanelHead>
         <Grid columns={3}>
           <Box>
-            <CurrentEvidence subject={primary} topicsProgressed={topicsProgressed} />
+            {isCertification
+              ? <CurrentEvidence subject={primary} topicsProgressed={topicsProgressed} />
+              : <SkillProgress roadmap={linkedRoadmap} />}
           </Box>
           <Box sx={{ gridColumn: { xs: 'span 1', md: 'span 2' } }}>
             <Typography variant="subtitle2" component="p" sx={{ fontWeight: 700, mb: '8px' }}>
@@ -1015,7 +1129,9 @@ export const HomePage: React.FC = () => {
 
       {/* QUESTION 3 & 4: What should I learn next? & What can I practice? */}
       <Grid columns={2} sx={{ mb: (t) => t.typography.pxToRem(24) }}>
-        <NextUsefulAction subject={primary} unreviewed={unreviewed} resumable={resumable} />
+        {isCertification
+          ? <NextUsefulAction subject={primary} unreviewed={unreviewed} resumable={resumable} />
+          : <NextTopic roadmap={linkedRoadmap} detail={skillRoadmap} />}
 
         <Panel component="section" aria-labelledby="home-practice-title">
           <PanelHead title="4. What can I practice?" titleId="home-practice-title">

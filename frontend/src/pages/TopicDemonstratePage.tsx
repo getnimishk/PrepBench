@@ -10,6 +10,7 @@ import { apiErrorMessage, loadFailed } from '../services/apiError';
 import { usePreparation } from '../context/PreparationContext';
 import type { DemonstrationGrade, RoadmapDetail, RoadmapTopicStatus, TopicDemonstration } from '../types/roadmap';
 import type { Question } from '../types/question';
+import { RoadmapOwnerNotice } from '../components/roadmap/RoadmapOwnerNotice';
 import { LoadingState } from '../components/common/States';
 import {
   Actions, Bar, BigFigure, Detail, Eyebrow, Good, Grid, Note, PageHead, Panel, Row, Section, Sub,
@@ -233,6 +234,8 @@ export const TopicDemonstratePage: React.FC = () => {
           </>
         )}
       />
+
+      <RoadmapOwnerNotice ownerId={roadmap.subject_id} />
 
       <Section>
         <Grid template="minmax(0,1.4fr) minmax(0,1fr)" sx={{ alignItems: 'start' }}>
