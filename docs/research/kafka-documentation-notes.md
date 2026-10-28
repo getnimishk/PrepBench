@@ -2,7 +2,7 @@
 
 **Source:** the Apache Kafka 4.3 documentation, https://kafka.apache.org/43/ (read 2026-10-28), plus the Confluent pages
 named in each section for what Apache Kafka itself does not ship (Schema Registry, ksqlDB, Cluster Linking).
-**Purpose:** ground the Kafka study guide (`backend/app/content/packs/kafka/v1.json`) in the official docs. A chapter's
+**Purpose:** ground the Kafka study guide and its scenarios (`backend/app/content/packs/kafka/`) in the official docs. A chapter's
 `sources` field cites the sections here (`§3`), the way the ADF guide cites `adf-documentation-notes.md`.
 **Version:** the learner runs Kafka 4.3 in KRaft mode on Windows (their own install, formatted with `metadata.version
 4.3-IV0`), so these notes use the 4.3 pages. The newest release when read was 4.4; nothing here was taken from it.
@@ -389,6 +389,9 @@ the 4.3 `config/log4j2.yaml` and `StandardAuthorizerData.java` in apache/kafka (
   exist for "everyone except X"; **if any DENY ACL matches, the operation is denied regardless of ALLOW ACLs**
   (StandardAuthorizerData). `kafka-acls --producer` grants WRITE, DESCRIBE and CREATE on the topic; `--consumer`
   grants READ and DESCRIBE on the topic and READ on the group. Prefixed patterns: `--resource-pattern-type prefixed`.
+  **Operations:** Read, Write, Create, Delete, Alter, Describe, ClusterAction, DescribeConfigs, AlterConfigs,
+  IdempotentWrite, CreateTokens, DescribeTokens, All. Deleting a topic needs **Delete** on the topic; changing its
+  configs needs **AlterConfigs** on the topic.
 - **Audit log:** the shipped log4j2 config routes `kafka.authorizer.logger` at INFO to `kafka-authorizer.log`. The
   authorizer logs **denied** explicit requests at **INFO** and **allowed** ones only at **DEBUG**, so by default the
   file records refusals, not every access.
@@ -526,6 +529,10 @@ library, not part of Apache Kafka)
   place to commit what was processed.
 - **The consumer is not thread-safe**; only `wakeup()` may be called from another thread (to break out of a blocking
   `poll`, raising `WakeupException`).
+- **Flow control:** `pause(partitions)` and `resume(partitions)` stop and restart consumption of assigned partitions in
+  later `poll` calls; the Javadoc's multi-threaded example pauses "so that no new records are received from poll".
+  Membership still depends on calling `poll`: "As long as you continue to call poll, the consumer will stay in the
+  group." So a paused consumer keeps polling to keep its partitions.
 - kafka-python: `commit(offsets=None)` commits and **blocks until success or error**; defaults `enable_auto_commit=True`,
   `auto_offset_reset='latest'`, `max_poll_records=500`, `max_poll_interval_ms=300000`, matching the Java client.
 

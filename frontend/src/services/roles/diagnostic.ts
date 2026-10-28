@@ -47,6 +47,26 @@ const SCENARIO_KEYWORDS: Record<string, string[]> = {
   'adf/2': ['data factory', 'adf', 'backlog', 'requirement', 'stakeholder', 'etl', 'elt', 'agile'],
   'adf/3': ['hybrid', 'on-prem', 'infrastructure', 'integration', 'operat', 'vendor', 'handover', 'third part'],
   'adf/4': ['schedul', 'batch', 'orchestrat', 'ingest', 'freshness', 'sla', 'latency'],
+  // Kafka's 18 scenarios. Substrings are matched, so nothing short enough to sit inside another
+  // word: no "acl" (Oracle), "lag" (flag), "retr" (retrieve), "rto" or "dr".
+  'kafka/1': ['idempoten', 'exactly-once', 'exactly once', 'duplicate', 'payment'],
+  'kafka/2': ['topic design', 'naming convention', 'governance', 'platform standard', 'multi-team'],
+  'kafka/3': ['durab', 'replicat', 'high availability', 'fault toleran', 'data loss'],
+  'kafka/4': ['ordering', 'event order', 'partition', 'sequenc'],
+  'kafka/5': ['offset', 'consumer', 'at-least-once', 'at least once'],
+  'kafka/6': ['rebalanc', 'consumer group', 'slow dependenc'],
+  'kafka/7': ['consumer lag', 'scalab', 'scale out', 'parallelism', 'throughput'],
+  'kafka/8': ['hot partition', 'skew', 'partition key', 'scalab'],
+  'kafka/9': ['dead letter', 'dead-letter', 'dlq', 'error handling', 'data quality'],
+  'kafka/10': ['retry', 'retries', 'resilien', 'circuit breaker', 'backoff'],
+  'kafka/11': ['retention', 'storage', 'disk', 'compaction'],
+  'kafka/12': ['schema', 'avro', 'protobuf', 'data contract', 'compatib'],
+  'kafka/13': ['monitor', 'observab', 'alert', 'on-call', 'sre'],
+  'kafka/14': ['security', 'access control', 'authori', 'authenticat', 'audit', 'complian', 'least privilege'],
+  'kafka/15': ['disaster recovery', 'multi-region', 'multi region', 'business continuity', 'failover', 'geo-replic', 'mirrormaker'],
+  'kafka/16': ['stream processing', 'kafka streams', 'real-time analytics', 'aggregat', 'windowing', 'flink', 'ksql'],
+  'kafka/17': ['kafka connect', 'connector', 'change data capture', 'data warehouse', 'sink'],
+  'kafka/18': ['capacity', 'sizing', 'architect', 'cost'],
 };
 
 export type Confidence = 'not-yet' | 'partly' | 'confident';

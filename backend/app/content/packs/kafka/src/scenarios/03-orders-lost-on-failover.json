@@ -1,0 +1,243 @@
+{
+  "id": "3",
+  "number": 3,
+  "title": "The orders lost in a failover",
+  "outcome": "A producer copied from an old tutorial, a broker that lost power, and 212 orders acknowledged but never stored.",
+  "sources": "§1, §7, §23",
+  "chapter": "replication",
+  "content": {
+    "bookmark": "acks=all with replication factor 3 and min.insync.replicas=2 means a write is acknowledged only once at least two copies have it.",
+    "check": [
+      {
+        "prompt": "With acks=1, when does the leader acknowledge a write?",
+        "options": [
+          "After every in-sync replica has it",
+          "Before writing it anywhere",
+          "As soon as it has written the record to its own log, without waiting for followers"
+        ],
+        "answer": 2,
+        "why": "acks=1 waits for the leader only. If the leader fails before followers copy the record, it is lost even though the producer was told it succeeded."
+      },
+      {
+        "prompt": "What is the producer's acks default in Kafka 4.3?",
+        "options": [
+          "all",
+          "0",
+          "1"
+        ],
+        "answer": 0,
+        "why": "acks defaults to all. A producer with acks=1 has had it set on purpose, often copied from older examples."
+      },
+      {
+        "prompt": "A producer sets acks=1 and doesn't mention enable.idempotence. What happens to idempotence?",
+        "options": [
+          "It stays on",
+          "It is silently turned off, because idempotence requires acks=all",
+          "The producer refuses to start"
+        ],
+        "answer": 1,
+        "why": "Idempotence needs acks=all. With a conflicting setting and idempotence not explicitly enabled, it is disabled without an error. Explicitly enabled, the conflict would raise a ConfigException."
+      },
+      {
+        "prompt": "Which combination does the Kafka documentation give as the typical durable setup?",
+        "options": [
+          "Replication factor 2, min.insync.replicas 2, acks=1",
+          "Replication factor 3, min.insync.replicas 3, acks=0",
+          "Replication factor 3, min.insync.replicas 2, acks=all"
+        ],
+        "answer": 2,
+        "why": "With three copies, two must have each write before it is acknowledged, and the topic can lose one broker and keep accepting writes."
+      }
+    ],
+    "caseStudy": {
+      "setting": "A food delivery platform (fictional) sends every new order to an orders topic with replication factor 3. The order service's producer was set up years ago from a blog post that recommended acks=1 \"for speed\". The topic's min.insync.replicas was never changed from the default of 1.",
+      "events": [
+        {
+          "when": "Saturday 19:42",
+          "what": "A broker that leads a third of the orders partitions loses power. The controller elects new leaders from the remaining in-sync replicas within seconds."
+        },
+        {
+          "when": "Saturday evening",
+          "what": "Restaurants report customers arriving for orders they never received. The app had shown every one of those customers \"Order confirmed\"."
+        },
+        {
+          "when": "Monday",
+          "what": "Reconciliation against payments finds 212 orders that were confirmed, paid for, and are nowhere in the topic. All were sent in the second before the power cut."
+        }
+      ],
+      "pipeline": [
+        "Order service · producer with acks=1, so idempotence is off",
+        "orders topic · replication factor 3, min.insync.replicas 1 (the default)",
+        "Leader broker · acknowledges each write as soon as it is in its own log",
+        "Followers · copy from the leader a moment later"
+      ],
+      "tasks": [
+        "How can a record the producer was told was written disappear?",
+        "What should the producer and topic settings have been?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "How acknowledged orders vanished",
+        "text": [
+          "With acks=1 the leader answered as soon as each order was in its own log. The followers had not copied the last second of orders when the power went.",
+          "The controller elected a new leader from the in-sync replicas, which never had those orders. Kafka only guarantees records that are committed, meaning on every in-sync replica, and these never were.",
+          "The producer had been told \"success\", so the app confirmed the orders. Nothing in Kafka was broken; the setting asked for speed over durability."
+        ]
+      },
+      {
+        "title": "The durable setup",
+        "text": [
+          "Producer: acks=all, which is the 4.3 default. Remove the old acks=1 so idempotence comes back on too.",
+          "Topic: min.insync.replicas=2 with replication factor 3. A write is acknowledged only once two copies have it, so losing any one broker loses nothing acknowledged.",
+          "The documentation describes exactly this: replication factor 3, min.insync.replicas 2, acks all."
+        ]
+      },
+      {
+        "title": "Why min ISR matters even with acks=all",
+        "text": [
+          "acks=all waits for the current in-sync replicas, not for all assigned replicas. If two followers fall behind and leave the ISR, acks=all with min.insync.replicas 1 is satisfied by the leader alone.",
+          "Setting min.insync.replicas to 2 makes Kafka refuse writes rather than accept them with one copy. The producer sees an error it can handle, instead of a success it can't trust."
+        ]
+      }
+    ],
+    "takeaway": [
+      "acks=1 is a promise from one broker.",
+      "acks=all is only as strong as min.insync.replicas.",
+      "Replication factor 3, min ISR 2, acks=all: the documented durable default."
+    ],
+    "honesty": "If you haven't lost acknowledged data yourself, say so, and explain the settings and the trade-off. If you have a story of a setting copied without understanding it, lead with it.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "Which questions would you ask the team?",
+          "What would you write into the requirements for order capture?"
+        ],
+        "debrief": [
+          {
+            "title": "Good questions",
+            "text": [
+              "\"When we tell a customer an order is confirmed, how many copies of it exist?\" That gets to acks and min ISR.",
+              "\"What else did we copy from that blog post?\" Settings travel together."
+            ]
+          },
+          {
+            "title": "Requirements that would have caught it",
+            "text": [
+              "An order is confirmed to the customer only after it is stored durably: at least two copies.",
+              "A test stops a broker during load and shows no confirmed order is lost.",
+              "Confirmed orders are reconciled against payments daily."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "What does it take for an event-driven system to never lose an order it has confirmed?",
+          "points": [
+            "Say when to confirm: only after the write is durably stored, not when it is sent.",
+            "Name the settings: acks=all, replication factor 3, min.insync.replicas 2.",
+            "Name the trade-off: a little latency, and refused writes if two brokers are down.",
+            "Ask for proof: a failover test under load.",
+            "Ask for a safety net: reconciliation against payments."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What do you tell customers and restaurants?",
+          "How do you weigh latency against durability for this product?"
+        ],
+        "debrief": [
+          {
+            "title": "This week",
+            "text": [
+              "Contact the 212 customers, refund or fulfil, and tell them it was our fault.",
+              "Tell restaurants what happened and that it is fixed."
+            ]
+          },
+          {
+            "title": "The trade-off as a product decision",
+            "text": [
+              "acks=1 saves a few milliseconds per order. For a paid order, that saving is worth far less than one lost order.",
+              "Make the choice explicit per flow: orders and payments need durability; a click stream may not."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "When would you accept weaker durability for speed, and when not?",
+          "points": [
+            "Frame it as a product choice per flow, not a global setting.",
+            "Money and commitments to customers: never trade durability for milliseconds.",
+            "High-volume signals like clicks: losing a few may be acceptable.",
+            "Make the choice explicit and written down, with an owner.",
+            "Check that the settings in production match the decision."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you run the incident?",
+          "How do you stop copied settings from reaching production?"
+        ],
+        "debrief": [
+          {
+            "title": "Running it",
+            "text": [
+              "Owner and severity: customers paid for orders that were lost.",
+              "Steps: list affected orders from payments, contact customers, change the producer and topic settings, run a failover test, confirm."
+            ]
+          },
+          {
+            "title": "Process",
+            "text": [
+              "Producer and topic settings are reviewed against a written standard, not inherited from examples.",
+              "Failover is tested before launch and after any change to durability settings."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you make sure a critical service's Kafka settings are safe before go-live?",
+          "points": [
+            "A written standard for producer and topic durability settings.",
+            "A review of every critical service against it before go-live.",
+            "A failover test under load as an exit criterion.",
+            "Daily reconciliation for flows that involve money.",
+            "Recheck after any change to the settings."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "What exactly do you change?",
+          "How do you show the fix works?"
+        ],
+        "debrief": [
+          {
+            "title": "Changes",
+            "text": [
+              "Producer: delete acks=1 so the default all applies, which also turns idempotence back on. Consider setting enable.idempotence=true explicitly, so a conflicting setting fails loudly instead of disabling it.",
+              "Topic: kafka-configs --alter --add-config min.insync.replicas=2 on orders.",
+              "Handle NotEnoughReplicas in the producer: it means Kafka refused to accept the write with fewer than two copies."
+            ]
+          },
+          {
+            "title": "Proof",
+            "text": [
+              "Run a producer at load, stop the leader broker, and count: every acknowledged record must be in the topic.",
+              "Stop a second broker and confirm writes are refused, not accepted with one copy."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Explain acks, the ISR and min.insync.replicas, and how they combine.",
+          "points": [
+            "acks=1 waits for the leader; acks=all waits for every current in-sync replica.",
+            "The ISR is the set of replicas caught up with the leader; a lagging follower is removed.",
+            "min.insync.replicas sets the smallest ISR that may accept an acks=all write.",
+            "The documented recipe: replication factor 3, min ISR 2, acks=all.",
+            "Idempotence needs acks=all; setting acks=1 quietly turns it off."
+          ]
+        }
+      }
+    }
+  }
+}

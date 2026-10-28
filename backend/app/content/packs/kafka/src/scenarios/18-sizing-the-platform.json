@@ -1,0 +1,234 @@
+{
+  "id": "18",
+  "number": 18,
+  "title": "Sizing the platform",
+  "outcome": "Leadership asks how big a shared Kafka platform must be, and the first estimate forgot replication and the consumers.",
+  "sources": "§7, §9, §12, §13, §23",
+  "chapter": "system-design",
+  "content": {
+    "bookmark": "Disk = data per day × retention days × replication factor. Network out = data in × consumer groups, plus replication. Partitions come from measured throughput and needed parallelism, with headroom.",
+    "check": [
+      {
+        "prompt": "0.5 TB of data a day, 7 days of retention, replication factor 3. How much disk does the data need across the cluster?",
+        "options": [
+          "3.5 TB",
+          "1.5 TB",
+          "10.5 TB"
+        ],
+        "answer": 2,
+        "why": "0.5 × 7 = 3.5 TB for one copy, × 3 replicas = 10.5 TB, before headroom."
+      },
+      {
+        "prompt": "20 MB/s is produced, with replication factor 3 and 4 consumer groups reading everything. Roughly how much leaves the brokers?",
+        "options": [
+          "About 80 MB/s to consumers plus 40 MB/s of replication to followers",
+          "20 MB/s",
+          "60 MB/s"
+        ],
+        "answer": 0,
+        "why": "Each group reads the full 20 MB/s, and two followers each copy it once. Network often runs out before disk."
+      },
+      {
+        "prompt": "How many controllers do the KRaft docs typically recommend, and why?",
+        "options": [
+          "1, for simplicity",
+          "3 or 5: a majority must be alive, so 3 tolerate one failure and 5 tolerate two",
+          "As many as brokers"
+        ],
+        "answer": 1,
+        "why": "The metadata quorum needs a majority. Combined broker-and-controller servers are not recommended for critical deployments."
+      },
+      {
+        "prompt": "Why decide partition counts up front, with headroom?",
+        "options": [
+          "Kafka charges per partition",
+          "Consumers can't read more than 10 partitions",
+          "Partitions can't be reduced, and adding them later moves keys"
+        ],
+        "answer": 2,
+        "why": "Changing the count later is disruptive for ordered topics, and you can never go down."
+      }
+    ],
+    "caseStudy": {
+      "setting": "A bank (fictional) is consolidating five teams' event streams onto one shared Kafka platform. Leadership asks for a size and a cost. Inputs: peak 40 MB/s in, about 1 TB a day, 7 days of retention, replication factor 3, and each event read by 3 consumer groups on average.",
+      "events": [
+        {
+          "when": "Week 1",
+          "what": "A first estimate says 7 TB of disk and 3 brokers: 1 TB a day for 7 days."
+        },
+        {
+          "when": "Week 2",
+          "what": "Architecture review asks about replicas, consumer traffic, a broker failure and controllers. The estimate has none of them."
+        },
+        {
+          "when": "Week 3",
+          "what": "Leadership needs a defensible number by Friday, with the assumptions stated."
+        }
+      ],
+      "pipeline": [
+        "5 teams · producers, peak 40 MB/s in total",
+        "Topics · replication factor 3, min ISR 2, 7 days of retention",
+        "3 consumer groups per event on average",
+        "Cluster · brokers and KRaft controllers to be sized"
+      ],
+      "tasks": [
+        "What did the first estimate leave out?",
+        "Work out disk, network and the shape of the cluster."
+      ]
+    },
+    "debrief": [
+      {
+        "title": "What was missing",
+        "text": [
+          "Replication: every byte is stored three times. 1 TB × 7 days × 3 = 21 TB, not 7.",
+          "Headroom: room to grow, and to re-copy a failed broker's data onto the others. Keeping disks around half full, a common planning choice rather than a Kafka rule, means about 42 TB of raw disk.",
+          "Consumers and replication on the network: at peak 40 MB/s in, 80 MB/s of follower replication, and 120 MB/s to three consumer groups."
+        ]
+      },
+      {
+        "title": "The shape of the cluster",
+        "text": [
+          "Brokers: divide disk and network by what one broker can carry on your hardware, keep at least 3 for replication factor 3, and add one so the cluster still holds the load with a broker down.",
+          "Controllers: 3 dedicated KRaft controllers, so the metadata quorum survives one failure. Combined servers suit development, not critical systems.",
+          "Partitions per topic: from measured per-partition throughput and needed consumer parallelism, the larger, with headroom."
+        ]
+      },
+      {
+        "title": "What to measure before committing",
+        "text": [
+          "Per-partition throughput with real record sizes and compression; consumer processing rates; recovery time after a broker loss.",
+          "If retention is the main driver of disk, tiered storage can move older segments off broker disks, with a remote storage plugin and its limits."
+        ]
+      }
+    ],
+    "takeaway": [
+      "Disk is data × retention × replicas, plus headroom.",
+      "Network out is consumers plus replication, and often the real limit.",
+      "State the assumptions, measure, and plan for losing a broker."
+    ],
+    "honesty": "If you haven't sized a cluster, say so and do the arithmetic out loud with stated assumptions. If you have, lead with the number that turned out wrong.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What inputs would you get from the five teams?",
+          "What would you include in the platform's service level?"
+        ],
+        "debrief": [
+          {
+            "title": "Inputs",
+            "text": [
+              "Peak and average volume, record size, retention need, how many consumers, and growth over two years, per team."
+            ]
+          },
+          {
+            "title": "Service level",
+            "text": [
+              "Durability (replication factor 3, min ISR 2), availability with one broker down, and lag targets per consumer."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you gather requirements for a shared streaming platform?",
+          "points": [
+            "Volumes at peak and average, record sizes, growth.",
+            "Retention needs from each team's replay requirements.",
+            "Number of consumers per stream.",
+            "Durability and availability expectations.",
+            "Owners and change process per team."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "How do you present the number to leadership?",
+          "How do you allocate cost across teams?"
+        ],
+        "debrief": [
+          {
+            "title": "Presenting",
+            "text": [
+              "Show the formula, the assumptions and a range, and what would change it: retention, consumers, growth."
+            ]
+          },
+          {
+            "title": "Allocating cost",
+            "text": [
+              "By each team's bytes in × retention × replicas, plus consumer traffic, so teams see the cost of their choices."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you justify the size and cost of a shared Kafka platform?",
+          "points": [
+            "Show the drivers: volume, retention, replication, consumers.",
+            "State assumptions and give a range.",
+            "Include headroom for failure and growth.",
+            "Allocate cost by usage so choices have visible cost.",
+            "Revisit with real measurements."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you plan the rollout?",
+          "What capacity process do you set up?"
+        ],
+        "debrief": [
+          {
+            "title": "Rollout",
+            "text": [
+              "Onboard one team at a time, measuring real throughput and lag before the next."
+            ]
+          },
+          {
+            "title": "Capacity process",
+            "text": [
+              "Quarterly capacity review against disk, network and partition counts; onboarding requests include volumes and retention."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you roll out a shared platform to several teams?",
+          "points": [
+            "Onboard in stages, measuring as you go.",
+            "Require volumes and retention with each request.",
+            "Review capacity regularly.",
+            "Keep headroom for a broker loss.",
+            "Communicate limits and costs."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "Do the arithmetic.",
+          "What would you benchmark?"
+        ],
+        "debrief": [
+          {
+            "title": "Arithmetic",
+            "text": [
+              "Disk: 1 TB/day × 7 × 3 = 21 TB, about 42 TB raw at half full.",
+              "Network at peak: 40 in, 80 replication, 120 out, so about 200 MB/s leaving brokers in total."
+            ]
+          },
+          {
+            "title": "Benchmarks",
+            "text": [
+              "kafka-producer-perf-test and kafka-consumer-perf-test with real record sizes, acks=all and compression on, on the target hardware; then a broker-loss test while loaded."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Walk me through sizing a Kafka cluster.",
+          "points": [
+            "Disk: data per day × retention × replication factor, plus headroom.",
+            "Network: in, plus replication, plus each consumer group.",
+            "Partitions: the larger of throughput need and parallelism need, with headroom.",
+            "Brokers: enough for disk and network, at least 3, plus one spare; 3 or 5 KRaft controllers.",
+            "Measure on real hardware and test a broker loss."
+          ]
+        }
+      }
+    }
+  }
+}

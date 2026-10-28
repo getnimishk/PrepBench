@@ -1,0 +1,238 @@
+{
+  "id": "9",
+  "number": 9,
+  "title": "One bad record",
+  "outcome": "A line of plain text in a JSON topic stopped a partition for six hours while the consumer crashed and restarted on it.",
+  "sources": "§14, §17, §23",
+  "chapter": "failures",
+  "content": {
+    "bookmark": "A record that can never be processed must be moved aside to a dead-letter topic, with its details, so the partition behind it can move on.",
+    "check": [
+      {
+        "prompt": "A plain Java consumer meets a record its deserializer can't read. What happens?",
+        "options": [
+          "The record is skipped automatically",
+          "The broker deletes the record",
+          "poll throws RecordDeserializationException, and the consumer won't move past the record by itself"
+        ],
+        "answer": 2,
+        "why": "The exception carries the partition and offset. The application decides what to do: log it, send it to a dead-letter topic, and seek past it."
+      },
+      {
+        "prompt": "Does the Apache Kafka consumer client have a built-in dead-letter topic?",
+        "options": [
+          "No; the application writes to a dead-letter topic itself",
+          "Yes, set errors.deadletterqueue.topic.name",
+          "Yes, it is on by default"
+        ],
+        "answer": 0,
+        "why": "Kafka Connect (for sink connectors) and Kafka Streams have dead-letter settings. A plain consumer has none: you build it."
+      },
+      {
+        "prompt": "What does Kafka Streams do with a record it can't deserialize, by default?",
+        "options": [
+          "Logs it and continues",
+          "Logs it and fails, stopping the application",
+          "Sends it to a dead-letter topic"
+        ],
+        "answer": 1,
+        "why": "The default handler is LogAndFailExceptionHandler. LogAndContinue skips, and errors.dead.letter.queue.topic.name sends records to a dead-letter topic."
+      },
+      {
+        "prompt": "What stops bad records from being written in the first place?",
+        "options": [
+          "More partitions",
+          "A longer retention",
+          "Producers serializing with a schema, checked by a schema registry"
+        ],
+        "answer": 2,
+        "why": "Schemaless JSON enforces nothing, so any text can be written. A schema-based serializer refuses data that doesn't fit before it reaches the topic."
+      }
+    ],
+    "caseStudy": {
+      "setting": "A bank (fictional) streams card transactions as JSON to card.transactions. A fraud-scoring consumer reads them and flags suspicious ones within seconds. A support engineer occasionally sends test messages using the console producer.",
+      "events": [
+        {
+          "when": "Sunday 02:10",
+          "what": "A support engineer testing connectivity sends the text \"hello test\" to card.transactions with the console producer."
+        },
+        {
+          "when": "Sunday 02:10 to 08:15",
+          "what": "The fraud consumer that owns that partition crashes on the record, restarts from its committed offset, reads the same record, and crashes again, about once a minute for six hours."
+        },
+        {
+          "when": "Sunday 08:15",
+          "what": "A customer reports fraud on their card that was never flagged. Every transaction on that partition since 02:10 was unscored."
+        }
+      ],
+      "pipeline": [
+        "Card systems · produce JSON transactions, no schema",
+        "card.transactions · 24 partitions",
+        "Fraud consumer · JSON deserializer, crashes on any parse error",
+        "Platform · restarts the consumer automatically"
+      ],
+      "tasks": [
+        "Why did one record stop a whole partition?",
+        "What should the consumer do with a record it can never process?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why one record stopped a partition",
+        "text": [
+          "A partition is read in order. The consumer can't skip a record by itself: it either processes it or the application moves past it deliberately.",
+          "The consumer crashed before committing, so each restart resumed at the same offset and met the same record. Every record behind it on that partition waited for six hours.",
+          "This is a poison record: retrying can never help, because the record itself is the problem."
+        ]
+      },
+      {
+        "title": "Moving it aside",
+        "text": [
+          "Catch the deserialization error. Write the raw bytes, with the topic, partition, offset and error, to a dead-letter topic. Then seek past the record and carry on.",
+          "Alert on anything arriving in the dead-letter topic, and give it an owner who inspects and, if right, replays.",
+          "Separate permanent failures (bad data: dead-letter now) from transient ones (a timeout: retry later, scenario 10)."
+        ]
+      },
+      {
+        "title": "Stopping it at the source",
+        "text": [
+          "Producers serializing with a schema (Avro or Protobuf with a schema registry) can't write arbitrary text.",
+          "Restrict who may write to production topics with ACLs, so test messages go to test topics."
+        ]
+      }
+    ],
+    "takeaway": [
+      "A poison record never succeeds on retry.",
+      "Dead-letter it with its context and move on, then alert.",
+      "Schemas and ACLs keep bad records out."
+    ],
+    "honesty": "If you haven't handled poison records, say so and explain the pattern. If you have, say how you found the record and what you changed.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What questions would you ask?",
+          "What requirements would you add?"
+        ],
+        "debrief": [
+          {
+            "title": "Questions",
+            "text": [
+              "\"What happens to all the other transactions when one is unreadable?\"",
+              "\"Who can write to the production topic?\""
+            ]
+          },
+          {
+            "title": "Requirements",
+            "text": [
+              "One unreadable record never stops scoring for others; it is set aside and alerted within minutes.",
+              "Only the card systems can write transactions to production."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you make sure one bad message can't stop a critical stream?",
+          "points": [
+            "Name the risk: an unreadable message blocks everything behind it.",
+            "Require that bad messages are set aside to a dead-letter topic.",
+            "Require an alert and an owner for set-aside messages.",
+            "Require schemas so bad data is refused at the source.",
+            "Require write access only for the real producers."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What is the impact on customers?",
+          "What would you report to risk?"
+        ],
+        "debrief": [
+          {
+            "title": "Customers",
+            "text": [
+              "Rescore every unscored transaction from the gap, contact customers with confirmed fraud, and reimburse under policy."
+            ]
+          },
+          {
+            "title": "Risk",
+            "text": [
+              "Six hours of transactions unscored on one partition: report the window, the count and the fix to the risk owner."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "A control like fraud scoring silently stopped for part of the traffic. How do you handle it?",
+          "points": [
+            "Scope the gap: which transactions, which hours.",
+            "Rescore and act on what was missed.",
+            "Report honestly to the risk owner.",
+            "Add monitoring of the control's coverage, not just its health.",
+            "Fund the prevention."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you run the incident?",
+          "What changes in access and process?"
+        ],
+        "debrief": [
+          {
+            "title": "Running it",
+            "text": [
+              "Move the consumer past the record (seek or a reset of that partition's offset by one), rescore the backlog, then deploy the dead-letter handling."
+            ]
+          },
+          {
+            "title": "Access and process",
+            "text": [
+              "No test messages on production topics; a test topic and ACLs that enforce it.",
+              "An alert for repeated consumer restarts."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "A consumer is crash-looping on one message. What do you do?",
+          "points": [
+            "Find the partition and offset from the error.",
+            "Unblock: move past the record deliberately, keeping a copy.",
+            "Process the backlog behind it.",
+            "Add dead-letter handling and an alert.",
+            "Close the gap that let the bad record in."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "How do you implement the dead-letter path?",
+          "How would it differ in Connect or Streams?"
+        ],
+        "debrief": [
+          {
+            "title": "In a plain consumer",
+            "text": [
+              "Catch RecordDeserializationException, read its partition and offset, produce the raw bytes and error details to card.transactions.dlq, seek to offset plus one, continue.",
+              "Commit after the dead-letter write succeeds, so a crash doesn't lose the bad record."
+            ]
+          },
+          {
+            "title": "In Connect and Streams",
+            "text": [
+              "Connect sink connectors: errors.tolerance=all with errors.deadletterqueue.topic.name and context headers.",
+              "Streams: errors.dead.letter.queue.topic.name with the default handlers, or LogAndContinue to skip."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you handle poison records in Kafka?",
+          "points": [
+            "A poison record fails every time; retrying blocks the partition.",
+            "Plain consumer: catch the deserialization error, write it with context to a dead-letter topic, seek past.",
+            "Connect and Streams have dead-letter settings; the plain client doesn't.",
+            "Alert on and own the dead-letter topic.",
+            "Prevent with schemas and write ACLs."
+          ]
+        }
+      }
+    }
+  }
+}

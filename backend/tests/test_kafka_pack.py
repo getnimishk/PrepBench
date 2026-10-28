@@ -6,11 +6,14 @@
 test_kafka_pack.py
 
 The Kafka study guide (`backend/app/content/packs/kafka/`) is written as one
-Markdown file per chapter under `src/` and built into `v1.json` by
-`scripts/build_content_pack.py`. These tests hold the two together and hold the
-guide to its sources:
+Markdown file per chapter and one JSON file per scenario under `src/`, and built
+into the newest `v<N>.json` by `scripts/build_content_pack.py`. These tests hold
+the two together and hold the guide to its sources:
 
-  * the shipped JSON is exactly what the sources build to;
+  * the shipped JSON is exactly what the sources build to, and v1, the guide as
+    first published, never changes;
+  * every scenario has the full shape the scenario page reads, cites real notes
+    sections, and ends each role with a Say-it question;
   * every topic of the 45-topic Apache Kafka Mastery Roadmap maps to a chapter,
     by number and by its exact title (the learner's roadmap matches by title);
   * every chapter cites sections that exist in
@@ -32,6 +35,9 @@ sys.path.insert(0, str(BACKEND / "scripts"))
 import build_content_pack  # noqa: E402
 
 NOTES = REPO / "docs" / "research" / "kafka-documentation-notes.md"
+
+# The version the sources build. Earlier versions are published files that never change.
+LATEST = 2
 
 # The learner's Apache Kafka Mastery Roadmap, in roadmap order. A topic maps to a
 # chapter by the title its alignment block names, so these must match exactly.
@@ -95,15 +101,15 @@ DEPRECATED_OPTIONS = {
 
 
 def _kafka():
-    pack = pack_store.get("kafka", 1)
+    pack = pack_store.get("kafka", LATEST)
     assert pack is not None, "the kafka pack failed to load"
     return pack
 
 
 def test_the_shipped_json_is_what_the_sources_build_to():
     built = build_content_pack.render(build_content_pack.build("kafka"))
-    shipped = (BACKEND / "app" / "content" / "packs" / "kafka" / "v1.json").read_text(encoding="utf-8")
-    assert built == shipped, "v1.json is out of date: run scripts/build_content_pack.py kafka"
+    shipped = (BACKEND / "app" / "content" / "packs" / "kafka" / f"v{LATEST}.json").read_text(encoding="utf-8")
+    assert built == shipped, "the newest kafka pack is out of date: run scripts/build_content_pack.py kafka"
 
 
 def test_the_builder_refuses_a_table_that_is_not_last_in_its_section(tmp_path):
@@ -125,7 +131,7 @@ def test_the_builder_refuses_a_table_that_is_not_last_in_its_section(tmp_path):
 
 
 def test_every_roadmap_topic_maps_to_a_chapter_by_number_and_title():
-    alignments = get_pack_roadmap_alignments("kafka", 1)
+    alignments = get_pack_roadmap_alignments("kafka", LATEST)
     for number, title in enumerate(ROADMAP_TOPICS, start=1):
         by_title = alignments.get(normalize_topic_title(title))
         assert by_title, f"Topic {number} {title!r} has no chapter"
@@ -138,7 +144,7 @@ def test_every_roadmap_topic_maps_to_a_chapter_by_number_and_title():
 
 
 def test_coverage_is_stated_for_every_mapping():
-    for mappings in get_pack_roadmap_alignments("kafka", 1).values():
+    for mappings in get_pack_roadmap_alignments("kafka", LATEST).values():
         for m in mappings:
             assert m.coverage in {"Full", "Partial"}
             assert m.relevant_sections and m.learning_evidence
@@ -212,3 +218,98 @@ def test_the_guide_never_teaches_zookeeper_as_current():
                     assert re.search(r"removed|is gone|Before KRaft|went away|migrate|still on ZooKeeper|vs\. KRaft|instead of", sentence), (
                         f"{chapter.id}: {sentence!r}"
                     )
+
+
+# ---- published versions and scenarios ---------------------------------------
+
+# Kafka v1, the guide without scenarios as first published (PR #109). A skill pinned at v1 keeps reading it until the
+# learner upgrades, so the file must not change: publish a new version instead.
+KAFKA_V1_FINGERPRINT = "1fffc901c4c00ded433853e0dd231c4ef09fa0c3aeb1628d139c1ad4fc09f67a"
+
+ROLES = {"po", "pm", "dm", "em"}
+
+
+def _canonical_hash(pack) -> str:
+    import hashlib
+    import json
+
+    payload = json.dumps(pack.model_dump(mode="json"), sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _scenarios():
+    return [s for level in _kafka().scenario_levels for s in level.scenarios]
+
+
+def test_the_first_published_kafka_guide_is_kept_unchanged():
+    v1 = pack_store.get("kafka", 1)
+    assert v1 is not None and v1.scenario_levels == []
+    assert _canonical_hash(v1) == KAFKA_V1_FINGERPRINT
+    # The newest version keeps every chapter, in order, so links and pinned progress still resolve.
+    assert [c.id for c in v1.chapters] == [c.id for c in _kafka().chapters]
+    assert pack_store.latest("kafka").version == LATEST
+
+
+def test_eighteen_written_scenarios_numbered_in_order():
+    scenarios = _scenarios()
+    assert [s.number for s in scenarios] == list(range(1, 19))
+    assert [s.id for s in scenarios] == [str(n) for n in range(1, 19)]
+    assert all(s.content for s in scenarios)
+
+
+def test_each_scenario_cites_real_notes_sections():
+    notes = NOTES.read_text(encoding="utf-8")
+    sections = {int(n) for n in re.findall(r"^## (\d+)\. ", notes, re.M)}
+    for s in _scenarios():
+        cited = {int(n) for n in re.findall(r"§(\d+)", s.sources)}
+        assert cited and cited <= sections, f"scenario {s.id} cites {sorted(cited - sections) or 'nothing'}"
+
+
+def test_each_scenario_has_the_shape_the_scenario_page_reads():
+    """The page keys lists by their text, so repeated lines in one list would collide."""
+    for s in _scenarios():
+        c = s.content
+        where = f"scenario {s.id}"
+        assert c["bookmark"].strip() and c["honesty"].strip(), where
+        assert len(c["check"]) == 4, where
+        for q in c["check"]:
+            assert len(q["options"]) == len(set(q["options"])) >= 3, where
+            assert 0 <= q["answer"] < len(q["options"]) and q["why"].strip(), where
+        case = c["caseStudy"]
+        assert case["setting"].strip() and case["tasks"] and case["pipeline"], where
+        for key_list in ([e["when"] for e in case["events"]], case["pipeline"], case["tasks"], c["takeaway"]):
+            assert len(key_list) == len(set(key_list)), where
+        assert len(c["debrief"]) >= 2, where
+        assert set(c["lenses"]) == ROLES, where
+        for role, lens in c["lenses"].items():
+            assert lens["tasks"] and len(lens["tasks"]) == len(set(lens["tasks"])), f"{where}/{role}"
+            assert lens["debrief"], f"{where}/{role}"
+            assert lens["sayIt"]["question"].strip() and len(lens["sayIt"]["points"]) >= 3, f"{where}/{role}"
+        for block in c["debrief"] + [b for lens in c["lenses"].values() for b in lens["debrief"]]:
+            assert block["title"].strip() and len(block["text"]) == len(set(block["text"])), where
+
+
+def test_chapters_link_to_the_scenarios_that_practise_them():
+    by_chapter = {}
+    for s in _scenarios():
+        by_chapter.setdefault(s.chapter, []).append(s.id)
+    for chapter in _kafka().chapters:
+        assert [link.scenario_id for link in chapter.practice_links] == by_chapter.get(chapter.id, []), chapter.id
+
+
+def test_scenarios_use_current_tool_options_and_never_teach_zookeeper():
+    import json
+
+    for s in _scenarios():
+        text = json.dumps(s.content, ensure_ascii=False)
+        assert "ZooKeeper" not in text, s.id
+        for old, new in DEPRECATED_OPTIONS.items():
+            assert not re.search(re.escape(old) + r"(?![\w.-])", text), f"scenario {s.id} uses {old}: use {new}"
+
+
+def test_correct_answers_are_spread_over_the_option_positions():
+    """If the right answer is nearly always in one place, the check tests guessing, not understanding."""
+    from collections import Counter
+
+    positions = Counter(q["answer"] for s in _scenarios() for q in s.content["check"])
+    assert max(positions.values()) <= sum(positions.values()) / 2, positions

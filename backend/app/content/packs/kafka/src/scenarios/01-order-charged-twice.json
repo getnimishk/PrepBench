@@ -1,0 +1,247 @@
+{
+  "id": "1",
+  "number": 1,
+  "title": "The order charged twice",
+  "outcome": "A slow broker, a send that timed out, a hand-written resend, and 37 customers charged twice.",
+  "sources": "§1, §5, §22",
+  "chapter": "delivery",
+  "content": {
+    "bookmark": "The idempotent producer removes duplicates caused by its own retries. A record your code sends a second time is a new record, so the consumer must be safe to run twice.",
+    "check": [
+      {
+        "prompt": "In Kafka 4.3, is the producer idempotent if you set nothing?",
+        "options": [
+          "Yes, enable.idempotence defaults to true when no conflicting settings are given",
+          "No, you must set enable.idempotence=true",
+          "Only when a transactional.id is set"
+        ],
+        "answer": 0,
+        "why": "Idempotence is on by default in 4.x, as long as acks, retries and max.in.flight.requests.per.connection don't conflict with it."
+      },
+      {
+        "prompt": "What does the idempotent producer deduplicate?",
+        "options": [
+          "Any two records with the same key",
+          "Its own retries of a batch, which the broker recognises by the producer's ID and a sequence number",
+          "Records the application sends twice by calling send() again"
+        ],
+        "answer": 1,
+        "why": "The broker gives each producer an ID and checks the sequence number on every batch. A second send() call is a new record with a new sequence number, so it is written again."
+      },
+      {
+        "prompt": "A send fails with a timeout. What do you know about the record?",
+        "options": [
+          "It was never written",
+          "It was written to the leader but not replicated",
+          "It may or may not have been written: the producer is unsure whether the write committed"
+        ],
+        "answer": 2,
+        "why": "A network error or timeout leaves the producer unsure. The record may be in the log already, which is why resending it by hand can create a duplicate."
+      },
+      {
+        "prompt": "The payment service charges a card and then commits its offset. It crashes between the two. What happens on restart?",
+        "options": [
+          "The record is delivered again, so the card could be charged twice unless the service checks first",
+          "The record is skipped",
+          "Kafka rolls back the charge"
+        ],
+        "answer": 0,
+        "why": "Process then commit is at-least-once: after a crash the record comes back. Kafka can't undo an external charge, so the consumer must recognise work it has already done."
+      }
+    ],
+    "caseStudy": {
+      "setting": "An online retailer (fictional) runs checkout and payments as separate services joined by Kafka. Checkout writes an OrderPlaced event to the orders topic, keyed by order ID. The payment service reads it, charges the customer's card through a payment provider, and commits its offset after each charge.",
+      "events": [
+        {
+          "when": "Friday evening",
+          "what": "Traffic peaks. One broker is slow while it recovers from a restart, and some of checkout's sends wait for longer than the 2-minute delivery timeout and fail with a timeout error."
+        },
+        {
+          "when": "Friday evening, same minutes",
+          "what": "Checkout's error handler, written months ago, catches the timeout and calls send() again with the same order. Both attempts land in the topic."
+        },
+        {
+          "when": "Saturday morning",
+          "what": "Support has 37 complaints: each customer was charged twice for one order. The team says: we turned on idempotence, so Kafka can't have duplicates."
+        }
+      ],
+      "pipeline": [
+        "Checkout service · send OrderPlaced (key: order ID), idempotent producer by default",
+        "Error handler · on a timeout, send the same order again",
+        "orders topic · 12 partitions, replication factor 3",
+        "Payment service · read OrderPlaced, charge the card, commit the offset"
+      ],
+      "tasks": [
+        "Why did idempotence not stop the duplicates?",
+        "Where should the protection against a double charge live?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why idempotence didn't help",
+        "text": [
+          "The idempotent producer protects against one thing: its own retries. When it resends a batch, the broker sees the same producer ID and sequence number and keeps one copy.",
+          "Checkout's handler did something else. It called send() again, which the producer treats as a brand-new record with a new sequence number. The broker had no way to know it was the same order.",
+          "The first attempt had probably reached the log already. A timeout means the producer doesn't know whether the write committed, not that it failed."
+        ]
+      },
+      {
+        "title": "Why the consumer is the right place to stop it",
+        "text": [
+          "Duplicates reach a consumer for several reasons: a resend like this one, or a crash between charging and committing, which redelivers the record. Kafka's default is at-least-once.",
+          "Exactly-once inside Kafka uses transactions, but a card charge happens outside Kafka. The documentation is clear that exactly-once to an external system needs that system's cooperation.",
+          "So the payment service must recognise an order it has already charged: keep the order ID, and pass it to the provider as an idempotency key if the provider supports one."
+        ]
+      },
+      {
+        "title": "What to change in the producer",
+        "text": [
+          "Remove the hand-written resend. Let the producer retry within delivery.timeout.ms, which it does without creating duplicates.",
+          "If a send still fails after that, treat it as an error to investigate, not a reason to send again blind: record it, alert, and reconcile the order against the topic."
+        ]
+      }
+    ],
+    "takeaway": [
+      "Idempotence covers the producer's own retries, not your code sending twice.",
+      "A timeout means unknown, not failed.",
+      "Anything that changes the outside world, like a charge, must be safe to run twice."
+    ],
+    "honesty": "If you haven't run into duplicate processing yourself, say so, and explain how you would design against it. If you have a real story of a double payment, email or shipment, lead with it and use this vocabulary to tell it.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "Which two questions would you ask the team first?",
+          "What acceptance criteria would stop a double charge from shipping again?"
+        ],
+        "debrief": [
+          {
+            "title": "Good questions for the team",
+            "text": [
+              "\"What does our code do when a send times out?\" That finds the resend.",
+              "\"If the same order arrives twice, what stops a second charge?\" That finds the missing safeguard.",
+              "\"How many orders are affected, and can we list them?\" That scopes the refunds."
+            ]
+          },
+          {
+            "title": "Acceptance criteria that would have caught it",
+            "text": [
+              "Processing the same OrderPlaced event twice results in one charge, proven by a test that delivers it twice.",
+              "A send that times out is never resent blindly; it is logged and alerted.",
+              "Every charge is traceable to one order ID, so duplicates can be found by a query."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you make sure an event-driven payment flow never charges a customer twice?",
+          "points": [
+            "Name where duplicates come from: retries, resends after a timeout, and redelivery after a consumer crash.",
+            "Say what Kafka already does: the idempotent producer removes duplicates from its own retries, on by default.",
+            "Say what it can't do: a charge happens outside Kafka, so the consumer must be idempotent.",
+            "Name the design: use the order ID as an idempotency key and check it before charging.",
+            "Name the test: deliver the same event twice and prove there is one charge."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "Who is affected, and what do you tell them this week?",
+          "What would you measure so trust in payments is visible, not assumed?"
+        ],
+        "debrief": [
+          {
+            "title": "This week: put customers right",
+            "text": [
+              "Find every affected order from the data, not from complaints: two charges for one order ID.",
+              "Refund them proactively and tell each customer plainly what happened before they notice.",
+              "Agree a date for the fix with the team and hold to it."
+            ]
+          },
+          {
+            "title": "After: make correctness a product measure",
+            "text": [
+              "Track duplicate charges per million orders as a payment health measure, with an alert above zero.",
+              "Put the idempotency fix ahead of the next checkout feature: customers forgive slow pages more readily than double charges."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Customers were charged twice for one order. How do you handle it as the product's owner?",
+          "points": [
+            "Scope it from the data: every order with two charges.",
+            "Refund proactively and tell customers before they find it.",
+            "Explain the cause simply: the system resent an order it wasn't sure had arrived, and payments didn't check for repeats.",
+            "Make duplicate charges a measured part of the product.",
+            "Prioritise the fix over new features, with an owner and a date."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you run the incident from here?",
+          "What changes in the process so error handling like this gets reviewed?"
+        ],
+        "debrief": [
+          {
+            "title": "Running the incident",
+            "text": [
+              "Open it with an owner and a severity: customers lost money.",
+              "Plan the steps with dates: stop the resend, list affected orders, refund, deploy the idempotency check, confirm with support.",
+              "Hold a blameless review: the handler did what it was written to do, and nobody had asked what a timeout really means."
+            ]
+          },
+          {
+            "title": "Process that would have caught it",
+            "text": [
+              "Add failure paths to design review: what happens on a timeout, a crash, a duplicate.",
+              "Require a duplicate-delivery test for any consumer that changes something outside Kafka."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you run an incident where customers were charged twice?",
+          "points": [
+            "Set an owner, a severity and an update rhythm for support and finance.",
+            "Contain first: stop the resend so no new duplicates appear.",
+            "Recover with a plan and dates: find, refund, confirm.",
+            "Run a blameless review focused on the missing safeguard, not the person.",
+            "Change the process: failure paths and duplicate tests in every design review."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "What exactly do you change in the producer and the consumer?",
+          "How do you prove the fix works?"
+        ],
+        "debrief": [
+          {
+            "title": "The engineering changes",
+            "text": [
+              "Producer: delete the resend. Keep idempotence on (the default) and let the producer retry within delivery.timeout.ms.",
+              "Consumer: before charging, look up the order ID in a store of processed orders; charge only if absent, and record it in the same step as the charge where possible.",
+              "Payment provider: pass the order ID as the idempotency key if the provider offers one, so a repeat is refused there too."
+            ]
+          },
+          {
+            "title": "Proving it",
+            "text": [
+              "A test that delivers one event twice and asserts one charge.",
+              "A test that kills the consumer after the charge and before the commit, restarts it, and asserts one charge.",
+              "A daily query for order IDs with more than one charge, which should always return nothing."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Explain at-least-once delivery and how you make a Kafka consumer idempotent.",
+          "points": [
+            "Kafka's default is at-least-once: process then commit, so a crash between them redelivers.",
+            "The idempotent producer removes duplicates from producer retries by producer ID and sequence number, not from application resends.",
+            "Make the consumer idempotent with a business key: check before acting, record after.",
+            "Use transactions only for Kafka-to-Kafka work; an external system needs its own idempotency.",
+            "Test it by delivering twice and by crashing between the action and the commit."
+          ]
+        }
+      }
+    }
+  }
+}

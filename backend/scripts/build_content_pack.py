@@ -16,7 +16,13 @@ from the sources and fails if the two differ, so neither can drift.
 Source format:
 
 - `src/pack.json`: the pack's own fields (pack_id, version, title, summary,
-  docs_url, source_notes), and optionally `diagnostic_questions`.
+  docs_url, source_notes), and optionally `diagnostic_questions` and
+  `scenario_levels`, each level a name, an about line and the numbers of its
+  scenarios.
+- `src/scenarios/NN-<slug>.json`, one per written scenario: the scenario as the
+  app reads it (id, number, title, outcome, sources, chapter, content). A
+  chapter's `practice_links` are built from the scenarios that name it, so the
+  two can't disagree.
 - `src/NN-<id>.md`, one per chapter, in order: a front-matter block of
   `key: value` lines (id, title, summary, sources) between `---` lines, then
   sections, each starting `## Heading`. A section's Markdown becomes the block's
@@ -113,12 +119,37 @@ def _chapter(path: Path) -> dict:
     }
 
 
+def _scenarios(src: Path, levels: List[dict]) -> List[dict]:
+    by_number: Dict[int, dict] = {}
+    for path in sorted((src / "scenarios").glob("[0-9][0-9]-*.json")):
+        scenario = json.loads(path.read_text(encoding="utf-8"))
+        if scenario.get("number") != int(path.name[:2]):
+            raise ValueError(f"{path.name}: number {scenario.get('number')!r} doesn't match the file name")
+        by_number[scenario["number"]] = scenario
+    placed = [n for level in levels for n in level["scenarios"]]
+    if sorted(placed) != sorted(by_number):
+        raise ValueError(f"scenario_levels place {sorted(placed)}, files are {sorted(by_number)}")
+    return [
+        {"name": level["name"], "about": level["about"], "scenarios": [by_number[n] for n in level["scenarios"]]}
+        for level in levels
+    ]
+
+
 def build(pack_id: str, packs_dir: Path = PACKS_DIR) -> dict:
     src = packs_dir / pack_id / "src"
     pack = json.loads((src / "pack.json").read_text(encoding="utf-8"))
     diagnostics = pack.pop("diagnostic_questions", [])
-    pack["chapters"] = [_chapter(p) for p in sorted(src.glob("[0-9][0-9]-*.md"))]
-    pack["scenario_levels"] = []
+    levels = _scenarios(src, pack.pop("scenario_levels", []))
+    chapters = [_chapter(p) for p in sorted(src.glob("[0-9][0-9]-*.md"))]
+    for chapter in chapters:
+        links = [
+            {"scenario_id": s["id"], "label": f"Scenario {s['number']}: {s['title']}"}
+            for level in levels for s in level["scenarios"] if s["chapter"] == chapter["id"]
+        ]
+        if links:
+            chapter["practice_links"] = links
+    pack["chapters"] = chapters
+    pack["scenario_levels"] = levels
     pack["diagnostic_questions"] = diagnostics
     return pack
 
@@ -133,7 +164,8 @@ def main() -> None:
     pack = build(sys.argv[1])
     out = PACKS_DIR / pack["pack_id"] / f"v{pack['version']}.json"
     out.write_text(render(pack), encoding="utf-8")
-    print(f"wrote {out} ({len(pack['chapters'])} chapters)")
+    scenarios = sum(len(level["scenarios"]) for level in pack["scenario_levels"])
+    print(f"wrote {out} ({len(pack['chapters'])} chapters, {scenarios} scenarios)")
 
 
 if __name__ == "__main__":

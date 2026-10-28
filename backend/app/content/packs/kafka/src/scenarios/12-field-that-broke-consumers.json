@@ -1,0 +1,236 @@
+{
+  "id": "12",
+  "number": 12,
+  "title": "The field that broke the consumers",
+  "outcome": "A new required field, a compatibility check switched off to unblock a release, and every consumer that replayed history failed.",
+  "sources": "§17",
+  "chapter": "schemas",
+  "content": {
+    "bookmark": "Under BACKWARD compatibility, a new field needs a default so the new schema can still read old data. The compatibility check exists to refuse changes like this one.",
+    "check": [
+      {
+        "prompt": "In Avro, a reader's schema has a field the writer's data doesn't. What happens?",
+        "options": [
+          "The field is null",
+          "The record is skipped",
+          "The reader's default is used; with no default, it is an error"
+        ],
+        "answer": 2,
+        "why": "Schema resolution fills a missing field from the reader's default. Without a default, reading fails."
+      },
+      {
+        "prompt": "What is Schema Registry's default compatibility mode?",
+        "options": [
+          "BACKWARD",
+          "NONE",
+          "FULL_TRANSITIVE"
+        ],
+        "answer": 0,
+        "why": "BACKWARD: consumers using the new schema can read data written with the previous one."
+      },
+      {
+        "prompt": "Under BACKWARD compatibility, who upgrades first?",
+        "options": [
+          "Producers",
+          "Consumers",
+          "It doesn't matter"
+        ],
+        "answer": 1,
+        "why": "A BACKWARD-compatible schema can read old data, so consumers move to it first; producers follow."
+      },
+      {
+        "prompt": "In Protobuf, a field is removed. What should happen to its number?",
+        "options": [
+          "Reuse it for the next new field",
+          "Renumber the remaining fields",
+          "Mark it reserved and never reuse it"
+        ],
+        "answer": 2,
+        "why": "Protobuf identifies fields by number on the wire. Reusing a number makes old data decode into the wrong field."
+      }
+    ],
+    "caseStudy": {
+      "setting": "A travel company (fictional) publishes Booking events in Avro to bookings, with Schema Registry at its default BACKWARD compatibility. Several teams consume it; the analytics team regularly replays the whole topic to rebuild reports.",
+      "events": [
+        {
+          "when": "Tuesday",
+          "what": "The bookings team adds a currency field with no default. The registry refuses the new schema as incompatible. Under release pressure, someone sets the subject's compatibility to NONE, and the schema is registered."
+        },
+        {
+          "when": "Wednesday",
+          "what": "Consumers are upgraded to the new schema. Live data works. The analytics team's nightly replay from the start of the topic fails on the first old record."
+        },
+        {
+          "when": "Thursday",
+          "what": "Other teams that restart from older offsets fail the same way. Reports are a day late and the fix is disputed between teams."
+        }
+      ],
+      "pipeline": [
+        "Bookings service · Avro serializer, schema version 7 adds currency (no default)",
+        "Schema Registry · subject bookings-value, compatibility switched from BACKWARD to NONE",
+        "bookings topic · 30 days of retention, old records written with version 6",
+        "Consumers · upgraded to version 7, some replay from the start"
+      ],
+      "tasks": [
+        "Why did reading old records fail?",
+        "What should the team have done when the registry refused the schema?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why old records failed",
+        "text": [
+          "Avro data carries no field names. The consumer reads each record with the writer's schema (version 6) and resolves it to its own (version 7).",
+          "Version 7 has currency; version 6 data doesn't. With no default to fill it in, resolution fails. Live records written with version 7 read fine, which is why the problem appeared only on replay."
+        ]
+      },
+      {
+        "title": "What the refusal was telling them",
+        "text": [
+          "BACKWARD compatibility means the new schema must read old data. The registry refused version 7 precisely because it couldn't. Switching to NONE removed the warning, not the problem.",
+          "The right change was to give currency a default (for example the company's base currency), which makes version 7 backward compatible.",
+          "BACKWARD is the default partly so consumers can rewind to the start of a topic, which is exactly what analytics does."
+        ]
+      },
+      {
+        "title": "Guard rails",
+        "text": [
+          "Only a schema owner can change a subject's compatibility, with review.",
+          "Check compatibility in the build, before deployment, so the failure is found by the team making the change.",
+          "Consider BACKWARD_TRANSITIVE, which checks against all earlier versions, not just the last."
+        ]
+      }
+    ],
+    "takeaway": [
+      "A new field needs a default to stay backward compatible.",
+      "The compatibility check refusing a schema is the system working.",
+      "Under BACKWARD, consumers upgrade first."
+    ],
+    "honesty": "If you haven't managed schema evolution, say so and explain the modes and the upgrade order. If you have a story of a breaking change, lead with it.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What questions would you ask?",
+          "What would you put in the definition of done for a schema change?"
+        ],
+        "debrief": [
+          {
+            "title": "Questions",
+            "text": [
+              "\"Who reads this event, and does anyone replay old data?\"",
+              "\"Why was the compatibility check turned off, and who decided?\""
+            ]
+          },
+          {
+            "title": "Definition of done",
+            "text": [
+              "A schema change passes the registry's compatibility check without changing the mode.",
+              "Consuming teams are told before the change, with the upgrade order."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you manage a change to an event that several teams consume?",
+          "points": [
+            "Treat the event as an interface with a contract.",
+            "Know who consumes it and how: live or replay.",
+            "Require the change to pass compatibility checks, not bypass them.",
+            "Plan the upgrade order with consumers.",
+            "Make bypassing the check a reviewed decision with an owner."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "How do you handle the release-pressure decision?",
+          "What do you tell the analytics team's users?"
+        ],
+        "debrief": [
+          {
+            "title": "Release pressure",
+            "text": [
+              "The shortcut saved a day and cost several teams more. Make the cost of bypassing a safety check visible when the decision is made."
+            ]
+          },
+          {
+            "title": "Users",
+            "text": [
+              "Tell report users which reports are late and when they'll be right."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "A team bypassed a safety check to hit a release date and broke other teams. How do you respond?",
+          "points": [
+            "Fix the impact first and communicate it.",
+            "Review the decision blamelessly: what pressure, what information.",
+            "Make bypassing checks an explicit, owned decision.",
+            "Plan for interface changes in the roadmap, not under pressure.",
+            "Agree how teams change shared events."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you resolve this now?",
+          "What process prevents it?"
+        ],
+        "debrief": [
+          {
+            "title": "Now",
+            "text": [
+              "Register a version 8 that gives currency a default, restore BACKWARD, move consumers to version 8, rerun the replay."
+            ]
+          },
+          {
+            "title": "Process",
+            "text": [
+              "Schema changes reviewed by consuming teams; compatibility-mode changes need a named approver."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you coordinate a schema change across teams?",
+          "points": [
+            "Identify every consumer.",
+            "Agree the compatibility mode and upgrade order.",
+            "Check compatibility in the build.",
+            "Communicate dates and roll out consumers first under BACKWARD.",
+            "Keep compatibility-mode changes under approval."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "What schema change would you make?",
+          "How do you check compatibility automatically?"
+        ],
+        "debrief": [
+          {
+            "title": "The change",
+            "text": [
+              "Version 8: currency with a default value. Set the subject back to BACKWARD (or BACKWARD_TRANSITIVE)."
+            ]
+          },
+          {
+            "title": "Automatic checks",
+            "text": [
+              "Test each schema change against the registry's compatibility check in CI, before deployment.",
+              "Restrict who can change a subject's compatibility setting."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Explain schema compatibility modes and how you evolve an Avro schema safely.",
+          "points": [
+            "BACKWARD (default): new schema reads old data; consumers upgrade first.",
+            "FORWARD: old schema reads new data; producers first. FULL: both.",
+            "In Avro, add fields with defaults; a missing default breaks reading old data.",
+            "TRANSITIVE checks against all versions, not just the last.",
+            "In Protobuf, never reuse a field number; reserve removed ones."
+          ]
+        }
+      }
+    }
+  }
+}

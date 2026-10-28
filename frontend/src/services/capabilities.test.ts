@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ContentPackDetail } from '../types/contentPack';
 import adfPack from '../../../backend/app/content/packs/adf/v2.json';
+import kafkaPack from '../../../backend/app/content/packs/kafka/v2.json';
 import {
   getSubjectCapabilities,
   getSubjectsWithCapability,
@@ -302,6 +303,16 @@ describe('Interview capability is backed by subject-scoped content', () => {
     expect(getSubjectCapabilities(6).interview).toBe(true);
   });
 
+  it('Kafka ships a Say-it question for every role of every written scenario', () => {
+    // A skill holding the Kafka pack gets interview practice from these (deriveCapabilities).
+    const pack = kafkaPack as unknown as ContentPackDetail;
+    const written = pack.scenario_levels.flatMap((l) => l.scenarios).filter((sc) => sc.content);
+    const sayIt = written.flatMap((sc) => Object.values(sc.content!.lenses).map((lens) => lens.sayIt.question.trim()));
+    expect(written).toHaveLength(18);
+    expect(sayIt).toHaveLength(72);
+    expect(sayIt.every((q) => q.length > 0)).toBe(true);
+  });
+
   it('a subject with no interview content of its own has no interview capability', () => {
     // Agentic AI and Databricks have neither prompts nor scenario questions of their own;
     // the shared library is not theirs.
@@ -336,6 +347,18 @@ describe('Capabilities read from the preparation itself', () => {
     });
     expect(getSubjectCapabilities(withPack).studyGuide).toBe(true);
     expect(getSubjectCapabilities(withPack).certification).toBe(false);
+  });
+
+  it("gives a learner's skill interview practice when an attached pack has written scenarios, and only then", () => {
+    const pack = (written: number) => [{
+      pack_id: 'kafka', pack_version: 2, chapter_count: 21, written_scenario_count: written,
+    }] as unknown as Subject['content_packs'];
+    const kafka = (written: number) => record({ kind: 'skill', slug: 'kafka', question_count: 0, content_packs: pack(written) });
+    expect(getSubjectCapabilities(kafka(18)).interview).toBe(true);
+    expect(getSubjectCapabilities(kafka(18)).scenarios).toBe(true);
+    // Kafka v1 is the guide alone: no scenarios, so no Say-it questions to practise.
+    expect(getSubjectCapabilities(kafka(0)).interview).toBe(false);
+    expect(getSubjectCapabilities(kafka(0)).scenarios).toBe(false);
   });
 
   it('sees questions imported into Kafka later, instead of keeping the bank locked at a static 0', () => {
