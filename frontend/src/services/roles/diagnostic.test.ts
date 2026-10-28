@@ -7,6 +7,7 @@ import type { ContentPackDetail, ScenarioRole } from '../../types/contentPack';
 // These tests record answers against version 1 (refs read adf@1/...), the guide those answers were taken on.
 import adfPack from '../../../../backend/app/content/packs/adf/v1.json';
 import adlsPack from '../../../../backend/app/content/packs/adls/v1.json';
+import kafkaPack from '../../../../backend/app/content/packs/kafka/v1.json';
 import {
   DIAGNOSTIC_LENGTH, MIN_RELEVANCE, NOT_KEYWORDS, guessLens, packQuestions, packVersionsOf, pickQuestions,
   questionByRef, relevance, requirementsFor,
@@ -15,7 +16,8 @@ import {
 // The shipped packs, the files the server serves.
 const ADF = adfPack as unknown as ContentPackDetail;
 const ADLS = adlsPack as unknown as ContentPackDetail;
-const ALL = [ADF, ADLS];
+const KAFKA = kafkaPack as unknown as ContentPackDetail;
+const ALL = [ADF, ADLS, KAFKA];
 const LENSES: ScenarioRole[] = ['po', 'pm', 'dm', 'em'];
 const id = (ref: string) => ref.split('/').slice(-1)[0];
 

@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 400" width="980" height="400" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <title>acks=all with min.insync.replicas=2 on replication factor 3: with three or two in-sync replicas the write is accepted; with one in-sync replica it is refused with NotEnoughReplicas</title>
+  <rect x="0" y="0" width="980" height="400" fill="#ffffff"/>
+  <text x="490" y="34" text-anchor="middle" font-size="17" font-weight="700" fill="#0f172a">One partition, replication factor 3, min.insync.replicas = 2, producer acks = all</text>
+
+  <!-- Column 1 -->
+  <rect x="20" y="60" width="300" height="250" rx="12" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="170" y="88" text-anchor="middle" font-size="15" font-weight="700" fill="#14532d">ISR = {1, 2, 3}</text>
+  <g font-size="13" text-anchor="middle">
+    <rect x="45" y="110" width="76" height="56" rx="8" fill="#bbf7d0" stroke="#16a34a"/><text x="83" y="134" fill="#14532d" font-weight="700">Broker 1</text><text x="83" y="153" fill="#14532d">leader</text>
+    <rect x="132" y="110" width="76" height="56" rx="8" fill="#dcfce7" stroke="#16a34a"/><text x="170" y="134" fill="#14532d">Broker 2</text><text x="170" y="153" fill="#14532d">in sync</text>
+    <rect x="219" y="110" width="76" height="56" rx="8" fill="#dcfce7" stroke="#16a34a"/><text x="257" y="134" fill="#14532d">Broker 3</text><text x="257" y="153" fill="#14532d">in sync</text>
+  </g>
+  <text x="170" y="206" text-anchor="middle" font-size="14" font-weight="700" fill="#14532d">Write accepted</text>
+  <text x="170" y="230" text-anchor="middle" font-size="13" fill="#0f172a">acknowledged once all 3</text>
+  <text x="170" y="248" text-anchor="middle" font-size="13" fill="#0f172a">in-sync replicas have it</text>
+  <text x="170" y="282" text-anchor="middle" font-size="12" fill="#475569">survives losing any 2 brokers</text>
+
+  <!-- Column 2 -->
+  <rect x="340" y="60" width="300" height="250" rx="12" fill="#fffbeb" stroke="#d97706" stroke-width="1.5"/>
+  <text x="490" y="88" text-anchor="middle" font-size="15" font-weight="700" fill="#78350f">ISR = {1, 2}: broker 3 down</text>
+  <g font-size="13" text-anchor="middle">
+    <rect x="365" y="110" width="76" height="56" rx="8" fill="#bbf7d0" stroke="#16a34a"/><text x="403" y="134" fill="#14532d" font-weight="700">Broker 1</text><text x="403" y="153" fill="#14532d">leader</text>
+    <rect x="452" y="110" width="76" height="56" rx="8" fill="#dcfce7" stroke="#16a34a"/><text x="490" y="134" fill="#14532d">Broker 2</text><text x="490" y="153" fill="#14532d">in sync</text>
+    <rect x="539" y="110" width="76" height="56" rx="8" fill="#e2e8f0" stroke="#64748b" stroke-dasharray="4 3"/><text x="577" y="134" fill="#334155">Broker 3</text><text x="577" y="153" fill="#334155">out</text>
+  </g>
+  <text x="490" y="206" text-anchor="middle" font-size="14" font-weight="700" fill="#78350f">Write accepted</text>
+  <text x="490" y="230" text-anchor="middle" font-size="13" fill="#0f172a">2 in sync, minimum is 2:</text>
+  <text x="490" y="248" text-anchor="middle" font-size="13" fill="#0f172a">acknowledged on 2 copies</text>
+  <text x="490" y="282" text-anchor="middle" font-size="12" fill="#475569">at the minimum: alert before the next failure</text>
+
+  <!-- Column 3 -->
+  <rect x="660" y="60" width="300" height="250" rx="12" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/>
+  <text x="810" y="88" text-anchor="middle" font-size="15" font-weight="700" fill="#7f1d1d">ISR = {1}: brokers 2, 3 down</text>
+  <g font-size="13" text-anchor="middle">
+    <rect x="685" y="110" width="76" height="56" rx="8" fill="#bbf7d0" stroke="#16a34a"/><text x="723" y="134" fill="#14532d" font-weight="700">Broker 1</text><text x="723" y="153" fill="#14532d">leader</text>
+    <rect x="772" y="110" width="76" height="56" rx="8" fill="#e2e8f0" stroke="#64748b" stroke-dasharray="4 3"/><text x="810" y="134" fill="#334155">Broker 2</text><text x="810" y="153" fill="#334155">out</text>
+    <rect x="859" y="110" width="76" height="56" rx="8" fill="#e2e8f0" stroke="#64748b" stroke-dasharray="4 3"/><text x="897" y="134" fill="#334155">Broker 3</text><text x="897" y="153" fill="#334155">out</text>
+  </g>
+  <text x="810" y="206" text-anchor="middle" font-size="14" font-weight="700" fill="#7f1d1d">Write refused</text>
+  <text x="810" y="230" text-anchor="middle" font-size="13" fill="#0f172a">1 in sync is below 2:</text>
+  <text x="810" y="248" text-anchor="middle" font-size="13" fill="#0f172a">producer gets NotEnoughReplicas</text>
+  <text x="810" y="282" text-anchor="middle" font-size="12" fill="#475569">refused, rather than kept on one copy</text>
+
+  <!-- Footer -->
+  <rect x="20" y="325" width="940" height="60" rx="8" fill="#f1f5f9" stroke="#cbd5e1"/>
+  <text x="490" y="350" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">acks=all waits for the current in-sync set; min.insync.replicas sets how small that set may be.</text>
+  <text x="490" y="371" text-anchor="middle" font-size="13" fill="#334155">With the default min.insync.replicas = 1, the third case would be accepted on a single copy, and lost if broker 1 then failed.</text>
+</svg>

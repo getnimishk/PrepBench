@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 560" width="980" height="560" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <title>Kafka end to end: a producer writes keyed records to the partitions of a topic, each partition is replicated across brokers, and two consumer groups read the same partitions independently with their own committed offsets</title>
+  <rect x="0" y="0" width="980" height="560" fill="#ffffff"/>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+  </defs>
+
+  <!-- Producer -->
+  <rect x="20" y="200" width="170" height="120" rx="10" fill="#eef2ff" stroke="#4f46e5" stroke-width="1.5"/>
+  <text x="105" y="228" text-anchor="middle" font-size="16" font-weight="700" fill="#1e1b4b">Producer</text>
+  <text x="105" y="252" text-anchor="middle" font-size="13" fill="#1e293b">order service</text>
+  <text x="105" y="276" text-anchor="middle" font-size="13" fill="#1e293b">key = OrderId</text>
+  <text x="105" y="298" text-anchor="middle" font-size="13" fill="#1e293b">acks=all, idempotent</text>
+
+  <!-- Topic -->
+  <rect x="240" y="70" width="440" height="380" rx="12" fill="#f8fafc" stroke="#334155" stroke-width="1.5"/>
+  <text x="460" y="98" text-anchor="middle" font-size="16" font-weight="700" fill="#0f172a">Topic "orders": 3 partitions, replication factor 3</text>
+
+  <!-- Partition rows -->
+  <g font-size="13" fill="#0f172a">
+    <text x="258" y="140" font-weight="700">Partition 0</text>
+    <text x="258" y="158" fill="#475569">leader: broker 1 · followers: 2, 3</text>
+    <text x="258" y="250" font-weight="700">Partition 1</text>
+    <text x="258" y="268" fill="#475569">leader: broker 2 · followers: 1, 3</text>
+    <text x="258" y="360" font-weight="700">Partition 2</text>
+    <text x="258" y="378" fill="#475569">leader: broker 3 · followers: 1, 2</text>
+  </g>
+  <g font-size="12" text-anchor="middle" fill="#0f172a">
+    <!-- P0 cells -->
+    <rect x="258" y="170" width="44" height="34" fill="#dbeafe" stroke="#2563eb"/><text x="280" y="192">0</text>
+    <rect x="302" y="170" width="44" height="34" fill="#dbeafe" stroke="#2563eb"/><text x="324" y="192">1</text>
+    <rect x="346" y="170" width="44" height="34" fill="#dbeafe" stroke="#2563eb"/><text x="368" y="192">2</text>
+    <rect x="390" y="170" width="44" height="34" fill="#dbeafe" stroke="#2563eb"/><text x="412" y="192">3</text>
+    <rect x="434" y="170" width="44" height="34" fill="#dbeafe" stroke="#2563eb"/><text x="456" y="192">4</text>
+    <rect x="478" y="170" width="44" height="34" fill="#ffffff" stroke="#2563eb" stroke-dasharray="4 3"/><text x="500" y="192" fill="#64748b">next</text>
+    <!-- P1 cells -->
+    <rect x="258" y="280" width="44" height="34" fill="#dcfce7" stroke="#16a34a"/><text x="280" y="302">0</text>
+    <rect x="302" y="280" width="44" height="34" fill="#dcfce7" stroke="#16a34a"/><text x="324" y="302">1</text>
+    <rect x="346" y="280" width="44" height="34" fill="#dcfce7" stroke="#16a34a"/><text x="368" y="302">2</text>
+    <rect x="390" y="280" width="44" height="34" fill="#ffffff" stroke="#16a34a" stroke-dasharray="4 3"/><text x="412" y="302" fill="#64748b">next</text>
+    <!-- P2 cells -->
+    <rect x="258" y="390" width="44" height="34" fill="#fef3c7" stroke="#d97706"/><text x="280" y="412">0</text>
+    <rect x="302" y="390" width="44" height="34" fill="#fef3c7" stroke="#d97706"/><text x="324" y="412">1</text>
+    <rect x="346" y="390" width="44" height="34" fill="#fef3c7" stroke="#d97706"/><text x="368" y="412">2</text>
+    <rect x="390" y="390" width="44" height="34" fill="#fef3c7" stroke="#d97706"/><text x="412" y="412">3</text>
+    <rect x="434" y="390" width="44" height="34" fill="#ffffff" stroke="#d97706" stroke-dasharray="4 3"/><text x="456" y="412" fill="#64748b">next</text>
+  </g>
+  <text x="540" y="192" font-size="12" fill="#475569">offsets: one</text>
+  <text x="540" y="208" font-size="12" fill="#475569">sequence per</text>
+  <text x="540" y="224" font-size="12" fill="#475569">partition</text>
+
+  <!-- producer arrows -->
+  <path d="M190 245 C 215 245, 220 187, 252 187" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <path d="M190 262 L 252 297" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <path d="M190 280 C 215 280, 220 407, 252 407" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="20" y="350" font-size="12" fill="#475569">hash(key) picks the partition:</text>
+  <text x="20" y="366" font-size="12" fill="#475569">same key, same partition</text>
+
+  <!-- Consumer group billing -->
+  <rect x="730" y="80" width="230" height="170" rx="10" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="845" y="106" text-anchor="middle" font-size="15" font-weight="700" fill="#14532d">Consumer group "billing"</text>
+  <text x="748" y="134" font-size="13" fill="#0f172a">C1 owns partitions 0, 1</text>
+  <text x="748" y="156" font-size="13" fill="#0f172a">C2 owns partition 2</text>
+  <text x="748" y="186" font-size="12" fill="#475569">committed offsets:</text>
+  <text x="748" y="204" font-size="12" fill="#475569">P0 = 5, P1 = 2, P2 = 4</text>
+  <text x="748" y="230" font-size="12" fill="#475569">(the next record to read)</text>
+
+  <!-- Consumer group analytics -->
+  <rect x="730" y="290" width="230" height="160" rx="10" fill="#fff7ed" stroke="#ea580c" stroke-width="1.5"/>
+  <text x="845" y="316" text-anchor="middle" font-size="15" font-weight="700" fill="#7c2d12">Consumer group "analytics"</text>
+  <text x="748" y="344" font-size="13" fill="#0f172a">A1 owns partitions 0, 1, 2</text>
+  <text x="748" y="374" font-size="12" fill="#475569">its own committed offsets:</text>
+  <text x="748" y="392" font-size="12" fill="#475569">P0 = 1, P1 = 0, P2 = 2</text>
+  <text x="748" y="418" font-size="12" fill="#475569">reads the same records,</text>
+  <text x="748" y="434" font-size="12" fill="#475569">independently</text>
+
+  <!-- consumer arrows -->
+  <path d="M680 190 L 724 160" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <path d="M680 380 L 724 360" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="684" y="270" font-size="12" fill="#475569">consumers</text>
+  <text x="684" y="286" font-size="12" fill="#475569">pull</text>
+
+  <!-- footer -->
+  <rect x="20" y="480" width="940" height="60" rx="8" fill="#f1f5f9" stroke="#cbd5e1"/>
+  <text x="490" y="505" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">Order is guaranteed within a partition, not across the topic. Reading never deletes a record.</text>
+  <text x="490" y="526" text-anchor="middle" font-size="13" fill="#334155">Within a group each partition has one owner; across groups everything is read again. Followers copy the leader; consumers see only committed records.</text>
+</svg>

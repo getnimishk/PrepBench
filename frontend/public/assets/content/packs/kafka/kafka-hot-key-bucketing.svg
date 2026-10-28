@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 430" width="980" height="430" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <title>A hot key: with key CUST_A, 90 percent of traffic lands on one partition; bucketing the key as CUST_A_0 to CUST_A_3 spreads it over four partitions, keeping order only within each bucket</title>
+  <rect x="0" y="0" width="980" height="430" fill="#ffffff"/>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#475569"/></marker>
+  </defs>
+
+  <!-- Left panel -->
+  <rect x="20" y="20" width="450" height="330" rx="12" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/>
+  <text x="245" y="50" text-anchor="middle" font-size="16" font-weight="700" fill="#7f1d1d">Key = CustomerId: one hot partition</text>
+  <text x="40" y="92" font-size="13" fill="#0f172a">CUST_A (90% of traffic)</text>
+  <text x="40" y="160" font-size="13" fill="#0f172a">all other customers (10%)</text>
+  <path d="M200 88 L 300 105" stroke="#475569" stroke-width="3" fill="none" marker-end="url(#a)"/>
+  <path d="M215 155 C 255 155, 260 175, 300 178" stroke="#475569" stroke-width="1" fill="none" marker-end="url(#a)"/>
+  <path d="M215 160 C 255 165, 260 235, 300 240" stroke="#475569" stroke-width="1" fill="none" marker-end="url(#a)"/>
+  <path d="M215 165 C 255 175, 260 295, 300 300" stroke="#475569" stroke-width="1" fill="none" marker-end="url(#a)"/>
+  <g font-size="13">
+    <rect x="305" y="85" width="150" height="40" rx="6" fill="#fecaca" stroke="#dc2626" stroke-width="2"/>
+    <text x="380" y="110" text-anchor="middle" font-weight="700" fill="#7f1d1d">P0: about 90%</text>
+    <rect x="305" y="160" width="150" height="40" rx="6" fill="#ffffff" stroke="#94a3b8"/>
+    <text x="380" y="185" text-anchor="middle" fill="#0f172a">P1: a little</text>
+    <rect x="305" y="220" width="150" height="40" rx="6" fill="#ffffff" stroke="#94a3b8"/>
+    <text x="380" y="245" text-anchor="middle" fill="#0f172a">P2: a little</text>
+    <rect x="305" y="280" width="150" height="40" rx="6" fill="#ffffff" stroke="#94a3b8"/>
+    <text x="380" y="305" text-anchor="middle" fill="#0f172a">P3: a little</text>
+  </g>
+  <text x="40" y="230" font-size="12" fill="#475569">One key always hashes to</text>
+  <text x="40" y="246" font-size="12" fill="#475569">one partition, so one consumer</text>
+  <text x="40" y="262" font-size="12" fill="#475569">must handle 90% of the load.</text>
+  <text x="40" y="290" font-size="12" fill="#475569">More partitions do not split</text>
+  <text x="40" y="306" font-size="12" fill="#475569">this key.</text>
+
+  <!-- Right panel -->
+  <rect x="510" y="20" width="450" height="330" rx="12" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="735" y="50" text-anchor="middle" font-size="16" font-weight="700" fill="#14532d">Key = CustomerId + bucket: load spread</text>
+  <g font-size="13" fill="#0f172a">
+    <text x="530" y="110">CUST_A_0</text>
+    <text x="530" y="185">CUST_A_1</text>
+    <text x="530" y="245">CUST_A_2</text>
+    <text x="530" y="305">CUST_A_3</text>
+  </g>
+  <path d="M600 105 L 790 105" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#a)"/>
+  <path d="M600 180 L 790 180" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#a)"/>
+  <path d="M600 240 L 790 240" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#a)"/>
+  <path d="M600 300 L 790 300" stroke="#475569" stroke-width="2" fill="none" marker-end="url(#a)"/>
+  <g font-size="13">
+    <rect x="795" y="85" width="150" height="40" rx="6" fill="#bbf7d0" stroke="#16a34a"/><text x="870" y="110" text-anchor="middle" fill="#14532d">P0: about 25%</text>
+    <rect x="795" y="160" width="150" height="40" rx="6" fill="#bbf7d0" stroke="#16a34a"/><text x="870" y="185" text-anchor="middle" fill="#14532d">P1: about 25%</text>
+    <rect x="795" y="220" width="150" height="40" rx="6" fill="#bbf7d0" stroke="#16a34a"/><text x="870" y="245" text-anchor="middle" fill="#14532d">P2: about 25%</text>
+    <rect x="795" y="280" width="150" height="40" rx="6" fill="#bbf7d0" stroke="#16a34a"/><text x="870" y="305" text-anchor="middle" fill="#14532d">P3: about 25%</text>
+  </g>
+  <text x="620" y="140" font-size="12" fill="#475569">illustrative: real buckets</text>
+  <text x="620" y="156" font-size="12" fill="#475569">hash where they hash</text>
+
+  <!-- Footer -->
+  <rect x="20" y="365" width="940" height="50" rx="8" fill="#f1f5f9" stroke="#cbd5e1"/>
+  <text x="490" y="388" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">The price of bucketing: CUST_A's events stay in order only within each bucket.</text>
+  <text x="490" y="406" text-anchor="middle" font-size="13" fill="#334155">Fine for clicks and telemetry; wrong for a ledger or any state change that must apply in sequence.</text>
+</svg>

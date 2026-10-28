@@ -84,8 +84,10 @@ export const Explanation: React.FC<{ text: string; variant?: 'body1' | 'body2' }
             <Box
               key={i}
               component="pre"
+              // Focusable so a wide example scrolls by keyboard. A group, not a region: a chapter
+              // can hold several examples, and same-named regions are duplicate landmarks.
               tabIndex={0}
-              role="region"
+              role="group"
               aria-label="Code example"
               sx={{
                 m: 0,

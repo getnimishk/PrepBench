@@ -39,7 +39,9 @@ describe('Explanation links', () => {
     const pre = container.querySelector('pre');
     expect(pre).not.toBeNull();
     expect(pre?.textContent).toBe('{ "a": "**not bold**" }\n\n  "b": 1');
-    expect(pre).toHaveAttribute('role', 'region');
+    // A named, focusable group, not a landmark: a chapter holds several examples.
+    expect(screen.getByRole('group', { name: 'Code example' })).toBe(pre);
+    expect(pre).toHaveAttribute('tabindex', '0');
     expect(container.querySelector('strong')).toBeNull();
     expect(screen.getByText('Before')).toBeInTheDocument();
     expect(screen.getByText('After')).toBeInTheDocument();

@@ -54,6 +54,18 @@ stages; evidence items carry `correct`) changes a topic's recommended next step 
 never its status: only a demonstration completes a topic. A finished ADF lab run's explanation is
 read-only. Topic prerequisites are not recorded anywhere, so none are shown -- adding them is a data decision.
 
+**The Apache Kafka study guide (pack `kafka`, v1, 2026-10-28).** 21 chapters covering all 45 topics of the
+learner's Apache Kafka Mastery Roadmap (every topic Full), with hands-on steps for the learner's own Kafka 4.3 KRaft
+install on Windows, written against the 4.3 docs. Every fact traces to `docs/research/kafka-documentation-notes.md`
+(Apache Kafka 4.3 and named Confluent pages, plus the 4.3 source where the docs are silent); §20 there records where the
+learner's ChatGPT-era notes and images disagree with the docs, and the guide follows the docs. Chapters are written
+as Markdown in `backend/app/content/packs/kafka/src/` and built into `v1.json` by `backend/scripts/build_content_pack.py`;
+edit the sources and rebuild, never the JSON (`tests/test_kafka_pack.py` fails if they differ, a table isn't last in
+its section, a section is cited that the notes lack, or a 4.3-deprecated tool option appears). Packs attach only to
+skills (the settled D1; the learner chose to keep it), so the guide is for a **separate "Kafka" skill**: CCDAK stays
+the certification. Moving the Kafka roadmap from CCDAK to that skill is a learner action (Roadmaps: unlink, then
+assign), never done from code. No Kafka scenarios, lab or CCDAK question bank yet; those are the next steps.
+
 **Settled decisions, don't reopen these:**
 - The header Settings button stays, even though it isn't in the prototype — kept for
   quick access, at the user's request.

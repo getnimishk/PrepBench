@@ -1,0 +1,196 @@
+{
+  "pack_id": "kafka",
+  "version": 1,
+  "title": "Apache Kafka",
+  "summary": "Stores events in partitioned, replicated logs that many applications read independently",
+  "docs_url": "https://kafka.apache.org/43/",
+  "source_notes": "docs/research/kafka-documentation-notes.md",
+  "diagnostic_questions": [
+    {
+      "id": "kafka-vs-queue",
+      "topic": "Kafka versus a message queue",
+      "question": "How is Kafka different from a traditional message queue, and when would you not use it?",
+      "points": [
+        "Kafka keeps events in a retained, append-only log; reading does not delete them.",
+        "Each consumer group keeps its own offsets, so many applications read the same topic independently and can replay.",
+        "Inside one group, partitions are shared out among consumers for parallel work.",
+        "Ordering is per partition, not across a whole topic.",
+        "Not the right tool for synchronous request-response, or a small queue needing per-message routing and acknowledgement."
+      ],
+      "keywords": [
+        "kafka",
+        "event stream",
+        "streaming",
+        "message queue",
+        "pub/sub",
+        "publish-subscribe",
+        "event-driven",
+        "messaging"
+      ],
+      "chapter": "what-it-is"
+    },
+    {
+      "id": "kafka-ordering-keys",
+      "topic": "Ordering and partition keys",
+      "question": "A topic has 12 partitions. How do you keep each order's events in sequence, and what happens if one customer sends most of the traffic?",
+      "points": [
+        "Records with the same key go to the same partition, where order is preserved.",
+        "Key by the smallest entity that must be ordered, such as the order id.",
+        "A dominant key makes one hot partition; adding partitions does not split one key.",
+        "Remedies: bucket the key, relax ordering where allowed, isolate the tenant, or aggregate, each giving something up.",
+        "Adding partitions later remaps keys and briefly breaks per-key order."
+      ],
+      "keywords": [
+        "partition",
+        "ordering",
+        "partition key",
+        "hot partition",
+        "skew",
+        "throughput",
+        "scalab",
+        "scaling"
+      ],
+      "chapter": "keys"
+    },
+    {
+      "id": "kafka-durability",
+      "topic": "Durability settings",
+      "question": "Which settings make sure an acknowledged write survives a broker failure, and what do you trade for it?",
+      "points": [
+        "Replication factor 3 so each partition has copies on three brokers.",
+        "acks=all, so the leader waits for every in-sync replica.",
+        "min.insync.replicas=2, so writes are refused instead of acknowledged on a single copy.",
+        "Unclean leader election off, so an out-of-sync replica never becomes leader.",
+        "The trade: some write availability when brokers are down, and a little latency."
+      ],
+      "keywords": [
+        "durab",
+        "replication",
+        "high availability",
+        "reliab",
+        "data loss",
+        "in-sync replica",
+        "resilien"
+      ],
+      "chapter": "replication"
+    },
+    {
+      "id": "kafka-delivery-semantics",
+      "topic": "Delivery semantics",
+      "question": "How would you make sure a payment event is not lost and not applied twice?",
+      "points": [
+        "At-least-once by default: producer retries, consumer commits after processing.",
+        "The idempotent producer removes retry duplicates within a producer session.",
+        "Transactions plus read_committed give exactly-once only between Kafka topics.",
+        "For the payment system itself, an idempotency key so a repeated event is harmless.",
+        "Commit before processing loses records on a crash; commit after processing repeats them."
+      ],
+      "keywords": [
+        "exactly-once",
+        "exactly once",
+        "at-least-once",
+        "duplicate",
+        "idempoten",
+        "transactional",
+        "payment",
+        "delivery semantics",
+        "delivery guarantee"
+      ],
+      "chapter": "delivery"
+    },
+    {
+      "id": "kafka-consumer-lag",
+      "topic": "Consumer lag",
+      "question": "A consumer group is falling behind. How do you find out why, and what do you do?",
+      "points": [
+        "Measure lag per partition: log-end offset minus committed offset, with kafka-consumer-groups.",
+        "Lag on one partition suggests a hot key or a poison record; on all, slow processing or too few consumers.",
+        "Check what consumers wait on (database, API) before scaling them.",
+        "More consumers help only up to the partition count.",
+        "Watch for rebalance storms: processing longer than max.poll.interval.ms."
+      ],
+      "keywords": [
+        "consumer lag",
+        "latency",
+        "backlog",
+        "consumer group",
+        "performance",
+        "monitoring",
+        "bottleneck"
+      ],
+      "chapter": "rebalancing"
+    },
+    {
+      "id": "kafka-failure-handling",
+      "topic": "Failure handling",
+      "question": "The downstream payment API is down for an hour. How should your Kafka consumer behave?",
+      "points": [
+        "Separate poison records (dead-letter topic) from transient failures (retry).",
+        "Bounded retries with exponential backoff and jitter, and a timeout on every call.",
+        "A circuit breaker so the consumer stops calling a dependency that is down.",
+        "Retry topics for waits longer than a poll interval, accepting the loss of per-key order.",
+        "Kafka buffers the backlog only within retention; watch lag and degrade gracefully."
+      ],
+      "keywords": [
+        "retry",
+        "retries",
+        "dead letter",
+        "dead-letter",
+        "dlq",
+        "circuit breaker",
+        "resilien",
+        "failure",
+        "incident",
+        "fault toleran",
+        "error handling"
+      ],
+      "chapter": "failures"
+    },
+    {
+      "id": "kafka-schema-evolution",
+      "topic": "Schema evolution",
+      "question": "How do you let a producer team change an event's schema without breaking consumers?",
+      "points": [
+        "Use Avro, Protobuf or JSON Schema with a schema registry; records carry a schema ID.",
+        "The registry checks each new version against the subject's compatibility mode.",
+        "BACKWARD (the default): add fields with defaults; upgrade consumers first.",
+        "Protobuf: never change or reuse field numbers; reserve deleted ones.",
+        "A registry checks registrations, not every record, so restrict who writes."
+      ],
+      "keywords": [
+        "schema",
+        "avro",
+        "protobuf",
+        "data contract",
+        "data format",
+        "compatib",
+        "governance",
+        "data quality"
+      ],
+      "chapter": "schemas"
+    },
+    {
+      "id": "kafka-multi-region",
+      "topic": "Disaster recovery",
+      "question": "How would a Kafka-based platform survive the loss of a whole region?",
+      "points": [
+        "In-cluster replication across zones covers brokers and zones, not the cluster or region.",
+        "A second cluster, replicated with MirrorMaker 2 or Confluent Cluster Linking.",
+        "Cross-cluster replication is asynchronous, so the RPO is the replication lag.",
+        "Active-passive for strict consistency; active-active needs conflict rules.",
+        "A rehearsed failover for producers and consumers, and backups outside Kafka for data that can't be regenerated."
+      ],
+      "keywords": [
+        "disaster recovery",
+        "multi-region",
+        "region",
+        "rpo",
+        "rto",
+        "business continuity",
+        "failover",
+        "geo-replication"
+      ],
+      "chapter": "multi-cluster"
+    }
+  ]
+}
