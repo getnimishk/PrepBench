@@ -14,6 +14,7 @@ import {
 import {
   RoadmapDetail, RoadmapResource, RoadmapResourcePurpose, RoadmapSchedule, RoadmapTopic, RoadmapTopicStatus,
 } from '../types/roadmap';
+import { RoadmapOwnerNotice } from '../components/roadmap/RoadmapOwnerNotice';
 import { RoadmapTableView, type StatusFilter } from '../components/roadmap/RoadmapTableView';
 import { nextRoadmapTopic } from '../services/roadmapNext';
 import { RoadmapJourneyView } from '../components/roadmap/RoadmapJourneyView';
@@ -390,6 +391,8 @@ export const RoadmapDetailPage: React.FC = () => {
           </>
         )}
       />
+
+      <RoadmapOwnerNotice ownerId={roadmap.subject_id} />
 
       <Section>
         <Panel component="section" aria-labelledby="roadmap-next-step">

@@ -16,6 +16,7 @@ import type {
   RoadmapDetail, RoadmapTopic, RoadmapTopicStatus, TopicDemonstration,
 } from '../types/roadmap';
 import { nextRoadmapTopic } from '../services/roadmapNext';
+import { RoadmapOwnerNotice } from '../components/roadmap/RoadmapOwnerNotice';
 import { LoadingState } from '../components/common/States';
 import {
   Actions, Bar, Detail, Eyebrow, Good, Grid, Metric, MetricRow, Note, PageHead, Panel, Pill, Row, Section, Sub,
@@ -269,6 +270,8 @@ export const RoadmapTopicPage: React.FC = () => {
           {topic.estimated_hours != null && ` · ${topic.estimated_hours}h estimated`}
         </Detail>
       </Actions>
+
+      <RoadmapOwnerNotice ownerId={roadmap.subject_id} />
 
       {actionError && <Alert severity="error" sx={{ mt: 2 }}>{actionError}</Alert>}
 
