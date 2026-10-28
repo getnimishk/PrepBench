@@ -7,7 +7,7 @@ test_content_packs.py
 
 The content-pack foundation (skills-and-content-packs-plan.md, Phase 1):
 
-  * the shipped `adf` and `adls` packs load, validate, and cross-reference
+  * the shipped `adf`, `adls` and `kafka` packs load, validate, and cross-reference
     correctly (their own chapters, and each other's -- see
     EXPECTED_CHAPTER_REFERENCES below)
   * a malformed pack file is skipped, never fatal
@@ -209,6 +209,72 @@ EXPECTED_CHAPTER_REFERENCES = {
         ("namespace", 6, "protection"),
         ("protection", 2, "namespace"),
     ],
+    "kafka": [
+        ("what-it-is", 7, "consumer"),
+        ("what-it-is", 7, "consumer"),
+        ("what-it-is", 10, "keys"),
+        ("what-it-is", 12, "replication"),
+        ("log", 1, "what-it-is"),
+        ("log", 6, "producer"),
+        ("log", 7, "consumer"),
+        ("log", 10, "keys"),
+        ("log", 10, "keys"),
+        ("log", 12, "replication"),
+        ("log", 13, "retention"),
+        ("log", 13, "retention"),
+        ("cluster", 12, "replication"),
+        ("cluster", 12, "replication"),
+        ("first-cluster", 9, "rebalancing"),
+        ("first-cluster", 12, "replication"),
+        ("first-cluster", 16, "schemas"),
+        ("topic-design", 10, "keys"),
+        ("topic-design", 12, "replication"),
+        ("topic-design", 13, "retention"),
+        ("topic-design", 16, "schemas"),
+        ("topic-design", 16, "schemas"),
+        ("topic-design", 19, "security"),
+        ("producer", 8, "delivery"),
+        ("producer", 12, "replication"),
+        ("consumer", 8, "delivery"),
+        ("consumer", 9, "rebalancing"),
+        ("consumer", 9, "rebalancing"),
+        ("consumer", 10, "keys"),
+        ("delivery", 6, "producer"),
+        ("delivery", 7, "consumer"),
+        ("delivery", 18, "streams"),
+        ("rebalancing", 7, "consumer"),
+        ("rebalancing", 10, "keys"),
+        ("rebalancing", 10, "keys"),
+        ("rebalancing", 14, "failures"),
+        ("rebalancing", 14, "failures"),
+        ("keys", 6, "producer"),
+        ("throughput", 6, "producer"),
+        ("throughput", 6, "producer"),
+        ("throughput", 9, "rebalancing"),
+        ("throughput", 10, "keys"),
+        ("throughput", 15, "monitoring"),
+        ("replication", 15, "monitoring"),
+        ("monitoring", 9, "rebalancing"),
+        ("monitoring", 12, "replication"),
+        ("schemas", 14, "failures"),
+        ("schemas", 19, "security"),
+        ("connect", 13, "retention"),
+        ("connect", 14, "failures"),
+        ("connect", 16, "schemas"),
+        ("connect", 18, "streams"),
+        ("streams", 8, "delivery"),
+        ("streams", 9, "rebalancing"),
+        ("streams", 9, "rebalancing"),
+        ("streams", 13, "retention"),
+        ("streams", 14, "failures"),
+        ("security", 5, "topic-design"),
+        ("multi-cluster", 12, "replication"),
+        ("multi-cluster", 12, "replication"),
+        ("system-design", 7, "consumer"),
+        ("system-design", 8, "delivery"),
+        ("system-design", 13, "retention"),
+        ("system-design", 14, "failures"),
+    ],
 }
 
 
@@ -229,6 +295,13 @@ def test_adf_pack_shape():
     assert len(pack.diagnostic_questions) == 10
 
 
+def test_kafka_pack_shape():
+    pack = _pack("kafka")
+    assert pack.chapter_count == 21
+    assert pack.scenario_count == 0
+    assert len(pack.diagnostic_questions) == 8
+
+
 def test_adls_pack_shape():
     pack = _pack("adls")
     assert pack.chapter_count == 11
@@ -236,21 +309,21 @@ def test_adls_pack_shape():
     assert len(pack.diagnostic_questions) == 2
 
 
-@pytest.mark.parametrize("pack_id", ["adf", "adls"])
+@pytest.mark.parametrize("pack_id", ["adf", "adls", "kafka"])
 def test_chapter_ids_are_unique_within_a_pack(pack_id):
     pack = _pack(pack_id)
     ids = [c.id for c in pack.chapters]
     assert len(ids) == len(set(ids))
 
 
-@pytest.mark.parametrize("pack_id", ["adf", "adls"])
+@pytest.mark.parametrize("pack_id", ["adf", "adls", "kafka"])
 def test_scenario_ids_are_unique_within_a_pack(pack_id):
     pack = _pack(pack_id)
     ids = [s.id for level in pack.scenario_levels for s in level.scenarios]
     assert len(ids) == len(set(ids))
 
 
-@pytest.mark.parametrize("pack_id", ["adf", "adls"])
+@pytest.mark.parametrize("pack_id", ["adf", "adls", "kafka"])
 def test_scenario_chapter_references_resolve(pack_id):
     pack = _pack(pack_id)
     chapter_ids = {c.id for c in pack.chapters}
@@ -262,7 +335,7 @@ def test_scenario_chapter_references_resolve(pack_id):
             )
 
 
-@pytest.mark.parametrize("pack_id", ["adf", "adls"])
+@pytest.mark.parametrize("pack_id", ["adf", "adls", "kafka"])
 def test_practice_link_scenario_ids_resolve(pack_id):
     pack = _pack(pack_id)
     scenario_ids = {s.id for level in pack.scenario_levels for s in level.scenarios}
@@ -274,7 +347,7 @@ def test_practice_link_scenario_ids_resolve(pack_id):
             )
 
 
-@pytest.mark.parametrize("pack_id", ["adf", "adls"])
+@pytest.mark.parametrize("pack_id", ["adf", "adls", "kafka"])
 def test_diagnostic_question_chapter_references_resolve(pack_id):
     pack = _pack(pack_id)
     chapter_ids = {c.id for c in pack.chapters}
@@ -285,7 +358,7 @@ def test_diagnostic_question_chapter_references_resolve(pack_id):
         )
 
 
-@pytest.mark.parametrize("pack_id", ["adf", "adls"])
+@pytest.mark.parametrize("pack_id", ["adf", "adls", "kafka"])
 def test_no_bold_markdown_in_table_cells(pack_id):
     """Table cells are plain text (the plan's pack-format note)."""
     pack = _pack(pack_id)
@@ -300,7 +373,7 @@ def test_no_bold_markdown_in_table_cells(pack_id):
                     )
 
 
-@pytest.mark.parametrize("pack_id", ["adf", "adls"])
+@pytest.mark.parametrize("pack_id", ["adf", "adls", "kafka"])
 def test_chapter_n_cross_references_point_at_the_right_chapter(pack_id):
     """Every "chapter N" mention resolves to the chapter this content actually
     means -- not just to whatever chapter happens to sit at position N today."""
@@ -414,6 +487,7 @@ def test_list_content_packs():
     by_id = {p["pack_id"]: p for p in resp.json()}
     assert by_id["adf"]["chapter_count"] == 23
     assert by_id["adls"]["chapter_count"] == 11
+    assert by_id["kafka"]["chapter_count"] == 21
 
 
 def test_get_content_pack_detail_and_unknown_pack_404():
