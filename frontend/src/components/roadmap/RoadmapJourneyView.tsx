@@ -6,6 +6,7 @@ import React from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Box, Button } from '@mui/material';
 import { RoadmapPhase } from '../../types/roadmap';
+import { nextRoadmapTopic } from '../../services/roadmapNext';
 import { Bar, Detail, Panel, PanelHead, Pill, Row, Section } from '../ui/primitives';
 
 interface Props {
@@ -34,6 +35,9 @@ export const RoadmapJourneyView: React.FC<Props> = ({ roadmapId, phases, onOpenP
     );
   }
 
+  // The same topic the page's main action names; its phase is where the learner is.
+  const next = nextRoadmapTopic(phases);
+
   return (
     <Section>
       <Panel component="section" aria-labelledby="phase-overview-heading">
@@ -43,7 +47,7 @@ export const RoadmapJourneyView: React.FC<Props> = ({ roadmapId, phases, onOpenP
           titleId="phase-overview-heading"
           aside={<Button variant="outlined" component={RouterLink} to={`/roadmaps/${roadmapId}/edit`}>Edit plan</Button>}
         />
-        {phases.map((phase, index) => {
+        {phases.map((phase) => {
           const counted = phase.topics.filter((t) => t.status !== 'skipped');
           const done = counted.filter((t) => t.status === 'completed').length;
           const pct = counted.length > 0 ? Math.round((done / counted.length) * 100) : 0;
@@ -52,8 +56,17 @@ export const RoadmapJourneyView: React.FC<Props> = ({ roadmapId, phases, onOpenP
             : null;
           const firstTopics = phase.topics.slice(0, 2).map((t) => t.title).join(', ')
             + (phase.topics.length > 2 ? '…' : '');
-          // Where the learner is: the first phase with a topic still to do.
-          const current = index === phases.findIndex((ph) => ph.topics.some((t) => t.status === 'not_started' || t.status === 'in_progress'));
+          // A direct next action on each phase; only the current phase's goes to the roadmap's next topic.
+          const current = next?.phase.id === phase.id;
+          const phaseNext = current
+            ? next.topic
+            : (phase.topics.find((t) => t.status === 'in_progress')
+              ?? phase.topics.find((t) => t.status !== 'completed' && t.status !== 'skipped'));
+          // The accessible name starts with the visible label (WCAG 2.5.3).
+          // The current phase's label is the roadmap panel's own, so the two read as one action.
+          const phaseLabel = current
+            ? (next.topic.status === 'in_progress' ? 'Resume learning' : 'Start next topic')
+            : phaseNext?.status === 'in_progress' ? 'Continue phase' : 'Start phase';
           return (
             <Row
               key={phase.id}
@@ -75,9 +88,21 @@ export const RoadmapJourneyView: React.FC<Props> = ({ roadmapId, phases, onOpenP
                 </Box>
               )}
               action={(
-                <Button variant="outlined" onClick={() => onOpenPhase(phase.id)} aria-label={`Open ${phase.name}`}>
-                  Open
-                </Button>
+                <Box sx={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  {phaseNext && (
+                    <Button
+                      variant={current ? 'contained' : 'outlined'}
+                      component={RouterLink}
+                      to={`/roadmaps/${roadmapId}/topics/${phaseNext.id}`}
+                      aria-label={`${phaseLabel}: ${phase.name}, ${phaseNext.title}`}
+                    >
+                      {phaseLabel}
+                    </Button>
+                  )}
+                  <Button variant="text" onClick={() => onOpenPhase(phase.id)} aria-label={`View topics in ${phase.name}`}>
+                    View topics
+                  </Button>
+                </Box>
               )}
             />
           );

@@ -71,7 +71,50 @@ describe('RoadmapTopicPage', () => {
 
     expect(await screen.findByText(/Marked complete without a demonstration/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Demonstrate' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Confirm mastery before moving on', level: 3 })).toBeInTheDocument();
+    const hero = screen.getByRole('region', { name: 'Recommended next step' });
+    expect(within(hero).getByRole('button', { name: 'Demonstrate mastery' })).toBeInTheDocument();
+    expect(within(hero).getByRole('button', { name: 'Review roadmap' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Demonstrate again' })).not.toBeInTheDocument();
+  });
+
+  it('sends a demonstrated topic to the next topic still to do, not one already completed', async () => {
+    api.getRoadmap.mockResolvedValue({
+      id: 3, title: 'PSM I plan',
+      phases: [{ id: 1, name: 'Scrum Theory', topics: [
+        topic({ id: 7, status: 'completed' }), topic({ id: 8, title: 'Done', status: 'completed' }), topic({ id: 9, title: 'Open one' }),
+      ] }],
+    });
+    api.getTopicDemonstrations.mockResolvedValue([demonstration]);
+    renderAt('/roadmaps/3/topics/7');
+
+    expect(await screen.findByRole('button', { name: 'Next: Open one' })).toBeInTheDocument();
+  });
+
+  it('names the same next topic as the roadmap: one in progress, even in an earlier phase', async () => {
+    api.getRoadmap.mockResolvedValue({
+      id: 3, title: 'PSM I plan',
+      phases: [
+        { id: 1, name: 'Scrum Theory', topics: [topic({ id: 5, title: 'Underway', status: 'in_progress' })] },
+        { id: 2, name: 'Events', topics: [topic({ id: 7, status: 'completed' }), topic({ id: 9, title: 'After this' })] },
+      ],
+    });
+    api.getTopicDemonstrations.mockResolvedValue([demonstration]);
+    renderAt('/roadmaps/3/topics/7');
+
+    expect(await screen.findByRole('button', { name: 'Next: Underway' })).toBeInTheDocument();
+  });
+
+  it('says the roadmap is finished only when no topic is left to do', async () => {
+    api.getRoadmap.mockResolvedValue({
+      id: 3, title: 'PSM I plan',
+      phases: [{ id: 1, name: 'Scrum Theory', topics: [topic({ id: 6, title: 'Earlier' }), topic({ id: 7, status: 'completed' })] }],
+    });
+    api.getTopicDemonstrations.mockResolvedValue([demonstration]);
+    renderAt('/roadmaps/3/topics/7');
+
+    expect(await screen.findByRole('button', { name: 'Next: Earlier' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Roadmap topics complete' })).not.toBeInTheDocument();
   });
 
   it('says nothing of the kind once a demonstration exists', async () => {
@@ -139,6 +182,10 @@ describe('TopicDemonstratePage and TopicGuidePage when they cannot load', () => 
     expect(screen.getByText('Full Coverage')).toBeInTheDocument();
     const readBtn = screen.getByRole('link', { name: 'Read Study Guide' });
     expect(readBtn).toHaveAttribute('href', '/learn/guides/adf/what-it-is?roadmap=3&topic=7');
+    expect(screen.getByRole('region', { name: 'Recommended next step' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Start learning' })).toHaveAttribute('href', '/learn/guides/adf/what-it-is?roadmap=3&topic=7');
+    // The hero holds the page's one primary action; the guide link beside the chapters is secondary.
+    expect(readBtn).toHaveClass('MuiButton-outlined');
     expect(screen.getByRole('button', { name: 'Notes & AI draft' })).toBeInTheDocument();
   });
 

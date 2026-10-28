@@ -145,7 +145,52 @@ describe('RoadmapDetailPage', () => {
     await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
     expect(screen.getByText('Core Foundations')).toBeInTheDocument();
     expect(screen.getByText('Topic 1')).toBeInTheDocument();
-    expect(screen.getByText('Topic 2')).toBeInTheDocument();
+    // Topic 2 is the recommended next topic: once in the learning-path panel, once in the table.
+    expect(screen.getAllByText('Topic 2')).toHaveLength(2);
+    expect(screen.getByRole('region', { name: 'Your learning path' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Start next topic/ })).toHaveAttribute('href', '/roadmaps/1/topics/2');
+  });
+
+  it('resumes an in-progress topic in a later phase ahead of an unstarted earlier one', async () => {
+    mockGetRoadmap.mockResolvedValue(makeDetail({
+      phases: [
+        { id: 1, roadmap_id: 1, name: 'Phase A', order_index: 0, topics: [makeTopic(1, { phase_id: 1 })] },
+        { id: 2, roadmap_id: 1, name: 'Phase B', order_index: 1, topics: [makeTopic(3, { phase_id: 2, status: 'in_progress' })] },
+      ],
+    }));
+    renderPage();
+    const hero = await screen.findByRole('region', { name: 'Your learning path' });
+    expect(within(hero).getByRole('link', { name: /Resume learning/ })).toHaveAttribute('href', '/roadmaps/1/topics/3');
+    expect(within(hero).getByText(/Phase B/)).toBeInTheDocument();
+  });
+
+  it('offers no start action when every topic is completed or skipped', async () => {
+    mockGetRoadmap.mockResolvedValue(makeDetail({
+      phases: [{ id: 1, roadmap_id: 1, name: 'Phase A', order_index: 0, topics: [makeTopic(1, { phase_id: 1, status: 'completed' }), makeTopic(2, { phase_id: 1, status: 'skipped' })] }],
+    }));
+    renderPage();
+    const hero = await screen.findByRole('region', { name: 'Your learning path' });
+    expect(within(hero).queryByRole('link', { name: /Start next topic|Resume learning/ })).not.toBeInTheDocument();
+    expect(within(hero).getByRole('link', { name: 'Review roadmap' })).toHaveAttribute('href', '/roadmaps/1/edit');
+    expect(within(hero).getByRole('heading', { name: 'Roadmap topics complete', level: 3 })).toBeInTheDocument();
+  });
+
+  it('does not call a roadmap with no topics complete', async () => {
+    mockGetRoadmap.mockResolvedValue(makeDetail({
+      phases: [{ id: 1, roadmap_id: 1, name: 'Phase A', order_index: 0, topics: [] }],
+    }));
+    renderPage();
+    const hero = await screen.findByRole('region', { name: 'Your learning path' });
+    expect(within(hero).getByRole('heading', { name: 'No topics yet', level: 3 })).toBeInTheDocument();
+    expect(within(hero).queryByText(/complete/i)).not.toBeInTheDocument();
+    expect(within(hero).getByRole('link', { name: 'Add topics' })).toHaveAttribute('href', '/roadmaps/1/edit');
+  });
+
+  it('names the next topic in a heading below the section heading', async () => {
+    renderPage();
+    const hero = await screen.findByRole('region', { name: 'Your learning path' });
+    expect(within(hero).getByRole('heading', { name: 'Your learning path', level: 2 })).toBeInTheDocument();
+    expect(within(hero).getByRole('heading', { name: 'Topic 2', level: 3 })).toBeInTheDocument();
   });
 
   it('updates a topic status and refreshes progress without a full reload', async () => {
@@ -153,7 +198,7 @@ describe('RoadmapDetailPage', () => {
     mockUpdateRoadmapTopic.mockResolvedValue(makeTopic(2, { status: 'in_progress' }));
     renderPage();
 
-    await waitFor(() => expect(screen.getByText('Topic 2')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText('Topic 2').length).toBeGreaterThan(0));
 
     mockGetRoadmap.mockResolvedValue(makeDetail({
       progress: { ...makeDetail().progress, not_started_count: 0, in_progress_count: 1 },
@@ -174,7 +219,7 @@ describe('RoadmapDetailPage', () => {
   it('does not let a topic be completed from the dropdown', async () => {
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(screen.getByText('Topic 2')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText('Topic 2').length).toBeGreaterThan(0));
 
     await user.click(screen.getByLabelText('Status for Topic 2'));
     const completed = await screen.findByRole('option', { name: /demonstrate the topic to complete it/ });
@@ -295,7 +340,7 @@ describe('RoadmapDetailPage', () => {
     mockUpdateRoadmapTopic.mockResolvedValue(makeTopic(2, { evidence_notes: 'Built a cluster' }));
     renderPage();
 
-    await waitFor(() => expect(screen.getByText('Topic 2')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText('Topic 2').length).toBeGreaterThan(0));
     await user.click(screen.getByRole('button', { name: /notes for topic 2/i }));
 
     const dialog = await screen.findByRole('dialog');
@@ -418,7 +463,8 @@ describe('RoadmapDetailPage sheet tabs', () => {
     expect(screen.getByRole('heading', { name: 'Glossary' })).toBeInTheDocument();
     expect(screen.getByText('Glossary cell')).toBeInTheDocument();
     expect(screen.queryByText('Commands cell')).not.toBeInTheDocument();
-    expect(screen.queryByText('Topic 1')).not.toBeInTheDocument();
+    // The syllabus table is not shown; Topic 1 appears only in the learning-path panel.
+    expect(screen.getAllByText('Topic 1')).toHaveLength(1);
   });
 
   it('opens the syllabus on a phase picked in the journey view', async () => {
@@ -428,11 +474,11 @@ describe('RoadmapDetailPage sheet tabs', () => {
     await waitFor(() => expect(screen.getByText('Apache Kafka Mastery')).toBeInTheDocument());
 
     await user.click(screen.getByRole('tab', { name: 'Progress Tracker' }));
-    await user.click(screen.getByRole('button', { name: 'Open Phase B' }));
+    await user.click(screen.getByRole('button', { name: 'View topics in Phase B' }));
 
     expect(screen.getByRole('tab', { name: 'Master Syllabus' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('Topic 3')).toBeInTheDocument();
-    expect(screen.queryByText('Topic 1')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Topic 1')).toHaveLength(1);
   });
 
   it('gives several syllabus sheets one tab and names the others', async () => {

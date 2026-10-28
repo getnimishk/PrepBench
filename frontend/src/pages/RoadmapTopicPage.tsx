@@ -15,6 +15,7 @@ import type { EvidenceItem } from '../types/portfolio';
 import type {
   RoadmapDetail, RoadmapTopic, RoadmapTopicStatus, TopicDemonstration,
 } from '../types/roadmap';
+import { nextRoadmapTopic } from '../services/roadmapNext';
 import { LoadingState } from '../components/common/States';
 import {
   Actions, Bar, Detail, Eyebrow, Good, Grid, Metric, MetricRow, Note, PageHead, Panel, Pill, Row, Section, Sub,
@@ -174,6 +175,9 @@ export const RoadmapTopicPage: React.FC = () => {
 
   const previous = index > 0 ? ordered[index - 1].topic : null;
   const next = index < ordered.length - 1 ? ordered[index + 1].topic : null;
+  // Where the hero sends a finished topic: the roadmap's own next topic, so this
+  // page and the roadmap's "Resume learning" never disagree.
+  const afterThis = nextRoadmapTopic(roadmap.phases)?.topic ?? null;
   const latest = history[0] ?? null;
   const recheckDue = latest ? new Date(latest.next_recheck_at).getTime() <= Date.now() : false;
   const completed = topic.status === 'completed';
@@ -264,6 +268,64 @@ export const RoadmapTopicPage: React.FC = () => {
       {actionError && <Alert severity="error" sx={{ mt: 2 }}>{actionError}</Alert>}
 
       <Section>
+        <Panel component="section" aria-labelledby="recommended-next-step">
+          <Eyebrow component="h2" id="recommended-next-step">Recommended next step</Eyebrow>
+          {completed && !unevidenced ? (
+            recheckDue ? (
+              <>
+                <Typography variant="h6" component="h3" sx={{ mt: '4px' }}>Refresh your mastery</Typography>
+                <Sub sx={{ mt: '4px', mb: '12px' }}>Your recheck is due. Explain the concept again without looking it up before moving on.</Sub>
+                <Button variant="contained" color="ink" onClick={() => navigate(`/roadmaps/${rid}/topics/${topic.id}/demonstrate`)} disabled={!topic.success_criteria}>Recheck mastery</Button>
+              </>
+            ) : afterThis ? (
+              <>
+                <Typography variant="h6" component="h3" sx={{ mt: '4px' }}>Continue to the next topic</Typography>
+                <Sub sx={{ mt: '4px', mb: '12px' }}>You have demonstrated this topic. Continue with the next topic still to do on this roadmap.</Sub>
+                <Button variant="contained" color="ink" onClick={() => navigate(`/roadmaps/${rid}/topics/${afterThis.id}`)}>Next: {afterThis.title}</Button>
+              </>
+            ) : (
+              <>
+                <Typography variant="h6" component="h3" sx={{ mt: '4px' }}>Roadmap topics complete</Typography>
+                <Sub sx={{ mt: '4px', mb: '12px' }}>Every topic on this roadmap is completed or skipped. Review your evidence or revisit any topic whose recheck is due.</Sub>
+                <Button variant="outlined" onClick={() => navigate(`/roadmaps/${rid}`)}>Return to roadmap</Button>
+              </>
+            )
+          ) : unevidenced ? (
+            <>
+              <Typography variant="h6" component="h3" sx={{ mt: '4px' }}>Confirm mastery before moving on</Typography>
+              <Sub sx={{ mt: '4px', mb: '12px' }}>
+                This topic is marked complete, but PrepBench has no demonstration recorded for it. Explain the success criterion now to establish evidence, or return to the roadmap and correct the status.
+              </Sub>
+              <Actions>
+                <Button variant="contained" color="ink" onClick={() => navigate(`/roadmaps/${rid}/topics/${topic.id}/demonstrate`)} disabled={!topic.success_criteria}>Demonstrate mastery</Button>
+                <Button variant="outlined" onClick={() => navigate(`/roadmaps/${rid}`)}>Review roadmap</Button>
+              </Actions>
+            </>
+          ) : links.chapters.length > 0 ? (
+            <>
+              <Typography variant="h6" component="h3" sx={{ mt: '4px' }}>{topic.status === 'in_progress' ? 'Continue learning this topic' : 'Start by learning the concept'}</Typography>
+              <Sub sx={{ mt: '4px', mb: '12px' }}>Begin with the mapped Study Guide chapter, then use the linked practice and demonstrate the success criterion.</Sub>
+              <Button variant="contained" color="ink" component={RouterLink} to={guideChapterPath(links.packId!, links.chapters[0].id, { roadmapId: rid, topicId: topic.id })}>Start learning</Button>
+            </>
+          ) : links.scenarios.length > 0 || links.experiments.length > 0 ? (
+            <>
+              <Typography variant="h6" component="h3" sx={{ mt: '4px' }}>Practise this topic</Typography>
+              <Sub sx={{ mt: '4px', mb: '12px' }}>There is no mapped Study Guide chapter here yet. Start with the available practice material, then demonstrate the success criterion.</Sub>
+              {links.scenarios.length > 0
+                ? <Button variant="contained" color="ink" component={RouterLink} to={`/scenarios/${links.packId}/${links.scenarios[0].id}`}>Start practice</Button>
+                : <Button variant="contained" color="ink" component={RouterLink} to={links.experiments[0].href}>Open lab</Button>}
+            </>
+          ) : (
+            <>
+              <Typography variant="h6" component="h3" sx={{ mt: '4px' }}>Define your learning path</Typography>
+              <Sub sx={{ mt: '4px', mb: '12px' }}>No mapped chapter, scenario or lab is available for this topic yet. You can still use the success criterion to guide your study and demonstrate what you know.</Sub>
+              <Button variant="contained" color="ink" onClick={() => navigate(`/roadmaps/${rid}/topics/${topic.id}/demonstrate`)} disabled={!topic.success_criteria}>Demonstrate mastery</Button>
+            </>
+          )}
+        </Panel>
+      </Section>
+
+      <Section>
         <Grid columns={2} sx={{ alignItems: 'start' }}>
           <Panel component="section" aria-labelledby="topic-objective">
             <Eyebrow>Learning objective</Eyebrow>
@@ -322,7 +384,7 @@ export const RoadmapTopicPage: React.FC = () => {
                   </>
                 )}
                 <Actions sx={{ mt: '12px' }}>
-                  <Button variant="contained" color="ink" component={RouterLink} to={guideChapterPath(links.packId!, links.chapters[0].id, { roadmapId: rid, topicId: topic.id })}>
+                  <Button variant="outlined" component={RouterLink} to={guideChapterPath(links.packId!, links.chapters[0].id, { roadmapId: rid, topicId: topic.id })}>
                     Read Study Guide
                   </Button>
                   <Button variant="outlined" onClick={() => navigate(`/roadmaps/${rid}/topics/${topic.id}/guide`)}>
@@ -416,7 +478,6 @@ export const RoadmapTopicPage: React.FC = () => {
                 </Button>
                 <Button
                   variant="contained"
-                  color="ink"
                   onClick={() => navigate(`/roadmaps/${rid}/topics/${topic.id}/demonstrate`)}
                   disabled={!topic.success_criteria}
                 >

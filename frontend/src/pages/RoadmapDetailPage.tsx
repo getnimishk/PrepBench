@@ -15,6 +15,7 @@ import {
   RoadmapDetail, RoadmapResource, RoadmapResourcePurpose, RoadmapSchedule, RoadmapTopic, RoadmapTopicStatus,
 } from '../types/roadmap';
 import { RoadmapTableView, type StatusFilter } from '../components/roadmap/RoadmapTableView';
+import { nextRoadmapTopic } from '../services/roadmapNext';
 import { RoadmapJourneyView } from '../components/roadmap/RoadmapJourneyView';
 import { RoadmapGanttView } from '../components/roadmap/RoadmapGanttView';
 import { formatPercentage } from '../components/roadmap/progressDisplay';
@@ -352,6 +353,10 @@ export const RoadmapDetailPage: React.FC = () => {
   const journeyKey = tabs.find((t) => t.kind === 'tracker' || t.kind === 'journey')?.key ?? 'view:journey';
   const syllabusKey = tabs.find((t) => t.kind === 'syllabus')?.key;
   const perTopic = totalHours != null && p.total_topics > 0 ? totalHours / p.total_topics : null;
+  // Resume an active topic first; otherwise choose the first topic not completed or skipped.
+  const nextPick = nextRoadmapTopic(roadmap.phases);
+  const nextTopic = nextPick?.topic ?? null;
+  const hasTopics = roadmap.phases.some((ph) => ph.topics.length > 0);
 
   return (
     <Box>
@@ -385,6 +390,59 @@ export const RoadmapDetailPage: React.FC = () => {
           </>
         )}
       />
+
+      <Section>
+        <Panel component="section" aria-labelledby="roadmap-next-step">
+          <Box sx={{ display: 'flex', alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+            <Box sx={{ minWidth: 0, flex: '1 1 320px' }}>
+              <Eyebrow component="h2" id="roadmap-next-step">Your learning path</Eyebrow>
+              {nextTopic ? (
+                <>
+                  <Typography variant="h5" component="h3" sx={{ mt: '4px' }}>{nextTopic.title}</Typography>
+                  <Detail sx={{ mt: '4px' }}>
+                    {nextPick?.phase.name ?? 'Next topic'}
+                    {' · '}
+                    {nextTopic.status === 'in_progress' ? 'Resume where you left off' : 'Recommended next topic'}
+                    {nextTopic.estimated_hours != null ? ` · ${nextTopic.estimated_hours}h estimated` : ''}
+                  </Detail>
+                  {nextTopic.learning_objective && (
+                    <Typography variant="body2" sx={{ mt: '8px', color: 'text.secondary' }}>
+                      {nextTopic.learning_objective}
+                    </Typography>
+                  )}
+                </>
+              ) : !hasTopics ? (
+                // Nothing to learn yet is not the same as everything learnt.
+                <>
+                  <Typography variant="h5" component="h3" sx={{ mt: '4px' }}>No topics yet</Typography>
+                  <Detail sx={{ mt: '4px' }}>Add topics to this roadmap to get a recommended next step.</Detail>
+                </>
+              ) : (
+                <>
+                  <Typography variant="h5" component="h3" sx={{ mt: '4px' }}>Roadmap topics complete</Typography>
+                  <Detail sx={{ mt: '4px' }}>Every topic is completed or skipped. Review your evidence, revisit anything due for a recheck, or update the plan.</Detail>
+                </>
+              )}
+            </Box>
+            {nextTopic ? (
+              <Button
+                variant="contained"
+                color="ink"
+                size="large"
+                component={RouterLink}
+                to={`/roadmaps/${id}/topics/${nextTopic.id}`}
+                sx={{ flexShrink: 0, minHeight: 44 }}
+              >
+                {nextTopic.status === 'in_progress' ? 'Resume learning' : 'Start next topic'} →
+              </Button>
+            ) : (
+              <Button variant="outlined" component={RouterLink} to={`/roadmaps/${id}/edit`} sx={{ minHeight: 44 }}>
+                {hasTopics ? 'Review roadmap' : 'Add topics'}
+              </Button>
+            )}
+          </Box>
+        </Panel>
+      </Section>
 
       <Section>
         <Grid columns={4}>
