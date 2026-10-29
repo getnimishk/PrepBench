@@ -984,6 +984,10 @@ https://docs.databricks.com/aws/en/getting-started/free-edition-limitations (202
 - **Fast-changing items.** Many features carry Beta or Public Preview labels and runtime requirements (automatic CDF needs
   DBR 19+, `INSERT WITH SCHEMA EVOLUTION` DBR 18.1+). The material avoids exam questions that hinge on a preview feature
   or a version number unless the exam outline names it, and gives the version when it matters.
+- **Default task retries:** §11 (from the Jobs pages) says most configurations default to no retry; the notifications
+  page (2026-10-09) says "By default, tasks are retried three times before failing fully". The material says a retry
+  policy should be set explicitly and doesn't state a default.
+- **Out-of-memory errors** have no named error condition in the reference; the material only states what §23.1 says.
 - **Multi-statement transactions:** the warehouse-migration page (2026-09-11, §21.1) says there are no `BEGIN`/`END`
   constructs; the ACID page (2026-10-19, §2.7) describes `BEGIN ATOMIC ... END` across tables with catalog commits. The
   material follows the newer page and never says multi-table transactions are impossible.
@@ -1286,3 +1290,206 @@ https://docs.databricks.com/aws/en/query/formats/parquet (2026-08-26) ; `.../tab
 - **Small files:** many small files are the cost of over-partitioning ("fixed partition boundaries and small-file
   issues common with static partitioning"); `OPTIMIZE` compacts them (§2.4) and liquid clustering avoids the cause.
   Converting a Parquet lake to Delta keeps its old partitioning (§21.2).
+
+## 23. Production operations and troubleshooting
+
+Sources (all read 2026-10-29): https://docs.databricks.com/aws/en/structured-streaming/production (updated 2026-10-26) ;
+`.../structured-streaming/stateful-streaming` (2026-10-09) ; `.../structured-streaming/rocksdb-state-store` (2026-09-11) ;
+`.../jobs/repair-job-failures` (2026-10-09) ; `.../jobs/notifications` (2026-10-09) ; `.../sql/user/alerts/`
+(2026-10-15) ; `.../sql/user/queries/query-profile` (2026-09-11) ; `.../error-messages/` (2026-09-11) ;
+https://learn.microsoft.com/en-us/azure/databricks/compute/troubleshooting/ ; `.../init-scripts/` (2026-09-28) ;
+`.../libraries/` (2026-09-11) ; `.../release-notes/runtime/databricks-runtime-ver` (support lifecycles, 2026-09-11) ;
+`.../lakehouse-architecture/operational-excellence/best-practices` ; `.../lakehouse-architecture/reliability/best-practices` ;
+https://learn.microsoft.com/en-us/azure/databricks/security/keys/ ; `.../admin/disaster-recovery` (2026-09-11) ;
+`.../notebooks/testing` (2025-01-21).
+
+### 23.1 Running streams in production
+
+- Run production streams as **scheduled Lakeflow Jobs or Lakeflow pipelines**, never on all-purpose compute; use jobs
+  compute. Remove `display` and `count` calls. Schedule the job in **Continuous** mode (the Jobs schedule, not the
+  trigger). **Don't enable autoscaling** for Structured Streaming jobs (it has limits when shrinking for streams).
+- **Design for failure:** always configure streams to **restart automatically** (schema evolution needs it, §7.3). The
+  continuous job trigger prevents concurrent runs, starts a new run after a failure, and retries with **exponential
+  backoff**. On restart, the micro-batch planned before the failure runs again; if it failed **out of memory** or was
+  cancelled for being too big, **scale up the compute** to get past it.
+- **Don't use `awaitTermination()`** in jobs: the Jobs service already keeps the run alive while a query is active, and
+  the call blocks tracking (streaming backlog notifications need it). Use it only interactively or locally.
+- **Several streams in one job:** with multiple continuous tasks, a failed task retries on its own only if **Task retry
+  mode** is **On failure**; otherwise the job waits for all tasks to fail, so **a failed stream can stay down while the
+  job looks healthy**. Set On failure plus task failure notifications, or give each critical stream its own job.
+- **Latency:** real-time mode for sub-second needs; for micro-batch, update output mode where supported, a
+  `processingTime` trigger of `0`, a watermark long enough not to drop needed late data, idempotent sinks, and
+  asynchronous progress tracking for continuous streams.
+
+### 23.2 Stateful streaming in production
+
+- Stateful operations: streaming aggregations, `distinct`, `dropDuplicates`, stream-stream joins, custom stateful apps.
+  Misconfigured state "can lead to unexpected latency and production problems".
+- **RocksDB** is the default state store from DBR 17.3; Databricks recommends it with **changelog checkpointing** for
+  all stateful queries. The state store type **can't change between restarts** without a new checkpoint.
+- **Shuffle partitions are fixed when the checkpoint is created**: changing `spark.sql.shuffle.partitions` later has no
+  effect on that query (DBR 18 LTS+ can repartition stateful queries on demand). Recommended: 1-2 times the cluster's
+  cores; compute-optimized workers.
+
+### 23.3 Notifications and alerts
+
+- **Job notifications** on start, success, failure, **duration over a threshold**, **streaming backlog over a
+  threshold**, and continuous-job maintenance; to email or admin-configured destinations (Slack, Microsoft Teams,
+  PagerDuty, webhooks), up to three per event. **Job-level notifications aren't sent for retried tasks**: use task
+  notifications for every failure. "Succeeded with failures" counts as success. Streaming backlog alerts use a 10-minute
+  average and repeat every 30 minutes.
+- **Databricks SQL alerts** run a query on a schedule and notify when a condition on its result is met (states `OK`,
+  `TRIGGERED`, `ERROR`); uses include data quality, cost from system tables, warehouse health and audit events; an alert
+  can run as a **job task** so later tasks branch on it.
+
+### 23.4 Troubleshooting a failed job
+
+- Find it in the job's **Runs** tab and **matrix view**, open the task's **run details** (output, error, metadata).
+  Typical causes: data quality, misconfiguration, insufficient compute. Fixes: edit the task, change cluster size or
+  instance type, ask for higher cloud quotas, or raise **maximum concurrent runs** if runs were skipped.
+- **Repair** re-runs only unsuccessful tasks and their dependents, with the **current** settings. "Lakeflow Jobs doesn't
+  make tasks idempotent": a task that wrote part of its output before failing can **duplicate data** when repaired.
+  Repair needs two or more tasks (a single-task job is re-run with Run now). A repair creates a new job cluster.
+- **Continuous jobs** that keep failing enter **exponential backoff**; the job page shows consecutive failures and the
+  next retry; **Restart run** resets it.
+- Recover a bad load with **time travel / `RESTORE`** (reliability best practices), keeping in mind §2.2's downstream
+  effect.
+
+### 23.5 Reading an error
+
+- Every error has an **error condition** (e.g. `TABLE_OR_VIEW_NOT_FOUND`, some with subconditions), a five-character
+  **SQLSTATE** (`42P01`), a parameterized message and its parameters. **Message text may change between releases**:
+  handle errors by condition or SQLSTATE, never by message text. Python: `PySparkException.getErrorClass()`,
+  `getSqlState()`, `getMessageParameters()`; SQL (DBR 16.3+): `DECLARE EXIT HANDLER` and `GET DIAGNOSTICS`.
+- The catalogue of conditions relevant to this track is §24.
+
+### 23.6 Query profile and query history
+
+- **Query history** lists queries with status (Queued, Running, Finished, Failed, Cancelled), compute, duration
+  breakdown (scheduling, optimization and file pruning, execution), aggregated task time and I/O. The **query profile**
+  is the operator graph with time, rows and memory per operator, a Top operators panel, and performance insights; it
+  shows "exploding joins or full table scans". Not available for results served from the query cache. Needs ownership
+  or `CAN MONITOR` on the warehouse.
+
+### 23.7 Compute that won't start (Azure)
+
+- A first cluster that never responds, with the event log saying "The compute plane network is misconfigured ... Node
+  daemon ping timeout", means **routing or firewall** stops nodes reaching the control plane: test from a VM in the
+  workspace subnet (`nc -zv` to the web app, the SCC relay, artifact storage, the metastore on 3306, log storage), then
+  check for SSL inspection by the firewall. **`METASTORE_DOWN`** events: check for a web application firewall or proxy
+  in the path. (Networking rules: §20.)
+
+### 23.8 Libraries and init scripts
+
+- Libraries (Python, JAR, R) can be compute-scoped; on DBR 13.3 LTS+ with Unity Catalog, install from **Unity Catalog
+  volumes** on standard-access compute (JARs and Maven coordinates may need the allowlist). Libraries in **DBFS** are
+  writable by any workspace user and are discouraged. Check the runtime's preinstalled libraries in its release notes.
+- **Init scripts** run on each node before Spark starts; **serverless doesn't support them**. Databricks recommends
+  platform features (compute policies for configuration and libraries) instead, cluster-scoped over global scripts,
+  never installing libraries through init scripts, pinning OS package versions, and storing scripts in volumes (DBR
+  13.3 LTS+ with Unity Catalog). Many init scripts slow runtime upgrades.
+
+### 23.9 Runtime lifecycle
+
+- A Databricks Runtime version gets about **six months** of feature releases, then **LTS** with stability and security
+  fixes for **three years** from GA; end of support is **three years after GA**, end of life a best-effort six months
+  later. Platform features move through Legacy → Deprecated → End of Support → End of Life.
+
+### 23.10 Environment isolation and catalog strategy
+
+- The workspace is the primary processing environment and catalogs the primary data domain. Separate workspaces for
+  business units or for development, staging and production give isolation (separate admins, stricter production
+  settings, resource limits), at a cost: no notebook collaboration across workspaces, workspace count limits, setup that
+  must be automated, and expensive per-workspace network security. Storage locations can be set at metastore, catalog or
+  schema level to keep data physically separate.
+
+### 23.11 Encryption (Azure)
+
+- **Customer-managed keys** (Premium) from Azure Key Vault or Managed HSM, for three things: **managed disks** (temporary
+  data on compute), **managed services** (notebooks and results, secrets, SQL queries and history, Git credentials in
+  the control plane), and the **DBFS root** storage account. Also on Premium: double (infrastructure) encryption for the
+  DBFS root, and encrypting traffic **between worker nodes**, which is **not encrypted by default**.
+
+### 23.12 High availability and disaster recovery
+
+- **HA** is zone redundancy inside a region (the control plane recovers from a zone failure in about 15 minutes);
+  **DR** is a secondary workspace in another region with replicated data and configuration. Databricks recommends its
+  **managed disaster recovery** (AWS and Azure) for cross-region DR. Active-passive is the common pattern.
+- **RPO** (data loss tolerated) and **RTO** (time to restore) are business decisions. "A DR solution does not mitigate
+  data corruption": corrupted data replicates; use time travel or backups for that. Replicate managed table data with
+  **Deep Clone**, not by relying on geo-redundant storage of the workspace root storage.
+
+### 23.13 Testing
+
+- Unit test functions with pytest (Python), and SQL UDFs for SQL; Databricks recommends keeping Python functions and
+  their tests **outside notebooks** (files in a Git folder), with functions that return one predictable result.
+
+## 24. Error catalogue
+
+Sources: https://docs.databricks.com/aws/en/error-messages/error-classes ("Error conditions in Databricks", updated
+2026-10-01; read 2026-10-29), the pages in §23, and the sections cited per row. The message column paraphrases the
+official message; the condition name and SQLSTATE are exact. "Fix" comes from the message itself or the cited section;
+nothing here is guessed.
+
+### 24.1 Names, types and permissions
+
+| Condition (SQLSTATE) | What it says | What to do |
+|---|---|---|
+| `TABLE_OR_VIEW_NOT_FOUND` (42P01) | the table or view can't be found | check spelling, `current_schema()`, qualify `catalog.schema.table`; `USE CATALOG`/`USE SCHEMA` (§6.3) |
+| `SCHEMA_NOT_FOUND` (42704) | the schema can't be found | as above, with the catalog |
+| `UNRESOLVED_COLUMN` (42703) | a column, variable or parameter can't be resolved | check the name and the DataFrame's columns |
+| `INSUFFICIENT_PERMISSIONS` (42501) | insufficient privileges | grant `USE CATALOG` + `USE SCHEMA` + the object privilege (§6.3) |
+| `INSUFFICIENT_PERMISSIONS_EXT_LOC` (42501) | insufficient privileges on an external location | grant the needed privilege on the external location (§6.2) |
+| `CAST_INVALID_INPUT` (22018) | a malformed value can't be cast | fix the value or type; `try_cast` returns `NULL` instead |
+| `DIVIDE_BY_ZERO` (22012) | division by zero | `try_divide` returns `NULL` instead |
+
+### 24.2 Writes, schemas and MERGE
+
+| Condition (SQLSTATE) | What it says | What to do |
+|---|---|---|
+| `DELTA_INSERT_COLUMN_ARITY_MISMATCH` (42802) | target has N columns, inserted data has M | align the columns, or evolve the schema deliberately (§3) |
+| `DELTA_FAILED_TO_MERGE_FIELDS` (22005) | two fields' definitions can't be merged | a type conflict during schema merge: cast the source or change the table (§3) |
+| `DELTA_MERGE_INCOMPATIBLE_DATATYPE` (42K09) | incompatible data types can't be merged | as above |
+| `DELTA_MULTIPLE_SOURCE_ROW_MATCHING_TARGET_ROW_IN_MERGE` (21506) | several source rows match one target row | deduplicate the source before `MERGE` (§4) |
+| `DELTA_CANNOT_MODIFY_APPEND_ONLY` (42809) | the table only allows appends | it's set append-only on purpose; change the property only if updates are really allowed |
+
+### 24.3 Concurrent writes
+
+| Condition (SQLSTATE) | What it says | What to do |
+|---|---|---|
+| `DELTA_CONCURRENT_APPEND` (2D521) | a concurrent operation added data this transaction conflicts with | optimistic concurrency at work (§2.7): retry; reduce overlap (row-level concurrency with deletion vectors, liquid clustering for concurrent writers: §2.5) |
+| `DELTA_CONCURRENT_DELETE_READ` (2D521) | a concurrent operation deleted data this transaction read | retry the operation |
+| `DELTA_CONCURRENT_WRITE` (2D521) | ConcurrentWriteException: new data written since this transaction read | "try the operation again" |
+| `DELTA_CONCURRENT_TRANSACTION` (2D521) | **several streams use the same checkpoint** to write this table | one checkpoint per query (§8); stop the duplicate |
+| `DELTA_METADATA_CHANGED` (2D521) | metadata changed by a concurrent update | retry; schedule schema and property changes away from writes |
+| `DELTA_PROTOCOL_CHANGED` (2D521) | protocol changed by a concurrent update | retry; protocol upgrades (§2.7) conflict with concurrent writes |
+
+### 24.4 Streaming
+
+| Condition (SQLSTATE) | What it says | What to do |
+|---|---|---|
+| `UNKNOWN_FIELD_EXCEPTION` (KD003) | new fields found while parsing; may be fixed by an automatic retry | Auto Loader `addNewColumns`: let the job restart (§7.3, §23.1) |
+| `CLOUD_FILE_SOURCE_FILE_NOT_FOUND` (42K03) | a notified file no longer exists | don't delete files before they are processed |
+| `DELTA_SCHEMA_CHANGED` (KD007) | the source table's schema changed under the stream | restart; if it repeats, the change is incompatible: new checkpoint |
+| `DELTA_STREAMING_INCOMPATIBLE_SCHEMA_CHANGE` (42KD4) | rename, drop or type change on a streamed table | read-incompatible change: see the doc it links, or a schema tracking location |
+| `DELTA_SOURCE_TABLE_IGNORE_CHANGES` (0A000) | an update/delete in a table read as a stream | `skipChangeCommits` to skip them, or a fresh checkpoint / full refresh to reflect them |
+| Out-of-memory on restart (§23.1) | the replanned micro-batch is too large | scale up the compute to get past it |
+
+### 24.5 Files, history and retention
+
+| Condition (SQLSTATE) | What it says | What to do |
+|---|---|---|
+| `DELTA_FILE_NOT_FOUND_DETAILED` (42K03) | a file in the log is missing: deleted by hand, or `VACUUM` with too short a retention | never delete table files directly; restart with a new checkpoint (§2.3) |
+| `DELTA_VACUUM_RETENTION_PERIOD_TOO_SHORT` (22003) | retention below the safety threshold | keep at least 7 days (§2.3) |
+| `DELTA_CANNOT_VACUUM_LITE` (55000) | LITE can't find all files from the log | run `VACUUM FULL` (§2.3) |
+| `DELTA_TIMESTAMP_EARLIER_THAN_COMMIT_RETENTION` (42816) | timestamp older than the earliest version kept | history is gone past retention (§2.2) |
+| `DELTA_CANNOT_RESTORE_TABLE_VERSION` (22003) | version not in the available range | choose a version in range (§2.2) |
+| `DELTA_UNSUPPORTED_FEATURES_FOR_READ` (56038) | the table needs reader features this runtime lacks | use a newer runtime/client (§2.7) |
+| `FAILED_READ_FILE` (KD001) | error reading a file | see the condition's details; often a corrupt or unexpected file |
+
+### 24.6 Platform and access (not error conditions)
+
+- "The compute plane network is misconfigured ... Node daemon ping timeout" and `METASTORE_DOWN` events: §23.7.
+- `403 Forbidden` from serverless to a firewalled storage account: §20.5.
+- `429 Too Many Requests` above 2,000 concurrent task runs: §11.
+- Runs **skipped** at maximum concurrent runs: §11, §23.4.

@@ -61,6 +61,8 @@ against.
    egress, Private Link kinds, serverless connectivity and storage firewalls): notes §20. *(B 14-18, 20, 81, 118)*. Not
    in the Associate exam, but it is what you'd face running Databricks on Azure.
 
+**Later (2026-10-29):** the production and troubleshooting research (notes §23-§24) has since covered several "needs research" rows below: alerts (A 52, partly), testing (A 58), environment and catalog isolation (A 10, B 91, B 93), disaster recovery (B 74-77, 125-127, in outline), encryption and customer-managed keys (B 79-80), init scripts (B 89) and query profiling (A 50, B 67, partly). They are in roadmap phase 13. The tables keep their original verdicts.
+
 **Add only after researching official pages first:** repartition/coalesce and Spark caching (A 19, 20); ingestion
 metadata and quarantine tables (A 32); environment and catalog isolation strategy (A 10, B 91, B 93); SQL analytics,
 AI/BI dashboards and alerts (A 50-52); OpenSharing (B 96); Kafka and Event Hubs ingestion (B 102); testing Databricks
