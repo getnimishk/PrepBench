@@ -1,0 +1,607 @@
+{
+  "section": 2,
+  "domain": "Apache Kafka Application Development",
+  "questions": [
+    {
+      "id": "D22",
+      "topic": "Transactions",
+      "difficulty": "medium",
+      "sources": [
+        "notes §1",
+        "ccdak §2"
+      ],
+      "q": "What does setting `transactional.id` on a producer do?",
+      "options": [
+        {
+          "t": "It enables transactions and idempotence, and fences older instances",
+          "ok": true
+        },
+        {
+          "t": "It makes every send() block until the record is committed",
+          "why": "Sends are still asynchronous; commits happen through commitTransaction()."
+        },
+        {
+          "t": "It is only a label for logging, like client.id",
+          "why": "It enables transactions and identifies the producer across restarts."
+        },
+        {
+          "t": "It makes the producer write all records to a hidden transactional topic first",
+          "why": "Records go to their normal topics; markers decide visibility."
+        }
+      ],
+      "explain": "`transactional.id` enables transactions and implies idempotence. Reusing it after a crash lets the new instance abort the old instance's open transaction, fencing it."
+    },
+    {
+      "id": "D23",
+      "topic": "Transactions",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §2"
+      ],
+      "q": "A transactional producer calls `beginTransaction()` while a transaction is already open. Why is that a mistake?",
+      "options": [
+        {
+          "t": "Transactions must each use a different topic",
+          "why": "A transaction can span several topics and partitions."
+        },
+        {
+          "t": "A producer can have only one open transaction at a time",
+          "ok": true
+        },
+        {
+          "t": "beginTransaction() can only be called once in a producer's life",
+          "why": "A producer runs many transactions, one after another."
+        },
+        {
+          "t": "The broker allows one transaction per partition at a time",
+          "why": "The limit is per producer: one open transaction."
+        }
+      ],
+      "explain": "The Javadoc notes there can be only one open transaction per producer; the next one starts after the current one is committed or aborted."
+    },
+    {
+      "id": "D24",
+      "topic": "Transactions",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §2"
+      ],
+      "q": "Inside a transaction, `commitTransaction()` throws `ProducerFencedException`. What should the application do?",
+      "options": [
+        {
+          "t": "Call abortTransaction() and retry the same transaction",
+          "why": "Fencing is fatal; abort can't recover a fenced producer."
+        },
+        {
+          "t": "Retry commitTransaction() until it succeeds",
+          "why": "A fenced producer stays fenced."
+        },
+        {
+          "t": "Close the producer: another instance has taken over",
+          "ok": true
+        },
+        {
+          "t": "Lower transaction.timeout.ms and continue",
+          "why": "Timeouts don't undo fencing."
+        }
+      ],
+      "explain": "`ProducerFencedException`, `OutOfOrderSequenceException`, `UnsupportedVersionException` and `AuthorizationException` are fatal for a transactional producer: the only option is `close()`. Other errors: abort the transaction and try again."
+    },
+    {
+      "id": "D25",
+      "topic": "Transactions",
+      "difficulty": "hard",
+      "sources": [
+        "notes §5"
+      ],
+      "q": "A consume-transform-produce application aborts a transaction after processing records from offsets 100-149. What must it do next to avoid skipping those records?",
+      "options": [
+        {
+          "t": "Nothing; the consumer rewinds itself when the transaction aborts",
+          "why": "The stored position reverts, but the consumer doesn't rewind its in-memory position."
+        },
+        {
+          "t": "Commit offset 150 with commitSync()",
+          "why": "That would skip the records whose output was aborted."
+        },
+        {
+          "t": "Restart the brokers",
+          "why": "Nothing on the brokers needs restarting."
+        },
+        {
+          "t": "Seek back to the last committed offsets",
+          "ok": true
+        }
+      ],
+      "explain": "After an abort the committed offsets revert, but the consumer must refetch them itself: the application resets its position (or recreates producer and consumer, which rewinds to the last committed offset)."
+    },
+    {
+      "id": "D26",
+      "topic": "Transactions",
+      "difficulty": "hard",
+      "sources": [
+        "notes §5"
+      ],
+      "q": "In a transactional consume-transform-produce loop, which TWO consumer settings are needed?",
+      "options": [
+        {
+          "t": "enable.auto.commit=false",
+          "ok": true
+        },
+        {
+          "t": "auto.offset.reset=none",
+          "why": "That only decides what happens with no committed offset."
+        },
+        {
+          "t": "isolation.level=read_committed",
+          "ok": true
+        },
+        {
+          "t": "max.poll.records=1",
+          "why": "Batch size doesn't matter to transactions."
+        },
+        {
+          "t": "group.protocol=classic",
+          "why": "Either group protocol works."
+        }
+      ],
+      "explain": "For transactions the consumer turns auto-commit off (offsets go through the producer's transaction) and reads with `read_committed`."
+    },
+    {
+      "id": "D27",
+      "topic": "Transactions",
+      "difficulty": "medium",
+      "sources": [
+        "notes §1",
+        "notes §4"
+      ],
+      "q": "A transaction stays open for 2 minutes with `transaction.timeout.ms` at its default. What happens?",
+      "options": [
+        {
+          "t": "The transaction coordinator aborts it, because it was open longer than 60 s",
+          "ok": true
+        },
+        {
+          "t": "Nothing; transactions have no time limit",
+          "why": "transaction.timeout.ms (default 1 minute) limits them."
+        },
+        {
+          "t": "The producer commits it automatically",
+          "why": "A timed-out transaction is aborted, never committed."
+        },
+        {
+          "t": "The broker raises it to 15 minutes",
+          "why": "15 minutes is the broker's cap on what clients may request."
+        }
+      ],
+      "explain": "The coordinator aborts a transaction open longer than `transaction.timeout.ms` (default 60 000 ms). The broker's `transaction.max.timeout.ms` (15 min) caps what a client may set."
+    },
+    {
+      "id": "D28",
+      "topic": "Consumer API",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §6"
+      ],
+      "q": "A tool must read exactly partitions 0 and 3 of a topic, with no consumer group rebalancing. Which API fits?",
+      "options": [
+        {
+          "t": "subscribe() with a regular expression",
+          "why": "subscribe uses group management, so the group decides the partitions."
+        },
+        {
+          "t": "assign() with the two TopicPartitions",
+          "ok": true
+        },
+        {
+          "t": "subscribe() and then assign() for the two partitions",
+          "why": "Subscription and manual assignment can't be combined."
+        },
+        {
+          "t": "seekToEnd() with no subscription",
+          "why": "A consumer must subscribe or assign before polling or seeking."
+        }
+      ],
+      "explain": "`assign()` is manual assignment: it doesn't use group management, so no rebalance happens. It cannot be combined with `subscribe()`."
+    },
+    {
+      "id": "D29",
+      "topic": "Consumer API",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §6"
+      ],
+      "q": "A consumer is subscribed to `orders`. The code later calls `subscribe(List.of(\"payments\"))`. What is it subscribed to now?",
+      "options": [
+        {
+          "t": "orders and payments",
+          "why": "Subscriptions are not incremental."
+        },
+        {
+          "t": "Nothing; the second call fails",
+          "why": "A new subscribe call is allowed and replaces the old one."
+        },
+        {
+          "t": "orders until the next rebalance, then both",
+          "why": "The new list replaces the old one."
+        },
+        {
+          "t": "Only payments: a new subscription replaces the old one",
+          "ok": true
+        }
+      ],
+      "explain": "Topic subscriptions are not incremental: the new list replaces the current one."
+    },
+    {
+      "id": "D30",
+      "topic": "Consumer API",
+      "difficulty": "easy",
+      "sources": [
+        "ccdak §6"
+      ],
+      "q": "What does `consumer.poll(Duration.ofMillis(500))` return when records are already available?",
+      "options": [
+        {
+          "t": "It returns them at once, without waiting the full 500 ms",
+          "ok": true
+        },
+        {
+          "t": "It always waits 500 ms, then returns everything that arrived",
+          "why": "It returns immediately if records are available."
+        },
+        {
+          "t": "It returns one record per call",
+          "why": "It returns a batch, up to max.poll.records."
+        },
+        {
+          "t": "It throws if fewer than fetch.min.bytes are available",
+          "why": "fetch.min.bytes affects the broker's wait, not an exception."
+        }
+      ],
+      "explain": "`poll` returns immediately if records are available; otherwise it waits up to the timeout and returns an empty set if none arrive."
+    },
+    {
+      "id": "D31",
+      "topic": "Consumer API",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §6"
+      ],
+      "q": "After a bug fix, a consumer must reprocess partition 2 of `orders` from offset 5000. Which call does that?",
+      "options": [
+        {
+          "t": "commitSync() with offset 5000, then wait for a rebalance",
+          "why": "That changes the stored offset, but not the running consumer's position."
+        },
+        {
+          "t": "seekToBeginning() on all partitions",
+          "why": "That rewinds everything to the start, not to 5000."
+        },
+        {
+          "t": "seek(new TopicPartition(\"orders\", 2), 5000)",
+          "ok": true
+        },
+        {
+          "t": "pause() then resume() on partition 2",
+          "why": "Pausing doesn't change position."
+        }
+      ],
+      "explain": "`seek(partition, offset)` overrides the offset the next `poll` fetches from; consumers can rewind to re-consume after a bug fix."
+    },
+    {
+      "id": "D32",
+      "topic": "Consumer API",
+      "difficulty": "medium",
+      "sources": [
+        "notes §22"
+      ],
+      "q": "What is the difference between `commitSync()` and `commitAsync()`?",
+      "options": [
+        {
+          "t": "commitSync commits on the broker; commitAsync commits on the client",
+          "why": "Both store offsets in Kafka."
+        },
+        {
+          "t": "commitAsync commits only every 5 seconds",
+          "why": "That is auto-commit's interval."
+        },
+        {
+          "t": "commitSync blocks until done; commitAsync returns at once",
+          "ok": true
+        },
+        {
+          "t": "commitAsync commits to a different internal topic",
+          "why": "Both write to the same offsets store."
+        }
+      ],
+      "explain": "`commitSync` blocks until the commit succeeds or fails; `commitAsync` doesn't block."
+    },
+    {
+      "id": "D33",
+      "topic": "Consumer API",
+      "difficulty": "medium",
+      "sources": [
+        "notes §22"
+      ],
+      "q": "A consumer commits manually after processing. Where should it commit what it has processed so that a rebalance doesn't cause another member to repeat that work?",
+      "options": [
+        {
+          "t": "In onPartitionsRevoked, before the partitions move",
+          "ok": true
+        },
+        {
+          "t": "In onPartitionsAssigned of the consumer that receives the partitions",
+          "why": "By then the partitions have moved; the new owner can't commit the old owner's progress."
+        },
+        {
+          "t": "In a shutdown hook only",
+          "why": "Rebalances happen while the application is running."
+        },
+        {
+          "t": "Nowhere; Kafka commits on rebalance automatically for manual-commit consumers",
+          "why": "With auto-commit off, nothing is committed for you."
+        }
+      ],
+      "explain": "`onPartitionsRevoked` runs before revoked partitions go to another consumer: the place to commit what was processed."
+    },
+    {
+      "id": "D34",
+      "topic": "Consumer API",
+      "difficulty": "medium",
+      "sources": [
+        "notes §22"
+      ],
+      "q": "An application shares one KafkaConsumer between two threads, one polling and one committing. What is wrong with this?",
+      "options": [
+        {
+          "t": "Nothing; KafkaConsumer is thread safe",
+          "why": "The consumer is not thread safe."
+        },
+        {
+          "t": "Committing needs its own group.id",
+          "why": "Commits belong to the consumer's own group."
+        },
+        {
+          "t": "Only one thread may open a TCP connection to the brokers at a time",
+          "why": "The issue is thread safety of the consumer object."
+        },
+        {
+          "t": "The consumer isn't thread safe; only wakeup() may cross threads",
+          "ok": true
+        }
+      ],
+      "explain": "The consumer is not thread safe. The one exception is `wakeup()`, which another thread can call to break a blocking `poll` with `WakeupException`."
+    },
+    {
+      "id": "D35",
+      "topic": "Consumer API",
+      "difficulty": "hard",
+      "sources": [
+        "notes §22"
+      ],
+      "q": "A consumer's downstream database is overloaded, so it calls `pause()` on its partitions. What must it keep doing to keep them?",
+      "options": [
+        {
+          "t": "Nothing; paused partitions are held for an hour",
+          "why": "Membership still depends on calling poll."
+        },
+        {
+          "t": "Keep calling poll()",
+          "ok": true
+        },
+        {
+          "t": "Commit every second",
+          "why": "Commits don't keep a member in the group."
+        },
+        {
+          "t": "Call wakeup() in a loop",
+          "why": "wakeup() only interrupts a blocking poll."
+        }
+      ],
+      "explain": "`pause()` stops records from paused partitions in later polls, but \"as long as you continue to call poll, the consumer will stay in the group\"."
+    },
+    {
+      "id": "D36",
+      "topic": "Consumer tuning",
+      "difficulty": "medium",
+      "sources": [
+        "notes §2"
+      ],
+      "q": "A consumer sets `fetch.min.bytes=100000` and `fetch.max.wait.ms=500`. A partition has only 2 KB of new data. What does the broker do?",
+      "options": [
+        {
+          "t": "Waits until 100 KB have arrived, however long that takes",
+          "why": "fetch.max.wait.ms caps the wait."
+        },
+        {
+          "t": "Returns an error because there isn't enough data",
+          "why": "It returns what it has after the wait."
+        },
+        {
+          "t": "Waits up to 500 ms for more data, then returns what it has",
+          "ok": true
+        },
+        {
+          "t": "Returns the 2 KB at once",
+          "why": "It first waits up to fetch.max.wait.ms for fetch.min.bytes."
+        }
+      ],
+      "explain": "The broker waits for `fetch.min.bytes` of data or `fetch.max.wait.ms`, whichever comes first. Larger values raise throughput a little and add latency."
+    },
+    {
+      "id": "D37",
+      "topic": "Consumer tuning",
+      "difficulty": "medium",
+      "sources": [
+        "notes §2"
+      ],
+      "q": "A consumer takes about 2 seconds per record. With `max.poll.records` at its default, why is it being removed from its group?",
+      "options": [
+        {
+          "t": "A poll returns up to 500 records: over 16 minutes of work",
+          "ok": true
+        },
+        {
+          "t": "fetch.max.bytes is too small",
+          "why": "Fetch size doesn't cause removal from the group."
+        },
+        {
+          "t": "The session timeout is shorter than the heartbeat interval",
+          "why": "These are defaults that work; the issue is time between polls."
+        },
+        {
+          "t": "max.poll.records limits how much the broker sends",
+          "why": "It limits records per poll, not fetching."
+        }
+      ],
+      "explain": "`max.poll.records` defaults to 500; at 2 s each a batch takes over 16 minutes, far beyond `max.poll.interval.ms` (5 minutes). Lowering it, or processing faster, keeps polls frequent."
+    },
+    {
+      "id": "D38",
+      "topic": "Consumer tuning",
+      "difficulty": "hard",
+      "sources": [
+        "notes §2"
+      ],
+      "q": "A single record batch in a partition is 3 MiB, larger than `max.partition.fetch.bytes` (1 MiB). Does the consumer get stuck?",
+      "options": [
+        {
+          "t": "Yes; it must raise the setting before it can progress",
+          "why": "The limit is not absolute."
+        },
+        {
+          "t": "Yes; the broker deletes the batch",
+          "why": "Brokers don't delete data for a consumer's limit."
+        },
+        {
+          "t": "No; the broker splits the batch into 1 MiB pieces",
+          "why": "Batches are not split."
+        },
+        {
+          "t": "No; an oversized first batch is still returned",
+          "ok": true
+        }
+      ],
+      "explain": "`max.partition.fetch.bytes` and `fetch.max.bytes` are not absolute: a first batch larger than the limit is still returned so the consumer can make progress."
+    },
+    {
+      "id": "D39",
+      "topic": "Consumer API",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §6",
+        "notes §5"
+      ],
+      "q": "A consumer writes results to a relational database and wants exactly-once results without Kafka transactions. Which approach does the KafkaConsumer Javadoc describe?",
+      "options": [
+        {
+          "t": "Use auto-commit with a short interval, so very few records are ever at risk",
+          "why": "Auto-commit can't be atomic with the database write."
+        },
+        {
+          "t": "Store each offset with its result in the database; seek on restart",
+          "ok": true
+        },
+        {
+          "t": "Use acks=all on the consumer",
+          "why": "acks is a producer setting."
+        },
+        {
+          "t": "Commit before writing to the database",
+          "why": "That gives at-most-once."
+        }
+      ],
+      "explain": "Storing offsets outside Kafka: turn off auto-commit, store each offset with the output atomically, and on restart `seek` to the stored offset (with a rebalance listener when partitions are assigned by the group)."
+    },
+    {
+      "id": "D40",
+      "topic": "Error handling",
+      "difficulty": "hard",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "A plain Java consumer hits a record its deserializer can't read. What happens, and what can the application do?",
+      "options": [
+        {
+          "t": "poll() throws RecordDeserializationException; the app decides what to do",
+          "ok": true
+        },
+        {
+          "t": "The client sends it to a built-in dead-letter topic automatically and carries on",
+          "why": "The Apache Kafka client has no built-in dead-letter topic."
+        },
+        {
+          "t": "The record is skipped silently and the consumer continues",
+          "why": "The consumer won't move past it by itself."
+        },
+        {
+          "t": "The broker deletes the bad record",
+          "why": "Brokers don't inspect or delete records for consumers."
+        }
+      ],
+      "explain": "`poll` throws `RecordDeserializationException`, carrying the topic-partition and offset. The consumer doesn't move past it by itself; the application decides what to do, such as a dead-letter topic and a `seek` past it."
+    },
+    {
+      "id": "D41",
+      "topic": "Error handling",
+      "difficulty": "medium",
+      "sources": [
+        "notes §22",
+        "ccdak §3",
+        "notes §4"
+      ],
+      "q": "Which TWO statements about consumer commit failures are right?",
+      "options": [
+        {
+          "t": "CommitFailedException can follow when the consumer was removed from the group for exceeding max.poll.interval.ms",
+          "ok": true
+        },
+        {
+          "t": "RetriableCommitFailedException is a retriable exception",
+          "ok": true
+        },
+        {
+          "t": "Committed offsets are stored in the topic being consumed",
+          "why": "Committed offsets go to the internal offsets topic, __consumer_offsets."
+        },
+        {
+          "t": "A commit failure deletes the records from the topic",
+          "why": "Commits never change the log."
+        },
+        {
+          "t": "Commits fail whenever auto.offset.reset=latest",
+          "why": "auto.offset.reset doesn't affect commits."
+        }
+      ],
+      "explain": "A consumer that left the group for not polling gets `CommitFailedException` on a later `commitSync`. `RetriableCommitFailedException` is a subclass of `RetriableException`."
+    },
+    {
+      "id": "D42",
+      "topic": "Consumer API",
+      "difficulty": "easy",
+      "sources": [
+        "notes §2"
+      ],
+      "q": "What is `group.id` needed for on a consumer?",
+      "options": [
+        {
+          "t": "To connect to the cluster at all",
+          "why": "bootstrap.servers is what's needed to connect."
+        },
+        {
+          "t": "To choose the compression codec",
+          "why": "Compression is chosen by producers."
+        },
+        {
+          "t": "To use subscribe() with group management, or Kafka-based offset storage",
+          "ok": true
+        },
+        {
+          "t": "To read from a single partition with assign()",
+          "why": "Manual assignment can work without group management."
+        }
+      ],
+      "explain": "`group.id` is required to use group management (`subscribe`) or Kafka-based offset storage."
+    }
+  ]
+}

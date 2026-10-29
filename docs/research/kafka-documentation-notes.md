@@ -471,6 +471,8 @@ The guide follows the docs in every case below.
 
 ## 21. Tools and source checks (apache/kafka, branch 4.3)
 
+Source: https://github.com/apache/kafka/tree/4.3
+
 Where the docs are silent about a tool the hands-on steps use, the 4.3 source or shipped config was read instead.
 
 - `raft/README.md`: "KRaft (Kafka Raft) is a protocol based on the Raft Consensus Protocol tailored for Apache Kafka."

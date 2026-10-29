@@ -67,7 +67,16 @@ the certification. Moving the Kafka roadmap from CCDAK to that skill is a learne
 assign), never done from code. **v2 (2026-10-28) adds 18 written scenarios** in four levels, in ADF's format (check,
 case, debrief, a lens and a Say-it question per role), one JSON file each under `src/scenarios/`; chapters' practice
 links are built from the scenarios, and scenario facts trace to the same notes. **v1 (the guide alone, PR #109) is
-published and never changes** (pinned by fingerprint); the learner upgrades to v2 in the app. No CCDAK question bank yet.
+published and never changes** (pinned by fingerprint); the learner upgrades to v2 in the app.
+**The CCDAK question bank (2026-10-29)** is `backend/app/content/question_banks/ccdak/`: a JSON file the learner imports on
+the Question Bank screen (`certification: "CCDAK"`, matched exactly), built from one source file per exam section by
+`backend/scripts/build_question_bank.py`; edit the sources and rebuild, never the JSON. It follows Confluent's April 2025
+exam guide: six sections by weight, planned 300 questions (69 / 84 / 36 / 45 / 24 / 42); the first PR has Fundamentals and
+Application Development (153). Every question cites `docs/research/ccdak-exam-research.md` or the Kafka notes, and
+`tests/test_ccdak_question_bank.py` holds it to the import validator (no errors or warnings), four or more options, its
+sources, the section counts, an even spread of right-answer positions, the right answer rarely the longest option, and no
+out-of-scope topic (ksqlDB, RBAC, CFK, ZooKeeper). Confluent publishes no question count or pass mark; the bank never
+claims one. Importing it is the learner's action; nothing is loaded from code.
 **The Kafka Lab (2026-10-28)** is `docs/implementation/KAFKA-LAB-CONTRACT.md`: six beginner experiments at `/lab/kafka`
 (log, keys, groups, commits, replication, failures with modes poison and retries) on the ADF lab's runner, made
 lab-neutral by a `LabSpec` (`services/adfLab/lab.ts`; Kafka's in `services/kafkaLab/lab.ts`). Its attempts are `kb:` /

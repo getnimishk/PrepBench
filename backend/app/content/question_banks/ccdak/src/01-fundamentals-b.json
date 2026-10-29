@@ -1,0 +1,669 @@
+{
+  "section": 1,
+  "domain": "Apache Kafka Fundamentals",
+  "questions": [
+    {
+      "id": "F24",
+      "topic": "Consumer groups",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23",
+        "notes §22"
+      ],
+      "q": "Which of these does NOT trigger a rebalance of a consumer group subscribed to topic `orders`?",
+      "options": [
+        {
+          "t": "A new consumer joins the group",
+          "why": "Members joining or leaving trigger a rebalance."
+        },
+        {
+          "t": "A consumer stops heartbeating for longer than the session timeout",
+          "why": "Failure detection removes the member and rebalances."
+        },
+        {
+          "t": "A producer starts writing to `orders` with a new key",
+          "ok": true
+        },
+        {
+          "t": "Partitions are added to `orders`",
+          "why": "New partitions in a subscribed topic trigger a rebalance."
+        }
+      ],
+      "explain": "Rebalances follow changes to the group or to what it reads: members joining or leaving, failure detection, new partitions in a subscribed topic, or a new topic matching a subscribed pattern. A new key in the data changes none of these."
+    },
+    {
+      "id": "F25",
+      "topic": "Consumer groups",
+      "difficulty": "medium",
+      "sources": [
+        "notes §22",
+        "notes §2"
+      ],
+      "q": "A consumer keeps heartbeating, but one batch of records takes 7 minutes to process before the next `poll()`. Settings are default. What happens?",
+      "options": [
+        {
+          "t": "Nothing, because heartbeats keep it in the group",
+          "why": "Heartbeats prove the process is alive, but max.poll.interval.ms separately requires progress."
+        },
+        {
+          "t": "It is removed from the group after 5 minutes and its partitions are reassigned",
+          "ok": true
+        },
+        {
+          "t": "The broker extends the poll interval automatically",
+          "why": "There is no automatic extension; the interval is a client setting."
+        },
+        {
+          "t": "The records are redelivered to the same consumer after the 45 s session timeout",
+          "why": "Redelivery to another member follows the rebalance, not a 45 s timer."
+        }
+      ],
+      "explain": "A consumer that heartbeats but doesn't call `poll` within `max.poll.interval.ms` (default 300 000 ms) is considered failed and the group rebalances. A later `commitSync` fails with `CommitFailedException`."
+    },
+    {
+      "id": "F26",
+      "topic": "Consumer groups",
+      "difficulty": "medium",
+      "sources": [
+        "notes §5",
+        "notes §2"
+      ],
+      "q": "A team deploys a consumer application by restarting its instances one by one, and each restart causes two rebalances. Which setting is designed to stop restarts from triggering rebalances?",
+      "options": [
+        {
+          "t": "group.instance.id, with a long enough session timeout",
+          "ok": true
+        },
+        {
+          "t": "enable.auto.commit=false, so restarts don't commit partway through a batch",
+          "why": "Commit style doesn't affect when rebalances happen."
+        },
+        {
+          "t": "auto.offset.reset=earliest",
+          "why": "This only matters when a group has no committed offset."
+        },
+        {
+          "t": "max.poll.records=1",
+          "why": "This changes batch size, not membership."
+        }
+      ],
+      "explain": "Static membership gives each instance a persistent id, so a restart within the session timeout rejoins as the same member without a rebalance."
+    },
+    {
+      "id": "F27",
+      "topic": "Consumer groups",
+      "difficulty": "hard",
+      "sources": [
+        "notes §10"
+      ],
+      "q": "In Kafka 4.x, a team wants its consumers to use the newer consumer group protocol (KIP-848). What must they do on the client?",
+      "options": [
+        {
+          "t": "Nothing; Kafka 4.x clients use it by default",
+          "why": "It is enabled on the server by default, but not on the client."
+        },
+        {
+          "t": "Set partition.assignment.strategy=uniform",
+          "why": "Assignment moves to the broker under the new protocol; this client setting is for the classic protocol."
+        },
+        {
+          "t": "Set session.timeout.ms on each consumer",
+          "why": "Under the new protocol the session timeout is set on the broker, and the client setting can't be used."
+        },
+        {
+          "t": "Set group.protocol=consumer",
+          "ok": true
+        }
+      ],
+      "explain": "The new protocol is on by default on 4.x brokers but not on clients: a consumer opts in with `group.protocol=consumer`. Heartbeat, session timeout and assignment are then set on the broker."
+    },
+    {
+      "id": "F28",
+      "topic": "Delivery semantics",
+      "difficulty": "medium",
+      "sources": [
+        "notes §5"
+      ],
+      "q": "A consumer commits its offset right after `poll()` returns, then processes the records. It crashes halfway through a batch. What delivery semantics does this give?",
+      "options": [
+        {
+          "t": "At least once: the batch is reprocessed on restart",
+          "why": "The offset was already committed past the batch, so it is not read again."
+        },
+        {
+          "t": "At most once: the rest of the batch is never processed",
+          "ok": true
+        },
+        {
+          "t": "Exactly once, because the commit is synchronous and happens first",
+          "why": "Synchronous commits don't make processing exactly-once."
+        },
+        {
+          "t": "It depends only on the producer's acks",
+          "why": "acks affects writes; this is about when the consumer saves its position."
+        }
+      ],
+      "explain": "Saving the position before processing gives at-most-once on a crash. Processing first, then saving, gives at-least-once."
+    },
+    {
+      "id": "F29",
+      "topic": "Delivery semantics",
+      "difficulty": "easy",
+      "sources": [
+        "notes §5"
+      ],
+      "q": "Which delivery semantics does Kafka give by default?",
+      "options": [
+        {
+          "t": "At most once",
+          "why": "That requires turning retries off and committing before processing."
+        },
+        {
+          "t": "Exactly once end to end",
+          "why": "That needs transactions and read_committed (or Kafka Streams with exactly_once_v2)."
+        },
+        {
+          "t": "At least once",
+          "ok": true
+        },
+        {
+          "t": "None; delivery is best effort",
+          "why": "Kafka documents at-least-once as its default."
+        }
+      ],
+      "explain": "The design docs state that Kafka guarantees at-least-once delivery by default."
+    },
+    {
+      "id": "F30",
+      "topic": "Delivery semantics",
+      "difficulty": "hard",
+      "sources": [
+        "notes §5"
+      ],
+      "q": "A Kafka-to-Kafka application reads from one topic, transforms each record, and writes to another. Which are needed for exactly-once processing with the plain clients?",
+      "options": [
+        {
+          "t": "A transactional producer that sends the consumer's offsets in the same transaction as the output",
+          "ok": true
+        },
+        {
+          "t": "acks=1 on the producer",
+          "why": "Transactions require idempotence, which requires acks=all."
+        },
+        {
+          "t": "enable.auto.commit=true on the consumer",
+          "why": "Offsets must be committed through the transaction, so auto-commit is off."
+        },
+        {
+          "t": "Downstream consumers using isolation.level=read_committed",
+          "ok": true
+        },
+        {
+          "t": "A replication factor equal to the number of consumers",
+          "why": "Replication factor is unrelated to exactly-once processing."
+        }
+      ],
+      "explain": "Exactly-once Kafka to Kafka: the transactional producer writes output and offsets atomically, and readers use `read_committed` so aborted output is hidden."
+    },
+    {
+      "id": "F31",
+      "topic": "Idempotence",
+      "difficulty": "medium",
+      "sources": [
+        "notes §5",
+        "notes §1"
+      ],
+      "q": "How does the idempotent producer prevent duplicates caused by its own retries?",
+      "options": [
+        {
+          "t": "The broker deduplicates using a producer ID and sequence numbers",
+          "ok": true
+        },
+        {
+          "t": "The producer waits for a consumer to confirm before sending the next record",
+          "why": "Producers never wait for consumers."
+        },
+        {
+          "t": "The broker compares each record's value with the last 1000 records",
+          "why": "Deduplication uses producer ID and sequence numbers, not content."
+        },
+        {
+          "t": "It disables retries, so nothing is ever sent twice",
+          "why": "Idempotence requires retries > 0."
+        }
+      ],
+      "explain": "The broker assigns each producer an ID and uses the sequence number on each message to discard duplicates from retries."
+    },
+    {
+      "id": "F32",
+      "topic": "Idempotence",
+      "difficulty": "medium",
+      "sources": [
+        "notes §1",
+        "notes §20"
+      ],
+      "q": "In Kafka 4.3, a developer creates a producer and sets only bootstrap.servers and the two serializers. Is it idempotent?",
+      "options": [
+        {
+          "t": "No; enable.idempotence must be set to true explicitly",
+          "why": "It has been on by default since Kafka 3.0."
+        },
+        {
+          "t": "Only if transactional.id is set",
+          "why": "transactional.id implies idempotence, but idempotence is on without it."
+        },
+        {
+          "t": "No, because the default acks is 1",
+          "why": "The default acks is all."
+        },
+        {
+          "t": "Yes; it is on by default unless settings conflict",
+          "ok": true
+        }
+      ],
+      "explain": "`enable.idempotence` defaults to true, with `acks=all` the default too. It is silently turned off only if conflicting settings are set and idempotence was not explicitly enabled."
+    },
+    {
+      "id": "F33",
+      "topic": "Internal topics",
+      "difficulty": "medium",
+      "sources": [
+        "notes §4",
+        "notes §12"
+      ],
+      "q": "Where are consumer group offsets stored, and what replication does that topic get by default?",
+      "options": [
+        {
+          "t": "In ZooKeeper, with no replication",
+          "why": "Offsets moved into Kafka long ago, and 4.x has no ZooKeeper."
+        },
+        {
+          "t": "In __consumer_offsets, replication factor 3 by default",
+          "ok": true
+        },
+        {
+          "t": "On each consumer's local disk",
+          "why": "The committed position is stored by Kafka so a restarted consumer can recover it."
+        },
+        {
+          "t": "In __cluster_metadata, the KRaft metadata log, with replication factor 1",
+          "why": "That is the KRaft metadata log, not group offsets."
+        }
+      ],
+      "explain": "Committed offsets go to the internal offsets topic, with `offsets.topic.replication.factor` 3 and `offsets.topic.num.partitions` 50 by default."
+    },
+    {
+      "id": "F34",
+      "topic": "Internal topics",
+      "difficulty": "hard",
+      "sources": [
+        "notes §4"
+      ],
+      "q": "A consumer group was shut down for a 10-day maintenance freeze. When it restarts, it starts from auto.offset.reset instead of where it stopped. Why?",
+      "options": [
+        {
+          "t": "Committed offsets expired 7 days after the group became empty",
+          "ok": true
+        },
+        {
+          "t": "The topic's retention.ms deleted the offsets along with the old data",
+          "why": "Offset expiry is a broker setting on the offsets, separate from the topic's data retention."
+        },
+        {
+          "t": "Offsets are kept only while the producer is running",
+          "why": "Offsets belong to the consumer group, not the producer."
+        },
+        {
+          "t": "The group protocol changed during the freeze",
+          "why": "The protocol doesn't erase committed offsets."
+        }
+      ],
+      "explain": "`offsets.retention.minutes` defaults to 10 080 (7 days): committed offsets expire that long after a group becomes empty, after which `auto.offset.reset` applies."
+    },
+    {
+      "id": "F35",
+      "topic": "Share groups",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6",
+        "notes §11"
+      ],
+      "q": "How do share groups (\"queues for Kafka\") differ from consumer groups?",
+      "options": [
+        {
+          "t": "Share groups replace consumer groups in Kafka 4.x",
+          "why": "They are a different kind of group alongside consumer groups."
+        },
+        {
+          "t": "Share groups store records in a separate queue log",
+          "why": "They read ordinary topic partitions."
+        },
+        {
+          "t": "Several consumers can share a partition, acknowledging records one by one",
+          "ok": true
+        },
+        {
+          "t": "Share groups guarantee per-key ordering across all consumers of a partition",
+          "why": "Cooperative consumption of one partition by many consumers trades away that ordering."
+        }
+      ],
+      "explain": "Share consumers cooperatively consume: a partition can be assigned to several consumers, consumers can outnumber partitions, and records are acknowledged individually with counted delivery attempts."
+    },
+    {
+      "id": "F36",
+      "topic": "Topic configuration",
+      "difficulty": "easy",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "What replication factor does the Apache Kafka documentation recommend so machines can be bounced without interrupting consumption?",
+      "options": [
+        {
+          "t": "1",
+          "why": "One replica means the data is unavailable while its broker is down."
+        },
+        {
+          "t": "2 or 3",
+          "ok": true
+        },
+        {
+          "t": "Equal to the number of partitions",
+          "why": "Replication factor and partition count are unrelated."
+        },
+        {
+          "t": "At least 7",
+          "why": "The docs recommend 2 or 3."
+        }
+      ],
+      "explain": "The docs recommend a replication factor of 2 or 3; with 3, up to 2 servers can fail before you lose access to the data."
+    },
+    {
+      "id": "F37",
+      "topic": "Topic configuration",
+      "difficulty": "medium",
+      "sources": [
+        "notes §4"
+      ],
+      "q": "A producer writes to a topic that doesn't exist, on a cluster with default broker settings. What happens?",
+      "options": [
+        {
+          "t": "The write fails with InvalidTopicException",
+          "why": "That is for invalid names; a missing topic is created by default."
+        },
+        {
+          "t": "The record is held until an administrator creates the topic",
+          "why": "Topics are created on first use by default."
+        },
+        {
+          "t": "The record goes to a default topic",
+          "why": "There is no default topic."
+        },
+        {
+          "t": "It is created with 1 partition and replication factor 1",
+          "ok": true
+        }
+      ],
+      "explain": "`auto.create.topics.enable` is true by default, and new topics get `num.partitions=1` and `default.replication.factor=1`, which is rarely what production wants."
+    },
+    {
+      "id": "F38",
+      "topic": "Topic configuration",
+      "difficulty": "medium",
+      "sources": [
+        "notes §21"
+      ],
+      "q": "Why does `kafka-topics --create` warn when a topic name contains a period or an underscore?",
+      "options": [
+        {
+          "t": "Names like orders.eu and orders_eu can collide in metric names",
+          "ok": true
+        },
+        {
+          "t": "Periods and underscores are not allowed in topic names",
+          "why": "They are allowed; the tool only warns."
+        },
+        {
+          "t": "They make the topic compacted by default",
+          "why": "Names don't affect the cleanup policy."
+        },
+        {
+          "t": "They limit the topic to one partition",
+          "why": "Names don't affect partition count."
+        }
+      ],
+      "explain": "Topic names may use ASCII letters, digits, `.`, `_` and `-`, but because of metric naming, topics with a period or underscore could collide, so the tool warns."
+    },
+    {
+      "id": "F39",
+      "topic": "Brokers",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "A broker that leads several partitions fails. Who chooses the new leaders, and from where?",
+      "options": [
+        {
+          "t": "The producers vote, choosing the replica with the most data",
+          "why": "Clients don't elect leaders."
+        },
+        {
+          "t": "The consumers' group coordinator, from any replica",
+          "why": "The group coordinator handles groups, not partitions."
+        },
+        {
+          "t": "The controller, from the in-sync replicas",
+          "ok": true
+        },
+        {
+          "t": "Each remaining broker promotes itself",
+          "why": "Elections are made by the controller, not by brokers themselves."
+        }
+      ],
+      "explain": "On broker failure the controller elects new leaders from the ISR, batching the changes across partitions."
+    },
+    {
+      "id": "F40",
+      "topic": "Brokers",
+      "difficulty": "hard",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "A broker is stopped with a controlled shutdown (the default). What does it do before stopping?",
+      "options": [
+        {
+          "t": "It deletes its local partitions so the controller can reassign them elsewhere",
+          "why": "Data stays on disk; only leadership moves."
+        },
+        {
+          "t": "It moves leadership of its partitions to other replicas first",
+          "ok": true
+        },
+        {
+          "t": "Waits for every consumer group to commit",
+          "why": "Shutdown doesn't wait for consumers."
+        },
+        {
+          "t": "Copies its data to a new broker",
+          "why": "Reassignment is a separate, manual tool."
+        }
+      ],
+      "explain": "With `controlled.shutdown.enable` (default true) the broker syncs its logs and moves leadership of its partitions to other replicas before stopping, cutting unavailability to a few milliseconds when each partition has another live replica."
+    },
+    {
+      "id": "F41",
+      "topic": "Performance",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "Kafka keeps high throughput while writing every record to disk. Which design choices does the documentation give for this?",
+      "options": [
+        {
+          "t": "It relies on the operating system's page cache and sequential writes",
+          "ok": true
+        },
+        {
+          "t": "It keeps each topic fully in the JVM heap",
+          "why": "Kafka deliberately avoids an in-process cache."
+        },
+        {
+          "t": "Batches stay compressed in the log and are decompressed by the consumer",
+          "ok": true
+        },
+        {
+          "t": "It writes every record with fsync before acknowledging",
+          "why": "Kafka relies on replication rather than fsync on every write."
+        },
+        {
+          "t": "It stores each record in its own file",
+          "why": "Records are appended to segment files."
+        }
+      ],
+      "explain": "The design relies on the OS page cache and linear writes rather than an in-process cache, and on end-to-end batch compression: compressed batches stay compressed in the log."
+    },
+    {
+      "id": "F42",
+      "topic": "Tiered storage",
+      "difficulty": "hard",
+      "sources": [
+        "notes §13"
+      ],
+      "q": "Which statement about tiered storage in Apache Kafka 4.3 is true?",
+      "options": [
+        {
+          "t": "It is enabled by default, and Kafka ships an S3 RemoteStorageManager to use",
+          "why": "It is off by default, and Kafka ships no RemoteStorageManager implementation."
+        },
+        {
+          "t": "It works with compacted topics",
+          "why": "The docs list compacted topics as not supported."
+        },
+        {
+          "t": "It moves active segments to remote storage as they are written",
+          "why": "Only completed segments are moved."
+        },
+        {
+          "t": "It offloads completed segments; you must plug in a RemoteStorageManager",
+          "ok": true
+        }
+      ],
+      "explain": "Tiered storage keeps completed log segments in a remote tier; it is off by default, has no built-in `RemoteStorageManager`, and doesn't support compacted topics."
+    },
+    {
+      "id": "F43",
+      "topic": "Consumer groups",
+      "difficulty": "medium",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "What does the LAG column in `kafka-consumer-groups --describe` show for a partition?",
+      "options": [
+        {
+          "t": "The difference between the log-end offset and the group's current (committed) offset",
+          "ok": true
+        },
+        {
+          "t": "The time since the last record was produced",
+          "why": "Lag here is a count of records, not time."
+        },
+        {
+          "t": "The number of replicas out of sync",
+          "why": "That is under-replication, a broker metric."
+        },
+        {
+          "t": "The number of records the producer has buffered",
+          "why": "The group tool reads the log and the group's offsets, not producer buffers."
+        }
+      ],
+      "explain": "`--describe` shows CURRENT-OFFSET, LOG-END-OFFSET and LAG for each partition: how far the group is behind the end of the log."
+    },
+    {
+      "id": "F44",
+      "topic": "Consumer groups",
+      "difficulty": "hard",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "A team wants to replay the last 24 hours of `orders` for group `billing`. Which conditions must hold for `kafka-consumer-groups --reset-offsets --to-datetime ... --execute` to work?",
+      "options": [
+        {
+          "t": "The billing group's consumers must be inactive",
+          "ok": true
+        },
+        {
+          "t": "The topic must be compacted",
+          "why": "Resetting offsets works on any topic."
+        },
+        {
+          "t": "The command must name --topic (or --all-topics)",
+          "ok": true
+        },
+        {
+          "t": "The producer must be paused",
+          "why": "Producers are unaffected by a group's offsets."
+        },
+        {
+          "t": "The command must be run on the partition leader's host",
+          "why": "It connects with --bootstrap-server from anywhere."
+        }
+      ],
+      "explain": "`--reset-offsets` works on one group at a time, needs `--topic` or `--all-topics`, requires the group's consumers to be inactive, and only shows the plan unless `--execute` is given."
+    },
+    {
+      "id": "F45",
+      "topic": "Events and topics",
+      "difficulty": "easy",
+      "sources": [
+        "notes §13"
+      ],
+      "q": "What are the three capabilities the Apache Kafka documentation says Kafka combines for event streaming?",
+      "options": [
+        {
+          "t": "Batch ETL, data warehousing and reporting",
+          "why": "Those describe batch analytics, not event streaming."
+        },
+        {
+          "t": "Request/response messaging, caching and load balancing across services",
+          "why": "Kafka is not a request/response system."
+        },
+        {
+          "t": "Publish/subscribe, durable storage, and stream processing",
+          "ok": true
+        },
+        {
+          "t": "Encryption, compression and replication only",
+          "why": "These are features, not the three capabilities the docs describe."
+        }
+      ],
+      "explain": "Kafka combines publish/subscribe (including import and export), durable storage, and processing of streams of events as they occur or retrospectively."
+    },
+    {
+      "id": "F46",
+      "topic": "Partitions and ordering",
+      "difficulty": "medium",
+      "sources": [
+        "notes §1"
+      ],
+      "q": "A producer sends records with no key and no partition specified, using the default partitioner. How are they spread?",
+      "options": [
+        {
+          "t": "Strict round-robin: one record to each partition in turn, then repeat",
+          "why": "The default is sticky, not per-record round-robin."
+        },
+        {
+          "t": "All to partition 0",
+          "why": "Records are spread; partition 0 is not special."
+        },
+        {
+          "t": "By a hash of the value",
+          "why": "Only the key is hashed; values never choose the partition."
+        },
+        {
+          "t": "To a sticky partition that changes after a batch fills",
+          "ok": true
+        }
+      ],
+      "explain": "With no key, the default logic sends to a sticky partition that changes after at least `batch.size` bytes have gone to it, which keeps batches large."
+    }
+  ]
+}

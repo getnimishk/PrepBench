@@ -1,0 +1,673 @@
+{
+  "section": 1,
+  "domain": "Apache Kafka Fundamentals",
+  "questions": [
+    {
+      "id": "F47",
+      "topic": "Durability",
+      "difficulty": "easy",
+      "sources": [
+        "notes §1"
+      ],
+      "q": "A producer uses `acks=1`. The leader writes the record and answers, then its broker fails before either follower copies the record. What happens to the record?",
+      "options": [
+        {
+          "t": "It is lost, even though the producer was told it succeeded",
+          "ok": true
+        },
+        {
+          "t": "A follower recovers it from the producer's buffer",
+          "why": "Followers copy from the leader, never from the producer."
+        },
+        {
+          "t": "The producer retries automatically and it is never lost",
+          "why": "The producer already had its acknowledgement, so it has nothing to retry."
+        },
+        {
+          "t": "It stays readable on the failed broker's disk for consumers",
+          "why": "Consumers read from the new leader, which never had it."
+        }
+      ],
+      "explain": "With `acks=1` the leader answers after writing its own log, without waiting for followers, so a record is lost if the leader fails before they copy it."
+    },
+    {
+      "id": "F48",
+      "topic": "Durability",
+      "difficulty": "medium",
+      "sources": [
+        "notes §1"
+      ],
+      "q": "What does `acks=0` mean for the producer?",
+      "options": [
+        {
+          "t": "The leader waits for zero followers but still sends the producer an answer",
+          "why": "That is acks=1."
+        },
+        {
+          "t": "It doesn't wait for any answer, so it never learns if the write worked",
+          "ok": true
+        },
+        {
+          "t": "The producer sends to zero partitions until metadata loads",
+          "why": "acks has nothing to do with partition choice."
+        },
+        {
+          "t": "The record is written to all replicas before sending",
+          "why": "Producers don't write to replicas; acks=0 waits for nothing."
+        }
+      ],
+      "explain": "With `acks=0` the producer doesn't wait: the record counts as sent once in the socket buffer, retries have no effect, and the returned offset is always -1."
+    },
+    {
+      "id": "F49",
+      "topic": "Durability",
+      "difficulty": "medium",
+      "sources": [
+        "notes §3",
+        "notes §7"
+      ],
+      "q": "A topic has `min.insync.replicas=2`. Its ISR shrinks to the leader alone. A producer with `acks=1` sends a record. What happens?",
+      "options": [
+        {
+          "t": "It is refused with NotEnoughReplicasException",
+          "why": "That refusal applies only to acks=all writes."
+        },
+        {
+          "t": "It waits until a second replica rejoins",
+          "why": "acks=1 waits only for the leader."
+        },
+        {
+          "t": "The producer upgrades itself to acks=all",
+          "why": "Producers don't change acks by themselves."
+        },
+        {
+          "t": "It succeeds: min.insync.replicas only applies to acks=all",
+          "ok": true
+        }
+      ],
+      "explain": "`min.insync.replicas` takes effect with `acks=all`; with `acks=1` or `0` it refuses nothing."
+    },
+    {
+      "id": "F50",
+      "topic": "Durability",
+      "difficulty": "medium",
+      "sources": [
+        "notes §3",
+        "notes §7"
+      ],
+      "q": "A topic has replication factor 3 and `min.insync.replicas=2`. Two brokers holding its followers go down. A producer with `acks=all` sends a record. What does it get?",
+      "options": [
+        {
+          "t": "A success, with one copy",
+          "why": "With acks=all, the ISR (1) is below the minimum (2), so the write is refused."
+        },
+        {
+          "t": "An error such as NotEnoughReplicasException, so it knows the write wasn't stored safely",
+          "ok": true
+        },
+        {
+          "t": "A success after the followers come back, however long that takes",
+          "why": "The write is refused, not held."
+        },
+        {
+          "t": "A silent drop with no error",
+          "why": "The producer is told the write failed."
+        }
+      ],
+      "explain": "With `acks=all`, a write is refused when the ISR is smaller than `min.insync.replicas`, and the producer gets an exception. Kafka prefers refusing to accepting a write with too few copies."
+    },
+    {
+      "id": "F51",
+      "topic": "Replication",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7",
+        "notes §2"
+      ],
+      "q": "Can a consumer read from a follower replica instead of the leader?",
+      "options": [
+        {
+          "t": "No; all reads and writes must go to the partition leader",
+          "why": "All writes go to the leader, but reads can go to followers."
+        },
+        {
+          "t": "Only if unclean leader election is enabled",
+          "why": "Follower reads are unrelated to unclean election."
+        },
+        {
+          "t": "Yes, for example a follower in the consumer's own rack",
+          "ok": true
+        },
+        {
+          "t": "Only for compacted topics",
+          "why": "Cleanup policy doesn't decide where reads go."
+        }
+      ],
+      "explain": "All writes go to the leader; reads can go to the leader or followers. `client.rack` tells the cluster which rack the consumer is in, matched with the brokers' `broker.rack`."
+    },
+    {
+      "id": "F52",
+      "topic": "Events and topics",
+      "difficulty": "medium",
+      "sources": [
+        "notes §3"
+      ],
+      "q": "A topic has `message.timestamp.type=LogAppendTime`. What timestamp do its records carry?",
+      "options": [
+        {
+          "t": "The time the broker appended the record",
+          "ok": true
+        },
+        {
+          "t": "The time the producer created the record",
+          "why": "That is CreateTime, the default."
+        },
+        {
+          "t": "The time a consumer first read it",
+          "why": "Reading never changes a record."
+        },
+        {
+          "t": "No timestamp at all",
+          "why": "Every record has a timestamp; this setting chooses whose."
+        }
+      ],
+      "explain": "`message.timestamp.type` is `CreateTime` (the producer's time, the default) or `LogAppendTime` (the broker's)."
+    },
+    {
+      "id": "F53",
+      "topic": "Topic configuration",
+      "difficulty": "hard",
+      "sources": [
+        "notes §1",
+        "notes §4",
+        "ccdak §3"
+      ],
+      "q": "A producer sends a 3 MiB record to a topic with default settings, also with default producer settings. What happens?",
+      "options": [
+        {
+          "t": "The broker splits it into three 1 MiB records",
+          "why": "Kafka never splits records."
+        },
+        {
+          "t": "It is written, because only batches have a size limit",
+          "why": "A single 3 MiB record exceeds the producer's own request size limit."
+        },
+        {
+          "t": "It is compressed until it fits",
+          "why": "Compression is off by default and wouldn't be applied to fit a limit."
+        },
+        {
+          "t": "It fails with RecordTooLargeException, a non-retriable error, because it exceeds the 1 MiB defaults",
+          "ok": true
+        }
+      ],
+      "explain": "The producer's `max.request.size` defaults to 1 MiB and the broker's `message.max.bytes` / topic `max.message.bytes` to about 1 MiB, so the send fails with `RecordTooLargeException`, which retrying won't fix."
+    },
+    {
+      "id": "F54",
+      "topic": "Delivery semantics",
+      "difficulty": "hard",
+      "sources": [
+        "notes §22"
+      ],
+      "q": "A consumer uses auto-commit and hands each polled record to a background thread pool, then polls again at once. When can records be missed (never processed)?",
+      "options": [
+        {
+          "t": "Never: auto-commit always gives at-least-once delivery, whatever the threading",
+          "why": "Only if every record from a poll is processed before the next poll."
+        },
+        {
+          "t": "After an auto-commit covers records the pool hasn't processed, then a crash",
+          "ok": true
+        },
+        {
+          "t": "Only when the topic is compacted",
+          "why": "The risk comes from committing ahead of processing, whatever the topic."
+        },
+        {
+          "t": "Only when acks=0 is used by the producer",
+          "why": "This is about the consumer's commits, not producer acks."
+        }
+      ],
+      "explain": "Auto-commit gives at-least-once only if all records from a `poll` are processed before the next `poll` or close. Hand-off to other threads lets the committed offset get ahead of processing."
+    },
+    {
+      "id": "F55",
+      "topic": "Consumer groups",
+      "difficulty": "hard",
+      "sources": [
+        "notes §2"
+      ],
+      "q": "With the classic group protocol in Kafka 4.3, what is the default `partition.assignment.strategy`?",
+      "options": [
+        {
+          "t": "[RoundRobinAssignor, CooperativeStickyAssignor]",
+          "why": "Round robin is available, but the default list starts with RangeAssignor, which is the one used."
+        },
+        {
+          "t": "[StickyAssignor]",
+          "why": "Sticky is available but not the default."
+        },
+        {
+          "t": "[RangeAssignor, CooperativeStickyAssignor]",
+          "ok": true
+        },
+        {
+          "t": "[uniform, range]",
+          "why": "Those are the broker's server-side assignors for the consumer protocol."
+        }
+      ],
+      "explain": "The default is `[RangeAssignor, CooperativeStickyAssignor]`: Range is used, and having CooperativeSticky in the list allows upgrading with a single rolling bounce that removes Range."
+    },
+    {
+      "id": "F56",
+      "topic": "Consumer groups",
+      "difficulty": "medium",
+      "sources": [
+        "notes §2"
+      ],
+      "q": "With the classic group protocol, which statements about `heartbeat.interval.ms` and `session.timeout.ms` are right?",
+      "options": [
+        {
+          "t": "A consumer that stops heartbeating for session.timeout.ms (45 s by default) is considered dead",
+          "ok": true
+        },
+        {
+          "t": "The heartbeat interval should be higher than the session timeout",
+          "why": "It must be lower, typically no more than a third."
+        },
+        {
+          "t": "heartbeat.interval.ms is typically set to no more than one third of the session timeout",
+          "ok": true
+        },
+        {
+          "t": "Heartbeats are sent only from inside poll()",
+          "why": "Heartbeating and polling are separate; that is why max.poll.interval.ms exists."
+        },
+        {
+          "t": "These settings also apply under group.protocol=consumer",
+          "why": "Under the consumer protocol they are set on the broker and can't be used on the client."
+        }
+      ],
+      "explain": "Classic protocol: the session timeout (default 45 s) detects failures by missing heartbeats, and the heartbeat interval (default 3 s) must be lower, typically one third or less."
+    },
+    {
+      "id": "F57",
+      "topic": "Transactions",
+      "difficulty": "medium",
+      "sources": [
+        "notes §2",
+        "notes §5"
+      ],
+      "q": "A consumer reads a topic written by a transactional producer. Which isolation level hides records from aborted transactions?",
+      "options": [
+        {
+          "t": "read_uncommitted, the default",
+          "why": "The default returns aborted transactional records too."
+        },
+        {
+          "t": "serializable",
+          "why": "Kafka has no such isolation level."
+        },
+        {
+          "t": "read_latest",
+          "why": "Kafka has no such isolation level."
+        },
+        {
+          "t": "read_committed: it returns only committed transactional records, up to the last stable offset",
+          "ok": true
+        }
+      ],
+      "explain": "`isolation.level=read_committed` returns only committed transactional records, and only up to the last stable offset; non-transactional records are always returned."
+    },
+    {
+      "id": "F58",
+      "topic": "Transactions",
+      "difficulty": "hard",
+      "sources": [
+        "notes §1",
+        "notes §4"
+      ],
+      "q": "A developer tries transactions on a single-broker development cluster with default broker settings, and transactional producers fail to initialise. What is the likely cause?",
+      "options": [
+        {
+          "t": "The transaction state topic needs 3 brokers by default",
+          "ok": true
+        },
+        {
+          "t": "Transactions need ZooKeeper",
+          "why": "4.x has no ZooKeeper; transactions run in KRaft clusters."
+        },
+        {
+          "t": "Transactions need acks=1",
+          "why": "Transactions need idempotence, which needs acks=all."
+        },
+        {
+          "t": "Transactions only work on compacted topics, and the default policy is delete",
+          "why": "Transactions work with any topic."
+        }
+      ],
+      "explain": "`transaction.state.log.replication.factor` defaults to 3 (min ISR 2), so by default transactions need at least three brokers; a single-broker dev setup lowers these settings."
+    },
+    {
+      "id": "F59",
+      "topic": "Brokers and KRaft",
+      "difficulty": "medium",
+      "sources": [
+        "notes §9"
+      ],
+      "q": "Which statement about KRaft combined mode (`process.roles=broker,controller`) is right?",
+      "options": [
+        {
+          "t": "It is required in production",
+          "why": "The docs recommend against it in critical deployments."
+        },
+        {
+          "t": "Simple for development, not recommended for critical deployments",
+          "ok": true
+        },
+        {
+          "t": "It is the only mode Kafka 4.x supports, since ZooKeeper was removed",
+          "why": "Separate broker and controller roles are supported, and recommended for production."
+        },
+        {
+          "t": "It removes the need to format storage",
+          "why": "Every server must be formatted, combined or not."
+        }
+      ],
+      "explain": "Combined servers are simpler for small setups, but controllers can't then be rolled or scaled separately; the docs don't recommend them in critical deployments."
+    },
+    {
+      "id": "F60",
+      "topic": "Brokers and KRaft",
+      "difficulty": "medium",
+      "sources": [
+        "notes §9"
+      ],
+      "q": "A new Kafka 4.3 server won't start because its log directory is blank. What must be done first?",
+      "options": [
+        {
+          "t": "Nothing; Kafka 4.3 formats a blank log directory automatically on first start",
+          "why": "4.x no longer formats blank storage automatically."
+        },
+        {
+          "t": "Start ZooKeeper",
+          "why": "4.x has no ZooKeeper."
+        },
+        {
+          "t": "Generate a cluster ID and format the storage with kafka-storage",
+          "ok": true
+        },
+        {
+          "t": "Create the __consumer_offsets topic by hand",
+          "why": "Internal topics are created by the cluster."
+        }
+      ],
+      "explain": "Each server is formatted with a cluster ID (`kafka-storage random-uuid`, then `kafka-storage format`). Kafka no longer auto-formats blank storage, because that could hide an error."
+    },
+    {
+      "id": "F61",
+      "topic": "Command line",
+      "difficulty": "medium",
+      "sources": [
+        "notes §20",
+        "notes §21"
+      ],
+      "q": "A developer runs `kafka-console-consumer --topic orders --from-beginning` (no `--group`) twice. What happens on the second run?",
+      "options": [
+        {
+          "t": "It replays the whole topic, in a new random group",
+          "ok": true
+        },
+        {
+          "t": "It continues from the offset the first run reached before it was stopped",
+          "why": "That needs --group, so the first run committed offsets."
+        },
+        {
+          "t": "It reads nothing, because the offsets were committed",
+          "why": "Without a group, nothing was committed."
+        },
+        {
+          "t": "It fails because the group already exists",
+          "why": "Each run gets a new random group."
+        }
+      ],
+      "explain": "Without `--group`, the console consumer uses a new `console-consumer-<n>` group with auto-commit off, so `--from-beginning` replays everything each run. With `--group`, a second run resumes."
+    },
+    {
+      "id": "F62",
+      "topic": "Command line",
+      "difficulty": "medium",
+      "sources": [
+        "notes §21"
+      ],
+      "q": "How can a tombstone (a keyed record with a null value) be sent with the 4.3 console producer?",
+      "options": [
+        {
+          "t": "Type the key followed by an empty line",
+          "why": "An empty string is a value, not null."
+        },
+        {
+          "t": "Use parse.key=true with a null.marker as the value",
+          "ok": true
+        },
+        {
+          "t": "The console producer can't send null values",
+          "why": "It can, with null.marker."
+        },
+        {
+          "t": "Use the --delete-key option followed by the key to delete",
+          "why": "There is no such option."
+        }
+      ],
+      "explain": "With `parse.key=true`, a `key.separator` and a `null.marker`, a field equal to the marker becomes null, which is how to send a tombstone."
+    },
+    {
+      "id": "F63",
+      "topic": "Command line",
+      "difficulty": "easy",
+      "sources": [
+        "notes §21"
+      ],
+      "q": "Which tool prints a topic's end offset for each partition?",
+      "options": [
+        {
+          "t": "kafka-get-offsets --topic <name>",
+          "ok": true
+        },
+        {
+          "t": "kafka-storage info",
+          "why": "That inspects a node's storage formatting, not topic offsets."
+        },
+        {
+          "t": "kafka-metadata-quorum describe",
+          "why": "That describes the controller quorum."
+        },
+        {
+          "t": "kafka-acls --list",
+          "why": "That lists ACLs."
+        }
+      ],
+      "explain": "`kafka-get-offsets --topic` prints the end offset of each partition."
+    },
+    {
+      "id": "F64",
+      "topic": "Replication",
+      "difficulty": "hard",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "Which statement about Kafka's availability during a network partition between brokers is consistent with the Apache Kafka design documentation?",
+      "options": [
+        {
+          "t": "Kafka stays fully available for writes on both sides",
+          "why": "The docs say it may not remain available during network partitions."
+        },
+        {
+          "t": "Kafka guarantees no unavailability at all",
+          "why": "There is a short fail-over even for a broker failure."
+        },
+        {
+          "t": "It switches to eventual consistency on both sides and merges the two logs afterwards",
+          "why": "Kafka doesn't merge divergent logs."
+        },
+        {
+          "t": "It stays available after a short fail-over, but may not during network partitions",
+          "ok": true
+        }
+      ],
+      "explain": "The guarantee is that a committed message isn't lost while one in-sync replica lives; Kafka stays available after a short fail-over, but may not remain available during network partitions."
+    },
+    {
+      "id": "F65",
+      "topic": "Replication",
+      "difficulty": "hard",
+      "sources": [
+        "notes §13",
+        "notes §11"
+      ],
+      "q": "In Kafka 4.x, the controller tracks Eligible Leader Replicas (ELR). What are they?",
+      "options": [
+        {
+          "t": "Replicas outside the ISR that are still safe to elect without data loss",
+          "ok": true
+        },
+        {
+          "t": "Replicas that may be elected only if unclean election is on",
+          "why": "ELR members are safe choices, unlike unclean election."
+        },
+        {
+          "t": "Controllers that can become the active controller",
+          "why": "That is the controller quorum, not partition replicas."
+        },
+        {
+          "t": "Followers that serve consumer reads",
+          "why": "Follower reads are a separate feature."
+        }
+      ],
+      "explain": "ELR (KIP-966) lets the controller track replicas outside the ISR that are still safe leaders; election tries an ISR member first, then an unfenced ELR member."
+    },
+    {
+      "id": "F66",
+      "topic": "Consumers",
+      "difficulty": "medium",
+      "sources": [
+        "notes §22"
+      ],
+      "q": "Which statements about a consumer's position and its committed offset are right?",
+      "options": [
+        {
+          "t": "The position is the offset of the next record poll will return, and it advances with every poll",
+          "ok": true
+        },
+        {
+          "t": "The position and committed offset are always equal",
+          "why": "They differ until the consumer commits."
+        },
+        {
+          "t": "The committed offset is where a restarted consumer resumes",
+          "ok": true
+        },
+        {
+          "t": "The committed offset is stored on the consumer's disk",
+          "why": "Kafka stores it, so any member of the group can recover it."
+        },
+        {
+          "t": "The position can never move backwards",
+          "why": "seek can rewind it."
+        }
+      ],
+      "explain": "There are two positions per partition: the position (next record `poll` returns, advancing on every poll) and the committed position, the last offset stored securely, which a restarted consumer recovers."
+    },
+    {
+      "id": "F67",
+      "topic": "Topic configuration",
+      "difficulty": "medium",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "Which limits does a topic's partition count set?",
+      "options": [
+        {
+          "t": "The maximum number of consumers in one group that can read it in parallel",
+          "ok": true
+        },
+        {
+          "t": "The maximum number of consumer groups that can read it",
+          "why": "Any number of groups can read a topic."
+        },
+        {
+          "t": "How many servers can share its load, since each partition must fit on one server",
+          "ok": true
+        },
+        {
+          "t": "The maximum retention of the topic",
+          "why": "Retention is a separate setting."
+        },
+        {
+          "t": "The number of producers allowed to write to it",
+          "why": "Any number of producers can write to a topic."
+        }
+      ],
+      "explain": "Each partition must fit on one server, so the count caps how many servers share a topic's load, and it caps the parallelism of consumers in a group."
+    },
+    {
+      "id": "F68",
+      "topic": "Log compaction",
+      "difficulty": "hard",
+      "sources": [
+        "notes §8",
+        "notes §3"
+      ],
+      "q": "A service rebuilds its cache by reading a compacted topic from offset 0. The read takes 3 days, but `delete.retention.ms` is 1 day. What risk does that create?",
+      "options": [
+        {
+          "t": "Some offsets will be renumbered during the read",
+          "why": "Offsets never change."
+        },
+        {
+          "t": "Records will be read out of order",
+          "why": "Compaction never reorders records."
+        },
+        {
+          "t": "A deleted key may survive in the rebuilt cache",
+          "ok": true
+        },
+        {
+          "t": "The topic will switch to delete policy",
+          "why": "The cleanup policy doesn't change by itself."
+        }
+      ],
+      "explain": "A reader from the start sees tombstones only if it reaches them within `delete.retention.ms`; that setting also bounds how long a full re-read may take."
+    },
+    {
+      "id": "F69",
+      "topic": "Events and topics",
+      "difficulty": "medium",
+      "sources": [
+        "notes §12",
+        "notes §21"
+      ],
+      "q": "Why are topic names limited to 249 characters?",
+      "options": [
+        {
+          "t": "Because the producer's request header has a fixed size",
+          "why": "The limit comes from how partitions are stored on disk."
+        },
+        {
+          "t": "Because each partition is a folder named <topic>-<partition> in the log directory",
+          "ok": true
+        },
+        {
+          "t": "Because KRaft stores names in a fixed-width column",
+          "why": "The docs give the folder naming as the reason."
+        },
+        {
+          "t": "There is no limit",
+          "why": "There is a 249-character limit."
+        }
+      ],
+      "explain": "Each partition is a directory named after the topic and partition number, so topic names are limited to 249 characters."
+    }
+  ]
+}

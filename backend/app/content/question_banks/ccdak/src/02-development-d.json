@@ -1,0 +1,239 @@
+{
+  "section": 2,
+  "domain": "Apache Kafka Application Development",
+  "questions": [
+    {
+      "id": "D64", "topic": "Connecting to a secured cluster", "difficulty": "easy", "sources": ["ccdak §8"],
+      "q": "A client connects with no security settings at all. Which `security.protocol` does it use?",
+      "options": [
+        {"t": "PLAINTEXT", "ok": true},
+        {"t": "SSL", "why": "SSL must be configured; the default is PLAINTEXT."},
+        {"t": "SASL_SSL", "why": "SASL_SSL must be configured; the default is PLAINTEXT."},
+        {"t": "Whatever the broker's first listener uses, discovered automatically", "why": "The client's protocol is its own setting, defaulting to PLAINTEXT."}
+      ],
+      "explain": "`security.protocol` defaults to `PLAINTEXT`; the other values are `SSL`, `SASL_PLAINTEXT` and `SASL_SSL`."
+    },
+    {
+      "id": "D65", "topic": "Connecting to a secured cluster", "difficulty": "medium", "sources": ["ccdak §8", "notes §16"],
+      "q": "A cluster's client listener uses SASL/SCRAM over TLS. Which TWO client settings are part of connecting to it?",
+      "options": [
+        {"t": "security.protocol=SASL_SSL", "ok": true},
+        {"t": "security.protocol=SASL_PLAINTEXT", "why": "That is SASL without TLS; SCRAM should only be used with TLS."},
+        {"t": "sasl.mechanism=SCRAM-SHA-512 (or SCRAM-SHA-256)", "ok": true},
+        {"t": "sasl.mechanism left at its default", "why": "The default is GSSAPI (Kerberos), not SCRAM."},
+        {"t": "ssl.endpoint.identification.algorithm set to empty", "why": "That turns off hostname verification, which the docs warn against."}
+      ],
+      "explain": "SCRAM over TLS is `security.protocol=SASL_SSL` with `sasl.mechanism` set to a SCRAM mechanism (the default mechanism is GSSAPI), plus `sasl.jaas.config` with the credentials."
+    },
+    {
+      "id": "D66", "topic": "Connecting to a secured cluster", "difficulty": "medium", "sources": ["ccdak §8"],
+      "q": "Which client setting carries the SASL login module and credentials?",
+      "options": [
+        {"t": "sasl.mechanism", "why": "That names the mechanism, not the credentials."},
+        {"t": "sasl.jaas.config", "ok": true},
+        {"t": "ssl.keystore.location", "why": "That is for TLS client certificates."},
+        {"t": "client.id", "why": "client.id is a logical name for request logs."}
+      ],
+      "explain": "`sasl.jaas.config` holds the JAAS login context: `loginModuleClass controlFlag (optionName=optionValue)*;`."
+    },
+    {
+      "id": "D67", "topic": "Connecting to a secured cluster", "difficulty": "medium", "sources": ["ccdak §8", "notes §16"],
+      "q": "Brokers require client certificates (mTLS, `ssl.client.auth=required`). What does the client need besides a trust store?",
+      "options": [
+        {"t": "Nothing more; a trust store is enough for mTLS", "why": "A trust store only lets the client trust the brokers; mTLS needs the client's own certificate."},
+        {"t": "A SASL mechanism", "why": "mTLS authenticates with certificates, not SASL."},
+        {"t": "A key store with its own certificate (ssl.keystore.location)", "ok": true},
+        {"t": "A broker-side ACL allowing ANONYMOUS", "why": "With mTLS the client is identified by its certificate, not as ANONYMOUS."}
+      ],
+      "explain": "The trust store lets the client trust the brokers' certificates; for two-way (mutual) TLS the client also presents its own certificate from its key store, which is optional otherwise."
+    },
+    {
+      "id": "D68", "topic": "Connecting to a secured cluster", "difficulty": "hard", "sources": ["notes §16", "ccdak §8"],
+      "q": "A developer gets certificate errors connecting by IP address and proposes disabling `ssl.endpoint.identification.algorithm`. What do the Kafka docs advise?",
+      "options": [
+        {"t": "Disabling it is fine in production if the trust store is private", "why": "The docs warn against disabling hostname verification."},
+        {"t": "Use ssl.client.auth=requested instead", "why": "That's a broker setting, and the docs call 'requested' a false sense of security."},
+        {"t": "Switch to SASL_PLAINTEXT to avoid certificates", "why": "That removes encryption in transit."},
+        {"t": "Keep hostname verification on; fix the certificate", "ok": true}
+      ],
+      "explain": "Hostname verification is on by default (`https`). The docs warn against disabling it and prefer the subject alternative name (SAN) field over the common name."
+    },
+    {
+      "id": "D69", "topic": "Security", "difficulty": "medium", "sources": ["notes §16"],
+      "q": "Which statement about SASL/PLAIN is right?",
+      "options": [
+        {"t": "It encrypts passwords, so it is safe on PLAINTEXT listeners", "why": "PLAIN sends credentials as they are; it should only be used with TLS."},
+        {"t": "It should only be used with TLS", "ok": true},
+        {"t": "It is the same as the PLAINTEXT security protocol", "why": "PLAINTEXT is a protocol with no security; SASL/PLAIN is a username/password mechanism."},
+        {"t": "It is Kafka's default SASL mechanism", "why": "The default is GSSAPI."}
+      ],
+      "explain": "SASL/PLAIN and SCRAM should be used only with TLS (SASL_SSL); OAUTHBEARER should only be used with TLS in production."
+    },
+    {
+      "id": "D70", "topic": "Authorization", "difficulty": "medium", "sources": ["notes §16"],
+      "q": "Using `kafka-acls`, a team grants a service `--producer` on topic `orders`. What does that grant?",
+      "options": [
+        {"t": "WRITE only", "why": "It also grants DESCRIBE and CREATE."},
+        {"t": "READ and WRITE on the topic", "why": "READ is what --consumer grants."},
+        {"t": "All operations on the cluster", "why": "It is scoped to the topic."},
+        {"t": "WRITE, DESCRIBE and CREATE on the topic", "ok": true}
+      ],
+      "explain": "`kafka-acls --producer` grants WRITE, DESCRIBE and CREATE on the topic; `--consumer` grants READ and DESCRIBE on the topic and READ on the group."
+    },
+    {
+      "id": "D71", "topic": "Authorization", "difficulty": "hard", "sources": ["notes §16"],
+      "q": "A consumer has an ACL allowing READ on topic `orders`, but its consumer group `billing` has no ACL. With the StandardAuthorizer and default settings, what happens when it subscribes in that group?",
+      "options": [
+        {"t": "It is denied: it also needs READ on the group", "ok": true},
+        {"t": "It works: groups don't have ACLs", "why": "Groups are resources; --consumer grants READ on the group for this reason."},
+        {"t": "It works because topic READ implies group READ", "why": "Each resource needs its own allowing ACL."},
+        {"t": "It works because resources without ACLs are open to everyone", "why": "By default, a resource with no ACLs is accessible only to super users."}
+      ],
+      "explain": "Principals without an allowing ACL are denied, and a resource with no ACLs is open only to super users (unless `allow.everyone.if.no.acl.found=true`). A consumer needs READ on the topic and READ on the group."
+    },
+    {
+      "id": "D72", "topic": "Authorization", "difficulty": "hard", "sources": ["notes §16"],
+      "q": "A principal has an ALLOW ACL for WRITE on topic `orders` and a DENY ACL for WRITE on the prefix `ord`. Can it write to `orders`?",
+      "options": [
+        {"t": "Yes; a literal ACL beats a prefixed one", "why": "Any matching DENY wins, regardless of ALLOW ACLs."},
+        {"t": "Yes; ALLOW ACLs are checked first", "why": "DENY is checked and wins if it matches."},
+        {"t": "No; a matching DENY wins over any ALLOW", "ok": true},
+        {"t": "It depends on which ACL was created last", "why": "Creation order doesn't matter."}
+      ],
+      "explain": "If any DENY ACL matches, the operation is denied regardless of ALLOW ACLs (StandardAuthorizer)."
+    },
+    {
+      "id": "D73", "topic": "Authorization", "difficulty": "medium", "sources": ["notes §16"],
+      "q": "Which ACL operation does a principal need on a topic to change its configuration (for example `retention.ms`)?",
+      "options": [
+        {"t": "Write", "why": "Write is for producing records."},
+        {"t": "Create", "why": "Create is for creating the topic."},
+        {"t": "Describe", "why": "Describe is for reading metadata."},
+        {"t": "AlterConfigs", "ok": true}
+      ],
+      "explain": "Changing a topic's configs needs AlterConfigs on the topic; deleting it needs Delete."
+    },
+    {
+      "id": "D74", "topic": "Client configuration", "difficulty": "easy", "sources": ["ccdak §8"],
+      "q": "A cluster has 12 brokers. What should `bootstrap.servers` list?",
+      "options": [
+        {"t": "All 12 brokers, or the client can't reach partitions on the others", "why": "Clients discover the full set of brokers from the ones they bootstrap with."},
+        {"t": "Several brokers, so the client can connect if one is down", "ok": true},
+        {"t": "Only the active controller", "why": "Clients bootstrap from brokers, which return cluster metadata."},
+        {"t": "Exactly one broker, in leader order", "why": "Order doesn't matter, and one broker is a single point of failure for start-up."}
+      ],
+      "explain": "`bootstrap.servers` is used for the initial connection and to discover the full set of brokers. Order doesn't matter; listing more than one is recommended in case a server is down."
+    },
+    {
+      "id": "D75", "topic": "Client configuration", "difficulty": "easy", "sources": ["ccdak §8"],
+      "q": "What is `client.id` for?",
+      "options": [
+        {"t": "It must be unique per group, like group.instance.id", "why": "That is static membership; client.id has no such rule."},
+        {"t": "It authenticates the client to the broker", "why": "Authentication uses SSL or SASL, not client.id."},
+        {"t": "A logical application name in server-side request logs", "ok": true},
+        {"t": "It chooses which partitions a consumer gets", "why": "Assignment is done by the group protocol."}
+      ],
+      "explain": "`client.id` is passed with requests so the source of requests can be tracked beyond IP and port, by a logical application name in server-side logs."
+    },
+    {
+      "id": "D76", "topic": "Client configuration", "difficulty": "medium", "sources": ["ccdak §8", "notes §12"],
+      "q": "Partitions were just added to a topic. How long might a running producer take to start using them, with default settings?",
+      "options": [
+        {"t": "Up to metadata.max.age.ms (5 minutes), unless something else triggers a refresh", "ok": true},
+        {"t": "Never; the producer must be restarted", "why": "Clients pick up new partitions on a metadata refresh."},
+        {"t": "Instantly; the broker pushes the change to producers", "why": "Clients refresh metadata; brokers don't push it."},
+        {"t": "Until the next segment roll on the brokers", "why": "Segment rolls are unrelated to metadata."}
+      ],
+      "explain": "New partitions appear to clients after a metadata refresh; `metadata.max.age.ms` (default 300 000 ms) forces one even with no leadership change."
+    },
+    {
+      "id": "D77", "topic": "Client configuration", "difficulty": "medium", "sources": ["ccdak §8"],
+      "q": "A team wants to add a tracing header to every record a producer sends, without changing each send call. Which producer setting supports this?",
+      "options": [
+        {"t": "partitioner.class", "why": "A partitioner chooses partitions; it doesn't change records."},
+        {"t": "compression.type", "why": "Compression doesn't add headers."},
+        {"t": "client.id", "why": "client.id only names the client in logs."},
+        {"t": "interceptor.classes", "ok": true}
+      ],
+      "explain": "`interceptor.classes` lists `ProducerInterceptor`s, which see (and may change) records before they are published; there are none by default."
+    },
+    {
+      "id": "D78", "topic": "Compression", "difficulty": "hard", "sources": ["ccdak §8"],
+      "q": "A producer uses `compression.type=zstd` and the team wants a better ratio at some CPU cost. Which setting adjusts this, and what is its default?",
+      "options": [
+        {"t": "compression.level, default 6", "why": "Levels are set per codec, with codec-specific names."},
+        {"t": "compression.zstd.level, default 3", "ok": true},
+        {"t": "zstd.ratio, default 1.0", "why": "No such setting exists."},
+        {"t": "batch.size, which sets the compression level", "why": "batch.size sets batch size; a bigger batch can compress better, but it's not the level."}
+      ],
+      "explain": "Each codec has a level setting: `compression.zstd.level` (default 3), `compression.lz4.level` (default 9) and `compression.gzip.level` (default -1)."
+    },
+    {
+      "id": "D79", "topic": "Command line", "difficulty": "medium", "sources": ["notes §21"],
+      "q": "In Kafka 4.3, how do you pass producer settings (such as `acks=all`) to `kafka-console-producer`?",
+      "options": [
+        {"t": "--producer-property acks=all, the current option", "why": "--producer-property is deprecated in 4.3."},
+        {"t": "--command-property acks=all (or --command-config with a file)", "ok": true},
+        {"t": "--property acks=all", "why": "--property is the older, deprecated way to pass reader properties."},
+        {"t": "Environment variable KAFKA_ACKS=all", "why": "The tool takes settings as options, not environment variables."}
+      ],
+      "explain": "The 4.3 console producer takes producer settings with `--command-property` and `--command-config`; `--producer-property` and `--producer.config` are deprecated in 4.3."
+    },
+    {
+      "id": "D80", "topic": "Command line", "difficulty": "medium", "sources": ["notes §21"],
+      "q": "Which console consumer options print each record's key and partition alongside its value?",
+      "options": [
+        {"t": "--show-key --show-partition", "why": "These options don't exist."},
+        {"t": "--verbose", "why": "No such option prints keys and partitions."},
+        {"t": "--formatter-property print.key=true and print.partition=true", "ok": true},
+        {"t": "--command-property print.key=true", "why": "--command-property passes consumer settings, not formatter settings."}
+      ],
+      "explain": "The console consumer's formatter takes `--formatter-property` with `print.key`, `print.partition`, `print.offset`, `print.timestamp`, `print.headers` and `print.value`."
+    },
+    {
+      "id": "D81", "topic": "Tuning", "difficulty": "hard", "sources": ["notes §1"],
+      "q": "Which TWO producer settings directly trade a little latency for higher throughput?",
+      "options": [
+        {"t": "linger.ms", "ok": true},
+        {"t": "client.id", "why": "client.id is a label."},
+        {"t": "batch.size", "ok": true},
+        {"t": "security.protocol", "why": "This chooses the security protocol."},
+        {"t": "transactional.id", "why": "This enables transactions."}
+      ],
+      "explain": "`linger.ms` waits a little to fill batches, and `batch.size` sets how large a per-partition batch may grow; batching trades a little latency for throughput."
+    },
+    {
+      "id": "D82", "topic": "Delivery semantics", "difficulty": "hard", "sources": ["notes §5", "notes §1"],
+      "q": "A team needs at-most-once delivery for a metrics feed where duplicates are worse than gaps. Which combination gives it?",
+      "options": [
+        {"t": "acks=0 on its own", "why": "acks=0 is a durability choice; at-most-once also needs the consumer to commit before processing."},
+        {"t": "enable.idempotence=true and read_committed", "why": "Those are tools for exactly-once, not at-most-once."},
+        {"t": "No producer retries, and commit before processing", "ok": true},
+        {"t": "Commit after processing, with retries on", "why": "That gives at-least-once."}
+      ],
+      "explain": "The docs: at-most-once means no producer retries and committing the offset before processing."
+    },
+    {
+      "id": "D83", "topic": "Data modeling", "difficulty": "medium", "sources": ["notes §12", "notes §13"],
+      "q": "A topic keyed by customer ID will need much more consumer parallelism in a year. Why choose its partition count with care up front?",
+      "options": [
+        {"t": "Adding partitions later remaps keys, and the count can never be reduced", "ok": true},
+        {"t": "The partition count can only be set when the cluster is formatted", "why": "Partitions can be added later; it's the side effects that matter."},
+        {"t": "More partitions make each record larger", "why": "Partition count doesn't change record size."},
+        {"t": "The partition count fixes the number of producers", "why": "Any number of producers can write to a topic."}
+      ],
+      "explain": "Partition count caps consumer parallelism; adding partitions later changes where keys hash (breaking per-key order across the change), and it can't be reduced."
+    },
+    {
+      "id": "D84", "topic": "Data modeling", "difficulty": "medium", "sources": ["notes §8", "notes §3"],
+      "q": "A service must publish each product's current price so new consumers can load every product's latest price from the start of the topic. Which topic setup fits best?",
+      "options": [
+        {"t": "Keyed by request ID, delete policy, 7-day retention", "why": "Products not updated in 7 days would vanish, and request IDs don't group a product's prices."},
+        {"t": "Unkeyed, delete policy, infinite retention", "why": "Without keys nothing can be compacted; every old price is kept forever."},
+        {"t": "Keyed by timestamp, compacted", "why": "A timestamp key keeps every price, never just the latest per product."},
+        {"t": "Keyed by product ID, compacted", "ok": true}
+      ],
+      "explain": "Compaction keeps at least the latest value per key, so keying by product ID gives a reader from the start every product's latest price."
+    }
+  ]
+}

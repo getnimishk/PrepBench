@@ -1,0 +1,127 @@
+# PrepBench - Copyright (c) 2026 Nimish Kanungo
+# Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
+# Commercial use requires a separate licence from the copyright holder.
+
+"""
+The CCDAK question bank (backend/app/content/question_banks/ccdak/).
+
+The learner imports `ccdak_question_bank.json` on the Question Bank screen; it is
+built from one source file per exam section by `scripts/build_question_bank.py`.
+These tests hold the bank to its sources (docs/research/ccdak-exam-research.md and
+kafka-documentation-notes.md), to Confluent's exam guide (its six sections, at
+least four options per question) and to the import's own validator, and keep it
+from being answerable by pattern: the right answer's position is spread, and it
+is not usually the longest option.
+"""
+import json
+import re
+import sys
+from collections import Counter
+from pathlib import Path
+
+from app.core.database import SessionLocal
+from app.services.import_service import ImportService
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+import build_question_bank  # noqa: E402
+
+BANK = build_question_bank.output_path("ccdak")
+SECTIONS = {
+    # Confluent's April 2025 exam guide, sections 1-6 and their weights; the bank's planned size
+    # for each (300 in all, in proportion). A section is checked once its questions exist.
+    "Apache Kafka Fundamentals": 69,          # 23%
+    "Apache Kafka Application Development": 84,  # 28%
+    "Apache Kafka Streams": 36,               # 12%
+    "Kafka Connect": 45,                      # 15%
+    "Application Testing": 24,                # 8%
+    "Application Observability": 42,          # 13%
+}
+# The guide's "Out of scope" list. ZooKeeper is no exam topic either: 4.x removed it.
+OUT_OF_SCOPE = re.compile(r"ksqlDB|\bRBAC\b|Confluent for Kubernetes|\bCFK\b|ZooKeeper", re.IGNORECASE)
+
+
+def _bank():
+    return json.loads(BANK.read_text(encoding="utf-8"))
+
+
+def _right(q):
+    return [i for i, o in enumerate(q["options"]) if o["is_correct"]]
+
+
+def test_the_shipped_bank_is_what_the_sources_build_to():
+    built = build_question_bank.render(build_question_bank.build("ccdak"))
+    assert built == BANK.read_text(encoding="utf-8"), "out of date: run scripts/build_question_bank.py ccdak"
+
+
+def test_every_question_belongs_to_the_ccdak_certification_and_an_exam_section():
+    for q in _bank():
+        assert q["certification"] == "CCDAK", q["tags"]
+        assert q["domain"] in SECTIONS, q["domain"]
+
+
+def test_each_section_has_its_planned_number_of_questions():
+    counts = Counter(q["domain"] for q in _bank())
+    for domain, n in counts.items():
+        assert n == SECTIONS[domain], (domain, n)
+    # Readiness needs at least ten questions per domain to judge it.
+    assert all(n >= 10 for n in counts.values())
+
+
+def test_ids_are_unique():
+    ids = [q["tags"][1] for q in _bank()]
+    assert len(ids) == len(set(ids))
+
+
+def test_the_import_validator_finds_nothing_wrong():
+    db = SessionLocal()
+    try:
+        report = ImportService(db).validate_file(BANK.name, BANK.read_bytes())
+    finally:
+        db.close()
+    problems = [(item.index, i.severity, i.message) for item in report.items for i in item.issues]
+    assert report.total_processed == len(_bank())
+    assert problems == []
+
+
+def test_questions_have_the_exam_guides_shape():
+    for q in _bank():
+        right = _right(q)
+        assert len(q["options"]) >= 4, q["tags"]  # "four (4) or more response options"
+        if q["question_type"] == "single_choice":
+            assert len(right) == 1, q["tags"]
+        else:
+            assert q["question_type"] == "multiple_choice"
+            assert 2 <= len(right) < len(q["options"]) - 1, q["tags"]
+        assert q["explanation"].strip() and q["reference_url"].startswith("https://"), q["tags"]
+        for o in q["options"]:
+            assert o["is_correct"] or o["explanation_why_incorrect"], (q["tags"], o["option_text"])
+
+
+def test_every_question_cites_research_that_exists():
+    # build() raises on a citation of a section the research files lack; this checks the
+    # cited sections are named in the explanation the learner reads.
+    for q in _bank():
+        assert re.search(r"Sources: (notes|ccdak) §\d+", q["explanation"]), q["tags"]
+
+
+def test_the_right_answer_is_spread_over_positions():
+    singles = [q for q in _bank() if q["question_type"] == "single_choice"]
+    positions = Counter(_right(q)[0] for q in singles)
+    for p in range(4):
+        share = positions[p] / len(singles)
+        assert 0.18 <= share <= 0.32, (p, positions)
+
+
+def test_the_right_answer_is_not_usually_the_longest_option():
+    singles = [q for q in _bank() if q["question_type"] == "single_choice"]
+    longest = 0
+    for q in singles:
+        lengths = [len(o["option_text"]) for o in q["options"]]
+        longest += lengths[_right(q)[0]] == max(lengths)
+    assert longest / len(singles) <= 0.35, f"{longest} of {len(singles)}"
+
+
+def test_nothing_out_of_scope_is_asked_or_taught_as_right():
+    for q in _bank():
+        right_text = " ".join(q["options"][i]["option_text"] for i in _right(q))
+        assert not OUT_OF_SCOPE.search(q["text"] + " " + right_text), q["tags"]
