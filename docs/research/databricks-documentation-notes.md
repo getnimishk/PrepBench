@@ -1441,7 +1441,10 @@ https://learn.microsoft.com/en-us/azure/databricks/security/keys/ ; `.../admin/d
 ### 23.13 Testing
 
 - Unit test functions with pytest (Python), and SQL UDFs for SQL; Databricks recommends keeping Python functions and
-  their tests **outside notebooks** (files in a Git folder), with functions that return one predictable result.
+  their tests **outside notebooks** (files in a Git folder), with functions that return one predictable result. Files
+  that aren't notebooks create a session with `SparkSession.builder.appName(...).getOrCreate()`; a notebook in the same
+  folder runs `%pip install pytest`, then `sys.dont_write_bytecode = True` and `pytest.main([".", "-v", "-p",
+  "no:cacheprovider"])`, asserting the return code is 0.
 
 ## 24. Error catalogue
 
