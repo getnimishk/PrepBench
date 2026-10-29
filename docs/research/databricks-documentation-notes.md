@@ -136,6 +136,32 @@ https://www.databricks.com/sites/default/files/2026-10/Databricks-Certified-Data
   job repair and parameter overrides; metric views; dimensional modelling.
 - **Out of scope:** no list. **Not published:** the pass mark.
 
+### 1.4 Architect and administrator accreditations
+
+Sources: https://www.databricks.com/learn/certification/databricks-on-azure ; `.../databricks-on-aws` ;
+`.../platform-administrator-accreditation` (all read 2026-10-29).
+
+- **There is no "Solutions Architect" credential.** The certification page (§1.1) lists no exam or accreditation with
+  that name; the only architect credentials on it are the three **Platform Architect** badges (AWS, Azure, GCP) and the
+  retired Hadoop Migration Architect exam. "Solutions architect" is a job role, not a Databricks credential.
+- **Azure Platform Architect badge.** "This assessment will test your understanding of deployment, security and cloud
+  integrations for Azure Databricks." It covers five areas: **platform administration fundamentals**, **network
+  configuration**, **platform access and security**, **external storage configuration**, **cloud service
+  integrations**. Type: accreditation. **20 questions**, multiple choice and multiple select, **no time limit**, online
+  and **not proctored**, no test aids, English. **Passing score 80%** (published, unlike the certifications). **Free for
+  Databricks customers and partners**; registration is through Databricks Academy. Prerequisite: related training in
+  Databricks Academy (self-paced "Azure Databricks Data + AI Platform Architect Pathway"). Valid one year. **No weights or
+  question counts per area are published.**
+- **AWS Platform Architect badge** (same format: 20 questions, 80%, one year) covers platform administration
+  fundamentals, Account API usage, external storage, cloud service integrations, customer-managed VPCs and
+  customer-managed keys. Listed only to show the Azure badge's areas are cloud-specific.
+- **Data + AI Platform Administrator accreditation:** 25 multiple-choice questions, unlimited time, not proctored, free
+  for customers and partners, valid one year, no programming questions, no pass mark stated on the page. Its candidate
+  description covers user and group administration (identity-provider import, admin roles, workspace APIs), compute
+  (clusters with init scripts, policies, pools; classic and serverless SQL warehouses; model serving; jobs and
+  pipelines), and governance (permissions on workspace assets, jobs, clusters and pools; table types, views, sharing;
+  secrets; Delta Sharing; model governance).
+
 ## 2. Delta Lake on Databricks: tables, the log, versions
 
 Sources: https://docs.databricks.com/aws/en/delta/ (updated 2026-09-11) ; https://docs.databricks.com/aws/en/delta/history
@@ -905,3 +931,105 @@ https://docs.databricks.com/aws/en/getting-started/free-edition-limitations (202
 - **Fast-changing items.** Many features carry Beta or Public Preview labels and runtime requirements (automatic CDF needs
   DBR 19+, `INSERT WITH SCHEMA EVOLUTION` DBR 18.1+). The material avoids exam questions that hinge on a preview feature
   or a version number unless the exam outline names it, and gives the version when it matters.
+- **Architect accreditation (§1.4):** no weights or question counts per area are published, and the training it
+  expects is in Databricks Academy, which these notes did not read (it needs a sign-in). Registration is "free for
+  Databricks customers and partners"; the page doesn't say whether anyone else can take it. "Solutions Architect" is not
+  a Databricks credential.
+
+## 20. Azure Databricks networking and workspace deployment (the Platform Architect areas)
+
+Sources: https://learn.microsoft.com/en-us/azure/databricks/security/network/ (updated 2026-10-06) ;
+`.../security/network/classic/vnet-inject` (2026-10-09) ; `.../security/network/classic/secure-cluster-connectivity`
+(2026-10-08) ; `.../security/network/classic/private-link` (2026-10-21) ;
+`.../security/network/serverless-network-security/` (2026-10-06) ; `.../admin/workspace/` (2026-09-11) ; `.../admin/`
+(2026-09-11) (all read 2026-10-29). These pages are Azure-only; everything in this section is **Azure:**.
+
+### 20.1 Three connections, each secured on its own
+
+- Databricks networking has three connection points: **users and applications → Databricks** (inbound: front-end
+  Private Link, context-based ingress control, IP access lists for workspaces and for the account console); **control
+  plane ↔ classic compute plane** (VNet injection, secure cluster connectivity, back-end Private Link, user-defined
+  routes, peering, VPN/ExpressRoute to on-premises); **serverless compute plane → your resources** (network connectivity
+  configurations, private endpoints, serverless egress control with network policies, storage firewalls).
+- Traffic between the classic compute plane and the control plane crosses the **Microsoft network backbone, not the
+  public internet**, even with secure cluster connectivity disabled. Control plane ↔ serverless compute plane is also
+  always on the cloud backbone.
+- Azure Databricks **charges for networking** when serverless workloads connect to customer resources, and when
+  performance-intensive services send data cross-region back to clients.
+
+### 20.2 Workspace types and who can create one
+
+- **Serverless workspace:** pre-configured with serverless compute and **default storage**; you can still connect your
+  own cloud storage. Microsoft recommends it for most uses (dashboards, Apps, exploratory notebooks and SQL warehouses,
+  serverless pipelines, AI features; Lakehouse Federation to SaaS, but not Lakeflow Connect).
+- **Hybrid (classic) workspace:** provisions storage and compute in **your** Azure subscription; serverless is still
+  available. Recommended for porting RDD code, Scala or R as the main language, streaming that needs **time-based
+  trigger intervals**, and reaching on-premises or private databases directly through Lakeflow Connect.
+- Creating a workspace needs an Azure subscription that **isn't a Free Trial**, and the **Contributor or Owner** role at
+  subscription level (or a custom role with the listed `Microsoft.Databricks/*` and resource-provider permissions).
+  Deployment: Azure portal or Terraform as the standard methods; also Azure CLI, PowerShell, ARM template, Bicep.
+- Account-level administration covers billing, serverless quotas, workspaces, identity (users, groups and service
+  principals via **SCIM** provisioning), compute policies, system tables, audit logs and cost management.
+
+### 20.3 VNet injection (classic compute in your own VNet)
+
+- Deploys the **classic compute plane** into **your** VNet, for: private connectivity to Azure services (service or
+  private endpoints), on-premises access through user-defined routes, traffic inspection with network virtual
+  appliances, custom DNS, extra NSG egress rules.
+- **Requirements:** the VNet is in the **same region and subscription** as the workspace; VNet CIDR **/16 to /24**; **two
+  dedicated subnets**: a **container** subnet (also called private) and a **host** subnet (also called public), each at
+  least **/26** recommended (/28 possible, not recommended), ideally the same size. Subnets **can't be shared across
+  workspaces** and can't hold other Azure resources. **Subnet ranges can't be changed after deployment.** The workspace
+  creator needs **Network Contributor** on the VNet (or the subnet join/write permissions).
+- **Sizing:** each cluster node takes **two IPs** (one in each subnet); Azure reserves **five IPs per subnet**. A
+  smaller VNet runs out of addresses sooner.
+- Databricks **delegates** both subnets to `Microsoft.Databricks/workspaces` and **manages the NSG rules** (don't modify
+  or delete them; one NSG per workspace recommended). Outbound to the `AzureDatabricks` service tag on **443** (infra,
+  data sources, libraries), **3306** (metastore), **8443** (compute → control-plane API), **8444** (Unity Catalog logging
+  and lineage), 8445-8451 reserved; outbound to Storage 443, EventHub 9093. Two inbound rules (ports 22 and 5557 from
+  `AzureDatabricks`) exist **only if secure cluster connectivity is disabled**.
+- The **managed resource group** can't be modified. Running out of space: update the network configuration (Public
+  Preview) or ask the account team to widen the subnet CIDR.
+
+### 20.4 Secure cluster connectivity (no public IP, "NPIP")
+
+- With it on, the customer VNet has **no open ports** and classic compute nodes have **no public IP addresses**. Each
+  cluster opens an **outbound** connection on **443** to the control plane's **SCC relay**; administration requests come
+  back through that tunnel. Serverless compute doesn't use SCC but has no public IPs either.
+- **Default on** for new workspaces (portal default Yes; ARM `enableNoPublicIp` defaults to `true` from API version
+  2024-05-01). The page says a future release will make it **mandatory** for classic workspaces. Adding it to an
+  existing workspace requires VNet injection and stopping all classic compute first; the update can take over 15 minutes.
+- **Egress:** with the default managed VNet, Databricks creates a **NAT gateway** in the managed resource group (extra
+  cost). With VNet injection, Databricks recommends an **Azure NAT gateway on both subnets** for a **stable egress
+  public IP** (for external allow lists). **Don't use an egress load balancer** with SCC (port exhaustion risk).
+  After **31 March 2026**, new Azure VNets have **no default outbound internet access**, so new workspaces need an
+  explicit method such as a NAT gateway; existing workspaces are not affected.
+- Firewalls: allow-list the SCC relay **domain names**, not IP addresses (the IPs change).
+
+### 20.5 Private Link: three kinds, and serverless connectivity
+
+- **Inbound (front-end)** secures users → web app, REST API, Apps, Databricks Connect. Prerequisites: Premium plan,
+  VNet injection, SCC. Endpoints: `databricks_ui_api`, `browser_authentication` (and optionally `general_access`).
+- **Outbound (serverless)** secures serverless compute → your Azure resources. Prerequisite: Premium plan. Uses private
+  endpoint rules in an **NCC**.
+- **Classic (back-end)** secures classic compute → control plane (REST API and the SCC relay). Prerequisites: Premium
+  plan, VNet injection, SCC. Endpoint: `databricks_ui_api`.
+- They can be used **independently or together**; "complete private isolation" uses all of them with **public network
+  access disabled** and required NSG rules set to `NoAzureDatabricksRules` (front-end only keeps `AllRules`).
+- **`browser_authentication`** makes browser SSO work over a private connection: **one per region and private DNS zone**,
+  serving every workspace there. Best practice in production is a dedicated **"private web auth workspace"** per region
+  to host it, because **deleting the host workspace breaks web login for every workspace that depends on it**.
+- **`general_access`** can serve the account console and workspaces **in different regions** from one endpoint;
+  `databricks_ui_api`, `browser_authentication` and `service_direct` are **region-specific**.
+- Two VNets: a **transit VNet** (hub for user connectivity: inbound private endpoints, browser-auth workspace) and the
+  **workspace VNet** (workspace subnets plus a classic private endpoint subnet). Suggested sizes: transit private
+  endpoint subnet /26-/25, browser-auth workspace /28 or /27, classic private endpoint subnet /27.
+- **NCC (network connectivity configuration):** an **account-level, regional** construct, created by account admins,
+  that manages private endpoints for serverless compute; attachable to **up to 50 workspaces** in the same region; **up
+  to 20 NCCs per region per account**; **100 private endpoints per region**. Adding a private endpoint creates a request
+  the resource owner must **accept**.
+- Without a private endpoint, serverless reaches Azure storage through **service endpoints** and other resources
+  through **NAT IPs**. Storage accounts that allow-listed serverless **subnet IDs can no longer connect**: put the storage
+  account in a **network security perimeter** and allow the `AzureDatabricksServerless` service tag (it can be scoped to
+  a region), otherwise serverless gets **403 Forbidden**. A storage firewall also affects classic compute, which must be
+  allowed separately.
