@@ -375,7 +375,7 @@
       "sources": [
         "notes §7"
       ],
-      "q": "Which statements about COPY INTO are true? ",
+      "q": "Which statements about COPY INTO are true?",
       "options": [
         {
           "t": "It is idempotent: files already loaded are skipped",
@@ -577,7 +577,7 @@
       "sources": [
         "notes §7"
       ],
-      "q": "Which sources are listed among Lakeflow Connect's managed connectors? ",
+      "q": "Which sources are listed among Lakeflow Connect's managed connectors?",
       "options": [
         {
           "t": "Salesforce and Workday",

@@ -3,244 +3,619 @@
   "domain": "Data Transformation and Modeling",
   "questions": [
     {
-      "id": "T23", "topic": "Tuning parameters", "difficulty": "medium", "sources": ["notes §9"],
+      "id": "T23",
+      "topic": "Tuning parameters",
+      "difficulty": "medium",
+      "sources": [
+        "notes §9"
+      ],
       "q": "What is Apache Spark's default value of spark.sql.shuffle.partitions, and what does Databricks' skew-and-spill guidance suggest instead?",
       "options": [
-        {"t": "200; Databricks suggests auto", "ok": true},
-        {"t": "8, one per core; Databricks suggests raising it to 64 for every cluster", "why": "Apache Spark's default is 200, and the guidance suggests auto."},
-        {"t": "1000; Databricks suggests lowering it to the number of workers", "why": "The default is 200, and the guidance suggests auto."},
-        {"t": "It has no default and must always be set by hand on every cluster", "why": "Apache Spark's default is 200."}
+        {
+          "t": "200; Databricks suggests auto",
+          "ok": true
+        },
+        {
+          "t": "8, one per core; Databricks suggests raising it to 64 for every cluster",
+          "why": "Apache Spark's default is 200, and the guidance suggests auto."
+        },
+        {
+          "t": "1000; Databricks suggests lowering it to the number of workers",
+          "why": "The default is 200, and the guidance suggests auto."
+        },
+        {
+          "t": "It has no default and must always be set by hand on every cluster",
+          "why": "Apache Spark's default is 200."
+        }
       ],
       "explain": "Apache Spark's default spark.sql.shuffle.partitions is 200; Databricks' skew-and-spill page suggests spark.sql.shuffle.partitions=auto so Spark chooses the count."
     },
     {
-      "id": "T24", "topic": "Tuning parameters", "difficulty": "hard", "sources": ["notes §9"],
+      "id": "T24",
+      "topic": "Tuning parameters",
+      "difficulty": "hard",
+      "sources": [
+        "notes §9"
+      ],
       "q": "Which setting is the default number of partitions for RDD operations such as reduceByKey, join and parallelize?",
       "options": [
-        {"t": "spark.sql.shuffle.partitions, used for both DataFrames and RDDs", "why": "That setting governs DataFrame/SQL shuffles; RDD operations use spark.default.parallelism."},
-        {"t": "spark.sql.autoBroadcastJoinThreshold, which also sizes RDD partitions", "why": "That is the broadcast size limit."},
-        {"t": "spark.default.parallelism", "ok": true},
-        {"t": "spark.executor.memory, which decides partitions from available memory", "why": "That is executor memory, not a partition count."}
+        {
+          "t": "spark.sql.shuffle.partitions, used for both DataFrames and RDDs",
+          "why": "That setting governs DataFrame/SQL shuffles; RDD operations use spark.default.parallelism."
+        },
+        {
+          "t": "spark.sql.autoBroadcastJoinThreshold, which also sizes RDD partitions",
+          "why": "That is the broadcast size limit."
+        },
+        {
+          "t": "spark.default.parallelism",
+          "ok": true
+        },
+        {
+          "t": "spark.executor.memory, which decides partitions from available memory",
+          "why": "That is executor memory, not a partition count."
+        }
       ],
       "explain": "spark.default.parallelism is the default partition count for RDD operations such as reduceByKey, join and parallelize; it depends on the cluster."
     },
     {
-      "id": "T25", "topic": "Tuning parameters", "difficulty": "medium", "sources": ["notes §9"],
+      "id": "T25",
+      "topic": "Tuning parameters",
+      "difficulty": "medium",
+      "sources": [
+        "notes §9"
+      ],
       "q": "In open-source Apache Spark, what are the defaults of spark.executor.memory and spark.driver.memory?",
       "options": [
-        {"t": "4g for the executor and 2g for the driver", "why": "Both are 1g in open-source Spark."},
-        {"t": "1g each", "ok": true},
-        {"t": "Half of each node's RAM, decided automatically at start-up", "why": "Both default to 1g in open-source Spark; Databricks configures clusters itself."},
-        {"t": "512m each, the minimum a JVM can run Spark with", "why": "Both default to 1g in open-source Spark."}
+        {
+          "t": "4g for the executor and 2g for the driver",
+          "why": "Both are 1g in open-source Spark."
+        },
+        {
+          "t": "1g each",
+          "ok": true
+        },
+        {
+          "t": "Half of each node's RAM, decided automatically at start-up",
+          "why": "Both default to 1g in open-source Spark; Databricks configures clusters itself."
+        },
+        {
+          "t": "512m each, the minimum a JVM can run Spark with",
+          "why": "Both default to 1g in open-source Spark."
+        }
       ],
       "explain": "spark.executor.memory and spark.driver.memory are 1g each in open-source Spark. Databricks Runtime ships its own Spark build and configures clusters, and can set its own values."
     },
     {
-      "id": "T26", "topic": "Tuning parameters", "difficulty": "medium", "sources": ["notes §9"],
+      "id": "T26",
+      "topic": "Tuning parameters",
+      "difficulty": "medium",
+      "sources": [
+        "notes §9"
+      ],
       "q": "Adaptive query execution (AQE) is enabled. Which of these does it do at run time?",
       "options": [
-        {"t": "Rewrites Delta files into larger ones after every query that runs", "why": "That is OPTIMIZE; AQE re-plans queries at exchanges."},
-        {"t": "Adds liquid clustering keys to tables that are queried often", "why": "That is automatic liquid clustering, not AQE."},
-        {"t": "Turns batch queries into streaming queries when the data is large", "why": "AQE doesn't change a query's mode."},
-        {"t": "Switches a sort-merge join to a broadcast join when one side is small", "ok": true}
+        {
+          "t": "Rewrites Delta files into larger ones after every query that runs",
+          "why": "That is OPTIMIZE; AQE re-plans queries at exchanges."
+        },
+        {
+          "t": "Adds liquid clustering keys to tables that are queried often",
+          "why": "That is automatic liquid clustering, not AQE."
+        },
+        {
+          "t": "Turns batch queries into streaming queries when the data is large",
+          "why": "AQE doesn't change a query's mode."
+        },
+        {
+          "t": "Switches a sort-merge join to a broadcast join when one side is small",
+          "ok": true
+        }
       ],
       "explain": "AQE, on by default, uses real statistics at each shuffle or broadcast exchange to switch sort-merge joins to broadcast hash joins, coalesce small partitions, split skewed join partitions and propagate empty relations."
     },
     {
-      "id": "T27", "topic": "Tuning parameters", "difficulty": "hard", "sources": ["notes §9"],
+      "id": "T27",
+      "topic": "Tuning parameters",
+      "difficulty": "hard",
+      "sources": [
+        "notes §9"
+      ],
       "q": "A groupBy on a heavily skewed key is slow, and AQE is on. Which fix does the exam guide's own sample question point to?",
       "options": [
-        {"t": "Rely on AQE's skew handling, which splits skewed aggregations automatically", "why": "AQE splits skewed partitions in joins, not in aggregations."},
-        {"t": "Salt the key, aggregate by the salted key, then aggregate again", "ok": true},
-        {"t": "Broadcast the table being aggregated so each executor has a full copy", "why": "Broadcasting is a join strategy, and broadcast joins are never skew-optimised."},
-        {"t": "Set spark.sql.shuffle.partitions to 1 so all rows are on one task", "why": "That makes the problem worse: one task does all the work."}
+        {
+          "t": "Rely on AQE's skew handling, which splits skewed aggregations automatically",
+          "why": "AQE splits skewed partitions in joins, not in aggregations."
+        },
+        {
+          "t": "Salt the key, aggregate by the salted key, then aggregate again",
+          "ok": true
+        },
+        {
+          "t": "Broadcast the table being aggregated so each executor has a full copy",
+          "why": "Broadcasting is a join strategy, and broadcast joins are never skew-optimised."
+        },
+        {
+          "t": "Set spark.sql.shuffle.partitions to 1 so all rows are on one task",
+          "why": "That makes the problem worse: one task does all the work."
+        }
       ],
       "explain": "AQE's skew handling applies to skewed joins, not aggregations; salting spreads a hot key over several tasks, then a second aggregation combines them."
     },
     {
-      "id": "T28", "topic": "Gold objects", "difficulty": "medium", "sources": ["notes §10"],
+      "id": "T28",
+      "topic": "Gold objects",
+      "difficulty": "medium",
+      "sources": [
+        "notes §10"
+      ],
       "q": "A gold aggregate must stay correct even when silver rows are updated or deleted. Which pipeline dataset type fits?",
       "options": [
-        {"t": "A streaming table, which reprocesses rows when their sources change", "why": "A streaming table processes each record once and doesn't reprocess rows when sources change."},
-        {"t": "A view, which is stored and shared outside the pipeline", "why": "Pipeline views aren't stored and are usable only inside the pipeline."},
-        {"t": "A materialized view", "ok": true},
-        {"t": "A temporary table dropped and recreated by hand each day", "why": "A materialized view keeps the result correct, incrementally when possible."}
+        {
+          "t": "A streaming table, which reprocesses rows when their sources change",
+          "why": "A streaming table processes each record once and doesn't reprocess rows when sources change."
+        },
+        {
+          "t": "A view, which is stored and shared outside the pipeline",
+          "why": "Pipeline views aren't stored and are usable only inside the pipeline."
+        },
+        {
+          "t": "A materialized view",
+          "ok": true
+        },
+        {
+          "t": "A temporary table dropped and recreated by hand each day",
+          "why": "A materialized view keeps the result correct, incrementally when possible."
+        }
       ],
       "explain": "A materialized view is recomputed as needed to match the source's current state, incrementally when possible, so it is always correct at the time of its update, including updated and deleted source data."
     },
     {
-      "id": "T29", "topic": "Gold objects", "difficulty": "medium", "sources": ["notes §10"],
+      "id": "T29",
+      "topic": "Gold objects",
+      "difficulty": "medium",
+      "sources": [
+        "notes §10"
+      ],
       "q": "Which dataset type processes each record exactly once and assumes an append-only source?",
       "options": [
-        {"t": "A streaming table", "ok": true},
-        {"t": "A materialized view, which recomputes when sources change", "why": "Materialized views recompute to match the source; they don't assume append-only sources."},
-        {"t": "A view, which re-reads its source in full on every query", "why": "Views are evaluated on demand and not stored."},
-        {"t": "A managed table written by INSERT OVERWRITE every hour", "why": "That rewrites the table; it isn't the exactly-once streaming dataset."}
+        {
+          "t": "A streaming table",
+          "ok": true
+        },
+        {
+          "t": "A materialized view, which recomputes when sources change",
+          "why": "Materialized views recompute to match the source; they don't assume append-only sources."
+        },
+        {
+          "t": "A view, which re-reads its source in full on every query",
+          "why": "Views are evaluated on demand and not stored."
+        },
+        {
+          "t": "A managed table written by INSERT OVERWRITE every hour",
+          "why": "That rewrites the table; it isn't the exactly-once streaming dataset."
+        }
       ],
       "explain": "A streaming table processes each record exactly once, assuming an append-only source; it is used for ingestion and low-latency transformations."
     },
     {
-      "id": "T30", "topic": "Gold objects", "difficulty": "hard", "sources": ["notes §10"],
+      "id": "T30",
+      "topic": "Gold objects",
+      "difficulty": "hard",
+      "sources": [
+        "notes §10"
+      ],
       "q": "A streaming table's query is changed to add a new derived column. What happens to rows that were already appended?",
       "options": [
-        {"t": "They are rewritten automatically on the next update", "why": "Rows already appended aren't reprocessed when the query changes."},
-        {"t": "They are deleted, and the source is read again from the start", "why": "That only happens with a full refresh."},
-        {"t": "The update fails until the table is dropped and recreated", "why": "The update runs; only new rows see the change."},
-        {"t": "They keep their old values unless a full refresh is run", "ok": true}
+        {
+          "t": "They are rewritten automatically on the next update",
+          "why": "Rows already appended aren't reprocessed when the query changes."
+        },
+        {
+          "t": "They are deleted, and the source is read again from the start",
+          "why": "That only happens with a full refresh."
+        },
+        {
+          "t": "The update fails until the table is dropped and recreated",
+          "why": "The update runs; only new rows see the change."
+        },
+        {
+          "t": "They keep their old values unless a full refresh is run",
+          "ok": true
+        }
       ],
       "explain": "Rows already appended to a streaming table aren't reprocessed when the query changes; only new rows see the change, unless you run a full refresh."
     },
     {
-      "id": "T31", "topic": "Gold objects", "difficulty": "medium", "sources": ["notes §10"],
+      "id": "T31",
+      "topic": "Gold objects",
+      "difficulty": "medium",
+      "sources": [
+        "notes §10"
+      ],
       "q": "Inside a Lakeflow pipeline, which dataset is evaluated on demand, not stored, and usable only inside the pipeline?",
       "options": [
-        {"t": "A materialized view, which is cached for the pipeline's run", "why": "Materialized views are stored and readable outside the pipeline."},
-        {"t": "A streaming table, which is dropped at the end of each update", "why": "Streaming tables are stored Unity Catalog managed tables."},
-        {"t": "A view", "ok": true},
-        {"t": "A sink, which holds intermediate rows between flows", "why": "A sink is a streaming target outside the pipeline's tables."}
+        {
+          "t": "A materialized view, which is cached for the pipeline's run",
+          "why": "Materialized views are stored and readable outside the pipeline."
+        },
+        {
+          "t": "A streaming table, which is dropped at the end of each update",
+          "why": "Streaming tables are stored Unity Catalog managed tables."
+        },
+        {
+          "t": "A view",
+          "ok": true
+        },
+        {
+          "t": "A sink, which holds intermediate rows between flows",
+          "why": "A sink is a streaming target outside the pipeline's tables."
+        }
       ],
       "explain": "A pipeline view is evaluated on demand, not persisted, and usable only inside the pipeline, for intermediate steps and checks."
     },
     {
-      "id": "T32", "topic": "Data quality", "difficulty": "medium", "sources": ["notes §10"],
+      "id": "T32",
+      "topic": "Data quality",
+      "difficulty": "medium",
+      "sources": [
+        "notes §10"
+      ],
       "q": "An expectation is declared with no ON VIOLATION clause. What happens to rows that fail it?",
       "options": [
-        {"t": "They are dropped and counted in the pipeline's quality metrics", "why": "Dropping needs ON VIOLATION DROP ROW."},
-        {"t": "They are written to the target and counted", "ok": true},
-        {"t": "The update fails and no metrics are recorded for the run", "why": "Failing needs ON VIOLATION FAIL UPDATE."},
-        {"t": "They are moved to a quarantine table created automatically", "why": "Quarantine is a pattern you build on top; the default action is warn."}
+        {
+          "t": "They are dropped and counted in the pipeline's quality metrics",
+          "why": "Dropping needs ON VIOLATION DROP ROW."
+        },
+        {
+          "t": "They are written to the target and counted",
+          "ok": true
+        },
+        {
+          "t": "The update fails and no metrics are recorded for the run",
+          "why": "Failing needs ON VIOLATION FAIL UPDATE."
+        },
+        {
+          "t": "They are moved to a quarantine table created automatically",
+          "why": "Quarantine is a pattern you build on top; the default action is warn."
+        }
       ],
       "explain": "warn is the default: invalid rows are written and counted. drop (ON VIOLATION DROP ROW) drops and counts them; fail (ON VIOLATION FAIL UPDATE) fails the update."
     },
     {
-      "id": "T33", "topic": "Data quality", "difficulty": "medium", "sources": ["notes §10"],
+      "id": "T33",
+      "topic": "Data quality",
+      "difficulty": "medium",
+      "sources": [
+        "notes §10"
+      ],
       "q": "Which Python decorator drops rows that fail an expectation?",
       "options": [
-        {"t": "@dp.expect, the default expectation decorator", "why": "@dp.expect warns; it keeps the rows."},
-        {"t": "@dp.expect_or_fail, which stops on the first bad row", "why": "That fails the update instead of dropping rows."},
-        {"t": "@dp.expect_or_drop", "ok": true},
-        {"t": "@dp.quarantine, which moves the rows to another table", "why": "There is no such decorator; quarantine is a pattern built on top."}
+        {
+          "t": "@dp.expect, the default expectation decorator",
+          "why": "@dp.expect warns; it keeps the rows."
+        },
+        {
+          "t": "@dp.expect_or_fail, which stops on the first bad row",
+          "why": "That fails the update instead of dropping rows."
+        },
+        {
+          "t": "@dp.expect_or_drop",
+          "ok": true
+        },
+        {
+          "t": "@dp.quarantine, which moves the rows to another table",
+          "why": "There is no such decorator; quarantine is a pattern built on top."
+        }
       ],
       "explain": "In Python, @dp.expect warns, @dp.expect_or_drop drops invalid rows, and @dp.expect_or_fail fails the update."
     },
     {
-      "id": "T34", "topic": "Data quality", "difficulty": "hard", "sources": ["notes §10"],
+      "id": "T34",
+      "topic": "Data quality",
+      "difficulty": "hard",
+      "sources": [
+        "notes §10"
+      ],
       "q": "An expectation uses ON VIOLATION FAIL UPDATE and a bad row arrives. What is recorded?",
       "options": [
-        {"t": "The update fails, and no metrics are recorded", "ok": true},
-        {"t": "The bad row is written and flagged with a warning in the data", "why": "That is warn, the default action."},
-        {"t": "The bad row is dropped and the update continues with the rest", "why": "That is the drop action."},
-        {"t": "The update succeeds, and the failure is logged for later review", "why": "FAIL UPDATE fails the update."}
+        {
+          "t": "The update fails, and no metrics are recorded",
+          "ok": true
+        },
+        {
+          "t": "The bad row is written and flagged with a warning in the data",
+          "why": "That is warn, the default action."
+        },
+        {
+          "t": "The bad row is dropped and the update continues with the rest",
+          "why": "That is the drop action."
+        },
+        {
+          "t": "The update succeeds, and the failure is logged for later review",
+          "why": "FAIL UPDATE fails the update."
+        }
       ],
       "explain": "With the fail action the update fails and no metrics are recorded."
     },
     {
-      "id": "T35", "topic": "Data quality", "difficulty": "hard", "sources": ["notes §10"],
+      "id": "T35",
+      "topic": "Data quality",
+      "difficulty": "hard",
+      "sources": [
+        "notes §10"
+      ],
       "q": "What can an expectation's constraint not contain?",
       "options": [
-        {"t": "Comparison operators such as > and BETWEEN on the row's columns", "why": "Those are normal SQL boolean expressions, which expectations use."},
-        {"t": "References to more than one column of the same row", "why": "A constraint can combine columns of the row."},
-        {"t": "IS NULL or IS NOT NULL checks on any of the row's columns", "why": "Null checks are ordinary constraints."},
-        {"t": "Python functions, external calls, or subqueries on other tables", "ok": true}
+        {
+          "t": "Comparison operators such as > and BETWEEN on the row's columns",
+          "why": "Those are normal SQL boolean expressions, which expectations use."
+        },
+        {
+          "t": "References to more than one column of the same row",
+          "why": "A constraint can combine columns of the row."
+        },
+        {
+          "t": "IS NULL or IS NOT NULL checks on any of the row's columns",
+          "why": "Null checks are ordinary constraints."
+        },
+        {
+          "t": "Python functions, external calls, or subqueries on other tables",
+          "ok": true
+        }
       ],
       "explain": "Constraints are SQL boolean expressions; they can't use Python functions, external calls or subqueries on other tables."
     },
     {
-      "id": "T36", "topic": "MERGE", "difficulty": "medium", "sources": ["notes §4"],
+      "id": "T36",
+      "topic": "MERGE",
+      "difficulty": "medium",
+      "sources": [
+        "notes §4"
+      ],
       "q": "A MERGE fails because two source rows match the same target row. What is the documented fix?",
       "options": [
-        {"t": "Add WHEN NOT MATCHED BY SOURCE so the second match is ignored", "why": "That clause handles target rows the source lacks, not duplicate matches."},
-        {"t": "Deduplicate the source so only one row matches each target row", "ok": true},
-        {"t": "Switch the table to Serializable isolation so matches are ordered", "why": "Isolation levels govern concurrent writers, not duplicate source rows."},
-        {"t": "Run the MERGE twice so each source row gets its turn to apply", "why": "The rule is one source row per target row; the source must be deduplicated."}
+        {
+          "t": "Add WHEN NOT MATCHED BY SOURCE so the second match is ignored",
+          "why": "That clause handles target rows the source lacks, not duplicate matches."
+        },
+        {
+          "t": "Deduplicate the source so only one row matches each target row",
+          "ok": true
+        },
+        {
+          "t": "Switch the table to Serializable isolation so matches are ordered",
+          "why": "Isolation levels govern concurrent writers, not duplicate source rows."
+        },
+        {
+          "t": "Run the MERGE twice so each source row gets its turn to apply",
+          "why": "The rule is one source row per target row; the source must be deduplicated."
+        }
       ],
       "explain": "Only one source row may match a given target row; several matches fail the merge, so deduplicate the source first."
     },
     {
-      "id": "T37", "topic": "MERGE", "difficulty": "medium", "sources": ["notes §4"],
+      "id": "T37",
+      "topic": "MERGE",
+      "difficulty": "medium",
+      "sources": [
+        "notes §4"
+      ],
       "q": "A batch of log rows may be replayed after a failure. Which statement appends only rows not already in the table?",
       "options": [
-        {"t": "INSERT INTO logs SELECT * FROM new_logs, which skips existing rows", "why": "A plain insert appends everything again, creating duplicates."},
-        {"t": "COPY INTO logs FROM new_logs, which tracks rows already loaded", "why": "COPY INTO loads files and tracks files, not rows of a DataFrame."},
-        {"t": "MERGE INTO logs USING new_logs ON logs.uniqueId = new_logs.uniqueId WHEN NOT MATCHED THEN INSERT *", "ok": true},
-        {"t": "CREATE OR REPLACE TABLE logs AS SELECT * FROM new_logs", "why": "That replaces the whole table with only the new batch."}
+        {
+          "t": "INSERT INTO logs SELECT * FROM new_logs, which skips existing rows",
+          "why": "A plain insert appends everything again, creating duplicates."
+        },
+        {
+          "t": "COPY INTO logs FROM new_logs, which tracks rows already loaded",
+          "why": "COPY INTO loads files and tracks files, not rows of a DataFrame."
+        },
+        {
+          "t": "MERGE INTO logs USING new_logs ON logs.uniqueId = new_logs.uniqueId WHEN NOT MATCHED THEN INSERT *",
+          "ok": true
+        },
+        {
+          "t": "CREATE OR REPLACE TABLE logs AS SELECT * FROM new_logs",
+          "why": "That replaces the whole table with only the new batch."
+        }
       ],
       "explain": "An insert-only merge appends only records not already present, which is the documented way to avoid duplicates when a batch is replayed."
     },
     {
-      "id": "T38", "topic": "MERGE", "difficulty": "hard", "sources": ["notes §4"],
+      "id": "T38",
+      "topic": "MERGE",
+      "difficulty": "hard",
+      "sources": [
+        "notes §4"
+      ],
       "q": "What can a WHEN NOT MATCHED BY SOURCE clause do?",
       "options": [
-        {"t": "Update or delete target rows that the source doesn't have", "ok": true},
-        {"t": "Insert source rows that the target doesn't have yet", "why": "That is WHEN NOT MATCHED (by target)."},
-        {"t": "Read source columns to compute the new target values", "why": "It cannot read source columns."},
-        {"t": "Skip the merge when the source is empty, avoiding a commit", "why": "That isn't what the clause does."}
+        {
+          "t": "Update or delete target rows that the source doesn't have",
+          "ok": true
+        },
+        {
+          "t": "Insert source rows that the target doesn't have yet",
+          "why": "That is WHEN NOT MATCHED (by target)."
+        },
+        {
+          "t": "Read source columns to compute the new target values",
+          "why": "It cannot read source columns."
+        },
+        {
+          "t": "Skip the merge when the source is empty, avoiding a commit",
+          "why": "That isn't what the clause does."
+        }
       ],
       "explain": "WHEN NOT MATCHED BY SOURCE (Databricks Runtime 12.2 LTS and above) updates or deletes target rows the source lacks; it can't read source columns, and Databricks recommends a condition to avoid rewriting the whole target."
     },
     {
-      "id": "T39", "topic": "MERGE", "difficulty": "hard", "sources": ["notes §4"],
+      "id": "T39",
+      "topic": "MERGE",
+      "difficulty": "hard",
+      "sources": [
+        "notes §4"
+      ],
       "q": "In a MERGE, a matched target row meets none of the WHEN MATCHED conditions. What happens to it?",
       "options": [
-        {"t": "It is deleted, because it matched but wasn't updated", "why": "A matched row that meets no clause is left unchanged."},
-        {"t": "The MERGE fails with an ambiguous-match error for that row", "why": "That error is about several source rows matching one target row."},
-        {"t": "It is updated with the source values by default anyway", "why": "No action applies, so the row is left unchanged."},
-        {"t": "It is left unchanged", "ok": true}
+        {
+          "t": "It is deleted, because it matched but wasn't updated",
+          "why": "A matched row that meets no clause is left unchanged."
+        },
+        {
+          "t": "The MERGE fails with an ambiguous-match error for that row",
+          "why": "That error is about several source rows matching one target row."
+        },
+        {
+          "t": "It is updated with the source values by default anyway",
+          "why": "No action applies, so the row is left unchanged."
+        },
+        {
+          "t": "It is left unchanged",
+          "ok": true
+        }
       ],
       "explain": "WHEN MATCHED clauses are evaluated in order; a matched row that meets no clause is left unchanged."
     },
     {
-      "id": "T40", "topic": "MERGE", "difficulty": "medium", "sources": ["notes §4", "notes §3"],
+      "id": "T40",
+      "topic": "MERGE",
+      "difficulty": "medium",
+      "sources": [
+        "notes §4",
+        "notes §3"
+      ],
       "q": "A MERGE uses UPDATE SET * and INSERT *, and the source lacks one of the target's columns. Schema evolution is off. What happens?",
       "options": [
-        {"t": "The missing column is filled with NULL in updated and inserted rows", "why": "With * the source must have every target column; otherwise analysis fails."},
-        {"t": "The statement fails analysis", "ok": true},
-        {"t": "The column is dropped from the target to match the source", "why": "MERGE doesn't drop target columns."},
-        {"t": "The MERGE runs, but only for the INSERT clause and not the UPDATE", "why": "The statement fails as a whole."}
+        {
+          "t": "The missing column is filled with NULL in updated and inserted rows",
+          "why": "With * the source must have every target column; otherwise analysis fails."
+        },
+        {
+          "t": "The statement fails analysis",
+          "ok": true
+        },
+        {
+          "t": "The column is dropped from the target to match the source",
+          "why": "MERGE doesn't drop target columns."
+        },
+        {
+          "t": "The MERGE runs, but only for the INSERT clause and not the UPDATE",
+          "why": "The statement fails as a whole."
+        }
       ],
       "explain": "UPDATE SET * and INSERT * assume the source has the target's columns; otherwise there is an analysis error unless schema evolution is on."
     },
     {
-      "id": "T41", "topic": "Schema enforcement", "difficulty": "medium", "sources": ["notes §3"],
+      "id": "T41",
+      "topic": "Schema enforcement",
+      "difficulty": "medium",
+      "sources": [
+        "notes §3"
+      ],
       "q": "An INSERT writes an INT value into a BIGINT column of a Delta table. What happens?",
       "options": [
-        {"t": "It fails, because the types are different and casting isn't allowed", "why": "Databricks first tries a safe cast; INT into BIGINT succeeds."},
-        {"t": "It succeeds after a safe cast", "ok": true},
-        {"t": "The column's type is changed to INT to match the incoming value", "why": "Enforcement doesn't change the table schema."},
-        {"t": "The value is written to _rescued_data instead of the column", "why": "Rescued data is an Auto Loader feature; this is a safe cast."}
+        {
+          "t": "It fails, because the types are different and casting isn't allowed",
+          "why": "Databricks first tries a safe cast; INT into BIGINT succeeds."
+        },
+        {
+          "t": "It succeeds after a safe cast",
+          "ok": true
+        },
+        {
+          "t": "The column's type is changed to INT to match the incoming value",
+          "why": "Enforcement doesn't change the table schema."
+        },
+        {
+          "t": "The value is written to _rescued_data instead of the column",
+          "why": "Rescued data is an Auto Loader feature; this is a safe cast."
+        }
       ],
       "explain": "On INSERT, types must match, but Databricks first tries a safe cast: an INT into a BIGINT column succeeds."
     },
     {
-      "id": "T42", "topic": "Schema enforcement", "difficulty": "medium", "sources": ["notes §3"],
+      "id": "T42",
+      "topic": "Schema enforcement",
+      "difficulty": "medium",
+      "sources": [
+        "notes §3"
+      ],
       "q": "A DataFrame with an extra column `note` is appended to a Delta table without schema evolution. What happens?",
       "options": [
-        {"t": "The column is added to the end of the table automatically", "why": "Without schema evolution the write is rejected."},
-        {"t": "The extra column is silently dropped and the rest is written", "why": "Schema enforcement rejects the write instead of dropping data."},
-        {"t": "The write fails because the table has no `note` column", "ok": true},
-        {"t": "The write succeeds and `note` is stored in table properties", "why": "Enforcement rejects unknown columns."}
+        {
+          "t": "The column is added to the end of the table automatically",
+          "why": "Without schema evolution the write is rejected."
+        },
+        {
+          "t": "The extra column is silently dropped and the rest is written",
+          "why": "Schema enforcement rejects the write instead of dropping data."
+        },
+        {
+          "t": "The write fails because the table has no `note` column",
+          "ok": true
+        },
+        {
+          "t": "The write succeeds and `note` is stored in table properties",
+          "why": "Enforcement rejects unknown columns."
+        }
       ],
       "explain": "Schema enforcement requires every inserted column to exist in the target; an unknown column fails the write."
     },
     {
-      "id": "T43", "topic": "Schema evolution", "difficulty": "medium", "sources": ["notes §3"],
+      "id": "T43",
+      "topic": "Schema evolution",
+      "difficulty": "medium",
+      "sources": [
+        "notes §3"
+      ],
       "q": "Which is the session setting that Databricks calls legacy for automatic schema merging?",
       "options": [
-        {"t": "spark.databricks.delta.schema.autoMerge.enabled", "ok": true},
-        {"t": "spark.sql.parquet.mergeSchema, which applies to Delta tables too", "why": "That is a Parquet read setting."},
-        {"t": "delta.columnMapping.mode, set at the session level", "why": "That is a table property for column mapping."},
-        {"t": "cloudFiles.schemaEvolutionMode, set at the session level", "why": "That is an Auto Loader option."}
+        {
+          "t": "spark.databricks.delta.schema.autoMerge.enabled",
+          "ok": true
+        },
+        {
+          "t": "spark.sql.parquet.mergeSchema, which applies to Delta tables too",
+          "why": "That is a Parquet read setting."
+        },
+        {
+          "t": "delta.columnMapping.mode, set at the session level",
+          "why": "That is a table property for column mapping."
+        },
+        {
+          "t": "cloudFiles.schemaEvolutionMode, set at the session level",
+          "why": "That is an Auto Loader option."
+        }
       ],
       "explain": "spark.databricks.delta.schema.autoMerge.enabled is legacy; Databricks recommends asking for evolution on each write (mergeSchema, WITH SCHEMA EVOLUTION), which also takes precedence."
     },
     {
-      "id": "T44", "topic": "Schema evolution", "difficulty": "hard", "sources": ["notes §3"],
+      "id": "T44",
+      "topic": "Schema evolution",
+      "difficulty": "hard",
+      "sources": [
+        "notes §3"
+      ],
       "q": "What does renaming or dropping a Delta column without rewriting the data require?",
       "options": [
-        {"t": "Deletion vectors enabled on the table", "why": "Rename and drop without rewriting need column mapping."},
-        {"t": "Liquid clustering on the column being renamed or dropped", "why": "Rename and drop need column mapping."},
-        {"t": "A full refresh of every pipeline that reads the table", "why": "The requirement is column mapping on the table."},
-        {"t": "Column mapping enabled on the table", "ok": true}
+        {
+          "t": "Deletion vectors enabled on the table",
+          "why": "Rename and drop without rewriting need column mapping."
+        },
+        {
+          "t": "Liquid clustering on the column being renamed or dropped",
+          "why": "Rename and drop need column mapping."
+        },
+        {
+          "t": "A full refresh of every pipeline that reads the table",
+          "why": "The requirement is column mapping on the table."
+        },
+        {
+          "t": "Column mapping enabled on the table",
+          "ok": true
+        }
       ],
       "explain": "Renaming and dropping columns without rewriting need column mapping; a dropped column's data stays in the files until REORG TABLE and then VACUUM."
     }

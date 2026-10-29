@@ -40,12 +40,12 @@
       "q": "Where does Auto Loader keep track of the files it has already processed?",
       "options": [
         {
-          "t": "In a Delta table named _auto_loader_files in the target schema",
-          "why": "Discovered files are tracked in RocksDB inside the checkpoint location."
-        },
-        {
           "t": "In RocksDB inside the stream's checkpoint location",
           "ok": true
+        },
+        {
+          "t": "In a Delta table named _auto_loader_files in the target schema",
+          "why": "Discovered files are tracked in RocksDB inside the checkpoint location."
         },
         {
           "t": "In the source folder, by renaming each file after it is read",
@@ -515,7 +515,7 @@
       "sources": [
         "notes §7"
       ],
-      "q": "Which statements about Auto Loader are true? ",
+      "q": "Which statements about Auto Loader are true?",
       "options": [
         {
           "t": "It gives exactly-once processing of discovered files",

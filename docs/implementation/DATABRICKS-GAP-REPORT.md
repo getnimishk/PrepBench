@@ -156,7 +156,7 @@ miss, but only a demonstration completes a topic; readiness for the exam comes o
 3. **Order of building** (one PR each). My proposal:
    1. Roadmap workbook (drafted; your review comes first, then you import it)
    2. Study guide v1 with diagrams and Free Edition steps (built 2026-10-29: pack `databricks` v1, 24 chapters)
-   3. Question bank, part 1 (the heaviest sections: Ingestion, Transformation, Governance — 174 questions)
+   3. Question bank, part 1 (the heaviest sections: Ingestion, Transformation, Governance — 174 questions) (built 2026-10-29: bank `dbdea`)
    4. Scenarios (pack v2) with Say-it questions
    5. Question bank, part 2 (Platform, Jobs, CI/CD, Troubleshooting — 126, with a delta file)
    6. Lab experiments
