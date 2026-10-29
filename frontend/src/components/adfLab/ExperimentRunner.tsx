@@ -13,15 +13,17 @@ import { ErrorState, LoadingState } from '../common/States';
 import { CouplingLedger } from '../lakehouse/CouplingLedger';
 import { LoopSteps } from '../lakehouse/LoopSteps';
 import { IntegrationNotice, SimulationNotice } from './AdfLabGate';
+import { LabPictureView } from './LabPictureView';
 import { useLinkedTopics } from '../../hooks/useLinkedTopics';
 import { ActivityNext } from '../curriculum/ActivityNext';
 import { apiErrorMessage } from '../../services/apiError';
 import {
-  answerStage, commitPrediction, fetchAdfLabAttempts, latestRun, openPredict, openStage, recordObservation, runAttempts,
+  answerStage, commitPrediction, fetchLabAttempts, latestRun, openPredict, openStage, recordObservation, runAttempts,
   saveExplanation, type RunKey,
 } from '../../services/adfLab/attempts';
 import { COMPLETE, STAGES, stageOf } from '../../services/adfLab/stages';
-import type { AdfLabExperiment } from '../../services/adfLab/experiments';
+import type { LabExperiment } from '../../services/adfLab/experiments';
+import type { LabSpec } from '../../services/adfLab/lab';
 import {
   causesOf, changesFrom, observationOf, type ExperimentDefinition, type LeverValue, type Levers, type ModelRun,
 } from '../../services/adfLab/definition';
@@ -29,9 +31,10 @@ import type { WireLearningAttempt } from '../../types/learning';
 import type { Subject } from '../../types/subject';
 
 /**
- * One ADF Behaviour Lab experiment (or one fault mode of one), through the eight stages of the
- * PrepBench loop. Shared by all five: the stages, the attempts and the screen live here; the
- * model and its questions come from the definition (services/adfLab/definition.ts).
+ * One lab experiment (or one fault mode of one), through the eight stages of the PrepBench loop.
+ * Shared by every experiment of the ADF Behaviour Lab and the Kafka Lab: the stages, the attempts
+ * and the screen live here; the model and its questions come from the definition
+ * (services/adfLab/definition.ts), and everything that names the lab from its LabSpec.
  *
  * Learner state is the server's (learning_attempts, through LearningService). The only things
  * held in the page are this visit's interaction: having read Understand, the levers being
@@ -86,10 +89,11 @@ const StagePanel: React.FC<{ prefix: string; index: number; children: React.Reac
 const Verdict: React.FC<{ attempt?: WireLearningAttempt; right: string; wrong: string }> = ({ attempt, right, wrong }) =>
   attempt?.correct ? <Good sx={{ mt: '10px' }}>{right}</Good> : <Note sx={{ mt: '10px' }}>{wrong}</Note>;
 
-export const ExperimentRunner = <C,>({ prep, def, experiment, modeSwitch, titleSuffix }: {
+export const ExperimentRunner = <C,>({ lab, prep, def, experiment, modeSwitch, titleSuffix }: {
+  lab: LabSpec;
   prep: Subject;
   def: ExperimentDefinition<C>;
-  experiment: AdfLabExperiment;
+  experiment: LabExperiment;
   /** For an experiment with fault modes: the control that moves between them. */
   modeSwitch?: React.ReactNode;
   /** For a fault mode: its name, under the experiment's. */
@@ -100,8 +104,8 @@ export const ExperimentRunner = <C,>({ prep, def, experiment, modeSwitch, titleS
     [def],
   );
 
-  // The topics of this preparation's own ADF roadmap that the experiment's topic numbers map to.
-  const linkedTopics = useLinkedTopics(prep.id, 'adf', { topicNumbers: experiment.topics.map((t) => t.number) });
+  // The topics of this preparation's own roadmap that the experiment's topic numbers map to.
+  const linkedTopics = useLinkedTopics(prep.id, lab.packId, { topicNumbers: experiment.topics.map((t) => t.number) });
 
   // ---- what the model needs -------------------------------------------------------------------
   const [context, setContext] = useState<{ value: C } | null>(null);
@@ -124,13 +128,13 @@ export const ExperimentRunner = <C,>({ prep, def, experiment, modeSwitch, titleS
   const loadAttempts = useCallback(async () => {
     setAttemptsError(null);
     try {
-      const rows = await fetchAdfLabAttempts(prep.id);
+      const rows = await fetchLabAttempts(prep.id, lab.ids);
       setAttempts(rows);
-      setRunNo((current) => current ?? latestRun(rows, prep.id, def.track));
+      setRunNo((current) => current ?? latestRun(rows, prep.id, def.track, lab.ids));
     } catch (err) {
       setAttemptsError(apiErrorMessage(err, 'Your attempts did not load.'));
     }
-  }, [prep.id, def.track]);
+  }, [prep.id, def.track, lab.ids]);
   useEffect(() => { setRunNo(null); setAttempts(null); void loadAttempts(); }, [loadAttempts]);
 
   // ---- this visit's interaction, not learner state ---------------------------------------------
@@ -157,7 +161,7 @@ export const ExperimentRunner = <C,>({ prep, def, experiment, modeSwitch, titleS
 
   const c = context.value;
   const key: RunKey = { subjectId: prep.id, track: def.track, run: runNo };
-  const rows = runAttempts(attempts, key);
+  const rows = runAttempts(attempts, key, lab.ids);
   const stage = stageOf(rows, { understood, ran: mine !== null });
   const predictRow = rows.predict;
   const changes = mine ? changesFrom(def.preset, mine.levers) : {};
@@ -180,7 +184,7 @@ export const ExperimentRunner = <C,>({ prep, def, experiment, modeSwitch, titleS
 
   const commit = () => write(async () => {
     // A run a deleted preparation's attempts still hold is skipped, so this run may be a later one.
-    const opened = await openPredict(key, def.model);
+    const opened = await openPredict(key, def.model, lab.ids);
     if (opened.run !== key.run) setRunNo(opened.run);
     await commitPrediction(prep.id, opened.attempt.attempt_uid, picked);
   });
@@ -189,14 +193,14 @@ export const ExperimentRunner = <C,>({ prep, def, experiment, modeSwitch, titleS
     prep.id, predictRow.attempt_uid, changes, observationOf(preset, mine.run), predictRow.prediction === preset.outcome,
   ));
   const answerReason = () => write(async () => {
-    const opened = await openStage(key, 'reason', def.model);
+    const opened = await openStage(key, 'reason', def.model, lab.ids);
     await answerStage(prep.id, opened.attempt_uid, { prediction: reason, correct: causesOf(preset).includes(reason), mechanisms: [reason] });
   });
   const answerApply = () => write(async () => {
     const i = def.apply.options.findIndex((o) => o.id === apply);
     const option = def.apply.options[i];
     const right = applyCorrect(i);
-    const opened = await openStage(key, 'apply', def.model);
+    const opened = await openStage(key, 'apply', def.model, lab.ids);
     await answerStage(prep.id, opened.attempt_uid, {
       prediction: apply, correct: right, transfer: right,
       manipulation: changesFrom(def.preset, option.levers),
@@ -210,7 +214,7 @@ export const ExperimentRunner = <C,>({ prep, def, experiment, modeSwitch, titleS
     && shownExplanation.trim() === (predictRow?.explanation_text ?? '').trim();
   const explain = () => predictRow && write(() => saveExplanation(prep.id, predictRow.attempt_uid, shownExplanation.trim()));
   const answerRetrieve = () => write(async () => {
-    const opened = await openStage(key, 'retrieve', def.model);
+    const opened = await openStage(key, 'retrieve', def.model, lab.ids);
     await answerStage(prep.id, opened.attempt_uid, { prediction: retrieve, correct: retrieve === def.retrieve.answer });
   });
   const startAgain = () => {
@@ -228,13 +232,13 @@ export const ExperimentRunner = <C,>({ prep, def, experiment, modeSwitch, titleS
   return (
     <Box>
       <PageHead
-        eyebrow={`${prep.name} · ADF Behaviour Lab`}
+        eyebrow={`${prep.name} · ${lab.name}`}
         title={titleSuffix ? `${experiment.title}: ${titleSuffix}` : experiment.title}
         sub={experiment.purpose}
-        actions={<Button component={RouterLink} to="/lab/adf" variant="outlined">All experiments</Button>}
+        actions={<Button component={RouterLink} to={lab.basePath} variant="outlined">All experiments</Button>}
       />
-      <IntegrationNotice prep={prep} />
-      <SimulationNotice packNote={def.contextNote?.(c)} />
+      <IntegrationNotice lab={lab} />
+      <SimulationNotice lab={lab} packNote={def.contextNote?.(c)} />
       {modeSwitch}
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', mt: '16px' }}>
@@ -248,11 +252,11 @@ export const ExperimentRunner = <C,>({ prep, def, experiment, modeSwitch, titleS
       <StagePanel prefix={p} index={0}>
         <Sub sx={{ mt: 0 }}>{def.understand}</Sub>
         <Detail>
-          Read more in the ADF guide:{' '}
+          Read more in {lab.guideName}:{' '}
           {experiment.chapters.map((ch, i) => (
             <React.Fragment key={ch.id}>
               {i > 0 && ' · '}
-              <RouterLink to={`/learn/guides/adf/${ch.id}`}>{ch.title}</RouterLink>
+              <RouterLink to={`/learn/guides/${lab.packId}/${ch.id}`}>{ch.title}</RouterLink>
             </React.Fragment>
           ))}
           .{' '}
@@ -331,6 +335,7 @@ export const ExperimentRunner = <C,>({ prep, def, experiment, modeSwitch, titleS
             <>
               <Verdict attempt={predictRow} right="Your prediction matched the model." wrong="Not what the model found." />
               <Sub>In the scenario the model finds: {(outcomeText[preset.outcome] ?? preset.outcome).toLowerCase()}.</Sub>
+              {preset.picture && <LabPictureView idPrefix={`${p}-scenario`} heading="The scenario, as the model ran it" picture={preset.picture} />}
               <ObservedTable
                 observed={predictRow.observed as Record<string, { label: string; before: unknown; after: unknown; unit?: string }> | null}
                 outcomeText={outcomeText}
@@ -338,6 +343,12 @@ export const ExperimentRunner = <C,>({ prep, def, experiment, modeSwitch, titleS
             </>
           ) : mine && (
             <>
+              {preset.picture && mine.run.picture && (
+                <Box sx={{ display: 'grid', gap: '12px', mt: '6px' }}>
+                  <LabPictureView idPrefix={`${p}-scenario`} heading="The scenario" picture={preset.picture} />
+                  <LabPictureView idPrefix={`${p}-mine`} heading="Your run" picture={mine.run.picture} />
+                </Box>
+              )}
               <ObservedTable
                 observed={observationOf(preset, mine.run) as Record<string, { label: string; before: unknown; after: unknown; unit?: string }>}
                 outcomeText={outcomeText}
@@ -440,7 +451,7 @@ export const ExperimentRunner = <C,>({ prep, def, experiment, modeSwitch, titleS
             <>
               <Verdict attempt={rows.retrieve} right="Right." wrong="Not quite." />
               <Detail sx={{ mt: '8px' }}>
-                The ADF guide: &ldquo;{def.retrieve.source.quote}&rdquo; Checked now, from memory; nothing is scheduled.
+                {lab.guideName.charAt(0).toUpperCase() + lab.guideName.slice(1)}: &ldquo;{def.retrieve.source.quote}&rdquo; Checked now, from memory; nothing is scheduled.
               </Detail>
             </>
           ) : (
@@ -467,11 +478,11 @@ export const ExperimentRunner = <C,>({ prep, def, experiment, modeSwitch, titleS
         <ActivityNext
           idPrefix={p}
           topics={linkedTopics}
-          related={experiment.chapters.map((c) => ({ label: `Re-read: ${c.title}`, to: `/learn/guides/adf/${c.id}` }))}
+          related={experiment.chapters.map((ch) => ({ label: `Re-read: ${ch.title}`, to: `/learn/guides/${lab.packId}/${ch.id}` }))}
         />
       )}
 
-      <CouplingLedger idPrefix={p} couplings={def.couplings} intro={def.ledgerIntro} />
+      <CouplingLedger idPrefix={p} couplings={def.couplings} intro={def.ledgerIntro} factLabel={`From ${lab.guideName}`} />
     </Box>
   );
 };

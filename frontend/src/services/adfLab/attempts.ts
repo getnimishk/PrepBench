@@ -40,8 +40,24 @@ export const ADF_LAB_PREFIX = 'adf.lab.';
 export const STAGE_ATTEMPTS = ['predict', 'reason', 'apply', 'retrieve'] as const;
 export type StageAttempt = typeof STAGE_ATTEMPTS[number];
 
+/**
+ * How one lab names its attempts. The ADF Behaviour Lab's ids are fixed by the runs already
+ * saved under them; the Kafka Lab has its own (services/kafkaLab/lab.ts), so the two never meet.
+ * Every helper below takes the lab's ids and defaults to the ADF lab's, as it always was.
+ */
+export interface LabIds {
+  /** attempt_uid prefix: `<uid>:<subject>:<track>:r<run>:<stage>`. */
+  uid: string;
+  /** challenge_id and concept_id prefix, ending in a dot. */
+  challenge: string;
+  /** scenario_fingerprint key: `<fingerprint>=<track>;run=<run>;model=<model>`. */
+  fingerprint: string;
+}
+
+export const ADF_LAB_IDS: LabIds = { uid: 'ab', challenge: ADF_LAB_PREFIX, fingerprint: 'adf-lab' };
+
 /** An experiment's slug, or slug.mode for one of its fault modes. */
-export type Track = AdfLabSlug | `${AdfLabSlug}.${string}`;
+export type Track = AdfLabSlug | `${AdfLabSlug}.${string}` | string;
 
 export interface RunKey {
   subjectId: number;
@@ -49,58 +65,63 @@ export interface RunKey {
   run: number;
 }
 
-export const slugOf = (track: Track): AdfLabSlug => track.split('.')[0] as AdfLabSlug;
-export const runPrefix = (k: RunKey) => `ab:${k.subjectId}:${k.track}:r${k.run}:`;
-export const stageUid = (k: RunKey, stage: StageAttempt) => `${runPrefix(k)}${stage}`;
-export const stageChallenge = (track: Track, stage: StageAttempt) => `${ADF_LAB_PREFIX}${track}.${stage}`;
-export const runFingerprint = (k: RunKey, model: string) => `adf-lab=${k.track};run=${k.run};model=${model}`;
+export const slugOf = (track: Track): string => track.split('.')[0];
+export const runPrefix = (k: RunKey, ids: LabIds = ADF_LAB_IDS) => `${ids.uid}:${k.subjectId}:${k.track}:r${k.run}:`;
+export const stageUid = (k: RunKey, stage: StageAttempt, ids: LabIds = ADF_LAB_IDS) => `${runPrefix(k, ids)}${stage}`;
+export const stageChallenge = (track: Track, stage: StageAttempt, ids: LabIds = ADF_LAB_IDS) => `${ids.challenge}${track}.${stage}`;
+export const runFingerprint = (k: RunKey, model: string, ids: LabIds = ADF_LAB_IDS) =>
+  `${ids.fingerprint}=${k.track};run=${k.run};model=${model}`;
 
-const UID = /^ab:(\d+):([a-z][a-z.-]*):r(\d+):([a-z]+)$/;
+const uidPattern = (ids: LabIds) => new RegExp(`^${ids.uid}:(\\d+):([a-z][a-z.-]*):r(\\d+):([a-z]+)$`);
 
-/** The run an attempt belongs to, read from its id. Null for anything that is not one of ours. */
-export function parseStageUid(uid: string): (RunKey & { stage: StageAttempt }) | null {
-  const m = UID.exec(uid);
+/** The run an attempt belongs to, read from its id. Null for anything that is not one of this lab's. */
+export function parseStageUid(uid: string, ids: LabIds = ADF_LAB_IDS): (RunKey & { stage: StageAttempt }) | null {
+  const m = uidPattern(ids).exec(uid);
   if (!m || !(STAGE_ATTEMPTS as readonly string[]).includes(m[4])) return null;
   return { subjectId: Number(m[1]), track: m[2] as Track, run: Number(m[3]), stage: m[4] as StageAttempt };
 }
 
-/** Is this attempt one of the ADF Behaviour Lab's? Told apart by id, never by guessing. */
-export const isAdfLabAttempt = (a: Pick<WireLearningAttempt, 'challenge_id' | 'attempt_uid'>) =>
-  a.challenge_id.startsWith(ADF_LAB_PREFIX) && parseStageUid(a.attempt_uid) !== null;
+/** Is this attempt one of the lab's? Told apart by id, never by guessing. */
+export const isLabAttempt = (a: Pick<WireLearningAttempt, 'challenge_id' | 'attempt_uid'>, ids: LabIds = ADF_LAB_IDS) =>
+  a.challenge_id.startsWith(ids.challenge) && parseStageUid(a.attempt_uid, ids) !== null;
+export const isAdfLabAttempt = (a: Pick<WireLearningAttempt, 'challenge_id' | 'attempt_uid'>) => isLabAttempt(a, ADF_LAB_IDS);
 
-/** This preparation's ADF lab attempts. Scoped by the server, and checked again here. */
-export async function fetchAdfLabAttempts(subjectId: number): Promise<WireLearningAttempt[]> {
+/** This preparation's attempts in one lab. Scoped by the server, and checked again here. */
+export async function fetchLabAttempts(subjectId: number, ids: LabIds = ADF_LAB_IDS): Promise<WireLearningAttempt[]> {
   const all = await getLearningAttempts({ subject_id: subjectId });
-  return all.filter((a) => isAdfLabAttempt(a) && a.subject_id === subjectId
-    && parseStageUid(a.attempt_uid)?.subjectId === subjectId);
+  return all.filter((a) => isLabAttempt(a, ids) && a.subject_id === subjectId
+    && parseStageUid(a.attempt_uid, ids)?.subjectId === subjectId);
 }
+export const fetchAdfLabAttempts = (subjectId: number) => fetchLabAttempts(subjectId, ADF_LAB_IDS);
 
 /** The latest run of one track that has any attempt; 1 when there is none yet. */
-export function latestRun(attempts: WireLearningAttempt[], subjectId: number, track: Track): number {
+export function latestRun(attempts: WireLearningAttempt[], subjectId: number, track: Track, ids: LabIds = ADF_LAB_IDS): number {
   const runs = attempts
-    .map((a) => parseStageUid(a.attempt_uid))
+    .map((a) => parseStageUid(a.attempt_uid, ids))
     .filter((k): k is NonNullable<typeof k> => k !== null && k.subjectId === subjectId && k.track === track)
     .map((k) => k.run);
   return runs.length ? Math.max(...runs) : 1;
 }
 
 /** One run's stage attempts, by stage. */
-export function runAttempts(attempts: WireLearningAttempt[], k: RunKey): Partial<Record<StageAttempt, WireLearningAttempt>> {
+export function runAttempts(
+  attempts: WireLearningAttempt[], k: RunKey, ids: LabIds = ADF_LAB_IDS,
+): Partial<Record<StageAttempt, WireLearningAttempt>> {
   const out: Partial<Record<StageAttempt, WireLearningAttempt>> = {};
   for (const a of attempts) {
-    const parsed = parseStageUid(a.attempt_uid);
+    const parsed = parseStageUid(a.attempt_uid, ids);
     if (parsed && parsed.subjectId === k.subjectId && parsed.track === k.track && parsed.run === k.run) out[parsed.stage] = a;
   }
   return out;
 }
 
 /** Open a stage's attempt, or reach the one already open. Idempotent on the id. */
-export function openStage(k: RunKey, stage: StageAttempt, model: string): Promise<WireLearningAttempt> {
+export function openStage(k: RunKey, stage: StageAttempt, model: string, ids: LabIds = ADF_LAB_IDS): Promise<WireLearningAttempt> {
   return startLearningAttempt({
-    attempt_uid: stageUid(k, stage),
-    challenge_id: stageChallenge(k.track, stage),
-    concept_id: `${ADF_LAB_PREFIX}${slugOf(k.track)}`,
-    scenario_fingerprint: runFingerprint(k, model),
+    attempt_uid: stageUid(k, stage, ids),
+    challenge_id: stageChallenge(k.track, stage, ids),
+    concept_id: `${ids.challenge}${slugOf(k.track)}`,
+    scenario_fingerprint: runFingerprint(k, model, ids),
     mode: stage === 'retrieve' ? 'retrieval' : 'guided',
     hint_count: 0,
     subject_id: k.subjectId,
@@ -118,10 +139,12 @@ const MAX_RUN_STEPS = 20;
  * preparation (409). Then the run is taken -- step to the next. A run whose Predict is free has
  * none of its other stages taken either, because every run opens Predict first.
  */
-export async function openPredict(k: RunKey, model: string): Promise<{ run: number; attempt: WireLearningAttempt }> {
+export async function openPredict(
+  k: RunKey, model: string, ids: LabIds = ADF_LAB_IDS,
+): Promise<{ run: number; attempt: WireLearningAttempt }> {
   for (let run = k.run; run < k.run + MAX_RUN_STEPS; run += 1) {
     try {
-      return { run, attempt: await openStage({ ...k, run }, 'predict', model) };
+      return { run, attempt: await openStage({ ...k, run }, 'predict', model, ids) };
     } catch (err) {
       if (!isAttemptIdTaken(err)) throw err;
     }

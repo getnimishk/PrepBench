@@ -4,7 +4,8 @@
 
 import type { Tone } from '../components/ui/primitives';
 import type { AssessedBy, EvidenceKind, EvidenceLevel, WorkspaceKind } from '../types/portfolio';
-import { ADF_LAB_EXPERIMENTS } from './adfLab/experiments';
+import { ADF_LAB_EXPERIMENTS, type LabExperiment } from './adfLab/experiments';
+import { KAFKA_LAB_EXPERIMENTS } from './kafkaLab/lab';
 import { TIERING_CHALLENGE } from './lakehouse/factoryModel';
 import { ACCESS_CHALLENGE, WATERMARK_CHALLENGE } from './lakehouse/pipelineChallenges';
 import { challengeById } from './lakehouse/stationC';
@@ -22,10 +23,10 @@ import { CONCEPTS } from './learning/concepts';
  * server's plain title stands; nothing is invented.
  */
 
-/** An ADF lab track's title: the experiment, and its fault mode when it has one. */
-export function adfTrackTitle(track: string): string | null {
+/** A lab track's title: the experiment, and its fault mode when it has one. The ADF lab's unless another is named. */
+export function adfTrackTitle(track: string, experiments: LabExperiment[] = ADF_LAB_EXPERIMENTS): string | null {
   const [slug, mode] = track.split('.');
-  const experiment = ADF_LAB_EXPERIMENTS.find((e) => e.slug === slug);
+  const experiment = experiments.find((e) => e.slug === slug);
   if (!experiment) return null;
   if (!mode) return experiment.title;
   const t = experiment.tracks?.find((x) => x.id === mode);
@@ -41,8 +42,8 @@ const LAKEHOUSE_TITLES: Record<string, string> = {
 
 /** The title to show for an item: from the lab's own registry when it is lab work. */
 export function titleOf(item: { title: string; ref: Record<string, string> }): string {
-  const { track, challenge_id: challenge, concept_id: concept } = item.ref ?? {};
-  if (track) return adfTrackTitle(track) ?? item.title;
+  const { track, lab, challenge_id: challenge, concept_id: concept } = item.ref ?? {};
+  if (track) return adfTrackTitle(track, lab === 'kafka' ? KAFKA_LAB_EXPERIMENTS : ADF_LAB_EXPERIMENTS) ?? item.title;
   if (challenge?.startsWith('lakehouse.')) {
     return LAKEHOUSE_TITLES[challenge] ?? challengeById(challenge)?.title ?? defectTitle(challenge) ?? item.title;
   }
@@ -64,7 +65,7 @@ export const WORKSPACE_KIND_LABEL: Record<WorkspaceKind, string> = {
 };
 
 export const EVIDENCE_KIND_LABEL: Record<EvidenceKind, string> = {
-  lab_stage: 'ADF lab stage',
+  lab_stage: 'Lab stage',
   lakehouse_challenge: 'Lakehouse challenge',
   scenario_check: 'Scenario check',
   scenario_lens: 'Scenario case notes',

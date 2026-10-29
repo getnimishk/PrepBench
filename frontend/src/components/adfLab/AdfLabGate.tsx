@@ -8,17 +8,16 @@ import { Button } from '@mui/material';
 import { Note, PageHead } from '../ui/primitives';
 import { LoadingState } from '../common/States';
 import { usePreparation } from '../../context/PreparationContext';
-import { getSubjectCapabilities } from '../../services/capabilities';
-import { hasAdfPack } from '../../services/adfLab/experiments';
+import { ADF_LAB, hasLabPack, type LabSpec } from '../../services/adfLab/lab';
 import type { Subject } from '../../types/subject';
 
 /**
- * The ADF Behaviour Lab is for the preparation the learner is working in, and only when that
- * preparation has the ADF content pack attached. Every lab route renders through this, so a
- * direct link cannot open it for anything else: no preparation chosen asks for one, and any
- * other preparation is told it does not apply. Nothing here picks a preparation for the learner.
+ * A lab (the ADF Behaviour Lab, the Kafka Lab) is for the preparation the learner is working in,
+ * and only when that preparation has the lab's content pack attached. Every lab route renders
+ * through this, so a direct link cannot open it for anything else: no preparation chosen asks for
+ * one, and any other preparation is told it does not apply. Nothing here picks a preparation.
  */
-export const AdfLabGate: React.FC<{ title: string; children: (prep: Subject) => React.ReactNode }> = ({ title, children }) => {
+export const LabGate: React.FC<{ lab: LabSpec; title: string; children: (prep: Subject) => React.ReactNode }> = ({ lab, title, children }) => {
   const { selected, loading } = usePreparation();
 
   if (loading) return <LoadingState label="Loading your preparation…" />;
@@ -26,21 +25,21 @@ export const AdfLabGate: React.FC<{ title: string; children: (prep: Subject) => 
   if (!selected) {
     return (
       <PageHead
-        eyebrow="ADF Behaviour Lab"
+        eyebrow={lab.name}
         title={title}
-        sub="The Behaviour Lab works in an Azure Data Factory preparation. Pick one from the header first."
+        sub={`The ${lab.name} works in ${lab.forWhom}. Pick one from the header first.`}
         actions={<Button component={RouterLink} to="/preparations" variant="outlined">Your preparations</Button>}
       />
     );
   }
 
-  if (!hasAdfPack(selected)) {
+  if (!hasLabPack(lab, selected)) {
     return (
       <PageHead
-        eyebrow="ADF Behaviour Lab"
+        eyebrow={lab.name}
         title={title}
-        sub={`${selected.name} has no Azure Data Factory guide attached, so the Behaviour Lab does not apply to it. `
-          + 'It works in a preparation with the ADF guide attached.'}
+        sub={`${selected.name} has no ${lab.guideTitle} attached, so the ${lab.name} does not apply to it. `
+          + `It works in a preparation with ${lab.guideName} attached.`}
         actions={<Button component={RouterLink} to="/lab" variant="outlined">Learning Lab</Button>}
       />
     );
@@ -49,21 +48,25 @@ export const AdfLabGate: React.FC<{ title: string; children: (prep: Subject) => 
   return <>{children(selected)}</>;
 };
 
+/** The ADF Behaviour Lab's gate. */
+export const AdfLabGate: React.FC<{ title: string; children: (prep: Subject) => React.ReactNode }> = ({ title, children }) => (
+  <LabGate lab={ADF_LAB} title={title}>{children}</LabGate>
+);
+
 /** Says plainly that the lab is not live yet, while it is not. */
-export const IntegrationNotice: React.FC<{ prep: Subject }> = ({ prep }) => (
-  getSubjectCapabilities(prep).learningLabStatus === 'AVAILABLE' ? null : (
+export const IntegrationNotice: React.FC<{ lab?: LabSpec }> = ({ lab = ADF_LAB }) => (
+  lab.status() === 'AVAILABLE' ? null : (
     <Note sx={{ mt: '14px' }} role="note">
-      Integration in progress. The ADF Behaviour Lab is still being built, so it is not yet listed on Home, in the
+      Integration in progress. The {lab.name} is still being built, so it is not yet listed on Home, in the
       sidebar or in the Learning Lab. What is here records your attempts for real.
     </Note>
   )
 );
 
-/** Every experiment is a teaching model; it never claims to be Azure Data Factory running. */
-export const SimulationNotice: React.FC<{ packNote?: string }> = ({ packNote }) => (
+/** Every experiment is a teaching model; it never claims to be the real product running. */
+export const SimulationNotice: React.FC<{ lab?: LabSpec; packNote?: string }> = ({ lab = ADF_LAB, packNote }) => (
   <Note sx={{ mt: '10px' }} role="note">
-    Teaching simulation. PrepBench runs a model of this pipeline in your browser, over the fictional
-    semiconductor-v1 data. Nothing runs in Azure Data Factory, and no figure here is a measurement.
+    {lab.simulation}
     {packNote ? ` ${packNote}` : ''}
   </Note>
 );

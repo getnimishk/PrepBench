@@ -44,6 +44,36 @@ export interface Finding {
   tone: 'problem' | 'ok' | 'info';
 }
 
+/** How a cell is drawn. Colours come from the theme's tokens, so both themes read alike. */
+export type PictureTone = 'neutral' | 'good' | 'bad' | 'warn' | 'accent' | 'muted';
+
+/** One box in a lane: a record at an offset, a replica on a broker, a partition on a consumer. */
+export interface PictureCell {
+  label: string;
+  tone?: PictureTone;
+  /** Said to a screen reader instead of the label, when the label alone is too terse ("4" -> "offset 4, unreadable"). */
+  spoken?: string;
+}
+
+/** A row of the picture: a partition's log, a broker's replicas, a consumer's assignment. */
+export interface PictureLane {
+  label: string;
+  cells: PictureCell[];
+  /** Markers under a cell: a group's position, the committed offset. `at` is a cell index; `at === cells.length` is the end. */
+  markers?: { at: number; label: string }[];
+  note?: string;
+}
+
+/**
+ * What a run looks like, drawn as lanes of cells (components/adfLab/LabPictureView.tsx). Optional:
+ * the ADF experiments report measures only; the Kafka Lab's beginners also see the cluster.
+ */
+export interface LabPicture {
+  lanes: PictureLane[];
+  /** What each tone means in this picture. Only the tones it uses. */
+  legend?: { tone: PictureTone; label: string }[];
+}
+
 /** One run of the model, in the runner's terms. */
 export interface ModelRun {
   /** One of `predict.options`' ids: the run's result as the prediction asks about it. */
@@ -51,6 +81,7 @@ export interface ModelRun {
   /** What the run shows, by stable key (the keys of the `observed` record). */
   measures: Record<string, Measure>;
   findings: Finding[];
+  picture?: LabPicture;
 }
 
 export interface Option { id: string; text: string }

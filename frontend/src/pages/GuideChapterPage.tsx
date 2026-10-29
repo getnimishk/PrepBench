@@ -12,7 +12,8 @@ import { apiErrorMessage } from '../services/apiError';
 import { usePreparation } from '../context/PreparationContext';
 import { guideChapterPath, readTopicContext } from '../services/topicContext';
 import { ChapterTopicContext } from '../components/roadmap/ChapterTopicContext';
-import { ADF_LAB_EXPERIMENTS } from '../services/adfLab/experiments';
+import { ADF_LAB } from '../services/adfLab/lab';
+import { KAFKA_LAB } from '../services/kafkaLab/lab';
 import type { ContentPackDetail } from '../types/contentPack';
 import { Explanation } from '../components/common/Explanation';
 import { ErrorState, LoadingState } from '../components/common/States';
@@ -117,9 +118,10 @@ export const GuideChapterPage: React.FC = () => {
     .filter((s): s is NonNullable<typeof s> => Boolean(s) && !own.includes(s!));
   const practice = [...new Set([...own, ...linked])];
   const scenarioPath = (id: string) => `/scenarios/${pack.pack_id}/${id}`;
-  // The ADF lab's experiments name the chapters they practise; only built ones are linked.
-  const experiments = pack.pack_id === 'adf'
-    ? ADF_LAB_EXPERIMENTS.filter((e) => e.ready && e.chapters.some((c) => c.id === chapter.id))
+  // A lab's experiments name the chapters of their pack they practise; only built ones are linked.
+  const lab = [ADF_LAB, KAFKA_LAB].find((l) => l.packId === pack.pack_id) ?? null;
+  const experiments = lab
+    ? lab.experiments.filter((e) => e.ready && e.chapters.some((c) => c.id === chapter.id))
     : [];
   // Each section's heading and its anchor on this page, so the topic strip can link straight to it.
   const sectionAnchors = body.flatMap((b, i) => (b.heading ? [{ heading: b.heading, id: `block-${i}` }] : []));
@@ -216,11 +218,11 @@ export const GuideChapterPage: React.FC = () => {
         )}
         {experiments.length > 0 && (
           <Good sx={{ mb: '14px' }}>
-            Explore it in the ADF Behaviour Lab:{' '}
+            Explore it in the {lab?.name}:{' '}
             {experiments.map((e, i) => (
               <React.Fragment key={e.slug}>
                 {i > 0 && ', '}
-                <RouterLink to={`/lab/adf/${e.slug}`}>{e.title}</RouterLink>
+                <RouterLink to={`${lab?.basePath}/${e.slug}`}>{e.title}</RouterLink>
               </React.Fragment>
             ))}.
           </Good>

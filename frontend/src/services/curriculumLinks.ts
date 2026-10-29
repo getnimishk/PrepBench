@@ -5,7 +5,8 @@
 import type { ContentPackDetail } from '../types/contentPack';
 import type { EvidenceItem } from '../types/portfolio';
 import type { MappedGuideChapter } from '../types/roadmap';
-import { ADF_LAB_EXPERIMENTS } from './adfLab/experiments';
+import { ADF_LAB } from './adfLab/lab';
+import { KAFKA_LAB } from './kafkaLab/lab';
 
 /**
  * A roadmap topic's links into the rest of the curriculum (Phase 7, WP 7.7), derived --
@@ -47,11 +48,12 @@ export function topicLinks(mapped: MappedGuideChapter[] | undefined, pack: Conte
       .map((s) => ({ id: s.id, number: s.number, title: s.title }))
     : [];
 
-  // The ADF lab's experiments are the ADF pack's: they link only to that pack's topics.
-  const experiments = packId === 'adf'
-    ? ADF_LAB_EXPERIMENTS
+  // A lab's experiments are its pack's: the ADF lab's link only to the ADF pack's topics, the Kafka Lab's to the Kafka pack's.
+  const lab = [ADF_LAB, KAFKA_LAB].find((l) => l.packId === packId) ?? null;
+  const experiments = lab
+    ? lab.experiments
       .filter((e) => e.ready && e.topics.some((t) => topicNumbers.includes(t.number)))
-      .map((e) => ({ slug: e.slug, title: e.title, href: `/lab/adf/${e.slug}` }))
+      .map((e) => ({ slug: e.slug, title: e.title, href: `${lab.basePath}/${e.slug}` }))
     : [];
 
   return { packId, chapters, scenarios, experiments, topicNumbers };

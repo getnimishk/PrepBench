@@ -29,8 +29,9 @@ export const PERSISTENCE = 'learning_attempts through LearningService. One run i
   + 'Predict row’s write-once manipulation and observed, Explain its explanation_text. A finished run is never edited: '
   + 'starting again is run n+1.';
 
-export interface AdfLabExperiment {
-  slug: AdfLabSlug;
+/** One experiment of a lab (the ADF Behaviour Lab's or the Kafka Lab's), as its hub and pages read it. */
+export interface LabExperiment<S extends string = string> {
+  slug: S;
   title: string;
   /** One sentence: what the learner comes away understanding. */
   purpose: string;
@@ -41,11 +42,13 @@ export interface AdfLabExperiment {
   stages: typeof LAB_STAGES;
   /** For an experiment with fault modes: each mode is a track, run through all eight stages on its own. */
   tracks?: { id: string; title: string }[];
-  /** Study Guide chapters in the ADF pack, by chapter id. */
+  /** Study Guide chapters in the lab's pack, by chapter id. */
   chapters: { id: string; title: string }[];
-  /** ADF roadmap topics, by the roadmap's own numbering (1-60), with the pack's titles. */
+  /** Roadmap topics, by the roadmap's own numbering, with the pack's titles. */
   topics: { number: number; title: string }[];
 }
+
+export type AdfLabExperiment = LabExperiment<AdfLabSlug>;
 
 export const ADF_LAB_EXPERIMENTS: AdfLabExperiment[] = [
   {
@@ -151,7 +154,7 @@ export const hasAdfPack = (prep: { content_packs?: { pack_id: string }[] } | nul
   Boolean(prep?.content_packs?.some((cp) => cp.pack_id === ADF_PACK_ID));
 
 /** The tracks an experiment runs: its slug alone, or slug.mode for each fault mode. */
-export const tracksOf = (e: AdfLabExperiment): string[] =>
+export const tracksOf = (e: LabExperiment): string[] =>
   e.tracks ? e.tracks.map((t) => `${e.slug}.${t.id}`) : [e.slug];
 
 /**

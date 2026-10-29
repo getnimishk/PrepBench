@@ -67,8 +67,15 @@ the certification. Moving the Kafka roadmap from CCDAK to that skill is a learne
 assign), never done from code. **v2 (2026-10-28) adds 18 written scenarios** in four levels, in ADF's format (check,
 case, debrief, a lens and a Say-it question per role), one JSON file each under `src/scenarios/`; chapters' practice
 links are built from the scenarios, and scenario facts trace to the same notes. **v1 (the guide alone, PR #109) is
-published and never changes** (pinned by fingerprint); the learner upgrades to v2 in the app. No Kafka lab or CCDAK
-question bank yet.
+published and never changes** (pinned by fingerprint); the learner upgrades to v2 in the app. No CCDAK question bank yet.
+**The Kafka Lab (2026-10-28)** is `docs/implementation/KAFKA-LAB-CONTRACT.md`: six beginner experiments at `/lab/kafka`
+(log, keys, groups, commits, replication, failures with modes poison and retries) on the ADF lab's runner, made
+lab-neutral by a `LabSpec` (`services/adfLab/lab.ts`; Kafka's in `services/kafkaLab/lab.ts`). Its attempts are `kb:` /
+`kafka.lab.` / `kafka-lab=`; **the ADF lab's ids, routes and titles are unchanged** (pinned in `kafkaLab/lab.test.ts`).
+Any preparation with the `kafka` pack gets `learningLab` from the registry's status. Models are pure, graded only from
+their own runs, and draw a picture of the cluster (`LabPicture`); every `fact` coupling names its guide chapter and every
+Retrieve quote is checked word for word against the pack. Evidence and Workspace show its runs as lab runs with
+`ref.lab = "kafka"`; ADF items are unchanged. Scope is six; changing it is a product decision.
 
 **Settled decisions, don't reopen these:**
 - The header Settings button stays, even though it isn't in the prototype — kept for
@@ -531,7 +538,7 @@ docs/
   any app import — this is the mechanism, not a suggestion; new tests that open their own
   `SessionLocal()` bypass it and have caused real leaks before.
 - **The Learning Lab** (`/lab`) is a hub for simulation sandboxes (predict → manipulate →
-  observe → explain). Three are live: Agile Metrics, the ADF Behaviour Lab and the Lakehouse Lab
+  observe → explain). Four are live: Agile Metrics, the ADF Behaviour Lab, the Kafka Lab and the Lakehouse Lab
   (see `docs/wiki/Learning-Lab.md`; the learner's guide is `docs/wiki/Learning-Lab-Guide.md`).
   Adding a new one means: a card in
   `LearningLabPage.tsx`, a `NavEntry` in `navigation.ts`, a route in `App.tsx`, and the

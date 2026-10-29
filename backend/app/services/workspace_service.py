@@ -61,20 +61,21 @@ class WorkspaceService:
         rows = [(a, classify(a)) for a in LearningAttemptRepository(self.db).list_in_scope(subject_id)]
         out: List[WorkspaceItem] = []
 
-        for (track, run), stages in adf_runs(rows).items():
+        for (lab, track, run), stages in adf_runs(rows).items():
             predict = stages.get("predict")
             if predict is None or predict.committed_at is None:
                 continue
             kind = classify(predict)
             finished = sum(1 for s in _STAGES if stages.get(s) is not None and stages[s].completed_at)
             out.append(WorkspaceItem(
-                id=f"lab_run:{predict.subject_id}:{track}:{run}",
+                # The ADF lab's ids are as they always were; another lab's carry its name, so the two never meet.
+                id=f"lab_run:{predict.subject_id}:{track}:{run}" if lab == "adf" else f"lab_run:{predict.subject_id}:{lab}:{track}:{run}",
                 kind="lab_run", source="learning_lab", title=kind.title, context=f"Run {run}",
                 excerpt=excerpt(predict.explanation_text),
                 detail=f"{finished} of 4 graded stages finished",
                 href=kind.href,
                 updated_at=latest(*(x for s in stages.values() for x in (s.completed_at, s.committed_at, s.started_at))),
-                ref={"track": track, "run": run},
+                ref={"track": track, "run": run, **({} if lab == "adf" else {"lab": lab})},
             ))
 
         for attempt, kind in rows:

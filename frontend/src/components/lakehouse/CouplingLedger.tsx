@@ -26,7 +26,9 @@ export const CouplingLedger: React.FC<{
   /** The pack's teaching constants, each with the pack's own label. */
   constants?: string[];
   intro: string;
-}> = ({ idPrefix, couplings, constants = [], intro }) => (
+  /** What a `fact` entry is labelled: where the fact comes from. The ADF guide unless said. */
+  factLabel?: string;
+}> = ({ idPrefix, couplings, constants = [], intro, factLabel }) => (
   <Panel component="section" aria-labelledby={`${idPrefix}-ledger`} sx={{ mt: '15px' }}>
     <Typography variant="h6" component="h3" id={`${idPrefix}-ledger`}>What this model assumes</Typography>
     <Detail sx={{ mt: '6px' }}>{intro}</Detail>
@@ -49,7 +51,7 @@ export const CouplingLedger: React.FC<{
       <Box component="ul" aria-label="Effects the model applies" sx={{ listStyle: 'none', p: 0, m: '10px 0 0', display: 'grid', gap: '12px' }}>
         {couplings.map((c) => (
           <Box component="li" key={c.id}>
-            <Pill tone={KIND[c.type].tone}>{KIND[c.type].label}</Pill>{' '}
+            <Pill tone={KIND[c.type].tone}>{c.type === 'fact' && factLabel ? factLabel : KIND[c.type].label}</Pill>{' '}
             <Typography component="span" variant="body2" sx={{ fontWeight: 600 }}>{c.uiLabel}</Typography>
             <Detail sx={{ mt: '2px' }}>{c.effect}</Detail>
           </Box>

@@ -181,6 +181,31 @@ def test_an_unknown_preparation_is_a_404_not_a_fallback():
 # ---- the ADF lab, as Workspace and as Evidence -------------------------------------------------
 
 
+def test_a_kafka_lab_run_is_named_as_the_kafka_labs_and_never_as_the_adf_labs():
+    """The Kafka Lab writes the same four stage rows under its own ids (kb:, kafka.lab.)."""
+    sid = _preparation("Kafka lab", pack="kafka")["id"]
+    fp = "kafka-lab=failures.poison;run=1;model=kafkaLab.failures.poison"
+    _attempt(sid, f"kb:{sid}:failures.poison:r1:predict", "kafka.lab.failures.poison.predict", "kafka.lab.failures", fp,
+             prediction="stuck", manipulation={"handling": {"from": "crash", "to": "dlq"}},
+             observed={"result": {"before": "stuck", "after": "flowing-kept"}, "source": "simulation"},
+             completed=True, correct=True, explanation_text="Nothing moves a consumer past a bad record but my code.")
+    _attempt(sid, f"kb:{sid}:failures.poison:r1:reason", "kafka.lab.failures.poison.reason", "kafka.lab.failures", fp,
+             prediction="no-skip", completed=True, correct=True)
+
+    items = _workspace(sid)["items"]
+    assert [i["kind"] for i in items] == ["lab_run"]
+    run = items[0]
+    assert run["ref"] == {"track": "failures.poison", "run": "1", "lab": "kafka"}
+    assert run["id"] == f"lab_run:{sid}:kafka:failures.poison:1"
+    assert run["href"] == "/lab/kafka/failures?mode=poison"
+    assert run["detail"] == "2 of 4 graded stages finished"
+
+    evidence = _evidence(sid)["items"]
+    assert {i["kind"] for i in evidence} == {"lab_stage"}
+    assert all(i["ref"]["lab"] == "kafka" and i["href"] == "/lab/kafka/failures?mode=poison" for i in evidence)
+    assert {i["ref"]["stage"]: i["level"] for i in evidence} == {"predict": "evidenced", "reason": "demonstrated"}
+
+
 def test_an_adf_lab_run_is_one_workspace_notebook_and_four_graded_stages():
     sid = _preparation("ADF lab", pack="adf")["id"]
     _adf_run(sid)

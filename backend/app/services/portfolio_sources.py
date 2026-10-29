@@ -49,7 +49,11 @@ def question_owned_by(subject_id: Optional[int]):
 
 # ---- reading a learning attempt ----------------------------------------------------------------
 
+# The labs on the shared experiment runner, each with its own attempt ids (frontend services/adfLab/attempts.ts
+# LabIds): the ADF Behaviour Lab (`ab:`, `adf.lab.`) and the Kafka Lab (`kb:`, `kafka.lab.`).
 ADF_LAB = re.compile(r"^ab:(\d+):([a-z][a-z.-]*):r(\d+):([a-z]+)$")
+KAFKA_LAB = re.compile(r"^kb:(\d+):([a-z][a-z.-]*):r(\d+):([a-z]+)$")
+_LABS = (("adf", "adf.lab.", ADF_LAB, "/lab/adf"), ("kafka", "kafka.lab.", KAFKA_LAB, "/lab/kafka"))
 SCENARIO_CHECK = re.compile(r"^([a-z0-9][a-z0-9_-]*)/([^/]+)/check/(\d+)$")
 SCENARIO_LENS = re.compile(r"^([a-z0-9][a-z0-9_-]*)/([^/]+)/lens/([a-z-]+)$")
 PACK_VERSION = re.compile(r"pack_version=(\d+)")
@@ -60,7 +64,7 @@ UID_PACK_VERSION = re.compile(r"^s\d+:[a-z0-9_-]+@(\d+):")
 class AttemptKind:
     """Which feature wrote an attempt, and how to name and reach it."""
 
-    family: str              # adf_lab | lakehouse | scenario_check | scenario_lens | chart_sandbox | other
+    family: str              # adf_lab (any lab on the shared runner) | lakehouse | scenario_check | scenario_lens | chart_sandbox | other
     ref: Dict[str, str]      # the identifiers a client needs to name it (track, run, challenge_id, ...)
     href: str
     stage: Optional[str] = None      # ADF lab stage: predict | reason | apply | retrieve
@@ -94,12 +98,15 @@ def _pack_version(attempt: LearningAttempt) -> Optional[int]:
 
 def classify(attempt: LearningAttempt) -> AttemptKind:
     challenge = attempt.challenge_id or ""
-    if challenge.startswith("adf.lab.") and (m := ADF_LAB.match(attempt.attempt_uid)):
-        track, run, stage = m.group(2), m.group(3), m.group(4)
-        slug, _, mode = track.partition(".")
-        href = f"/lab/adf/{slug}" + (f"?mode={mode}" if mode else "")
-        title = _humanise(slug) + (f" ({_humanise(mode).lower()})" if mode else "")
-        return AttemptKind("adf_lab", {"track": track, "run": run, "stage": stage}, href, stage, title)
+    for lab, prefix, pattern, base in _LABS:
+        if challenge.startswith(prefix) and (m := pattern.match(attempt.attempt_uid)):
+            track, run, stage = m.group(2), m.group(3), m.group(4)
+            slug, _, mode = track.partition(".")
+            href = f"{base}/{slug}" + (f"?mode={mode}" if mode else "")
+            title = _humanise(slug) + (f" ({_humanise(mode).lower()})" if mode else "")
+            # The ADF lab's ref is as it always was; another lab names itself, so the frontend titles it from its registry.
+            ref = {"track": track, "run": run, "stage": stage, **({} if lab == "adf" else {"lab": lab})}
+            return AttemptKind("adf_lab", ref, href, stage, title)
     if challenge.startswith("lakehouse."):
         return AttemptKind("lakehouse", {"challenge_id": challenge}, "/databricks-sandbox",
                            title=_humanise(challenge.rsplit(".", 1)[-1]))
@@ -120,12 +127,15 @@ def classify(attempt: LearningAttempt) -> AttemptKind:
     return AttemptKind("other", {"challenge_id": challenge}, "/lab", title=_humanise(challenge))
 
 
-def adf_runs(attempts: Iterable[Tuple[LearningAttempt, AttemptKind]]) -> Dict[Tuple[str, str], Dict[str, LearningAttempt]]:
-    """The ADF lab's attempts by run: (track, run) -> {stage: attempt}."""
-    runs: Dict[Tuple[str, str], Dict[str, LearningAttempt]] = {}
+def adf_runs(
+    attempts: Iterable[Tuple[LearningAttempt, AttemptKind]],
+) -> Dict[Tuple[str, str, str], Dict[str, LearningAttempt]]:
+    """The labs' attempts by run: (lab, track, run) -> {stage: attempt}. The lab is "adf" or "kafka"."""
+    runs: Dict[Tuple[str, str, str], Dict[str, LearningAttempt]] = {}
     for attempt, kind in attempts:
         if kind.family == "adf_lab" and kind.stage:
-            runs.setdefault((kind.ref["track"], kind.ref["run"]), {})[kind.stage] = attempt
+            key = (kind.ref.get("lab", "adf"), kind.ref["track"], kind.ref["run"])
+            runs.setdefault(key, {})[kind.stage] = attempt
     return runs
 
 

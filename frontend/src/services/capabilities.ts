@@ -5,6 +5,7 @@
 import type { CapabilityName, SubjectCapabilityProfile, SubjectSummary } from '../types/capabilities';
 import type { Subject } from '../types/subject';
 import { adfLabStatus, hasAdfPack } from './adfLab/experiments';
+import { hasKafkaPack, kafkaLabStatus } from './kafkaLab/lab';
 
 /**
  * The slug of the preparation the Lakehouse Lab writes to (skills plan D11): the page
@@ -375,8 +376,8 @@ function isLiveSubject(value: unknown): value is LiveSubject {
  * packs; tests tie this to their content), or lab interview questions. The ADF pack
  * counts even before the record says how many scenarios it has, so a recreated ADF
  * keeps its rounds whatever its new slug is. Otherwise it stays off. The
- * Learning Lab is on when the ADF pack is attached: the ADF Behaviour Lab's
- * experiments are that pack's. Roadmaps are not withheld: the Roadmaps screen is
+ * Learning Lab is on when the ADF pack is attached (the ADF Behaviour Lab's
+ * experiments are that pack's), or the Kafka pack (the Kafka Lab's). Roadmaps are not withheld: the Roadmaps screen is
  * where any preparation's first roadmap is created or imported.
  */
 function deriveCapabilities(s: LiveSubject): SubjectCapabilityProfile {
@@ -385,16 +386,18 @@ function deriveCapabilities(s: LiveSubject): SubjectCapabilityProfile {
   // The ADF Behaviour Lab is for any preparation with the ADF pack attached, not only the seeded
   // one: its experiments are the pack's, and the lab pages check for the pack themselves.
   const adfLab = hasAdfPack(s);
+  // The Kafka Lab is for any preparation with the Kafka pack attached, the same way (services/kafkaLab/lab.ts).
+  const kafkaLab = !adfLab && hasKafkaPack(s);
   const hasLabQuestions = typeof s.lab_interview_question_count === 'number' && s.lab_interview_question_count > 0;
   const hasScenarioQuestions = Boolean(s.content_packs?.some((p) => (p.written_scenario_count ?? 0) > 0));
   return Object.freeze({
     certification: s.kind.toLowerCase() === 'certification',
     interview: adfLab || hasLabQuestions || hasScenarioQuestions,
-    learningLab: adfLab,
-    lab: adfLab,
+    learningLab: adfLab || kafkaLab,
+    lab: adfLab || kafkaLab,
     lakehouseLab: s.slug === LAKEHOUSE_SLUG,
     systemDesignStudio: s.slug === SYSTEM_DESIGN_SLUG,
-    learningLabStatus: adfLab ? adfLabStatus() : 'UNAVAILABLE',
+    learningLabStatus: adfLab ? adfLabStatus() : kafkaLab ? kafkaLabStatus() : 'UNAVAILABLE',
     workspace: true,
     evidence: true,
     roadmap: true,
@@ -448,12 +451,18 @@ export function getSubjectCapabilities(
     const curriculum = liveCurriculum(live);
     const hasLabQuestions = typeof live.lab_interview_question_count === 'number' && live.lab_interview_question_count > 0;
     const interview = profile.interview || hasLabQuestions;
+    // A pack's lab comes with the pack, here as for a derived profile: the ADF or Kafka pack
+    // attached to a seeded preparation without a lab of its own (System Design, say) brings its
+    // lab, as the lab pages' own pack check already allows. A seeded lab is never replaced.
+    const packLab = profile.learningLab ? null
+      : hasAdfPack(live) ? adfLabStatus() : hasKafkaPack(live) ? kafkaLabStatus() : null;
     const sameCurriculum = Object.entries(curriculum)
       .every(([k, v]) => profile[k as keyof SubjectCapabilityProfile] === v);
-    if (live.question_count === profile.questionCount && sameCurriculum && interview === profile.interview) return profile;
+    if (live.question_count === profile.questionCount && sameCurriculum && interview === profile.interview && !packLab) return profile;
     return Object.freeze({
       ...profile,
       ...curriculum,
+      ...(packLab ? { learningLab: true, lab: true, learningLabStatus: packLab } : {}),
       interview,
       questionCount: live.question_count,
       questionAvailability: live.question_count > 0,
