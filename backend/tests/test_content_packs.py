@@ -7,7 +7,7 @@ test_content_packs.py
 
 The content-pack foundation (skills-and-content-packs-plan.md, Phase 1):
 
-  * the shipped `adf`, `adls` and `kafka` packs load, validate, and cross-reference
+  * the shipped `adf`, `adls`, `kafka` and `databricks` packs load, validate, and cross-reference
     correctly (their own chapters, and each other's -- see
     EXPECTED_CHAPTER_REFERENCES below)
   * a malformed pack file is skipped, never fatal
@@ -276,6 +276,114 @@ EXPECTED_CHAPTER_REFERENCES = {
         ("system-design", 13, "retention"),
         ("system-design", 14, "failures"),
     ],
+    "databricks": [
+        ("lakehouse", 9, "tables-storage"),
+        ("lakehouse", 3, "delta-log"),
+        ("parquet", 7, "layout"),
+        ("parquet", 15, "auto-loader"),
+        ("parquet", 3, "delta-log"),
+        ("parquet", 7, "layout"),
+        ("parquet", 7, "layout"),
+        ("delta-log", 2, "parquet"),
+        ("delta-log", 4, "history"),
+        ("delta-log", 7, "layout"),
+        ("delta-log", 6, "merge-cdf"),
+        ("delta-log", 4, "history"),
+        ("delta-log", 7, "layout"),
+        ("delta-log", 4, "history"),
+        ("delta-log", 24, "production"),
+        ("delta-log", 7, "layout"),
+        ("delta-log", 16, "streaming"),
+        ("history", 3, "delta-log"),
+        ("history", 7, "layout"),
+        ("history", 16, "streaming"),
+        ("history", 24, "production"),
+        ("schemas", 6, "merge-cdf"),
+        ("schemas", 4, "history"),
+        ("schemas", 3, "delta-log"),
+        ("schemas", 16, "streaming"),
+        ("schemas", 24, "production"),
+        ("schemas", 13, "medallion"),
+        ("merge-cdf", 5, "schemas"),
+        ("merge-cdf", 17, "pipelines"),
+        ("merge-cdf", 16, "streaming"),
+        ("merge-cdf", 4, "history"),
+        ("merge-cdf", 7, "layout"),
+        ("layout", 2, "parquet"),
+        ("layout", 3, "delta-log"),
+        ("layout", 3, "delta-log"),
+        ("layout", 4, "history"),
+        ("unity-catalog", 10, "access"),
+        ("unity-catalog", 1, "lakehouse"),
+        ("unity-catalog", 10, "access"),
+        ("unity-catalog", 9, "tables-storage"),
+        ("unity-catalog", 1, "lakehouse"),
+        ("unity-catalog", 24, "production"),
+        ("tables-storage", 7, "layout"),
+        ("tables-storage", 23, "networking"),
+        ("tables-storage", 24, "production"),
+        ("tables-storage", 2, "parquet"),
+        ("access", 20, "monitoring"),
+        ("compute", 1, "lakehouse"),
+        ("compute", 16, "streaming"),
+        ("compute", 24, "production"),
+        ("compute", 24, "production"),
+        ("compute", 20, "monitoring"),
+        ("compute", 7, "layout"),
+        ("spark", 19, "performance"),
+        ("spark", 19, "performance"),
+        ("spark", 16, "streaming"),
+        ("spark", 6, "merge-cdf"),
+        ("medallion", 16, "streaming"),
+        ("medallion", 17, "pipelines"),
+        ("ingestion", 16, "streaming"),
+        ("ingestion", 17, "pipelines"),
+        ("auto-loader", 16, "streaming"),
+        ("auto-loader", 24, "production"),
+        ("auto-loader", 24, "production"),
+        ("auto-loader", 24, "production"),
+        ("streaming", 17, "pipelines"),
+        ("streaming", 24, "production"),
+        ("streaming", 17, "pipelines"),
+        ("streaming", 17, "pipelines"),
+        ("streaming", 3, "delta-log"),
+        ("streaming", 17, "pipelines"),
+        ("streaming", 4, "history"),
+        ("streaming", 15, "auto-loader"),
+        ("pipelines", 6, "merge-cdf"),
+        ("pipelines", 20, "monitoring"),
+        ("jobs", 24, "production"),
+        ("jobs", 6, "merge-cdf"),
+        ("jobs", 16, "streaming"),
+        ("performance", 12, "spark"),
+        ("performance", 24, "production"),
+        ("performance", 7, "layout"),
+        ("monitoring", 11, "compute"),
+        ("monitoring", 24, "production"),
+        ("monitoring", 18, "jobs"),
+        ("monitoring", 17, "pipelines"),
+        ("monitoring", 24, "production"),
+        ("cicd", 9, "tables-storage"),
+        ("azure-integration", 9, "tables-storage"),
+        ("azure-integration", 23, "networking"),
+        ("production", 15, "auto-loader"),
+        ("production", 18, "jobs"),
+        ("production", 4, "history"),
+        ("production", 5, "schemas"),
+        ("production", 6, "merge-cdf"),
+        ("production", 3, "delta-log"),
+        ("production", 4, "history"),
+        ("production", 3, "delta-log"),
+        ("production", 23, "networking"),
+        ("production", 6, "merge-cdf"),
+        ("production", 19, "performance"),
+        ("production", 9, "tables-storage"),
+        ("production", 17, "pipelines"),
+        ("production", 13, "medallion"),
+        ("production", 18, "jobs"),
+        ("production", 10, "access"),
+        ("production", 20, "monitoring"),
+    ],
 }
 
 
@@ -304,6 +412,13 @@ def test_kafka_pack_shape():
     assert len(pack.diagnostic_questions) == 8
 
 
+def test_databricks_pack_shape():
+    pack = _pack("databricks")
+    assert pack.chapter_count == 24
+    assert pack.scenario_count == 0
+    assert len(pack.diagnostic_questions) == 0
+
+
 def test_adls_pack_shape():
     pack = _pack("adls")
     assert pack.chapter_count == 11
@@ -311,21 +426,21 @@ def test_adls_pack_shape():
     assert len(pack.diagnostic_questions) == 2
 
 
-@pytest.mark.parametrize("pack_id", ["adf", "adls", "kafka"])
+@pytest.mark.parametrize("pack_id", ["adf", "adls", "kafka", "databricks"])
 def test_chapter_ids_are_unique_within_a_pack(pack_id):
     pack = _pack(pack_id)
     ids = [c.id for c in pack.chapters]
     assert len(ids) == len(set(ids))
 
 
-@pytest.mark.parametrize("pack_id", ["adf", "adls", "kafka"])
+@pytest.mark.parametrize("pack_id", ["adf", "adls", "kafka", "databricks"])
 def test_scenario_ids_are_unique_within_a_pack(pack_id):
     pack = _pack(pack_id)
     ids = [s.id for level in pack.scenario_levels for s in level.scenarios]
     assert len(ids) == len(set(ids))
 
 
-@pytest.mark.parametrize("pack_id", ["adf", "adls", "kafka"])
+@pytest.mark.parametrize("pack_id", ["adf", "adls", "kafka", "databricks"])
 def test_scenario_chapter_references_resolve(pack_id):
     pack = _pack(pack_id)
     chapter_ids = {c.id for c in pack.chapters}
@@ -337,7 +452,7 @@ def test_scenario_chapter_references_resolve(pack_id):
             )
 
 
-@pytest.mark.parametrize("pack_id", ["adf", "adls", "kafka"])
+@pytest.mark.parametrize("pack_id", ["adf", "adls", "kafka", "databricks"])
 def test_practice_link_scenario_ids_resolve(pack_id):
     pack = _pack(pack_id)
     scenario_ids = {s.id for level in pack.scenario_levels for s in level.scenarios}
@@ -349,7 +464,7 @@ def test_practice_link_scenario_ids_resolve(pack_id):
             )
 
 
-@pytest.mark.parametrize("pack_id", ["adf", "adls", "kafka"])
+@pytest.mark.parametrize("pack_id", ["adf", "adls", "kafka", "databricks"])
 def test_diagnostic_question_chapter_references_resolve(pack_id):
     pack = _pack(pack_id)
     chapter_ids = {c.id for c in pack.chapters}
@@ -360,7 +475,7 @@ def test_diagnostic_question_chapter_references_resolve(pack_id):
         )
 
 
-@pytest.mark.parametrize("pack_id", ["adf", "adls", "kafka"])
+@pytest.mark.parametrize("pack_id", ["adf", "adls", "kafka", "databricks"])
 def test_no_bold_markdown_in_table_cells(pack_id):
     """Table cells are plain text (the plan's pack-format note)."""
     pack = _pack(pack_id)
@@ -375,7 +490,7 @@ def test_no_bold_markdown_in_table_cells(pack_id):
                     )
 
 
-@pytest.mark.parametrize("pack_id", ["adf", "adls", "kafka"])
+@pytest.mark.parametrize("pack_id", ["adf", "adls", "kafka", "databricks"])
 def test_chapter_n_cross_references_point_at_the_right_chapter(pack_id):
     """Every "chapter N" mention resolves to the chapter this content actually
     means -- not just to whatever chapter happens to sit at position N today."""
@@ -490,6 +605,7 @@ def test_list_content_packs():
     assert by_id["adf"]["chapter_count"] == 23
     assert by_id["adls"]["chapter_count"] == 11
     assert by_id["kafka"]["chapter_count"] == 21
+    assert by_id["databricks"]["chapter_count"] == 24
 
 
 def test_get_content_pack_detail_and_unknown_pack_404():

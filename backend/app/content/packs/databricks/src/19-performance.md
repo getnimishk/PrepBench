@@ -1,6 +1,6 @@
 ---
 id: performance
-title: Performance - shuffles, skew, spill and the Spark UI
+title: Performance: shuffles, skew, spill and the Spark UI
 summary: Adaptive query execution, broadcast joins and shuffle partitions; diagnosing skew and spill from task metrics; salting; and the disk cache.
 sources: §9, §12, §2
 ---

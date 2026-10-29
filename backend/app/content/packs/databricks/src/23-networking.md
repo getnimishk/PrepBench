@@ -90,8 +90,7 @@ Egress (outbound internet access):
 - Firewall rules should allow-list the SCC relay **domain names**, not IP addresses, which change.
 
 ## Private Link: three kinds
-
-The three can be used separately or together. A bank that forbids any public path needs **complete private isolation**: all three kinds, **public network access disabled** on the workspace, the required NSG rules set to `NoAzureDatabricksRules`, and every endpoint: front-end `databricks_ui_api`, `browser_authentication`, the back-end endpoint, and NCC private endpoints for serverless.
+Azure Private Link comes in three kinds, compared in the table at the end of this section. The three can be used separately or together. A bank that forbids any public path needs **complete private isolation**: all three kinds, **public network access disabled** on the workspace, the required NSG rules set to `NoAzureDatabricksRules`, and every endpoint: front-end `databricks_ui_api`, `browser_authentication`, the back-end endpoint, and NCC private endpoints for serverless.
 
 | Kind | Secures | Prerequisites | Endpoints |
 |---|---|---|---|

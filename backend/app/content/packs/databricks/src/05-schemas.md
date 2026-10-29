@@ -1,6 +1,6 @@
 ---
 id: schemas
-title: Schemas - enforcement and evolution
+title: Schemas: enforcement and evolution
 summary: Delta refuses writes that don't fit the table, and lets you change the schema on purpose; every schema change stops the streams that read the table.
 sources: §3, §24
 ---

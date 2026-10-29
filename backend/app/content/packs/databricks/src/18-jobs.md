@@ -1,6 +1,6 @@
 ---
 id: jobs
-title: Lakeflow Jobs - orchestrating the work
+title: Lakeflow Jobs: orchestrating the work
 summary: Jobs as DAGs of tasks, Run if conditions, branching and loops, retries and timeouts, concurrency limits, triggers, and why a repair can duplicate data.
 sources: §11, §19, §23
 ---

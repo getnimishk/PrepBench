@@ -94,7 +94,7 @@ their own runs, and draw a picture of the cluster (`LabPicture`); every `fact` c
 Retrieve quote is checked word for word against the pack. Evidence and Workspace show its runs as lab runs with
 `ref.lab = "kafka"`; ADF items are unchanged. Scope is six; changing it is a product decision.
 
-**Databricks (research only, 2026-10-29).** `docs/research/databricks-documentation-notes.md` is the source of fact for
+**Databricks (2026-10-29).** `docs/research/databricks-documentation-notes.md` is the source of fact for
 all Databricks material, as the Kafka notes are for Kafka: docs.databricks.com, Azure Databricks on Microsoft Learn, the
 Delta protocol and Apache Spark 4.2 pages, read as page text (not summaries), plus both exam guides read in full (Data
 Engineer Associate, guide of 6 Aug 2026; Professional, guide of 9 Oct 2026). Neither exam publishes a pass mark; never
@@ -106,9 +106,17 @@ condition names and SQLSTATEs). The draft roadmap is `docs/research/Databricks_D
 (108 topics, 13 phases, plus an Error Catalogue sheet); `docs/implementation/DATABRICKS-ROADMAP-COMPARISON.md` compares it
 with the learner's two earlier Databricks roadmaps. Importer limit worth knowing: an extra reference sheet must have 2-4
 columns or the import drops it.
-`docs/implementation/DATABRICKS-GAP-REPORT.md` is the proposal (roadmap, guide, scenarios, a 300-question Associate
-bank, six lab experiments, interview material). **Nothing is built until the learner approves it**: which certification,
-whether it becomes its own preparation, and the build order are their decisions.
+`docs/implementation/DATABRICKS-GAP-REPORT.md` is the plan (roadmap, guide, scenarios, a 300-question Associate bank, six
+lab experiments, interview material); the learner approved the roadmap and asked for the guide next. **The study guide is
+pack `databricks` v1** (24 chapters, 4 figures in `frontend/public/assets/content/packs/databricks/`):
+written as Markdown in `backend/app/content/packs/databricks/src/` and built into `v1.json` by `build_content_pack.py`
+(edit the sources, never the JSON). Each chapter opens with its roadmap alignment (every one of the 108 topics, with the
+roadmap's own success criterion as learning evidence), cites notes sections, has Free Edition hands-on steps where Free
+Edition can run them ("read, not run" otherwise) and ends with a design trade-off and an interview takeaway.
+`tests/test_databricks_pack.py` reads the topic list from the workbook and fails on a missing or misnamed topic, an
+uncited section, a former product name taught as current, a `DENY` taught as Unity Catalog SQL, or a stated pass mark.
+Packs attach only to skills (D1): the guide is for the existing Databricks skill; attaching it is the learner's action.
+Scenarios, the question bank and the lab are not built yet; the certification-preparation decision is still open.
 
 **Settled decisions, don't reopen these:**
 - The header Settings button stays, even though it isn't in the prototype — kept for

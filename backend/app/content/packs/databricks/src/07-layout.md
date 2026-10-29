@@ -1,6 +1,6 @@
 ---
 id: layout
-title: Data layout - compaction, skipping, clustering
+title: Data layout: compaction, skipping, clustering
 summary: OPTIMIZE, file statistics, Z-order, liquid clustering, deletion vectors and predictive optimization, and Databricks' advice that most tables need no partitions.
 sources: §2, §22
 ---

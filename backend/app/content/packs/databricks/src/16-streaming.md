@@ -1,6 +1,6 @@
 ---
 id: streaming
-title: Structured Streaming - checkpoints, triggers, watermarks
+title: Structured Streaming: checkpoints, triggers, watermarks
 summary: What a checkpoint stores and why each query needs its own, the triggers serverless allows, watermarks and output modes, foreachBatch, and how to replay or backfill without duplicates.
 sources: §8, §2, §10, §21, §23
 ---

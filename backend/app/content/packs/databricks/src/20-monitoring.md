@@ -1,6 +1,6 @@
 ---
 id: monitoring
-title: Monitoring - system tables, event logs and run history
+title: Monitoring: system tables, event logs and run history
 summary: The system catalog for cost, usage, audit and lineage; job run history and the matrix view; the pipeline event log; and what each answers.
 sources: §15, §10, §11, §12
 ---

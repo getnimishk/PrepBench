@@ -1,6 +1,6 @@
 ---
 id: medallion
-title: The medallion architecture - bronze, silver, gold
+title: The medallion architecture: bronze, silver, gold
 summary: Raw data kept as it arrived, validated data built from it, and business-ready tables on top; what each layer is for and how data moves between them.
 sources: §13, §10
 ---

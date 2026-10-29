@@ -1,6 +1,6 @@
 ---
 id: delta-log
-title: Delta Lake internals - the transaction log
+title: Delta Lake internals: the transaction log
 summary: Parquet data files plus a _delta_log of numbered commits; how readers rebuild a snapshot, how writers commit without locks, and what a table's protocol demands of every client.
 sources: §2, §8, §19
 ---

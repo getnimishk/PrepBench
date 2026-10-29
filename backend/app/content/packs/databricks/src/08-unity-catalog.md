@@ -1,6 +1,6 @@
 ---
 id: unity-catalog
-title: Unity Catalog - the object model
+title: Unity Catalog: the object model
 summary: One metastore per region, a three-level namespace, and securable objects that cover data, storage access and sharing.
 sources: §6, §17
 ---
