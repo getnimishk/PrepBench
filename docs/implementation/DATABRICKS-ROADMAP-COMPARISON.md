@@ -39,13 +39,19 @@ Each earlier topic gets one verdict:
 
 ## What I'd change in the new roadmap
 
+**Done (2026-10-29, at your request):** all seven additions below are now in the roadmap, which has **91 topics in 12
+phases** (new topics 4 Workspace Objects, 51 Photon and Runtime Selection, 68 Recovery, Replay and Backfill, 75 Job
+Concurrency and Limits, and phase 11, topics 78-85, Azure networking; topic 52 now includes autoscaling and topic 69 covers
+pipeline views and flows). Topic numbers in the tables below refer to the 79-topic draft the comparison was made
+against.
+
 **Add from facts already researched (no new reading needed):**
 
 1. **Workspace objects and permissions** (notebooks, folders, jobs, dashboards governed by workspace ACLs, not Unity
    Catalog): notes §6.1. *(A 8)*
 2. **Photon and Databricks Runtime selection** (LTS versions, what Photon is): notes §12. *(A 15, B 88, B 90)*
-3. **Job concurrency and queueing** (one run at a time by default, maximum concurrent runs, the 2,000 concurrent task
-   runs limit): notes §11. *(A 48)*
+3. **Job concurrency and limits** (one run at a time by default, maximum concurrent runs with runs beyond it skipped,
+   the 2,000 concurrent task runs limit; the notes say nothing about queueing): notes §11. *(A 48)*
 4. **Recovery, replay and backfill** (new checkpoint means start fresh, full refresh, RESTORE seen downstream, Auto
    Loader backfill): notes §8, §10, §2.2, §21.2. *(A 56)*
 5. **Autoscaling** folded into topic 50 (pools and policies): notes §12. *(A 14, B 85)*
