@@ -1,0 +1,9 @@
+{
+  "pack_id": "databricks",
+  "version": 1,
+  "title": "Databricks on Azure",
+  "summary": "Delta Lake tables governed by Unity Catalog, loaded and transformed with Spark, pipelines and jobs, and run in production on Azure",
+  "docs_url": "https://learn.microsoft.com/en-us/azure/databricks/",
+  "source_notes": "docs/research/databricks-documentation-notes.md",
+  "diagnostic_questions": []
+}
