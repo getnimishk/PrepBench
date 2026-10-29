@@ -216,6 +216,10 @@ https://docs.databricks.com/aws/en/delta/optimize (2026-09-11).
   snapshot isolation for a set of queries.
 - **In-commit timestamps** (`delta.enableInCommitTimestamps`, DBR 15.4 LTS+) store commit times in the log, so
   timestamp time travel survives copying the log files; without them it uses file modification times.
+- **`DESCRIBE DETAIL t`** (https://docs.databricks.com/aws/en/delta/table-details, updated 2026-09-11) returns one row of
+  table metadata: format, location, partition columns, **`numFiles`**, **`sizeInBytes`**, properties,
+  **`minReaderVersion` / `minWriterVersion`** and enabled table features (columns vary by runtime). It is how to see the
+  file count before and after `OPTIMIZE`, and a table's protocol (§2.7).
 - **Log checkpoints:** versions are JSON files in the log directory; Databricks aggregates them into **Parquet
   checkpoint files** so readers need not read every JSON file. Frequency is automatic.
 - **RESTORE:** `RESTORE TABLE t TO VERSION AS OF n` / `TO TIMESTAMP AS OF ts`; needs `MODIFY`; a restored or cloned table
@@ -318,6 +322,55 @@ Source: https://docs.databricks.com/aws/en/optimizations/predictive-optimization
   property is set lower. Raise the property **before** enabling it if longer time travel is needed.
 - Runs on **serverless compute for jobs**, billed under a serverless jobs SKU. Needs the Premium plan or above.
 - Set at account (account admin), catalog, schema or table level (owner or `MANAGE`); lower levels inherit and can override.
+
+### 2.7 Delta internals: actions, checkpoints, concurrency, protocol
+
+Sources: the Delta protocol (https://raw.githubusercontent.com/delta-io/delta/master/PROTOCOL.md, sections "Actions",
+"Checkpoints", "Log Compaction Files", "Last Checkpoint File", "Version Checksum File", "Transaction Identifiers") ;
+https://docs.databricks.com/aws/en/lakehouse/acid (updated 2026-10-19) ;
+https://docs.databricks.com/aws/en/optimizations/isolation-level (2026-10-12) ;
+https://docs.databricks.com/aws/en/delta/feature-compatibility (2026-10-28) (all read 2026-10-29).
+
+- **Actions** in a commit change the table state. `metaData`: the first version must have one, at most one per version,
+  and each one **completely overwrites** the table's metadata (schema, partitioning, configuration). `add` / `remove`:
+  add or remove a **logical file** (a data file path plus an optional deletion vector). A `remove` carries a timestamp
+  and stays in the state as a **tombstone** until it expires, so readers on an older snapshot can keep reading; physical
+  deletion happens lazily (that is `VACUUM`'s job, §2.3). `add` actions also carry per-file **statistics** used for data
+  skipping (§2.5). Other actions: `protocol`, `cdc` (change data files, §5), `txn` (below), `commitInfo` (provenance:
+  what `DESCRIBE HISTORY` shows), domain metadata.
+- **Checkpoints** hold "the complete replay of all actions" up to a version, with cancelled actions removed and
+  unexpired tombstones kept, so a reader needn't replay every JSON commit. Kinds: **classic** `n.checkpoint.parquet`,
+  multi-part, and **V2 / UUID-named** `n.checkpoint.<uuid>.json|parquet` that may reference **sidecar** Parquet files in
+  `_delta_log/_sidecars`. Readers should use the newest complete checkpoint; for time travel, one no newer than the
+  target version. Readers must not assume how often checkpoints exist, except that metadata cleanup keeps a checkpoint
+  for the oldest kept version. **`_delta_log/_last_checkpoint`** points near the end of the log so readers avoid listing
+  a directory that can hold "10,000+" files. **Log compaction files** `<x>.<y>.compacted.json` aggregate a range of
+  commits. An optional **version checksum** file per commit lets clients detect non-compliant changes, because "the
+  Delta transaction log must remain an append-only log".
+- **Transaction identifiers** (`txn`: an `appId` + `version` pair committed atomically with the data) are how
+  Structured Streaming's Delta sink makes writes **idempotent**: before committing a batch it checks whether that batch's
+  version is already recorded, and skips it if so. This is the mechanism behind exactly-once writes into Delta (§8).
+- **ACID on Databricks.** Atomicity comes from the log: data files written by a transaction are invisible until the
+  commit records them; files from a **failed** transaction never join the table and `VACUUM` deletes them. Durability
+  comes from cloud object storage. **Optimistic concurrency control**, with **no locks** ("deadlock is not a
+  possibility"): a write (1) reads the latest version if it needs to (append-only writes don't), (2) writes data files,
+  (3) **validates and commits**: if a concurrently committed change conflicts with what it read, it **fails with a
+  concurrent modification exception** (e.g. `ConcurrentAppendException`) instead of corrupting data.
+- **Isolation:** **snapshot isolation** for reads; **WriteSerializable** for writes by default; **Serializable** is the
+  stronger option (`delta.isolationLevel`). Row-level concurrency (with deletion vectors, §2.5) reduces conflicts on the
+  same files. **Metadata changes** (protocol, table properties, schema) can make all concurrent writes fail, and a
+  **streaming read fails** on a commit that changes metadata and must be restarted.
+- **Transaction scope.** By default each SQL statement is its own transaction on one table. The ACID page (2026-10-19)
+  also describes **`BEGIN ATOMIC ... END`** grouping statements across tables into one transaction, for tables with
+  **catalog commits** enabled. (The warehouse-migration page, updated 2026-09-11, still says there are no `BEGIN`/`END`
+  constructs: §19 records the conflict; the newer page is followed, as a feature that needs catalog commits.)
+  Databricks also writes `_started_<id>` / `_committed_<id>` marker files for transactional commits to object storage
+  and cleans up stale ones.
+- **Protocol and table features.** Every table has a protocol saying what a client must support: `minReaderVersion`
+  (1-3) and `minWriterVersion` (2-7). At reader 3 / writer 7, the protocol lists individual **table features** instead
+  of implying them by version. A **writer feature** blocks only clients that write; a **reader feature** blocks reading
+  too. A client that doesn't support a table's features can't read or write it. Most new capabilities upgrade the
+  protocol (deletion vectors, liquid clustering: §2.5); some features can be dropped (`ALTER TABLE ... DROP FEATURE`).
 
 ## 3. Schemas: enforcement and evolution
 
@@ -931,6 +984,9 @@ https://docs.databricks.com/aws/en/getting-started/free-edition-limitations (202
 - **Fast-changing items.** Many features carry Beta or Public Preview labels and runtime requirements (automatic CDF needs
   DBR 19+, `INSERT WITH SCHEMA EVOLUTION` DBR 18.1+). The material avoids exam questions that hinge on a preview feature
   or a version number unless the exam outline names it, and gives the version when it matters.
+- **Multi-statement transactions:** the warehouse-migration page (2026-09-11, §21.1) says there are no `BEGIN`/`END`
+  constructs; the ACID page (2026-10-19, §2.7) describes `BEGIN ATOMIC ... END` across tables with catalog commits. The
+  material follows the newer page and never says multi-table transactions are impossible.
 - **Architect accreditation (§1.4):** no weights or question counts per area are published, and the training it
   expects is in Databricks Academy, which these notes did not read (it needs a sign-in). Registration is "free for
   Databricks customers and partners"; the page doesn't say whether anyone else can take it. "Solutions Architect" is not
@@ -1054,7 +1110,8 @@ facts.
   not about eliminating data warehousing, but rather unifying your data ecosystem." Most warehouse queries and dashboards
   run "with minimal code refactoring" once the initial data migration and governance configuration are done.
 - **Differences a warehouse team will hit:** all transactions are **table-level** (no database-level transactions or
-  locks); **no `BEGIN`/`END`**: each statement is its own transaction; three-level names `catalog.schema.table`
+  locks); **no `BEGIN`/`END`**: each statement is its own transaction (but the newer ACID page describes `BEGIN ATOMIC
+... END` for tables with catalog commits: §2.7, §19); three-level names `catalog.schema.table`
   ("database" and "schema" are synonyms); **primary and foreign keys are informational only**; data types and numeric
   precision may differ from the source and must be chosen deliberately.
 - **Hive workloads** mostly run with minimal refactoring. Concerns: Hive SerDes (change DDL from `STORED AS` to
