@@ -94,6 +94,16 @@ their own runs, and draw a picture of the cluster (`LabPicture`); every `fact` c
 Retrieve quote is checked word for word against the pack. Evidence and Workspace show its runs as lab runs with
 `ref.lab = "kafka"`; ADF items are unchanged. Scope is six; changing it is a product decision.
 
+**Databricks (research only, 2026-10-29).** `docs/research/databricks-documentation-notes.md` is the source of fact for
+all Databricks material, as the Kafka notes are for Kafka: docs.databricks.com, Azure Databricks on Microsoft Learn, the
+Delta protocol and Apache Spark 4.2 pages, read as page text (not summaries), plus both exam guides read in full (Data
+Engineer Associate, guide of 6 Aug 2026; Professional, guide of 9 Oct 2026). Neither exam publishes a pass mark; never
+state one. §19 there lists what the docs don't confirm (no `DENY` statement in Unity Catalog SQL despite the Associate
+guide; "standard connectors"; the Professional page/guide mismatch); a new fact goes into the notes first.
+`docs/implementation/DATABRICKS-GAP-REPORT.md` is the proposal (roadmap, guide, scenarios, a 300-question Associate
+bank, six lab experiments, interview material). **Nothing is built until the learner approves it**: which certification,
+whether it becomes its own preparation, and the build order are their decisions.
+
 **Settled decisions, don't reopen these:**
 - The header Settings button stays, even though it isn't in the prototype — kept for
   quick access, at the user's request.
