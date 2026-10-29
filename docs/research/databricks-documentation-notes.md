@@ -728,8 +728,10 @@ Sources: https://docs.databricks.com/aws/en/ldp/ (updated 2026-10-22) ; `.../ldp
     may need a manual full refresh.
   - **View** — evaluated on demand, not persisted, usable only inside the pipeline (intermediate steps, checks).
 - **Flows** read a source, transform, write a target: append, update, **AUTO CDC**, and materialized view flows.
-  **Sinks** stream to Delta tables, Kafka, Event Hubs, custom Python sources. **Standalone** streaming tables and
-  materialized views can be created in Databricks SQL; Databricks then manages a pipeline (type `MV/ST`) for them.
+  **Sinks** stream to Delta tables, Kafka, Event Hubs, custom Python sources. A streaming table "can have one or more
+  streaming flows (Append, AUTO CDC) written into it"; a materialized view one or more materialized view flows; a sink
+  one or more Append or Update flows (`.../ldp/concepts`). **Standalone** streaming tables and materialized views can be
+  created in Databricks SQL; Databricks then manages a pipeline (type `MV/ST`) for them.
 - **Expectations** (data quality): a named SQL boolean constraint on a dataset, e.g. `CONSTRAINT valid_age EXPECT (age
   BETWEEN 0 AND 120)` / `@dp.expect("valid_age", "age BETWEEN 0 AND 120")`. Actions: **warn** (default; invalid rows are
   written, counted), **drop** (`ON VIOLATION DROP ROW`, `expect_or_drop`; dropped rows counted), **fail** (`ON VIOLATION
@@ -774,7 +776,9 @@ Sources: https://docs.databricks.com/aws/en/jobs/ (updated 2026-10-09) ; `.../jo
   (skipped).
 - **If/else condition task** branches on a boolean expression (e.g. run transformations only if ingestion added rows).
   **For each** runs one nested task per element of an input array (JSON array, task values or job parameters; `{{input}}`
-  in the nested task), with a **Concurrency** setting (default 1); a For each can't nest another For each.
+  in the nested task), with a **Concurrency** setting (default 1); a For each can't nest another For each. A task sets a
+  **task value** with `dbutils.jobs.taskValues.set(key = ..., value = ...)`, and later tasks reference it as
+  `{{tasks.<task_name>.values.<task_value_name>}}` (`.../jobs/for-each`).
 - **Retries and timeouts:** for most configurations the default is **no retry**; add a retry policy per task (count and
   interval). Serverless jobs auto-optimize retries by default (can be disallowed). Continuous jobs use exponential
   backoff. A task's **Timeout** sets its maximum run time: exceed it and the status is **"Timed Out"**; the **Warning**
@@ -898,7 +902,10 @@ Sources: https://docs.databricks.com/aws/en/admin/system-tables/ (updated 2026-1
   instance pools); `system.lakeflow.jobs`, `job_tasks`, `job_run_timeline`, `job_task_run_timeline`, `pipelines`,
   `pipeline_update_timeline`; `system.query.history`; `system.alert.*`. Databricks "highly discourages" exporting system
   table data outside the platform. Joining `system.billing.usage` with the pricing and compute tables attributes DBU
-  spend to jobs and warehouses (the Professional guide's sample question 5).
+  spend to jobs and warehouses (the Professional guide's sample question 5). Columns used in the billing page's examples:
+  `usage_date`, `sku_name`, `usage_quantity`, `usage_metadata.job_id`, `usage_start_time`, `usage_end_time`. The event
+  log's examples filter `event_type` (`create_update`, `update_progress`) and read `details:flow_progress.status` and
+  `details:flow_progress.metrics.num_output_rows` (`.../ldp/monitor-event-logs`).
 - **Jobs UI:** run history and the matrix view (§11), task run details, duration thresholds and notifications.
 - **Pipelines:** the pipeline UI's data quality tab and the **event log** (§10).
 - **Spark UI:** jobs, stages, tasks, executors, the Streaming tab (input rate, processing time: a batch should finish
