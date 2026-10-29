@@ -71,12 +71,20 @@ published and never changes** (pinned by fingerprint); the learner upgrades to v
 **The CCDAK question bank (2026-10-29)** is `backend/app/content/question_banks/ccdak/`: a JSON file the learner imports on
 the Question Bank screen (`certification: "CCDAK"`, matched exactly), built from one source file per exam section by
 `backend/scripts/build_question_bank.py`; edit the sources and rebuild, never the JSON. It follows Confluent's April 2025
-exam guide: six sections by weight, planned 300 questions (69 / 84 / 36 / 45 / 24 / 42); the first PR has Fundamentals and
-Application Development (153). Every question cites `docs/research/ccdak-exam-research.md` or the Kafka notes, and
+exam guide: six sections by weight, 300 questions (69 / 84 / 36 / 45 / 24 / 42): Fundamentals and Application Development
+in #113, Streams, Connect, Testing and Observability in the second PR, with `ccdak_question_bank_sections-3-6.json` (a
+`parts` entry in `src/bank.json`) for a learner who imported the first 153, since the import warns about duplicates but
+adds them. Every question cites `docs/research/ccdak-exam-research.md` (sections 9-16, Streams to metrics, were read from the
+4.3 docs' own source files in apache/kafka, after a page summary got a default wrong) or the Kafka notes, and
 `tests/test_ccdak_question_bank.py` holds it to the import validator (no errors or warnings), four or more options, its
-sources, the section counts, an even spread of right-answer positions, the right answer rarely the longest option, and no
-out-of-scope topic (ksqlDB, RBAC, CFK, ZooKeeper). Confluent publishes no question count or pass mark; the bank never
-claims one. Importing it is the learner's action; nothing is loaded from code.
+sources, the section counts, the part files, an even spread of right-answer positions, the right answer the longest option
+in at most 30% overall and 40% of any section, and no out-of-scope topic (ksqlDB, RBAC, CFK, ZooKeeper). Confluent
+publishes no question count or pass mark; the bank never claims one. Importing it is the learner's action; nothing is loaded from code.
+**Known gap (open, a product decision):** the exam guide names four item formats (multiple-choice, multiple-response,
+matching, build list), but PrepBench presents every question as options to pick (`QuestionType` lists `drag_and_drop`,
+yet nothing renders or grades a match or an order), so the bank tests matching and ordering skills as multiple-response
+questions. Supporting the real formats means a new question type in the exam
+runner, review and import; until then, never claim the bank reproduces the exam's formats.
 **The Kafka Lab (2026-10-28)** is `docs/implementation/KAFKA-LAB-CONTRACT.md`: six beginner experiments at `/lab/kafka`
 (log, keys, groups, commits, replication, failures with modes poison and retries) on the ADF lab's runner, made
 lab-neutral by a `LabSpec` (`services/adfLab/lab.ts`; Kafka's in `services/kafkaLab/lab.ts`). Its attempts are `kb:` /

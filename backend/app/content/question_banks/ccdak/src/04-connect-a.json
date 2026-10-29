@@ -1,0 +1,657 @@
+{
+  "section": 4,
+  "domain": "Kafka Connect",
+  "questions": [
+    {
+      "id": "C01",
+      "topic": "Connect basics",
+      "difficulty": "easy",
+      "sources": [
+        "notes §14"
+      ],
+      "q": "A team needs to copy rows from a database into Kafka and later from Kafka into a search index, without writing producer or consumer code. What does Kafka provide for this?",
+      "options": [
+        {
+          "t": "Kafka Streams, with a database client inside each processor",
+          "why": "Streams processes data already in Kafka; moving data in and out is Connect's job."
+        },
+        {
+          "t": "Kafka Connect: a source connector in, a sink connector out",
+          "ok": true
+        },
+        {
+          "t": "MirrorMaker 2, pointed at the database",
+          "why": "MirrorMaker 2 copies between Kafka clusters."
+        },
+        {
+          "t": "The Admin API's import and export methods",
+          "why": "The Admin API manages topics and configs; it doesn't copy data."
+        }
+      ],
+      "explain": "Kafka Connect streams data between Kafka and other systems: source connectors import into Kafka, sink connectors export from it."
+    },
+    {
+      "id": "C02",
+      "topic": "Connect basics",
+      "difficulty": "easy",
+      "sources": [
+        "notes §14"
+      ],
+      "q": "Which kind of connector writes data from Kafka topics into an external system?",
+      "options": [
+        {
+          "t": "A source connector",
+          "why": "Source connectors import into Kafka."
+        },
+        {
+          "t": "A converter",
+          "why": "Converters change data formats; they aren't connectors."
+        },
+        {
+          "t": "A sink connector",
+          "ok": true
+        },
+        {
+          "t": "A single message transform",
+          "why": "SMTs change records; they don't move data."
+        }
+      ],
+      "explain": "Source connectors import data into Kafka; sink connectors export data from Kafka to other systems."
+    },
+    {
+      "id": "C03",
+      "topic": "Deployment modes",
+      "difficulty": "medium",
+      "sources": [
+        "notes §14"
+      ],
+      "q": "What does distributed mode give that standalone mode doesn't?",
+      "options": [
+        {
+          "t": "A REST API for managing connectors, which standalone mode lacks",
+          "why": "The REST API is available in both modes."
+        },
+        {
+          "t": "Support for source connectors",
+          "why": "Both modes run source and sink connectors."
+        },
+        {
+          "t": "The ability to use converters",
+          "why": "Converters work in both modes."
+        },
+        {
+          "t": "Fault tolerance, with work shared across workers",
+          "ok": true
+        }
+      ],
+      "explain": "Standalone is one process with no fault tolerance. Distributed mode balances work across workers, scales, and is fault tolerant for tasks, configuration and offsets."
+    },
+    {
+      "id": "C04",
+      "topic": "Deployment modes",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §13",
+        "notes §14"
+      ],
+      "q": "How are connectors created on a distributed Connect cluster?",
+      "options": [
+        {
+          "t": "Through the REST API",
+          "ok": true
+        },
+        {
+          "t": "By passing properties files on the worker's command line",
+          "why": "That is standalone mode; distributed mode doesn't take connector configs on the command line."
+        },
+        {
+          "t": "By writing them into the config topic by hand",
+          "why": "Workers manage the config topic themselves."
+        },
+        {
+          "t": "With kafka-configs --entity-type connectors",
+          "why": "No such entity type exists."
+        }
+      ],
+      "explain": "In distributed mode connector configurations aren't passed on the command line: the REST API creates, modifies and deletes connectors."
+    },
+    {
+      "id": "C05",
+      "topic": "Deployment modes",
+      "difficulty": "hard",
+      "sources": [
+        "notes §14"
+      ],
+      "q": "Distributed workers keep their state in three internal topics. Which one must have exactly one partition?",
+      "options": [
+        {
+          "t": "offset.storage.topic",
+          "why": "The offsets topic is meant to have many partitions."
+        },
+        {
+          "t": "status.storage.topic",
+          "why": "The status topic has no single-partition rule."
+        },
+        {
+          "t": "config.storage.topic",
+          "ok": true
+        },
+        {
+          "t": "None; all three need many partitions",
+          "why": "The config topic needs one partition."
+        }
+      ],
+      "explain": "`config.storage.topic` has one partition (replicated, compacted); `offset.storage.topic` has many partitions; all three are replicated and compacted."
+    },
+    {
+      "id": "C06",
+      "topic": "Connectors and tasks",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §13"
+      ],
+      "q": "What does a connector instance do, compared with its tasks?",
+      "options": [
+        {
+          "t": "The connector copies the data; tasks only report status",
+          "why": "It's the reverse: tasks copy, the connector plans."
+        },
+        {
+          "t": "The connector splits the job into tasks; tasks copy the data",
+          "ok": true
+        },
+        {
+          "t": "Connectors and tasks are simply two names for the very same thing",
+          "why": "They have different roles."
+        },
+        {
+          "t": "Each task runs a separate connector of its own",
+          "why": "Tasks belong to one connector."
+        }
+      ],
+      "explain": "A connector does no copying itself: its configuration describes the data, and it breaks the job into tasks, which workers run to copy data."
+    },
+    {
+      "id": "C07",
+      "topic": "Connectors and tasks",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §13",
+        "notes §14"
+      ],
+      "q": "A connector is configured with `tasks.max=10` but only ever runs 4 tasks. Why might that be correct?",
+      "options": [
+        {
+          "t": "tasks.max is a maximum; a connector may create fewer tasks",
+          "ok": true
+        },
+        {
+          "t": "Only 4 workers exist, and tasks are limited to one per worker",
+          "why": "Workers can run several tasks each."
+        },
+        {
+          "t": "tasks.max is ignored in distributed mode",
+          "why": "It applies in both modes."
+        },
+        {
+          "t": "Kafka Connect caps tasks at 4 per connector by default",
+          "why": "There's no such cap; the connector decides up to tasks.max."
+        }
+      ],
+      "explain": "`tasks.max` is the maximum number of tasks; a connector may create fewer if it can't reach that parallelism."
+    },
+    {
+      "id": "C08",
+      "topic": "Connectors and tasks",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §13"
+      ],
+      "q": "A file source connector restarts. How does it know which lines it has already sent?",
+      "options": [
+        {
+          "t": "It re-reads its output topic to find the last line it wrote there before",
+          "why": "Source offsets are stored by Connect; it doesn't scan the topic."
+        },
+        {
+          "t": "It starts over from the start of the file every time",
+          "why": "Connect's offset management lets it resume."
+        },
+        {
+          "t": "The broker remembers each source file's position",
+          "why": "Connect stores source offsets, not the broker on its own."
+        },
+        {
+          "t": "Each record carries a source partition and offset that Connect stores",
+          "ok": true
+        }
+      ],
+      "explain": "A source task emits `SourceRecord`s with a source partition (the file) and source offset (the byte position). Connect stores these offsets, so the task resumes where it stopped."
+    },
+    {
+      "id": "C09",
+      "topic": "Converters",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §13"
+      ],
+      "q": "What do `key.converter` and `value.converter` control?",
+      "options": [
+        {
+          "t": "Which tables or files a connector reads",
+          "why": "That's connector-specific configuration."
+        },
+        {
+          "t": "How records are transformed one by one",
+          "why": "That's what single message transforms do."
+        },
+        {
+          "t": "How Connect data is serialized into the bytes written to Kafka",
+          "ok": true
+        },
+        {
+          "t": "Which brokers a worker connects to",
+          "why": "That's bootstrap.servers."
+        }
+      ],
+      "explain": "Converters translate between Kafka Connect's data format and the serialized bytes in Kafka. They are independent of connectors, so any connector works with any format."
+    },
+    {
+      "id": "C10",
+      "topic": "Converters",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §13"
+      ],
+      "q": "Workers use a JSON converter, but one connector must write Avro. What is the cleanest way?",
+      "options": [
+        {
+          "t": "Run a separate Connect cluster just for that one Avro connector",
+          "why": "Converters can be overridden per connector."
+        },
+        {
+          "t": "Override key.converter / value.converter in its own config",
+          "ok": true
+        },
+        {
+          "t": "Use an SMT to turn the JSON into Avro bytes",
+          "why": "Formats are the converter's job, and it can be set per connector."
+        },
+        {
+          "t": "Change the topic's compression.type to avro",
+          "why": "Avro isn't a compression type."
+        }
+      ],
+      "explain": "Converters are set on the worker and can be overridden per connector with `key.converter` and `value.converter` in the connector's configuration."
+    },
+    {
+      "id": "C11",
+      "topic": "Converters",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §13"
+      ],
+      "q": "A sink connector reading plain JSON objects fails because the JSON converter expects a schema-and-payload envelope. Which setting writes and reads schemaless JSON?",
+      "options": [
+        {
+          "t": "value.converter.schemas.enable=false",
+          "ok": true
+        },
+        {
+          "t": "errors.tolerance=all",
+          "why": "That would skip records, not read them."
+        },
+        {
+          "t": "value.converter=none",
+          "why": "There is no 'none' converter."
+        },
+        {
+          "t": "schemas.registry=off on the worker",
+          "why": "No such setting exists."
+        }
+      ],
+      "explain": "With the JSON converter, setting `key.converter.schemas.enable` / `value.converter.schemas.enable` to false gives schemaless JSON."
+    },
+    {
+      "id": "C12",
+      "topic": "Transforms",
+      "difficulty": "easy",
+      "sources": [
+        "notes §14"
+      ],
+      "q": "What is a single message transform (SMT)?",
+      "options": [
+        {
+          "t": "A Kafka Streams operator used inside connectors",
+          "why": "SMTs are part of Connect, not Streams."
+        },
+        {
+          "t": "A converter for one record type",
+          "why": "Converters handle serialization."
+        },
+        {
+          "t": "A broker plugin that rewrites records after they are stored",
+          "why": "SMTs run in Connect; brokers never rewrite records."
+        },
+        {
+          "t": "A light, one-record-at-a-time change applied in Connect",
+          "ok": true
+        }
+      ],
+      "explain": "SMTs make lightweight changes to one record at a time, chained with `transforms`. Built-ins include `InsertField`, `MaskField`, `Filter` and `Cast`."
+    },
+    {
+      "id": "C13",
+      "topic": "Transforms",
+      "difficulty": "medium",
+      "sources": [
+        "notes §14"
+      ],
+      "q": "Before a sink writes customer records, a field `card_number` must be hidden. Which built-in SMT is meant for that?",
+      "options": [
+        {
+          "t": "Flatten",
+          "why": "Flatten turns nested structures into flat ones."
+        },
+        {
+          "t": "MaskField",
+          "ok": true
+        },
+        {
+          "t": "HoistField",
+          "why": "HoistField wraps data inside a field."
+        },
+        {
+          "t": "InsertHeader",
+          "why": "InsertHeader adds a header."
+        }
+      ],
+      "explain": "`MaskField` replaces a field's value; other built-ins include `InsertField`, `Flatten`, `HoistField`, `Cast` and `Filter`."
+    },
+    {
+      "id": "C14",
+      "topic": "Transforms",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §13"
+      ],
+      "q": "A connector must drop test records (those with a header `env=test`) and pass the rest unchanged. Which combination does that?",
+      "options": [
+        {
+          "t": "The Filter transform, with a predicate matching those records",
+          "ok": true
+        },
+        {
+          "t": "errors.tolerance=all, so the test records fail and are skipped",
+          "why": "That skips records that fail, and hides real errors too."
+        },
+        {
+          "t": "A converter that rejects records with that header",
+          "why": "Converters serialize; selecting records is for transforms and predicates."
+        },
+        {
+          "t": "MaskField on every field of the test records",
+          "why": "Masking keeps the records; it doesn't drop them."
+        }
+      ],
+      "explain": "Transformations can be applied conditionally with predicates; combined with `Filter`, predicates drop selected messages."
+    },
+    {
+      "id": "C15",
+      "topic": "Error handling",
+      "difficulty": "medium",
+      "sources": [
+        "notes §14"
+      ],
+      "q": "With default settings, what does a connector do when one record fails conversion?",
+      "options": [
+        {
+          "t": "It skips the record and logs it",
+          "why": "Skipping needs errors.tolerance=all; logging needs errors.log.enable=true."
+        },
+        {
+          "t": "It sends the record to a dead-letter topic",
+          "why": "A dead-letter topic must be configured."
+        },
+        {
+          "t": "It fails fast: the task stops",
+          "ok": true
+        },
+        {
+          "t": "It retries the record forever",
+          "why": "errors.retry.timeout defaults to 0: no retries."
+        }
+      ],
+      "explain": "By default a connector fails fast on a conversion or transform error: `errors.tolerance=none`, `errors.retry.timeout=0`, `errors.log.enable=false`."
+    },
+    {
+      "id": "C16",
+      "topic": "Error handling",
+      "difficulty": "medium",
+      "sources": [
+        "notes §14"
+      ],
+      "q": "Which TWO settings make a sink connector keep running past bad records while keeping them for inspection?",
+      "options": [
+        {
+          "t": "errors.tolerance=all",
+          "ok": true
+        },
+        {
+          "t": "errors.retry.timeout=0",
+          "why": "That's the default and turns retries off; it doesn't keep bad records."
+        },
+        {
+          "t": "errors.deadletterqueue.topic.name=<topic>",
+          "ok": true
+        },
+        {
+          "t": "tasks.max=1",
+          "why": "Task count doesn't affect error handling."
+        },
+        {
+          "t": "offset.flush.interval.ms=0",
+          "why": "This isn't an error-handling setting."
+        }
+      ],
+      "explain": "`errors.tolerance=all` skips bad records; `errors.deadletterqueue.topic.name` sends them, for a sink connector, to a dead-letter topic."
+    },
+    {
+      "id": "C17",
+      "topic": "Error handling",
+      "difficulty": "hard",
+      "sources": [
+        "notes §14"
+      ],
+      "q": "Records reach a sink's dead-letter topic, but nobody can tell why each failed. Which setting adds the error context to them?",
+      "options": [
+        {
+          "t": "errors.log.include.messages=true, set on the brokers instead",
+          "why": "Connect error settings belong to the connector, not the broker."
+        },
+        {
+          "t": "errors.tolerance=none",
+          "why": "That stops the connector at the first error."
+        },
+        {
+          "t": "errors.deadletterqueue.context.headers.enable=true",
+          "ok": true
+        },
+        {
+          "t": "value.converter.schemas.enable=true",
+          "why": "This changes JSON format, not error context."
+        }
+      ],
+      "explain": "`errors.deadletterqueue.context.headers.enable=true` adds the error context to dead-letter records as headers."
+    },
+    {
+      "id": "C18",
+      "topic": "Error handling",
+      "difficulty": "hard",
+      "sources": [
+        "notes §14",
+        "notes §23"
+      ],
+      "q": "Which kind of connector can send failed records to a dead-letter topic with Connect's built-in error handling?",
+      "options": [
+        {
+          "t": "Source connectors only",
+          "why": "The dead-letter queue setting applies to sink connectors."
+        },
+        {
+          "t": "Both, in the same way",
+          "why": "The docs describe it for sink connectors."
+        },
+        {
+          "t": "Neither; it needs a custom SMT",
+          "why": "It is built in, for sinks."
+        },
+        {
+          "t": "Sink connectors",
+          "ok": true
+        }
+      ],
+      "explain": "`errors.deadletterqueue.topic.name` sends failed records to a dead-letter topic for a sink connector."
+    },
+    {
+      "id": "C19",
+      "topic": "Exactly-once",
+      "difficulty": "hard",
+      "sources": [
+        "notes §14"
+      ],
+      "q": "What is needed for exactly-once delivery from a source connector?",
+      "options": [
+        {
+          "t": "exactly.once.source.support=enabled on all workers, plus connector support",
+          "ok": true
+        },
+        {
+          "t": "processing.guarantee=exactly_once_v2 on the connector",
+          "why": "That's a Kafka Streams setting."
+        },
+        {
+          "t": "isolation.level=read_committed on the worker",
+          "why": "That's for consumers reading transactional data."
+        },
+        {
+          "t": "Nothing extra: every source connector is exactly-once once workers run 4.x",
+          "why": "It must be enabled, and the connector must support it."
+        }
+      ],
+      "explain": "Exactly-once source connectors need `exactly.once.source.support=enabled` on every worker (existing clusters need two rolling upgrades), and the connector must support it."
+    },
+    {
+      "id": "C20",
+      "topic": "Configuration",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §13"
+      ],
+      "q": "A distributed Connect cluster is given `group.id=orders-app`, which a consumer application already uses. Why is that a problem?",
+      "options": [
+        {
+          "t": "Group IDs must start with connect-",
+          "why": "There's no such naming rule."
+        },
+        {
+          "t": "Connect's group.id must not conflict with consumer group IDs",
+          "ok": true
+        },
+        {
+          "t": "Distributed workers can't have a group.id",
+          "why": "They need one to form the cluster."
+        },
+        {
+          "t": "It is only a problem in standalone mode, where workers share one group",
+          "why": "group.id forms the distributed cluster."
+        }
+      ],
+      "explain": "Distributed workers share a `group.id` to form the Connect cluster, and the docs say it must not conflict with consumer group IDs."
+    },
+    {
+      "id": "C21",
+      "topic": "Configuration",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §13"
+      ],
+      "q": "On a secured cluster, a worker connects fine but its sink tasks' consumers can't authenticate. Why?",
+      "options": [
+        {
+          "t": "Sink tasks always connect anonymously",
+          "why": "They use the security settings they are given."
+        },
+        {
+          "t": "The worker must be restarted after each connector",
+          "why": "That doesn't fix missing settings."
+        },
+        {
+          "t": "The ACLs only allow the worker's own internal topics, not the sink's",
+          "why": "The failure here is authentication, which needs credentials."
+        },
+        {
+          "t": "Their settings need the consumer. prefix on the worker",
+          "ok": true
+        }
+      ],
+      "explain": "Worker settings without a prefix are for Connect's own topics. Sink tasks' consumers take `consumer.`-prefixed settings, source tasks' producers `producer.`-prefixed ones; only `bootstrap.servers` is inherited, so a secured cluster needs the settings up to three times."
+    },
+    {
+      "id": "C22",
+      "topic": "Configuration",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §13"
+      ],
+      "q": "One sink connector should read with `max.poll.records=100`, while others keep the worker default. Where is this set?",
+      "options": [
+        {
+          "t": "consumer.override.max.poll.records=100 in that connector's config",
+          "ok": true
+        },
+        {
+          "t": "max.poll.records=100 in that connector's config",
+          "why": "Client overrides per connector take the consumer.override. prefix."
+        },
+        {
+          "t": "consumer.max.poll.records=100, set in the worker's own properties file",
+          "why": "That changes every sink connector on the worker."
+        },
+        {
+          "t": "It can't be set per connector",
+          "why": "Per-connector overrides exist."
+        }
+      ],
+      "explain": "Client settings can be overridden per connector with `producer.override.` (sources) and `consumer.override.` (sinks)."
+    },
+    {
+      "id": "C23",
+      "topic": "Configuration",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §13"
+      ],
+      "q": "Which consumer group does a sink connector named `es-orders` use by default?",
+      "options": [
+        {
+          "t": "es-orders",
+          "why": "Connect adds a prefix."
+        },
+        {
+          "t": "The worker's group.id",
+          "why": "That forms the Connect cluster; sinks get their own groups."
+        },
+        {
+          "t": "connect-es-orders",
+          "ok": true
+        },
+        {
+          "t": "A random group on each start",
+          "why": "The group is stable so offsets survive restarts."
+        }
+      ],
+      "explain": "A sink connector's consumer group is `connect-<connector name>` by default (or a group ID set by override)."
+    }
+  ]
+}

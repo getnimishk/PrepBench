@@ -53,6 +53,21 @@ def test_the_shipped_bank_is_what_the_sources_build_to():
     assert built == BANK.read_text(encoding="utf-8"), "out of date: run scripts/build_question_bank.py ccdak"
 
 
+def test_each_part_file_holds_exactly_its_sections_of_the_bank():
+    # A learner who imported an earlier version imports only the part that is new; the import
+    # warns about duplicates but adds them, so a part must hold its sections and nothing else.
+    parts = build_question_bank.part_paths("ccdak")
+    assert parts, "the bank declares its parts in src/bank.json"
+    whole = _bank()
+    for path, sections in parts.items():
+        assert path.read_text(encoding="utf-8") == build_question_bank.render(
+            build_question_bank.build("ccdak", sections=sections)), f"{path.name} is out of date"
+        names = {q["domain"] for q in json.loads(path.read_text(encoding="utf-8"))}
+        assert names == {d for i, d in enumerate(SECTIONS, start=1) if i in sections}
+        part = json.loads(path.read_text(encoding="utf-8"))
+        assert all(q in whole for q in part)
+
+
 def test_every_question_belongs_to_the_ccdak_certification_and_an_exam_section():
     for q in _bank():
         assert q["certification"] == "CCDAK", q["tags"]
@@ -113,12 +128,21 @@ def test_the_right_answer_is_spread_over_positions():
 
 
 def test_the_right_answer_is_not_usually_the_longest_option():
+    # Checked per section as well as overall: a drill on one section must not be passable by
+    # always picking the longest option, and a whole-bank figure can hide a section that is.
     singles = [q for q in _bank() if q["question_type"] == "single_choice"]
-    longest = 0
-    for q in singles:
-        lengths = [len(o["option_text"]) for o in q["options"]]
-        longest += lengths[_right(q)[0]] == max(lengths)
-    assert longest / len(singles) <= 0.35, f"{longest} of {len(singles)}"
+
+    def longest_share(qs):
+        hits = 0
+        for q in qs:
+            lengths = [len(o["option_text"]) for o in q["options"]]
+            hits += lengths[_right(q)[0]] == max(lengths)
+        return hits / len(qs)
+
+    assert longest_share(singles) <= 0.30
+    for domain in {q["domain"] for q in singles}:
+        share = longest_share([q for q in singles if q["domain"] == domain])
+        assert share <= 0.40, (domain, round(share, 2))
 
 
 def test_nothing_out_of_scope_is_asked_or_taught_as_right():

@@ -26,6 +26,8 @@ Source format:
   is wrong) and `explain` (why the right answer is right). One right option makes
   a single-choice question; more make a multiple-choice question, whose text gets
   "(Choose N.)" so the learner knows how many to pick.
+- `parts` in `src/bank.json` (optional): name -> section numbers; each is also written as
+  `<bank>_question_bank_<name>.json`, holding only those sections.
 
 The explanation stored is `explain`, then each wrong option's `why`, then the
 sources by name. The question's reference link is the page of the first cited
@@ -35,7 +37,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 BANKS_DIR = ROOT / "backend" / "app" / "content" / "question_banks"
@@ -72,13 +74,16 @@ def _citation(source: str, notes: Dict[str, Dict[str, Dict[str, str]]]):
     return notes[prefix][number]
 
 
-def build(bank: str, banks_dir: Path = BANKS_DIR) -> List[dict]:
+def build(bank: str, banks_dir: Path = BANKS_DIR, sections: Optional[List[int]] = None) -> List[dict]:
+    """The bank's questions, or only those of the given exam sections."""
     src = banks_dir / bank / "src"
     meta = json.loads((src / "bank.json").read_text(encoding="utf-8"))
     notes = {prefix: research_sections(ROOT / rel) for prefix, rel in meta["notes"].items()}
     out: List[dict] = []
     for path in sorted(src.glob("[0-9][0-9]-*.json")):
         section = json.loads(path.read_text(encoding="utf-8"))
+        if sections is not None and section["section"] not in sections:
+            continue
         for q in section["questions"]:
             right = [o for o in q["options"] if o.get("ok")]
             wrong = [o for o in q["options"] if not o.get("ok")]
@@ -118,6 +123,16 @@ def output_path(bank: str, banks_dir: Path = BANKS_DIR) -> Path:
     return banks_dir / bank / f"{bank}_question_bank.json"
 
 
+def part_paths(bank: str, banks_dir: Path = BANKS_DIR) -> Dict[Path, List[int]]:
+    """The bank's partial files, from bank.json's `parts` (a name -> section numbers).
+
+    A part holds only some sections, so a learner who imported an earlier version can import just
+    what is new: the import warns about duplicates but doesn't stop them.
+    """
+    meta = json.loads((banks_dir / bank / "src" / "bank.json").read_text(encoding="utf-8"))
+    return {banks_dir / bank / f"{bank}_question_bank_{name}.json": nums for name, nums in meta.get("parts", {}).items()}
+
+
 def render(questions: List[dict]) -> str:
     return json.dumps(questions, indent=2, ensure_ascii=False) + "\n"
 
@@ -127,3 +142,7 @@ if __name__ == "__main__":
     built = build(name)
     output_path(name).write_text(render(built), encoding="utf-8", newline="\n")
     print(f"{name}: {len(built)} questions -> {output_path(name).relative_to(ROOT)}")
+    for path, nums in part_paths(name).items():
+        part = build(name, sections=nums)
+        path.write_text(render(part), encoding="utf-8", newline="\n")
+        print(f"  sections {nums}: {len(part)} questions -> {path.relative_to(ROOT)}")
