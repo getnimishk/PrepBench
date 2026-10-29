@@ -1,0 +1,249 @@
+{
+  "section": 3,
+  "domain": "Data Transformation and Modeling",
+  "questions": [
+    {
+      "id": "T45", "topic": "Column operations", "difficulty": "easy", "sources": ["notes §9"],
+      "q": "df.withColumn(\"amount\", F.col(\"amount\") * 100) is run on a DataFrame that already has an `amount` column. What happens?",
+      "options": [
+        {"t": "The call fails, because a column named amount already exists", "why": "withColumn replaces an existing column of the same name."},
+        {"t": "A second column, also named amount, is added beside the old one", "why": "withColumn replaces the existing column rather than duplicating it."},
+        {"t": "The existing amount column is replaced", "ok": true},
+        {"t": "The new values are written to a column named amount_1 instead", "why": "withColumn replaces the existing column of the same name."}
+      ],
+      "explain": "withColumn returns a new DataFrame by adding a column or replacing the existing column that has the same name."
+    },
+    {
+      "id": "T46", "topic": "Column operations", "difficulty": "medium", "sources": ["notes §9"],
+      "q": "df.withColumnRenamed(\"cust\", \"customer_id\") is run on a DataFrame that has no column `cust`. What happens?",
+      "options": [
+        {"t": "Nothing: it returns the DataFrame unchanged", "ok": true},
+        {"t": "An AnalysisException naming the missing column is raised", "why": "withColumnRenamed is a no-op if the column doesn't exist."},
+        {"t": "A new, empty column named customer_id is added to the DataFrame", "why": "It doesn't add columns; it is a no-op here."},
+        {"t": "The first column of the DataFrame is renamed to customer_id", "why": "Renaming is by name; with no match, nothing changes."}
+      ],
+      "explain": "withColumnRenamed is a no-op if the schema doesn't contain the given column name; drop behaves the same way."
+    },
+    {
+      "id": "T47", "topic": "Column operations", "difficulty": "medium", "sources": ["notes §9"],
+      "q": "A column `full_name` holds values like 'Ana|Silva'. Which expression produces an array ['Ana', 'Silva']?",
+      "options": [
+        {"t": "explode(full_name), which turns the text into one value per part", "why": "explode works on arrays and maps; split creates the array from a string."},
+        {"t": "split(full_name, '|'), since the pattern is taken literally", "why": "The pattern is a Java regular expression, where | means 'or'; it must be escaped."},
+        {"t": "split(full_name, '\\\\|')", "ok": true},
+        {"t": "substring(full_name, '|'), which returns the parts around the bar", "why": "substring takes positions, not a delimiter."}
+      ],
+      "explain": "split(str, pattern) splits a string around matches of a Java regular expression, so a literal | must be escaped."
+    },
+    {
+      "id": "T48", "topic": "Null handling", "difficulty": "medium", "sources": ["notes §9"],
+      "q": "In silver, rows must be dropped only when every one of their values is null. Which call does that?",
+      "options": [
+        {"t": "df.dropna()", "why": "The default how='any' drops rows with any null."},
+        {"t": "df.fillna(0), which removes the rows that were entirely empty", "why": "fillna replaces nulls; it doesn't drop rows."},
+        {"t": "df.filter(F.col(\"*\").isNotNull()), applied to all columns at once", "why": "That isn't how null filtering across all columns works; dropna(how='all') does it."},
+        {"t": "df.dropna(how=\"all\")", "ok": true}
+      ],
+      "explain": "dropna(how='any') drops a row with any null (the default); how='all' drops a row only if all its values are null."
+    },
+    {
+      "id": "T49", "topic": "Null handling", "difficulty": "medium", "sources": ["notes §9"],
+      "q": "Missing discounts should become 0 and missing countries 'unknown'. Which single call does that?",
+      "options": [
+        {"t": "df.fillna({\"discount\": 0, \"country\": \"unknown\"})", "ok": true},
+        {"t": "df.dropna(subset=[\"discount\", \"country\"]), keeping the defaults", "why": "dropna removes rows instead of filling values."},
+        {"t": "df.fillna(0, \"unknown\"), giving one value per column in order", "why": "The second argument is subset; use a dict to give each column its value."},
+        {"t": "df.coalesce(0, \"unknown\"), applied to the whole DataFrame", "why": "coalesce is a column function returning the first non-null value, not a DataFrame fill."}
+      ],
+      "explain": "fillna(value, subset) replaces nulls; when value is a dict mapping column to value, subset is ignored."
+    },
+    {
+      "id": "T50", "topic": "Null handling", "difficulty": "medium", "sources": ["notes §9"],
+      "q": "A silver column should take `email_primary`, or `email_backup` when the primary is null. Which function returns that?",
+      "options": [
+        {"t": "concat(email_primary, email_backup), joining the two values", "why": "concat joins strings; it doesn't pick the first non-null."},
+        {"t": "coalesce(email_primary, email_backup)", "ok": true},
+        {"t": "explode(array(email_primary, email_backup)), one row per address", "why": "That creates a row per address instead of one value."},
+        {"t": "approx_count_distinct(email_primary, email_backup) per row", "why": "That is an aggregate estimate, not a per-row choice."}
+      ],
+      "explain": "coalesce(*cols) returns the value of the first column that is not null."
+    },
+    {
+      "id": "T51", "topic": "Deduplication", "difficulty": "hard", "sources": ["notes §9", "notes §4"],
+      "q": "A MERGE source has several changes per key, and you must keep the latest by `updated_at`. Which approach keeps the right row?",
+      "options": [
+        {"t": "dropDuplicates([\"key\"]), which always keeps the row that came last", "why": "dropDuplicates keeps an arbitrary row per key, not the latest."},
+        {"t": "distinct(), which keeps only the most recent version of each row", "why": "distinct removes rows duplicated on every column."},
+        {"t": "row_number() over the key ordered by updated_at descending, keeping row 1", "ok": true},
+        {"t": "union() with the target table, then a count per key", "why": "That doesn't select the latest change per key."}
+      ],
+      "explain": "To keep the latest row per key, use a window: row_number() over the key ordered by a timestamp, then keep row 1. A MERGE source needs one row per key."
+    },
+    {
+      "id": "T52", "topic": "CDC and SCD", "difficulty": "medium", "sources": ["notes §10"],
+      "q": "A CDC feed must be applied to a table keeping full history of each customer's changes. What does AUTO CDC need?",
+      "options": [
+        {"t": "KEYS, SEQUENCE BY and STORED AS SCD TYPE 2", "ok": true},
+        {"t": "A materialized view over the change feed with a GROUP BY on the key", "why": "AUTO CDC writes a streaming table with keys and a sequencing column."},
+        {"t": "STORED AS SCD TYPE 1, which keeps one history row per change", "why": "SCD type 1 overwrites and keeps no history."},
+        {"t": "A MERGE with WHEN NOT MATCHED BY SOURCE in a foreachBatch", "why": "AUTO CDC is the declarative way; it needs keys, a sequence column and SCD type 2."}
+      ],
+      "explain": "AUTO CDC applies a CDC feed to a streaming table with KEYS and SEQUENCE BY, as SCD type 1 (overwrite, no history) or SCD type 2 (keep history)."
+    },
+    {
+      "id": "T53", "topic": "CDC and SCD", "difficulty": "medium", "sources": ["notes §10"],
+      "q": "Change events can arrive out of order. What lets AUTO CDC apply them in the right order?",
+      "options": [
+        {"t": "The order in which the files landed in the source folder", "why": "Arrival order isn't reliable; AUTO CDC uses the SEQUENCE BY column."},
+        {"t": "The _commit_version of the target table at write time", "why": "Ordering comes from the source's sequencing column."},
+        {"t": "A watermark on the processing time of each micro-batch", "why": "Watermarks bound state; ordering of changes uses SEQUENCE BY."},
+        {"t": "The SEQUENCE BY column", "ok": true}
+      ],
+      "explain": "AUTO CDC uses a sequencing column (SEQUENCE BY, a struct for tie-breaks) and so handles out-of-order events."
+    },
+    {
+      "id": "T54", "topic": "CDC and SCD", "difficulty": "hard", "sources": ["notes §10", "notes §0"],
+      "q": "Older code uses APPLY CHANGES INTO. What is its status today?",
+      "options": [
+        {"t": "It was removed, and pipelines using it fail to start", "why": "AUTO CDC replaced it with the same syntax; the old name still works."},
+        {"t": "It was replaced by AUTO CDC, with the same syntax; the old name still works", "ok": true},
+        {"t": "It is still the current name; AUTO CDC is a different feature", "why": "AUTO CDC is the new name of APPLY CHANGES."},
+        {"t": "It now only supports SCD type 1, and AUTO CDC handles type 2", "why": "AUTO CDC is the renamed API for both types."}
+      ],
+      "explain": "AUTO CDC replaced APPLY CHANGES with the same syntax, and the old name still works."
+    },
+    {
+      "id": "T55", "topic": "CDC and SCD", "difficulty": "hard", "sources": ["notes §10"],
+      "q": "A source system has no change feed, only daily full snapshots. How can AUTO CDC still derive changes?",
+      "options": [
+        {"t": "AUTO CDC FROM SNAPSHOT, which compares snapshots", "ok": true},
+        {"t": "Change data feed enabled on the source system's database", "why": "CDF is a Delta feature; the source here only has snapshots."},
+        {"t": "A streaming table with complete output mode over the snapshots", "why": "AUTO CDC FROM SNAPSHOT is the documented feature."},
+        {"t": "It can't: AUTO CDC needs a change feed from the source", "why": "AUTO CDC FROM SNAPSHOT derives changes by comparing snapshots."}
+      ],
+      "explain": "AUTO CDC FROM SNAPSHOT derives changes by comparing snapshots, for sources with no CDC feed."
+    },
+    {
+      "id": "T56", "topic": "Pipeline refresh", "difficulty": "hard", "sources": ["notes §10"],
+      "q": "A full refresh is run on a pipeline. What happens to its streaming tables?",
+      "options": [
+        {"t": "Only new records since the last update are processed", "why": "That is a normal refresh."},
+        {"t": "Their data is kept and only their checkpoints are reset", "why": "That is 'reset streaming flow checkpoints'."},
+        {"t": "They are cleared, their checkpoints reset, and all source data reprocessed", "ok": true},
+        {"t": "Nothing happens to them; full refresh affects materialized views only", "why": "Full refresh clears streaming tables too."}
+      ],
+      "explain": "Full refresh: materialized views recompute; streaming tables are cleared, their checkpoints reset, and all source data reprocessed."
+    },
+    {
+      "id": "T57", "topic": "Pipeline refresh", "difficulty": "hard", "sources": ["notes §10"],
+      "q": "A pipeline's source Kafka topic keeps only seven days of events. A full refresh is run on a streaming table built from it two months ago. What is the result?",
+      "options": [
+        {"t": "The table is rebuilt with all two months, read from the checkpoint", "why": "The checkpoint holds offsets, not data, and full refresh resets it."},
+        {"t": "The table holds only what the topic still has: older history is lost", "ok": true},
+        {"t": "The refresh fails, because the source can't provide old events", "why": "It reprocesses what the source still holds."},
+        {"t": "Nothing changes, because streaming tables ignore full refresh", "why": "Full refresh clears streaming tables."}
+      ],
+      "explain": "A full refresh clears the streaming table and reprocesses all source data, so if the source no longer holds older data, that history is lost."
+    },
+    {
+      "id": "T58", "topic": "Pipeline refresh", "difficulty": "medium", "sources": ["notes §10"],
+      "q": "What does a normal (non-full) pipeline refresh do?",
+      "options": [
+        {"t": "Recomputes every materialized view from scratch and clears every streaming table", "why": "That describes a full refresh."},
+        {"t": "Only validates the code without writing any data", "why": "That is a dry run."},
+        {"t": "Refreshes materialized views and lets streaming tables process new records", "ok": true},
+        {"t": "Copies the pipeline's tables to a backup location before writing", "why": "A refresh doesn't make backups."}
+      ],
+      "explain": "Refresh (the default): materialized views refresh, incrementally when cheaper; streaming tables process new records."
+    },
+    {
+      "id": "T59", "topic": "Pipeline modes", "difficulty": "medium", "sources": ["notes §10"],
+      "q": "A pipeline must keep gold data about ten seconds fresh. Which pipeline mode fits?",
+      "options": [
+        {"t": "Triggered, scheduled every ten seconds by a job", "why": "Triggered mode suits freshness of minutes to days; continuous mode gives seconds."},
+        {"t": "Continuous", "ok": true},
+        {"t": "Dry run, which keeps results in memory for speed", "why": "A dry run validates without writing."},
+        {"t": "Full refresh, run in a loop to keep data current", "why": "Full refresh rebuilds everything; continuous mode keeps data fresh."}
+      ],
+      "explain": "Continuous mode runs until stopped, with freshness from about 10 seconds to a few minutes; triggered mode suits every 10 minutes, hourly or daily."
+    },
+    {
+      "id": "T60", "topic": "Pipeline datasets", "difficulty": "medium", "sources": ["notes §10"],
+      "q": "Which Python import does current Lakeflow pipeline code use?",
+      "options": [
+        {"t": "import dlt, which is the only supported module today", "why": "dlt still works, but current code uses from pyspark import pipelines as dp."},
+        {"t": "from databricks import lakeflow as lf", "why": "The documented import is from pyspark import pipelines as dp."},
+        {"t": "from delta.tables import DeltaPipeline", "why": "The documented import is from pyspark import pipelines as dp."},
+        {"t": "from pyspark import pipelines as dp", "ok": true}
+      ],
+      "explain": "Python pipeline code moves from import dlt to from pyspark import pipelines as dp; old dlt names still work."
+    },
+    {
+      "id": "T61", "topic": "Pipeline datasets", "difficulty": "hard", "sources": ["notes §10"],
+      "q": "A streaming table joins events with a customer dimension. A customer's segment changes. What happens to rows already in the streaming table?",
+      "options": [
+        {"t": "They are not recomputed; only new rows see the new segment", "ok": true},
+        {"t": "They are updated automatically to the new segment on the next update", "why": "Joins in a streaming table don't recompute when a dimension changes."},
+        {"t": "The update fails until the dimension change is reverted", "why": "The update runs; old rows just keep the old join result."},
+        {"t": "They are deleted and replaced from the source during the next update", "why": "Only a full refresh reprocesses the source."}
+      ],
+      "explain": "Joins in a streaming table don't recompute when a dimension changes; a materialized view fits when the join result must stay correct."
+    },
+    {
+      "id": "T62", "topic": "Gold objects", "difficulty": "medium", "sources": ["notes §10"],
+      "q": "Can a streaming table or materialized view be created outside a pipeline, in Databricks SQL?",
+      "options": [
+        {"t": "No: both exist only inside Lakeflow pipelines", "why": "Standalone ones can be created in Databricks SQL."},
+        {"t": "Only materialized views; streaming tables need a pipeline", "why": "Both can be created standalone."},
+        {"t": "Only streaming tables; materialized views need a pipeline", "why": "Both can be created standalone."},
+        {"t": "Yes; Databricks then manages a pipeline for each", "ok": true}
+      ],
+      "explain": "Standalone streaming tables and materialized views can be created in Databricks SQL; Databricks then manages a pipeline (type MV/ST) for them."
+    },
+    {
+      "id": "T63", "topic": "Data quality", "difficulty": "medium", "sources": ["notes §9", "notes §13"],
+      "q": "A gold quality check must find order lines whose order_id has no order in silver. Which join returns exactly those lines?",
+      "options": [
+        {"t": "lines.join(orders, \"order_id\", \"inner\")", "why": "An inner join returns lines that do have an order."},
+        {"t": "lines.join(orders, \"order_id\", \"left_anti\")", "ok": true},
+        {"t": "lines.join(orders, \"order_id\", \"left_semi\")", "why": "A semi join returns lines that do have an order."},
+        {"t": "lines.crossJoin(orders)", "why": "A cross join pairs every line with every order."}
+      ],
+      "explain": "An anti join keeps rows of the left side with no match on the right: the orphan lines."
+    },
+    {
+      "id": "T64", "topic": "Change data feed", "difficulty": "medium", "sources": ["notes §5"],
+      "q": "How do you read a Delta table's change data feed in batch, from version 5 onward?",
+      "options": [
+        {"t": "SELECT * FROM t VERSION AS OF 5, which returns the changes since 5", "why": "That returns the table as of version 5, not the changes."},
+        {"t": "DESCRIBE HISTORY t, filtered to versions from 5", "why": "History lists operations, not changed rows."},
+        {"t": "SELECT * FROM table_changes('t', 5)", "ok": true},
+        {"t": "SELECT * FROM t WHERE _commit_version >= 5", "why": "_commit_version is a change feed column, not a column of the table."}
+      ],
+      "explain": "Read the change feed in batch with SELECT * FROM table_changes('t', <start version>) or spark.read.option(\"readChangeFeed\", \"true\")."
+    },
+    {
+      "id": "T65", "topic": "Schema evolution", "difficulty": "medium", "sources": ["notes §3"],
+      "q": "A column is added to a Delta table that a streaming query reads. What happens to the stream?",
+      "options": [
+        {"t": "It picks up the new column at the next micro-batch automatically", "why": "Updating a schema terminates any stream reading the table."},
+        {"t": "It ignores the change and never sees the new column again", "why": "It is stopped by the change and must be restarted."},
+        {"t": "It is terminated and must be restarted", "ok": true},
+        {"t": "It is converted to a batch query for one run, then resumes", "why": "The stream is terminated by the schema update."}
+      ],
+      "explain": "Schema changes conflict with every concurrent write, and updating a schema terminates any stream reading the table; restart it."
+    },
+    {
+      "id": "T66", "topic": "Pipeline datasets", "difficulty": "hard", "sources": ["notes §10"],
+      "q": "Which statements about Lakeflow Spark Declarative Pipelines are true? ",
+      "options": [
+        {"t": "Flows run in dependency order with as much parallelism as possible", "ok": true},
+        {"t": "Transient failures are retried at task, flow, then pipeline level", "ok": true},
+        {"t": "Each streaming table can be updated by several pipelines at once", "why": "A streaming table is owned and updated by one pipeline."},
+        {"t": "Expectations can call any Python function", "why": "Constraints can't use Python functions."},
+        {"t": "AUTO CDC is part of open-source Apache Spark Declarative Pipelines", "why": "AUTO CDC is a Databricks extension not in open-source SDP."}
+      ],
+      "explain": "Pipelines orchestrate flows in dependency order with maximum parallelism and retry transient failures at task, flow, then pipeline level."
+    }
+  ]
+}

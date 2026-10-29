@@ -1,0 +1,248 @@
+{
+  "section": 3,
+  "domain": "Data Transformation and Modeling",
+  "questions": [
+    {
+      "id": "T01", "topic": "Joins", "difficulty": "easy", "sources": ["notes §9"],
+      "q": "What is the default join type of DataFrame.join() when `how` is not given?",
+      "options": [
+        {"t": "left, keeping every row of the left DataFrame even without a match", "why": "The default is inner."},
+        {"t": "inner", "ok": true},
+        {"t": "full outer, keeping unmatched rows from both sides with nulls", "why": "The default is inner."},
+        {"t": "cross, pairing every row with every row of the other side", "why": "The default is inner."}
+      ],
+      "explain": "df.join(other, on, how): how defaults to inner, and may be inner, cross, outer/full, left, right, semi/left_semi or anti/left_anti."
+    },
+    {
+      "id": "T02", "topic": "Joins", "difficulty": "medium", "sources": ["notes §9"],
+      "q": "Orders must be joined to order lines on both `order_id` and `line_no`. How is a multi-key join written with DataFrame.join()?",
+      "options": [
+        {"t": "Two joins in a row, one per key, then a distinct to remove the extra rows", "why": "Pass both keys to a single join; on accepts a list of columns."},
+        {"t": "A cross join followed by a filter on both keys", "why": "That works but is wasteful; a multi-key join passes a list to on."},
+        {"t": "orders.join(lines, on=[\"order_id\", \"line_no\"])", "ok": true},
+        {"t": "orders.join(lines, on=\"order_id\" + \"line_no\"), concatenating the names", "why": "That would look for a single column named order_idline_no."}
+      ],
+      "explain": "The on parameter can be a list of column names for a multi-key join."
+    },
+    {
+      "id": "T03", "topic": "Joins", "difficulty": "medium", "sources": ["notes §9"],
+      "q": "A reconciliation check must list orders that have no matching payment. Which join type returns exactly those orders, with only the orders' columns?",
+      "options": [
+        {"t": "left_anti", "ok": true},
+        {"t": "left_semi, which keeps left rows that have a match on the right", "why": "A semi join keeps orders that do have a payment."},
+        {"t": "full outer, then a filter for nulls on both sides of the join", "why": "That returns rows from both sides; an anti join returns just the unmatched left rows."},
+        {"t": "inner, then subtracting the result from the orders table afterwards", "why": "An anti join does this directly."}
+      ],
+      "explain": "An anti (left_anti) join keeps rows of the left side that have no match on the right, without adding columns from the right."
+    },
+    {
+      "id": "T04", "topic": "Joins", "difficulty": "medium", "sources": ["notes §9"],
+      "q": "Which join type keeps the left rows that do have a match, without adding any columns from the right side?",
+      "options": [
+        {"t": "inner, which also adds the right side's columns to every row", "why": "An inner join adds the right side's columns; a semi join doesn't."},
+        {"t": "left, which also keeps left rows that have no match at all", "why": "A left join keeps unmatched rows too and adds right columns."},
+        {"t": "left_semi", "ok": true},
+        {"t": "cross, which pairs every left row with every right row", "why": "A cross join pairs everything; it doesn't filter by match."}
+      ],
+      "explain": "A semi join keeps rows of the left side that have a match, without adding columns: 'orders that have a payment'."
+    },
+    {
+      "id": "T05", "topic": "Joins", "difficulty": "medium", "sources": ["notes §9"],
+      "q": "A large fact table is joined to a small dimension table. Which hint asks Spark to send the small table to every executor so the large one isn't shuffled?",
+      "options": [
+        {"t": "/*+ SHUFFLE_HASH(dim) */, which hashes both sides across the cluster", "why": "SHUFFLE_HASH shuffles both sides; BROADCAST sends the small side to every executor."},
+        {"t": "/*+ MERGE(dim) */, which requests a sort-merge join on the keys", "why": "MERGE asks for a sort-merge join, which shuffles."},
+        {"t": "/*+ REBALANCE */, which evens out the output partitions", "why": "REBALANCE addresses skewed output, not join strategy."},
+        {"t": "/*+ BROADCAST(dim) */", "ok": true}
+      ],
+      "explain": "A broadcast join sends the small table to every executor; hint it with BROADCAST. The join strategy hints in priority order are BROADCAST, MERGE, SHUFFLE_HASH and SHUFFLE_REPLICATE_NL."
+    },
+    {
+      "id": "T06", "topic": "Joins", "difficulty": "medium", "sources": ["notes §9"],
+      "q": "Below what size does Apache Spark broadcast a join side automatically, by default?",
+      "options": [
+        {"t": "1 MB, the setting's default in Spark 4", "why": "Apache Spark's default spark.sql.autoBroadcastJoinThreshold is 10 MB."},
+        {"t": "10 MB", "ok": true},
+        {"t": "100 MB, the setting's default in Spark 4", "why": "Apache Spark's default is 10 MB."},
+        {"t": "There is no automatic broadcasting; only hints broadcast", "why": "Spark broadcasts automatically below spark.sql.autoBroadcastJoinThreshold."}
+      ],
+      "explain": "spark.sql.autoBroadcastJoinThreshold is Apache Spark's limit for broadcasting a table to every worker in a join, 10 MB by default; -1 disables broadcasting. Databricks Runtime can set its own defaults."
+    },
+    {
+      "id": "T07", "topic": "Joins", "difficulty": "hard", "sources": ["notes §9"],
+      "q": "How do you stop Spark from broadcasting any join side automatically?",
+      "options": [
+        {"t": "Set spark.sql.autoBroadcastJoinThreshold to -1", "ok": true},
+        {"t": "Set spark.sql.shuffle.partitions to 0 so no broadcast partitions exist", "why": "That setting controls shuffle partitions, not broadcasting."},
+        {"t": "Set spark.sql.adaptive.enabled to false, which removes broadcast joins", "why": "AQE can switch to broadcast at run time, but the threshold setting disables automatic broadcasting."},
+        {"t": "Add the /*+ MERGE */ hint to every query in the workspace", "why": "Hints act per query; the threshold of -1 disables automatic broadcasting."}
+      ],
+      "explain": "Setting spark.sql.autoBroadcastJoinThreshold to -1 disables automatic broadcasting."
+    },
+    {
+      "id": "T08", "topic": "Unions", "difficulty": "medium", "sources": ["notes §9"],
+      "q": "DataFrame a holds x = 1, 2 and DataFrame b holds x = 2, 3. How many rows does a.union(b) return?",
+      "options": [
+        {"t": "3, because union removes the duplicate 2 like SQL UNION does", "why": "DataFrame union keeps duplicates, like SQL UNION ALL."},
+        {"t": "2, because only rows found in both are kept by a union", "why": "That would be an intersection."},
+        {"t": "4", "ok": true},
+        {"t": "1, the row that appears in both DataFrames", "why": "That would be an intersection."}
+      ],
+      "explain": "union() and unionAll() keep duplicates (no automatic deduplication), so the result has 1, 2, 2, 3. Add .distinct() to deduplicate."
+    },
+    {
+      "id": "T09", "topic": "Unions", "difficulty": "medium", "sources": ["notes §9"],
+      "q": "In SQL, what is the difference between UNION and UNION ALL?",
+      "options": [
+        {"t": "UNION keeps duplicates; UNION ALL removes them", "why": "It is the other way round."},
+        {"t": "UNION matches columns by name; UNION ALL by position", "why": "Both match by position; the difference is deduplication."},
+        {"t": "UNION works only on Delta tables; UNION ALL works on any table", "why": "The difference is deduplication, not table formats."},
+        {"t": "UNION removes duplicates; UNION ALL keeps them", "ok": true}
+      ],
+      "explain": "In SQL, UNION (the same as UNION DISTINCT) removes duplicates; UNION ALL keeps them. DataFrame union() behaves like UNION ALL."
+    },
+    {
+      "id": "T10", "topic": "Unions", "difficulty": "medium", "sources": ["notes §9"],
+      "q": "Two DataFrames have the same columns in a different order. Which method combines them correctly?",
+      "options": [
+        {"t": "union(), which lines columns up automatically by their names", "why": "union matches columns by position, so values land in the wrong columns."},
+        {"t": "unionByName()", "ok": true},
+        {"t": "unionAll(), the version of union that checks column names", "why": "unionAll also matches by position."},
+        {"t": "join() on all columns, which concatenates the two DataFrames", "why": "A join pairs rows; it doesn't append them."}
+      ],
+      "explain": "unionByName() matches columns by name (and with allowMissingColumns=True fills missing columns with null); union() and unionAll() match by position."
+    },
+    {
+      "id": "T11", "topic": "Unions", "difficulty": "hard", "sources": ["notes §9"],
+      "q": "One DataFrame has an extra column `channel` that the other lacks. Which call appends them and fills the missing column with null?",
+      "options": [
+        {"t": "a.union(b), which pads any missing columns with null", "why": "union needs the same number of columns and matches by position."},
+        {"t": "a.unionAll(b).fillna(None), which adds the column afterwards", "why": "unionAll also matches by position and can't add a column."},
+        {"t": "a.join(b, how=\"outer\"), which keeps columns from both sides", "why": "A join pairs rows rather than appending them."},
+        {"t": "a.unionByName(b, allowMissingColumns=True)", "ok": true}
+      ],
+      "explain": "unionByName with allowMissingColumns=True fills columns missing on one side with null."
+    },
+    {
+      "id": "T12", "topic": "Column operations", "difficulty": "easy", "sources": ["notes §9"],
+      "q": "A column `tags` holds arrays of strings. Which function turns each element into its own row?",
+      "options": [
+        {"t": "split(tags), which separates the array into rows", "why": "split turns a string into an array; explode turns an array into rows."},
+        {"t": "explode(tags)", "ok": true},
+        {"t": "collect_list(tags), which spreads a list into rows", "why": "collect_list does the opposite: it gathers values into an array."},
+        {"t": "flatten(tags), which flattens nested arrays into rows", "why": "flatten merges nested arrays into one array; it doesn't create rows."}
+      ],
+      "explain": "explode(col) returns one row per element of an array (or entry of a map)."
+    },
+    {
+      "id": "T13", "topic": "Aggregates", "difficulty": "medium", "sources": ["notes §9"],
+      "q": "A dashboard needs a cheap estimate of distinct customers over billions of rows. Which function fits?",
+      "options": [
+        {"t": "approx_count_distinct(customer_id)", "ok": true},
+        {"t": "count(customer_id), which counts each customer once", "why": "count counts non-null values, not distinct ones."},
+        {"t": "countDistinct over a window, which samples the data first", "why": "approx_count_distinct is the cheap estimate."},
+        {"t": "summary(), which returns the distinct count of every column", "why": "summary gives count, mean, stddev, min, quartiles and max, not distinct counts."}
+      ],
+      "explain": "approx_count_distinct(col, rsd=0.05) estimates a distinct count cheaply; the default maximum relative standard deviation is 0.05."
+    },
+    {
+      "id": "T14", "topic": "Aggregates", "difficulty": "hard", "sources": ["notes §9"],
+      "q": "approx_count_distinct accepts a maximum relative standard deviation, rsd. What does the documentation say happens below rsd = 0.01?",
+      "options": [
+        {"t": "It returns an exact count, so it is always preferred over count_distinct", "why": "The documentation says count_distinct is more efficient below 0.01."},
+        {"t": "It raises an error, because 0.01 is the minimum allowed value", "why": "The documentation points to count_distinct, not an error."},
+        {"t": "count_distinct is more efficient", "ok": true},
+        {"t": "It switches to sampling one percent of the rows to save time", "why": "Below 0.01, the exact count_distinct is the more efficient choice."}
+      ],
+      "explain": "The default rsd is 0.05; for rsd below 0.01, count_distinct is more efficient."
+    },
+    {
+      "id": "T15", "topic": "Aggregates", "difficulty": "medium", "sources": ["notes §9"],
+      "q": "Which statistics does DataFrame.summary() compute by default?",
+      "options": [
+        {"t": "Only the row count and number of nulls for each column", "why": "summary computes more than counts."},
+        {"t": "Distinct counts and the most frequent value of each column", "why": "Those aren't among summary's default statistics."},
+        {"t": "Count, mean, stddev, min, approximate quartiles and max", "ok": true},
+        {"t": "The column's data type, nullability and comment from the schema", "why": "That is schema information, not statistics."}
+      ],
+      "explain": "summary() computes count, mean, stddev, min, approximate 25/50/75% percentiles and max by default."
+    },
+    {
+      "id": "T16", "topic": "Deduplication", "difficulty": "medium", "sources": ["notes §9"],
+      "q": "A silver table must keep one row per `order_id`. Which call removes duplicates on that column only?",
+      "options": [
+        {"t": "df.distinct(), which keeps one row per first column", "why": "distinct compares every column, not just order_id."},
+        {"t": "df.dropDuplicates([\"order_id\"])", "ok": true},
+        {"t": "df.groupBy(\"order_id\").count(), which keeps each order's latest row", "why": "That returns counts per order, not the rows."},
+        {"t": "df.union(df), which merges duplicate rows together", "why": "union keeps duplicates; it doesn't remove them."}
+      ],
+      "explain": "dropDuplicates(subset) removes duplicate rows, optionally on chosen columns."
+    },
+    {
+      "id": "T17", "topic": "Deduplication", "difficulty": "hard", "sources": ["notes §9", "notes §8"],
+      "q": "dropDuplicates is applied to a stream. What must bound the state it keeps across micro-batches?",
+      "options": [
+        {"t": "A rate limit such as maxFilesPerTrigger on the source", "why": "Rate limits size batches; a watermark bounds deduplication state."},
+        {"t": "The complete output mode, which clears state every trigger", "why": "Complete mode doesn't clear state; a watermark bounds it."},
+        {"t": "A watermark", "ok": true},
+        {"t": "Nothing: streaming deduplication keeps no state at all", "why": "On a stream it keeps state across triggers."}
+      ],
+      "explain": "On a stream, dropDuplicates keeps state across triggers, bounded by withWatermark()."
+    },
+    {
+      "id": "T18", "topic": "Cleaning bronze into silver", "difficulty": "medium", "sources": ["notes §13"],
+      "q": "Which work belongs in the silver layer of a medallion architecture?",
+      "options": [
+        {"t": "Cleaning, deduplication, type casting, null handling and quality checks", "ok": true},
+        {"t": "Keeping the source data unchanged, as it arrived, for audit and replay", "why": "That is bronze."},
+        {"t": "Aggregating sales by day for executive dashboards and reports", "why": "Business aggregates belong in gold."},
+        {"t": "Nothing; silver is optional and only copies bronze for safekeeping", "why": "Silver is where data is validated and conformed."}
+      ],
+      "explain": "Silver does cleaning, deduplication, normalisation, null handling, type casting, joins, schema enforcement and evolution, late data handling and quality checks, keeping a validated non-aggregated version of each record."
+    },
+    {
+      "id": "T19", "topic": "Cleaning bronze into silver", "difficulty": "medium", "sources": ["notes §13"],
+      "q": "Which describes the gold layer?",
+      "options": [
+        {"t": "Raw data appended as it arrived, with provenance metadata attached", "why": "That is bronze."},
+        {"t": "Validated, deduplicated records kept one per source event", "why": "That is silver."},
+        {"t": "A staging area for files before they become tables in the lake", "why": "Files land in volumes; gold is business-ready tables."},
+        {"t": "Dimensional models and aggregates for the business", "ok": true}
+      ],
+      "explain": "Gold holds dimensional models and aggregates aligned to business needs, such as a materialized view behind a dashboard."
+    },
+    {
+      "id": "T20", "topic": "Cleaning bronze into silver", "difficulty": "easy", "sources": ["notes §13"],
+      "q": "How does Databricks describe the medallion architecture?",
+      "options": [
+        {"t": "A Unity Catalog feature that must be switched on for each catalog", "why": "It is a data design pattern, not a feature."},
+        {"t": "A recommended best practice, but not a requirement", "ok": true},
+        {"t": "A requirement for any table written by a Lakeflow pipeline", "why": "Databricks calls it a recommended best practice, not a requirement."},
+        {"t": "A naming rule enforced on schemas called bronze, silver and gold", "why": "The layers are a convention, not an enforced rule."}
+      ],
+      "explain": "The medallion architecture (also multi-hop) is a data design pattern of layers that improve quality step by step; Databricks calls it a recommended best practice but not a requirement."
+    },
+    {
+      "id": "T21", "topic": "Cleaning bronze into silver", "difficulty": "medium", "sources": ["notes §13", "notes §8"],
+      "q": "How does Databricks suggest reading append-only bronze tables to build silver?",
+      "options": [
+        {"t": "Mostly with streaming reads", "ok": true},
+        {"t": "With a full batch reread of bronze every run, to catch any changes", "why": "Databricks suggests streaming reads of append-only bronze, with batch for small dimensions."},
+        {"t": "Only through time travel to the previous version of bronze", "why": "Time travel isn't the incremental pattern; streaming reads are."},
+        {"t": "By copying bronze files into silver's folder with a file system tool", "why": "Copying files bypasses Delta; silver is built with streaming reads."}
+      ],
+      "explain": "Build silver from bronze, mostly with streaming reads of the append-only bronze tables; small dimension tables can be read in batch."
+    },
+    {
+      "id": "T22", "topic": "Tuning parameters", "difficulty": "medium", "sources": ["notes §9"],
+      "q": "What does spark.sql.shuffle.partitions control?",
+      "options": [
+        {"t": "How many files each Delta table may have before compaction runs", "why": "It sets the number of partitions used when shuffling for joins and aggregations."},
+        {"t": "The number of partitions used when shuffling data for joins or aggregations", "ok": true},
+        {"t": "How many executors the cluster starts with before autoscaling", "why": "It is a partition count, not an executor count."},
+        {"t": "How many partitions a Delta table is split into on disk", "why": "It concerns shuffles at query time, not table layout."}
+      ],
+      "explain": "spark.sql.shuffle.partitions is 'the number of partitions to use when shuffling data for joins or aggregations', 200 by default in Apache Spark."
+    }
+  ]
+}

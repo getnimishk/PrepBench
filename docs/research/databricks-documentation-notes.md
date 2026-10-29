@@ -674,6 +674,14 @@ Apache Spark's, and PrepBench says so wherever it quotes one.
   position**; add `.distinct()` to deduplicate. `unionByName()` matches **by name**, and with `allowMissingColumns=True`
   fills missing columns with null. In SQL, `UNION` (= `UNION DISTINCT`) removes duplicates; `UNION ALL` keeps them.
   (So DataFrame `union()` behaves like SQL `UNION ALL` — a classic trap.)
+- **Column and null operations** (PySpark API pages for `DataFrame.withColumn`, `withColumnRenamed`, `drop`, `dropna`,
+  `fillna`, `functions.split`, `functions.coalesce`, read 2026-10-29): `withColumn(name, col)` adds a column **or replaces
+  an existing column of the same name**, and the expression must be over the same DataFrame; `withColumnRenamed(existing,
+  new)` and `drop(*cols)` are **no-ops** when the column doesn't exist; `split(str, pattern, limit=-1)` splits a string
+  around a **Java regular expression** into an array; `dropna(how='any', thresh=None, subset=None)` drops rows with nulls
+  (`how='all'` only when every value is null; `thresh` keeps rows with at least that many non-null values and overrides
+  `how`); `fillna(value, subset=None)` replaces nulls (a dict maps column to value, and then `subset` is ignored);
+  `coalesce(*cols)` returns the first non-null column value.
 - **Columns and rows:** `explode(col)` returns one row per array element (or map entry). `dropDuplicates(subset)` /
   `drop_duplicates` removes duplicate rows, optionally on chosen columns; on a stream it keeps state across triggers,
   bounded by `withWatermark()`.
