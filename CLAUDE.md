@@ -99,7 +99,8 @@ all Databricks material, as the Kafka notes are for Kafka: docs.databricks.com, 
 Delta protocol and Apache Spark 4.2 pages, read as page text (not summaries), plus both exam guides read in full (Data
 Engineer Associate, guide of 6 Aug 2026; Professional, guide of 9 Oct 2026). Neither exam publishes a pass mark; never
 state one. §19 there lists what the docs don't confirm (no `DENY` statement in Unity Catalog SQL despite the Associate
-guide; "standard connectors"; the Professional page/guide mismatch); a new fact goes into the notes first.
+guide; "standard connectors"; the Professional page/guide mismatch); a new fact goes into the notes first. §22 covers
+Apache Parquet from the parquet.apache.org specification pages, for the plan's Parquet chapter (chapter 2).
 `docs/implementation/DATABRICKS-GAP-REPORT.md` is the proposal (roadmap, guide, scenarios, a 300-question Associate
 bank, six lab experiments, interview material). **Nothing is built until the learner approves it**: which certification,
 whether it becomes its own preparation, and the build order are their decisions.

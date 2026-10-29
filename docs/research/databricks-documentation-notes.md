@@ -1142,3 +1142,90 @@ facts.
 - The page's own testing advice: start with two to five files, run the output, include dialect-specific constructs
   (T-SQL window functions, Snowflake `QUALIFY`, Redshift `LISTAGG`), and **run original and converted queries on
   equivalent data and compare the results** ("semantically correct, not only syntactically valid").
+
+## 22. Apache Parquet: the file format under Delta Lake
+
+Sources: https://parquet.apache.org/docs/overview/ ; `.../docs/concepts/` ; `.../docs/file-format/` ;
+`.../file-format/configurations/` ; `.../file-format/metadata/` ; `.../file-format/types/` ;
+`.../file-format/nestedencoding/` ; `.../file-format/data-pages/` ; `.../data-pages/columnchunks/` ;
+`.../data-pages/encodings/` ; `.../data-pages/compression/` ; `.../file-format/pageindex/` ;
+`.../file-format/bloomfilter/` (the Apache Parquet site, pages last modified between March 2024 and October 2026) ;
+https://spark.apache.org/docs/latest/sql-data-sources-parquet.html (Spark 4.2.0) ;
+https://docs.databricks.com/aws/en/query/formats/parquet (2026-08-26) ; `.../tables/partitions` (2026-09-11) (all read
+2026-10-29).
+
+### 22.1 What it is and how a file is laid out
+
+- "Apache Parquet is an open source, column-oriented data file format designed for efficient data storage and
+  retrieval", with compression and encoding schemes for "complex data in bulk". The format is a specification
+  (`parquet-format` plus the `parquet.thrift` metadata definitions); libraries are separate (parquet-java, formerly
+  `parquet-mr`; Arrow's C++, Go and Rust; DuckDB; and others). **Not every implementation supports every feature**, so
+  mixing writers and readers needs testing.
+- **Hierarchy:** a **file** holds one or more **row groups** (a horizontal slice of rows); a row group holds **exactly one
+  column chunk per column**, stored contiguously; a column chunk is divided into **pages**, the indivisible unit of
+  encoding and compression. Units of parallelism: file/row group for splitting work, column chunk for I/O, page for
+  encoding and compression.
+- **Layout:** the file starts and ends with the 4-byte magic number `PAR1`. Column chunks come first; the **file
+  metadata (footer)** comes **after the data**, followed by its 4-byte length. The footer records where every column
+  chunk starts. Writing it last allows **single-pass writing**; readers **read the footer first**, then only the column
+  chunks they need. Metadata is separate from data, so one metadata file can reference several Parquet files.
+- Two kinds of metadata: **file metadata** (`FileMetaData`: offsets and sizes for navigation) and **page headers**
+  (stored inline with each page, used for decoding). Both are Thrift structures in the compact protocol.
+
+### 22.2 Why columnar storage makes queries cheap
+
+- Because each column is stored separately, an engine reads **only the columns a query needs** (column pruning).
+  Databricks' own wording: Parquet "allows query engines to read only the columns needed and skip irrelevant row groups".
+- **Statistics** (minimum and maximum values) are kept for column chunks, and readers use them and dictionaries for
+  **predicate pushdown**: skipping data whose range can't match a filter. The optional **page index** (`ColumnIndex` +
+  `OffsetIndex`, stored near the footer) holds per-page bounds so a reader can jump straight to matching pages instead of
+  reading every page header; on a column the data is sorted by, a single-row lookup reads one page per column. Bounds may
+  be truncated values (e.g. `"B"`/`"C"` instead of a long string).
+- **Bloom filters** (optional, split-block) answer "definitely no" or "probably yes" for a value, giving pushdown on
+  **high-cardinality** columns where min/max ranges are wide and dictionaries too big. No false negatives.
+- This is the file-level form of the **data skipping** Delta Lake does with the statistics it keeps in its log (§2.5).
+
+### 22.3 Types, encodings and compression
+
+- **Physical types** are deliberately few: BOOLEAN, INT32, INT64, INT96 (**deprecated**, legacy timestamps only),
+  FLOAT, DOUBLE, BYTE_ARRAY, FIXED_LEN_BYTE_ARRAY. **Logical types** (strings, decimals, dates, timestamps and more)
+  are annotations on top of them.
+- **Nested data** (structs, lists, maps) uses the **Dremel** encoding with **definition levels** (how many optional
+  fields on the path are present: this is how nulls are recorded) and **repetition levels** (where a repeated field
+  repeats). A required, non-nested column stores only its values.
+- **Encodings:** PLAIN (always available); **dictionary** (`RLE_DICTIONARY`: a dictionary page first, then indexes into
+  it; if the dictionary grows too big in size or distinct values, the writer **falls back to plain**); RLE/bit-packing
+  hybrid (booleans, dictionary indexes, levels); delta encodings for integers and byte arrays; BYTE_STREAM_SPLIT and ALP
+  for floating-point data. `PLAIN_DICTIONARY` and `BIT_PACKED` are deprecated.
+- **Compression** applies per page: UNCOMPRESSED, SNAPPY, GZIP, LZO, BROTLI, ZSTD, LZ4_RAW; the old `LZ4` codec is
+  deprecated in favour of `LZ4_RAW`. **Spark's default** codec for Parquet writes is **snappy**
+  (`spark.sql.parquet.compression.codec`; also none, uncompressed, gzip, lzo, brotli, lz4, lz4_raw, zstd).
+
+### 22.4 Sizes the specification recommends
+
+- **Row groups: large, 512 MB to 1 GB**, for large sequential reads (at the cost of more write buffering); the guidance
+  was written for HDFS (1 GB row group, 1 GB block, one block per file). **Data pages: 8 KB** recommended; smaller pages
+  allow finer-grained reads, larger ones less header overhead. These are the specification's recommendations; engines
+  choose their own defaults, and these notes don't give Databricks' write defaults (not on the pages read).
+
+### 22.5 Parquet in Spark and Databricks
+
+- **Spark:** reading Parquet preserves the schema, but **every column becomes nullable** "for compatibility reasons".
+  **Schema merging** across files with different schemas is **off by default** (since Spark 1.5) because it is
+  "relatively expensive"; turn it on with the `mergeSchema` option or `spark.sql.parquet.mergeSchema`. **Partition
+  discovery** reads Hive-style directories (`gender=male/country=US`) as columns, inferring their types by default.
+  The **vectorized reader** is on by default.
+- **Databricks:** Parquet is "the underlying storage format for Delta Lake", so the most common format of data stored
+  in Databricks. It reads and writes Parquet directly (`read_files(..., format => 'parquet')`, `USING PARQUET`);
+  streaming Parquet files needs Auto Loader. Specifying a schema avoids inference cost.
+- **What plain Parquet lacks, and Delta adds** (§2.1): Parquet is a file format; a directory of Parquet files has no
+  transaction log, so no ACID commits, schema enforcement, time travel or `MERGE`. Databricks: for those "alongside
+  Parquet's columnar performance, Delta Lake is the recommended format".
+- **Partitioning:** Spark writes Parquet with **Hive-style partitioning**, which "is not part of the Delta Lake
+  protocol"; workloads shouldn't rely on that directory layout for Delta tables. Databricks recommends **liquid
+  clustering** for all managed tables; most tables **under 100 TB don't need partitioning**; **don't partition below
+  1 TB**; each partition should hold **at least 1 GB**; partitioning suits low-cardinality columns (dates, locations),
+  not timestamps or IDs. Unpartitioned Delta tables get **ingestion time clustering** automatically.
+- **Small files:** many small files are the cost of over-partitioning ("fixed partition boundaries and small-file
+  issues common with static partitioning"); `OPTIMIZE` compacts them (§2.4) and liquid clustering avoids the cause.
+  Converting a Parquet lake to Delta keeps its old partitioning (§21.2).

@@ -1,7 +1,7 @@
 # Databricks in PrepBench: what we have, what's missing, what to build
 
 **Date:** 2026-10-29. **Status:** proposal, waiting for the learner's decisions (section 7). Nothing here is built yet.
-**Research behind it:** `docs/research/databricks-documentation-notes.md` (19 sections, every fact from an official
+**Research behind it:** `docs/research/databricks-documentation-notes.md` (22 sections, every fact from an official
 Databricks, Microsoft, Delta Lake or Apache Spark page read on 2026-10-29, plus both current exam guides read in full).
 
 This is written for you, the learner. It says what PrepBench already gives you for Databricks, what it doesn't, and what
@@ -71,8 +71,8 @@ Things worth knowing before you choose:
 | Item | PrepBench today | Missing | Proposal |
 |---|---|---|---|
 | **Roadmap** | Roadmap 3 "Storage FileSystems to Cloud Mastery" (generic storage/cloud) | Any Databricks roadmap; topics in the exam's order | A **Databricks roadmap workbook** (`.xlsx`, the same 4-tab format as your Kafka and ADF roadmaps) with about 40-45 topics in 7 phases that follow the Associate's sections, each topic mapped to a guide chapter. **You import it** on the Roadmaps screen and assign it to the Databricks skill; nothing is loaded from code. Roadmap 3 stays where it is unless you unlink it. |
-| **Study guide** | ADLS guide only | Databricks itself | Pack **`databricks`** v1: about **20 chapters** written as Markdown and built into the pack like the Kafka guide, covering every Associate objective (list in section 4). Every fact cites the research notes; a test fails on an uncited section, a table not last in its section, or a deprecated name used as current. **Hands-on steps for Databricks Free Edition** in each chapter where Free Edition can do it (notebooks, Unity Catalog objects and grants, Delta operations, Auto Loader with `availableNow`, `COPY INTO`, a declarative pipeline with expectations, a multi-task job, a SQL warehouse). What Free Edition can't do (classic clusters, pools, policies, spot instances, account-level identity, Azure storage credentials) is taught from the docs and marked "read, not run". |
-| **Diagrams** | None for Databricks | Pictures of the key mechanisms | Redrawn, theme-aware, Large-text-safe figures (inline SVG or Mermaid, per `docs/wiki/Importing-Content.md`): the **Delta transaction log** (versions, add/remove, snapshot, what VACUUM deletes), the **medallion flow**, the **Unity Catalog hierarchy and privilege inheritance**, **managed vs external** tables on DROP, **Auto Loader + checkpoint** (offsets, commits, state, RocksDB file tracking), **streaming table vs materialized view**, a **Lakeflow Job DAG** with Run-if conditions and repair, **control plane vs compute plane on Azure**, **shuffle, skew and salting**. |
+| **Study guide** | ADLS guide only | Databricks itself | Pack **`databricks`** v1: about **22 chapters** written as Markdown and built into the pack like the Kafka guide, covering every Associate objective (list in section 4). Every fact cites the research notes; a test fails on an uncited section, a table not last in its section, or a deprecated name used as current. **Hands-on steps for Databricks Free Edition** in each chapter where Free Edition can do it (notebooks, Unity Catalog objects and grants, Delta operations, Auto Loader with `availableNow`, `COPY INTO`, a declarative pipeline with expectations, a multi-task job, a SQL warehouse). What Free Edition can't do (classic clusters, pools, policies, spot instances, account-level identity, Azure storage credentials) is taught from the docs and marked "read, not run". |
+| **Diagrams** | None for Databricks | Pictures of the key mechanisms | Redrawn, theme-aware, Large-text-safe figures (inline SVG or Mermaid, per `docs/wiki/Importing-Content.md`): a **Parquet file** (row groups, column chunks, pages, footer), the **Delta transaction log** (versions, add/remove, snapshot, what VACUUM deletes), the **medallion flow**, the **Unity Catalog hierarchy and privilege inheritance**, **managed vs external** tables on DROP, **Auto Loader + checkpoint** (offsets, commits, state, RocksDB file tracking), **streaming table vs materialized view**, a **Lakeflow Job DAG** with Run-if conditions and repair, **control plane vs compute plane on Azure**, **shuffle, skew and salting**. |
 | **Scenarios with Say-it questions** | None for Databricks | Written cases in your roles' voice | Pack **`databricks`** v2 adds **18 written scenarios** in four levels, in the Kafka/ADF format (check questions, case study, debrief, takeaway, honesty note, and a **lens plus a Say-it question for each of PO, PM, delivery manager and engineering manager**). Examples: the vacuum that broke a regulator's time-travel query; the MERGE that failed on duplicate source keys; Auto Loader stopping on a new column; a full refresh that wiped a streaming table's history; a job repair that loaded a batch twice; the external table whose files survived DROP; the skewed join AQE did fix and the skewed `groupBy` it didn't; the all-purpose cluster bill for nightly jobs; the grant that worked for the table owner but not for analysts (missing `USE SCHEMA`). Your saved answers become interview questions, as with ADF and Kafka. |
 | **Certification question bank** | None (0 questions) | A bank to the exam's weights | A bundled bank you import on the Question Bank screen, built from one source file per section (as CCDAK). **300 questions** sized by the Associate's weights: Platform 18 · Ingestion 63 · Transformation 66 · Jobs 48 · CI/CD 30 · Troubleshooting 30 · Governance 45. The CCDAK tests reused from day one: import validator clean, at least four options, a cited source on every question, section counts, right answers spread across positions, the right answer rarely the longest option (checked per section from the first draft), an out-of-scope list, and SQL used for code where possible (as the exam does). Built in parts with a **delta file** for each part after the first, so an earlier import isn't duplicated. Nothing about a pass mark. |
 | **Lab** | Stations A, B, C, D, F, I (see section 2) | Exam topics no station touches | See section 5. In short: keep the stations; add **six beginner experiments** on the shared lab runner (the Kafka Lab pattern): the Delta log and retention; Auto Loader and checkpoints; streaming tables vs materialized views; a job DAG with Run-if, retries, timeout and repair; shuffle, skew and AQE; Unity Catalog privileges and managed/external tables. All teaching simulations, labelled so, graded only from your own runs. |
@@ -83,26 +83,27 @@ Things worth knowing before you choose:
 Ordered as you'd learn it, each chapter tagged with the Associate section(s) it serves.
 
 1. What the lakehouse is, and where Databricks sits on Azure (control plane, compute plane, account, workspace, metastore) — §1
-2. Delta Lake: Parquet plus a transaction log — §1, §7
-3. Versions, history, time travel, RESTORE, VACUUM and retention — §1, §6
-4. Schemas: enforcement and evolution — §2, §3
-5. MERGE, deduplication and change data feed — §3
-6. Data layout: liquid clustering, Z-order, data skipping, deletion vectors, predictive optimization — §6
-7. Unity Catalog: catalogs, schemas, tables, volumes, the metastore — §1, §7
-8. Managed and external tables, external locations, Azure storage credentials (Access Connector) — §7
-9. Privileges and inheritance; row filters, column masks, ABAC, dynamic views; lineage — §7
-10. Compute and cost: serverless, classic, job vs all-purpose, SQL warehouses, policies, pools, DBUs — §1
-11. Spark essentials for the exam: DataFrames, joins, unions, explode, dedup, aggregates — §3
-12. Cleaning bronze into silver; the medallion architecture; gold objects (views, MVs, streaming tables) — §3
-13. Ingestion choices: Lakeflow Connect, `COPY INTO`, Auto Loader, JDBC/REST — §2
-14. Auto Loader in depth: file detection, schema inference, rescued data, evolution modes — §2
-15. Structured Streaming: checkpoints, triggers, watermarks, output modes, `foreachBatch` — §2, §3
-16. Lakeflow Spark Declarative Pipelines: streaming tables, materialized views, expectations, AUTO CDC, refreshes — §3, §4
-17. Lakeflow Jobs: tasks, DAG, Run-if, If/else, For each, retries, timeouts, triggers, repair — §4, §6
-18. Performance: AQE, broadcast, shuffle partitions, skew, spill, the Spark UI, the disk cache — §3, §6
-19. Monitoring: job run history, pipeline event log, system tables, cost attribution — §6
-20. CI/CD: Git folders, Declarative Automation Bundles, the Databricks CLI, secrets — §5
-21. Databricks with ADF and ADLS: who orchestrates what, passing parameters, migration lessons (links to your ADF and ADLS guides) — background
+2. Parquet, the columnar file underneath: row groups, column chunks, pages, the footer and its statistics, encodings and compression, why columnar reads are cheap, Hive-style partitioning and small files — background (the exam names no Parquet objective, but Delta, data skipping and file layout rest on it)
+3. Delta Lake: Parquet plus a transaction log — §1, §7
+4. Versions, history, time travel, RESTORE, VACUUM and retention — §1, §6
+5. Schemas: enforcement and evolution — §2, §3
+6. MERGE, deduplication and change data feed — §3
+7. Data layout: liquid clustering, Z-order, data skipping, deletion vectors, predictive optimization — §6
+8. Unity Catalog: catalogs, schemas, tables, volumes, the metastore — §1, §7
+9. Managed and external tables, external locations, Azure storage credentials (Access Connector) — §7
+10. Privileges and inheritance; row filters, column masks, ABAC, dynamic views; lineage — §7
+11. Compute and cost: serverless, classic, job vs all-purpose, SQL warehouses, policies, pools, DBUs — §1
+12. Spark essentials for the exam: DataFrames, joins, unions, explode, dedup, aggregates — §3
+13. Cleaning bronze into silver; the medallion architecture; gold objects (views, MVs, streaming tables) — §3
+14. Ingestion choices: Lakeflow Connect, `COPY INTO`, Auto Loader, JDBC/REST — §2
+15. Auto Loader in depth: file detection, schema inference, rescued data, evolution modes — §2
+16. Structured Streaming: checkpoints, triggers, watermarks, output modes, `foreachBatch` — §2, §3
+17. Lakeflow Spark Declarative Pipelines: streaming tables, materialized views, expectations, AUTO CDC, refreshes — §3, §4
+18. Lakeflow Jobs: tasks, DAG, Run-if, If/else, For each, retries, timeouts, triggers, repair — §4, §6
+19. Performance: AQE, broadcast, shuffle partitions, skew, spill, the Spark UI, the disk cache — §3, §6
+20. Monitoring: job run history, pipeline event log, system tables, cost attribution — §6
+21. CI/CD: Git folders, Declarative Automation Bundles, the Databricks CLI, secrets — §5
+22. Databricks with ADF and ADLS: who orchestrates what, passing parameters, migration lessons (links to your ADF and ADLS guides) — background
 
 ## 5. The lab: what the stations teach versus the exam
 
@@ -131,7 +132,7 @@ lean to the shared runner (it is the newer, tested pattern) with links from the 
 
 ```mermaid
 flowchart LR
-  R["Roadmap<br/>Databricks topics in exam order<br/>(you import it)"] --> G["Study guide<br/>21 chapters, diagrams,<br/>Free Edition steps"]
+  R["Roadmap<br/>Databricks topics in exam order<br/>(you import it)"] --> G["Study guide<br/>22 chapters, diagrams,<br/>Free Edition steps"]
   G --> P["Practice<br/>scenario checks,<br/>question bank drills"]
   P --> L["Lab<br/>predict, run, explain<br/>(teaching simulation)"]
   L --> D["Demonstration<br/>explain it in your role;<br/>mock exam for the cert"]
