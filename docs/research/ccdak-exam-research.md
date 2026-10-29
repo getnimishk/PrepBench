@@ -67,10 +67,14 @@ Source: https://kafka.apache.org/43/javadoc/org/apache/kafka/clients/producer/Ka
 ## 3. Retriable and non-retriable errors
 
 Sources: https://kafka.apache.org/43/javadoc/org/apache/kafka/clients/producer/Callback.html ;
-https://kafka.apache.org/43/javadoc/org/apache/kafka/common/errors/RetriableException.html
+https://kafka.apache.org/43/javadoc/org/apache/kafka/common/errors/RetriableException.html ;
+KafkaProducer.java and Callback.java (apache/kafka, branch 4.3)
 
 - `Callback.onCompletion(metadata, exception)`: on success `metadata` has the partition and offset and `exception` is
-  null; on failure `exception` is non-null and `metadata` has -1 in every field.
+  null. On failure `exception` is non-null and the metadata's offset and other values are -1. The Javadoc says "-1 value
+  for all fields" and adds "If topicPartition cannot be chosen, a -1 value will be assigned"; the 4.3 source builds
+  failure metadata as `new RecordMetadata(topicPartition(), -1, -1, …)`, so **the topic-partition is kept when one was
+  chosen**, and only the rest is -1.
 - **Non-retriable (fatal, "the message will never be sent"):** `InvalidTopicException`, `OffsetMetadataTooLarge`,
   `RecordBatchTooLargeException`, `RecordTooLargeException`, `UnknownServerException`, `UnknownProducerIdException`,
   `InvalidProducerEpochException`, `AuthenticationException`, `AuthorizationException`.

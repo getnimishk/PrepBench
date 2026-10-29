@@ -3597,29 +3597,29 @@
       "ccdak",
       "D18"
     ],
-    "explanation": "When `exception` is not null, `metadata` contains -1 for all fields; on success it holds the record's partition and offset.\n\n**Why the other options are wrong:**\n- **The partition and offset the record would have had**: On failure there is no partition and offset to report.\n- **null**: The Javadoc says metadata holds the special -1 value for every field.\n- **The offset of the last successful record**: The metadata is not about other records.\n\nSources: ccdak §3 (Retriable and non-retriable errors).",
+    "explanation": "On failure the offset and the other values are -1. The Javadoc adds that the partition is -1 only if it cannot be chosen, and the Kafka 4.3 source builds the failure metadata with the chosen topic-partition. On success the metadata holds the record's partition and offset.\n\n**Why the other options are wrong:**\n- **The partition and offset the record would have had**: There is no offset on failure: it is -1.\n- **null**: The callback always gets a metadata object; on failure its values are -1.\n- **-1 in every field, even when a partition had been chosen**: The 4.3 source keeps the chosen topic-partition; the partition is -1 only if none could be chosen.\n\nSources: ccdak §3 (Retriable and non-retriable errors).",
     "reference_url": "https://kafka.apache.org/43/javadoc/org/apache/kafka/clients/producer/Callback.html",
     "options": [
       {
         "option_text": "The partition and offset the record would have had",
         "is_correct": false,
-        "explanation_why_incorrect": "On failure there is no partition and offset to report.",
+        "explanation_why_incorrect": "There is no offset on failure: it is -1.",
         "order_index": 0
       },
       {
         "option_text": "null",
         "is_correct": false,
-        "explanation_why_incorrect": "The Javadoc says metadata holds the special -1 value for every field.",
+        "explanation_why_incorrect": "The callback always gets a metadata object; on failure its values are -1.",
         "order_index": 1
       },
       {
-        "option_text": "The offset of the last successful record",
+        "option_text": "-1 in every field, even when a partition had been chosen",
         "is_correct": false,
-        "explanation_why_incorrect": "The metadata is not about other records.",
+        "explanation_why_incorrect": "The 4.3 source keeps the chosen topic-partition; the partition is -1 only if none could be chosen.",
         "order_index": 2
       },
       {
-        "option_text": "The special value -1 in every field",
+        "option_text": "The chosen topic-partition, if any, with -1 for the offset",
         "is_correct": true,
         "explanation_why_incorrect": null,
         "order_index": 3

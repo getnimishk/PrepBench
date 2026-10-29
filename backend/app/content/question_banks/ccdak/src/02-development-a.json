@@ -500,22 +500,22 @@
       "options": [
         {
           "t": "The partition and offset the record would have had",
-          "why": "On failure there is no partition and offset to report."
+          "why": "There is no offset on failure: it is -1."
         },
         {
           "t": "null",
-          "why": "The Javadoc says metadata holds the special -1 value for every field."
+          "why": "The callback always gets a metadata object; on failure its values are -1."
         },
         {
-          "t": "The offset of the last successful record",
-          "why": "The metadata is not about other records."
+          "t": "-1 in every field, even when a partition had been chosen",
+          "why": "The 4.3 source keeps the chosen topic-partition; the partition is -1 only if none could be chosen."
         },
         {
-          "t": "The special value -1 in every field",
+          "t": "The chosen topic-partition, if any, with -1 for the offset",
           "ok": true
         }
       ],
-      "explain": "When `exception` is not null, `metadata` contains -1 for all fields; on success it holds the record's partition and offset."
+      "explain": "On failure the offset and the other values are -1. The Javadoc adds that the partition is -1 only if it cannot be chosen, and the Kafka 4.3 source builds the failure metadata with the chosen topic-partition. On success the metadata holds the record's partition and offset."
     },
     {
       "id": "D19",
