@@ -1,0 +1,602 @@
+{
+  "section": 2,
+  "domain": "Data Ingestion and Loading",
+  "questions": [
+    {
+      "id": "I22",
+      "topic": "Auto Loader",
+      "difficulty": "easy",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "What is the name of the Structured Streaming source that Auto Loader provides?",
+      "options": [
+        {
+          "t": "autoLoaderSource",
+          "why": "The source format is cloudFiles."
+        },
+        {
+          "t": "cloudFiles",
+          "ok": true
+        },
+        {
+          "t": "deltaFiles",
+          "why": "The source format is cloudFiles."
+        },
+        {
+          "t": "fileStream",
+          "why": "The source format is cloudFiles."
+        }
+      ],
+      "explain": "Auto Loader is used through spark.readStream.format(\"cloudFiles\"), a Structured Streaming source that processes new files as they arrive."
+    },
+    {
+      "id": "I23",
+      "topic": "Auto Loader",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "Where does Auto Loader keep track of the files it has already processed?",
+      "options": [
+        {
+          "t": "In a Delta table named _auto_loader_files in the target schema",
+          "why": "Discovered files are tracked in RocksDB inside the checkpoint location."
+        },
+        {
+          "t": "In RocksDB inside the stream's checkpoint location",
+          "ok": true
+        },
+        {
+          "t": "In the source folder, by renaming each file after it is read",
+          "why": "Auto Loader doesn't rename or move source files; it tracks them in the checkpoint."
+        },
+        {
+          "t": "In the Unity Catalog metastore, as a property of the volume",
+          "why": "File tracking lives in the checkpoint, not in catalog metadata."
+        }
+      ],
+      "explain": "Auto Loader keeps the metadata of discovered files in RocksDB in the checkpoint location, which gives exactly-once processing and lets a failed stream resume where it stopped."
+    },
+    {
+      "id": "I24",
+      "topic": "Auto Loader",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7",
+        "notes §8"
+      ],
+      "q": "An Auto Loader stream's checkpoint folder is deleted by mistake, and the stream is started again with the same checkpoint path. What happens?",
+      "options": [
+        {
+          "t": "It continues exactly where it stopped, because the target table remembers the files",
+          "why": "Progress lives in the checkpoint; without it, the stream starts fresh."
+        },
+        {
+          "t": "It fails until the old checkpoint is restored from backup",
+          "why": "It doesn't fail; a missing checkpoint just means a fresh start."
+        },
+        {
+          "t": "It starts fresh and processes the source files again from the beginning",
+          "ok": true
+        },
+        {
+          "t": "It processes only files that arrive after the restart",
+          "why": "A fresh start includes existing files unless told otherwise, so earlier files are read again."
+        }
+      ],
+      "explain": "The checkpoint holds Auto Loader's file tracking and the query's offsets and commits; deleting it (or pointing to a new one) makes the next run start fresh, reprocessing the source."
+    },
+    {
+      "id": "I25",
+      "topic": "Auto Loader file detection",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "Which file detection mode does Auto Loader use by default?",
+      "options": [
+        {
+          "t": "File notification with cloud queues",
+          "why": "File notification is optional; directory listing is the default."
+        },
+        {
+          "t": "File events from Unity Catalog, always",
+          "why": "File events are recommended with file notification, but the default mode is directory listing."
+        },
+        {
+          "t": "Polling the target table for new partitions",
+          "why": "Auto Loader looks at the source location, not the target table."
+        },
+        {
+          "t": "Directory listing",
+          "ok": true
+        }
+      ],
+      "explain": "Directory listing is the default and needs only read access to the data; file notification uses cloud notification and queue services."
+    },
+    {
+      "id": "I26",
+      "topic": "Auto Loader file detection",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "For most workloads, which file detection setup does Databricks recommend for Auto Loader?",
+      "options": [
+        {
+          "t": "File notification with Unity Catalog file events enabled on the external location",
+          "ok": true
+        },
+        {
+          "t": "Directory listing with a very short trigger interval",
+          "why": "Databricks recommends file notification with file events for most workloads."
+        },
+        {
+          "t": "File notification with a storage queue that you create, permission and manage yourself",
+          "why": "With file events on the external location, no extra setup or permissions are needed."
+        },
+        {
+          "t": "Listing the source folder in a separate job and passing names to Auto Loader",
+          "why": "Auto Loader discovers files itself; the recommendation is file notification with file events."
+        }
+      ],
+      "explain": "Databricks recommends file notification with file events for most workloads; with file events on the external location, no extra permissions are needed."
+    },
+    {
+      "id": "I27",
+      "topic": "Auto Loader file detection",
+      "difficulty": "hard",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "A downstream step assumes Auto Loader processes files in the order they arrived. Which statement is correct?",
+      "options": [
+        {
+          "t": "Order is guaranteed in directory listing mode only",
+          "why": "Auto Loader never guarantees file order, in either mode."
+        },
+        {
+          "t": "Order is guaranteed in file notification mode only",
+          "why": "Auto Loader never guarantees file order, in either mode."
+        },
+        {
+          "t": "Auto Loader never guarantees file order, in either mode",
+          "ok": true
+        },
+        {
+          "t": "Order is guaranteed whenever maxFilesPerTrigger is set to 1",
+          "why": "The documentation states no ordering guarantee in either mode."
+        }
+      ],
+      "explain": "Auto Loader never guarantees the order in which files are processed; logic must not depend on file order."
+    },
+    {
+      "id": "I28",
+      "topic": "Auto Loader schema inference",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "Auto Loader infers the schema of JSON files without any type options. What types do the inferred columns get?",
+      "options": [
+        {
+          "t": "The narrowest type that fits the sampled values",
+          "why": "For JSON, CSV and XML, columns are inferred as string unless inferColumnTypes is true."
+        },
+        {
+          "t": "STRING, unless cloudFiles.inferColumnTypes is true",
+          "ok": true
+        },
+        {
+          "t": "VARIANT for every column",
+          "why": "Without inferColumnTypes, JSON columns are inferred as string."
+        },
+        {
+          "t": "Types read from a schema stored inside each JSON file",
+          "why": "JSON carries no schema; Parquet and Avro bring their own types."
+        }
+      ],
+      "explain": "For JSON, CSV and XML every column is inferred as string unless cloudFiles.inferColumnTypes is true; Parquet and Avro use their own types."
+    },
+    {
+      "id": "I29",
+      "topic": "Auto Loader schema inference",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "Where does Auto Loader store the schema it infers?",
+      "options": [
+        {
+          "t": "In a _schemas folder under cloudFiles.schemaLocation",
+          "ok": true
+        },
+        {
+          "t": "In the target table's properties only",
+          "why": "Auto Loader keeps its inferred schema in a _schemas folder at the schema location."
+        },
+        {
+          "t": "Nowhere: it re-infers the schema on every micro-batch",
+          "why": "The schema is stored, so it isn't re-inferred from scratch each time."
+        },
+        {
+          "t": "In the source folder, as a schema.json file next to the data",
+          "why": "It writes to the schema location, not the source folder."
+        }
+      ],
+      "explain": "Set cloudFiles.schemaLocation (it can be the checkpoint path); the inferred schema is stored in a _schemas directory there."
+    },
+    {
+      "id": "I30",
+      "topic": "Auto Loader schema inference",
+      "difficulty": "hard",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "How much data does Auto Loader sample for its first schema inference?",
+      "options": [
+        {
+          "t": "Every file in the source folder",
+          "why": "It samples a bounded amount: the first 50 GB or 1,000 files."
+        },
+        {
+          "t": "Only the first file",
+          "why": "It samples up to 50 GB or 1,000 files."
+        },
+        {
+          "t": "The first 100 MB, whatever the file count",
+          "why": "The documented limits are 50 GB or 1,000 files."
+        },
+        {
+          "t": "The first 50 GB or 1,000 files",
+          "ok": true
+        }
+      ],
+      "explain": "The first inference samples the first 50 GB or 1,000 files."
+    },
+    {
+      "id": "I31",
+      "topic": "Auto Loader schema inference",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "Auto Loader infers `amount` as STRING, but it must be DECIMAL(10,2). Without giving a full schema, how do you set that one column's type?",
+      "options": [
+        {
+          "t": "cast(amount AS DECIMAL(10,2)) in a separate silver job only",
+          "why": "Possible downstream, but Auto Loader itself lets you override inferred types with schema hints."
+        },
+        {
+          "t": "cloudFiles.schemaHints, for example \"amount DECIMAL(10,2)\"",
+          "ok": true
+        },
+        {
+          "t": "cloudFiles.schemaEvolutionMode = rescue",
+          "why": "That controls what happens with new columns, not the type of an existing one."
+        },
+        {
+          "t": "mergeSchema = true on the write",
+          "why": "mergeSchema evolves the target schema; it doesn't set an inferred column's type."
+        }
+      ],
+      "explain": "Schema hints (cloudFiles.schemaHints) override inferred types for chosen columns."
+    },
+    {
+      "id": "I32",
+      "topic": "Rescued data",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "When Auto Loader infers a schema, it adds a `_rescued_data` column. What goes into it?",
+      "options": [
+        {
+          "t": "Rows that failed a data quality expectation",
+          "why": "Expectations are a pipeline feature; _rescued_data holds values that don't fit the schema."
+        },
+        {
+          "t": "Copies of rows that a later MERGE or DELETE removed from the target table, kept for audit",
+          "why": "It holds values from incoming files that don't fit the schema."
+        },
+        {
+          "t": "Values that don't fit the schema: wrong types, unexpected columns, different case",
+          "ok": true
+        },
+        {
+          "t": "The names of files that couldn't be read",
+          "why": "It holds data values, not file names."
+        }
+      ],
+      "explain": "The rescued data column collects values that don't fit the schema (a wrong type, an unexpected column, a different case) instead of losing them."
+    },
+    {
+      "id": "I33",
+      "topic": "Auto Loader schema evolution",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "With the default schema evolution mode and no schema given, new files bring a column `city`. What happens?",
+      "options": [
+        {
+          "t": "The stream adds the column to the table silently and carries on, with no failure or restart",
+          "why": "addNewColumns fails the stream first, then resumes with the new column on restart."
+        },
+        {
+          "t": "The stream fails with an unknown-field error, and resumes with `city` on restart",
+          "ok": true
+        },
+        {
+          "t": "The new column is ignored and its values are lost",
+          "why": "That is mode none, which is the default only when you give a schema."
+        },
+        {
+          "t": "The new values go to _rescued_data and the schema never changes",
+          "why": "That is rescue mode, not the default."
+        }
+      ],
+      "explain": "addNewColumns is the default without a given schema: the stream fails with UnknownFieldException after recording the new column, and resumes with the new schema on restart."
+    },
+    {
+      "id": "I34",
+      "topic": "Auto Loader schema evolution",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "Because the default Auto Loader evolution mode fails the stream on a new column, how does Databricks recommend running such streams?",
+      "options": [
+        {
+          "t": "As Lakeflow Jobs that restart automatically on failure, or in pipelines",
+          "ok": true
+        },
+        {
+          "t": "On an all-purpose cluster that someone watches during business hours",
+          "why": "Production streams should restart automatically; all-purpose compute isn't for production jobs."
+        },
+        {
+          "t": "With schema evolution disabled entirely, so that the stream can never fail on a new column",
+          "why": "The recommendation is automatic restart, so evolution works as designed."
+        },
+        {
+          "t": "With a new checkpoint for every run",
+          "why": "A new checkpoint reprocesses everything; a restart with the same checkpoint picks up the new schema."
+        }
+      ],
+      "explain": "Databricks recommends running Auto Loader streams as Lakeflow Jobs that restart automatically, since addNewColumns deliberately fails and then succeeds on restart."
+    },
+    {
+      "id": "I35",
+      "topic": "Auto Loader schema evolution",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "Which Auto Loader schema evolution mode never evolves the schema and never fails, sending new columns to `_rescued_data`?",
+      "options": [
+        {
+          "t": "addNewColumns",
+          "why": "addNewColumns evolves the schema, failing once first."
+        },
+        {
+          "t": "failOnNewColumns",
+          "why": "failOnNewColumns fails until the schema or file is fixed."
+        },
+        {
+          "t": "none",
+          "why": "none ignores new columns and doesn't rescue them unless rescuedDataColumn is set."
+        },
+        {
+          "t": "rescue",
+          "ok": true
+        }
+      ],
+      "explain": "rescue never evolves or fails; new columns go to the rescued data column."
+    },
+    {
+      "id": "I36",
+      "topic": "Auto Loader schema evolution",
+      "difficulty": "hard",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "You give Auto Loader an explicit schema and set no evolution mode. Files then arrive with an extra column. What happens to it?",
+      "options": [
+        {
+          "t": "The stream fails with an unknown-field error",
+          "why": "With a schema given, the default mode is none, which doesn't fail."
+        },
+        {
+          "t": "It is ignored, and not rescued unless rescuedDataColumn is set",
+          "ok": true
+        },
+        {
+          "t": "It is added to the table automatically",
+          "why": "none never evolves the schema."
+        },
+        {
+          "t": "It goes into _rescued_data automatically",
+          "why": "With mode none, new columns aren't rescued unless rescuedDataColumn is set."
+        }
+      ],
+      "explain": "When you give a schema, the default mode is none: new columns are ignored and not rescued unless the rescuedDataColumn option is set."
+    },
+    {
+      "id": "I37",
+      "topic": "Auto Loader schema evolution",
+      "difficulty": "hard",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "Which mode both adds new columns and widens types such as int to long?",
+      "options": [
+        {
+          "t": "addNewColumnsWithTypeWidening",
+          "ok": true
+        },
+        {
+          "t": "addNewColumns",
+          "why": "addNewColumns adds columns but doesn't widen types."
+        },
+        {
+          "t": "rescue",
+          "why": "rescue never evolves the schema."
+        },
+        {
+          "t": "mergeSchema",
+          "why": "mergeSchema is a write option, not an Auto Loader evolution mode."
+        }
+      ],
+      "explain": "addNewColumnsWithTypeWidening (Public Preview, Databricks Runtime 16.4 and above) also widens types such as int to long."
+    },
+    {
+      "id": "I38",
+      "topic": "Auto Loader",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "Two landing folders, one per region, are both loaded into the same bronze table with Auto Loader. What does the documentation require?",
+      "options": [
+        {
+          "t": "One shared checkpoint, so the two streams don't load a file twice",
+          "why": "Each source location loaded into a target needs its own checkpoint."
+        },
+        {
+          "t": "A separate checkpoint for each source location",
+          "ok": true
+        },
+        {
+          "t": "A separate target table per folder; one table can't take two streams",
+          "why": "A table can take several streams; each source just needs its own checkpoint."
+        },
+        {
+          "t": "File notification mode, because listing can't read two folders",
+          "why": "The requirement is about checkpoints, not detection mode."
+        }
+      ],
+      "explain": "Each source location loaded into a target needs its own checkpoint; streams must never share a checkpoint."
+    },
+    {
+      "id": "I39",
+      "topic": "Auto Loader",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7",
+        "notes §24"
+      ],
+      "q": "An Auto Loader stream in file notification mode fails with CLOUD_FILE_SOURCE_FILE_NOT_FOUND. What is the likely cause?",
+      "options": [
+        {
+          "t": "The checkpoint was shared with another stream",
+          "why": "That causes a concurrent transaction error on a Delta sink, not this one."
+        },
+        {
+          "t": "The file's schema didn't match the inferred schema",
+          "why": "Schema mismatches go to rescued data or trigger evolution, not this error."
+        },
+        {
+          "t": "The storage account's firewall blocked serverless compute",
+          "why": "That shows as 403 Forbidden, not a missing notified file."
+        },
+        {
+          "t": "A notified file was deleted before the stream processed it",
+          "ok": true
+        }
+      ],
+      "explain": "CLOUD_FILE_SOURCE_FILE_NOT_FOUND says a file notification was received for a file that no longer exists: files must not be deleted before they are processed."
+    },
+    {
+      "id": "I40",
+      "topic": "Auto Loader",
+      "difficulty": "hard",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "Which statements about Auto Loader are true? ",
+      "options": [
+        {
+          "t": "It gives exactly-once processing of discovered files",
+          "ok": true
+        },
+        {
+          "t": "It can include files that already exist when it starts",
+          "ok": true
+        },
+        {
+          "t": "It guarantees files are processed in arrival order",
+          "why": "Auto Loader never guarantees file order."
+        },
+        {
+          "t": "It reads only Parquet files",
+          "why": "It reads JSON, CSV, XML, Parquet, Avro, ORC, text and binary files."
+        },
+        {
+          "t": "It needs a Lakeflow Connect connection to run",
+          "why": "Auto Loader is a Structured Streaming source; it needs no connection object."
+        }
+      ],
+      "explain": "Auto Loader processes new files exactly once, tracked in RocksDB in the checkpoint, and can include existing files; it reads many formats and never guarantees order."
+    },
+    {
+      "id": "I41",
+      "topic": "Auto Loader",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7",
+        "notes §10"
+      ],
+      "q": "Where does Databricks recommend using Auto Loader, so that its schema and checkpoint locations are managed for you?",
+      "options": [
+        {
+          "t": "Inside COPY INTO statements",
+          "why": "COPY INTO is a separate command; Auto Loader is recommended in Lakeflow pipelines."
+        },
+        {
+          "t": "In Lakeflow pipelines",
+          "ok": true
+        },
+        {
+          "t": "In SQL alerts",
+          "why": "Alerts evaluate queries; they don't ingest files."
+        },
+        {
+          "t": "In dashboards",
+          "why": "Dashboards display data; they don't ingest it."
+        }
+      ],
+      "explain": "Auto Loader is recommended in Lakeflow pipelines, where the schema and checkpoint locations are managed for you."
+    },
+    {
+      "id": "I42",
+      "topic": "Streaming micro-batch size",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7",
+        "notes §8"
+      ],
+      "q": "A streaming ingestion job must keep each micro-batch small. Which kind of setting caps the size of each micro-batch?",
+      "options": [
+        {
+          "t": "spark.sql.shuffle.partitions",
+          "why": "That sets the number of post-shuffle partitions, not how much each micro-batch reads."
+        },
+        {
+          "t": "A schema hint on the largest column",
+          "why": "Schema hints override inferred types; they don't limit batch size."
+        },
+        {
+          "t": "A rate limit such as maxFilesPerTrigger or maxBytesPerTrigger",
+          "ok": true
+        },
+        {
+          "t": "The output mode, set to update",
+          "why": "Output modes decide what a stateful query emits, not how much it reads."
+        }
+      ],
+      "explain": "Rate limits such as maxFilesPerTrigger and maxBytesPerTrigger size micro-batches."
+    }
+  ]
+}
