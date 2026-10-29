@@ -660,6 +660,14 @@ PySpark API pages for `DataFrame.join`, `union`, `unionAll`, `unionByName`, `dro
 **Version note:** Databricks Runtime ships its own Spark build and can set its own defaults; the defaults below are
 Apache Spark's, and PrepBench says so wherever it quotes one.
 
+- **Execution terms** (https://spark.apache.org/docs/latest/cluster-overview.html and `.../rdd-programming-guide.html`,
+  Spark 4.2.0, read 2026-10-29): an application is a **driver program** plus **executors** (processes on worker nodes
+  that run tasks and keep data in memory or on disk). A **job** is "a parallel computation consisting of multiple tasks
+  that gets spawned in response to a Spark action (e.g. `save`, `collect`)"; each job is divided into **stages** that
+  depend on each other; a **task** is "a unit of work that will be sent to one executor". "All transformations in Spark
+  are lazy": they run only when an **action** needs a result. The **shuffle** is "Spark's mechanism for re-distributing
+  data so that it's grouped differently across partitions", and "an expensive operation since it involves disk I/O,
+  data serialization, and network I/O".
 - **Joins:** `df.join(other, on, how)`; `how` defaults to **`inner`** and may be `inner`, `cross`, `outer`/`full`,
   `left`, `right`, `semi`/`left_semi`, `anti`/`left_anti`. `on` can be a list of columns for **multiple keys**.
 - **Unions:** `union()` and `unionAll()` both keep duplicates ("no automatic deduplication") and match columns **by
