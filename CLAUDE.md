@@ -81,8 +81,9 @@ sources, the section counts, the part files, an even spread of right-answer posi
 in at most 30% overall and 40% of any section, and no out-of-scope topic (ksqlDB, RBAC, CFK, ZooKeeper). Confluent
 publishes no question count or pass mark; the bank never claims one. Importing it is the learner's action; nothing is loaded from code.
 **Known gap (open, a product decision):** the exam guide names four item formats (multiple-choice, multiple-response,
-matching, build list), but PrepBench runs only single choice, multiple choice and true/false, so the bank tests matching
-and ordering skills as multiple-response questions. Supporting the real formats means a new question type in the exam
+matching, build list), but PrepBench presents every question as options to pick (`QuestionType` lists `drag_and_drop`,
+yet nothing renders or grades a match or an order), so the bank tests matching and ordering skills as multiple-response
+questions. Supporting the real formats means a new question type in the exam
 runner, review and import; until then, never claim the bank reproduces the exam's formats.
 **The Kafka Lab (2026-10-28)** is `docs/implementation/KAFKA-LAB-CONTRACT.md`: six beginner experiments at `/lab/kafka`
 (log, keys, groups, commits, replication, failures with modes poison and retries) on the ADF lab's runner, made
