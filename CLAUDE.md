@@ -80,6 +80,10 @@ adds them. Every question cites `docs/research/ccdak-exam-research.md` (sections
 sources, the section counts, the part files, an even spread of right-answer positions, the right answer the longest option
 in at most 30% overall and 40% of any section, and no out-of-scope topic (ksqlDB, RBAC, CFK, ZooKeeper). Confluent
 publishes no question count or pass mark; the bank never claims one. Importing it is the learner's action; nothing is loaded from code.
+**Known gap (open, a product decision):** the exam guide names four item formats (multiple-choice, multiple-response,
+matching, build list), but PrepBench runs only single choice, multiple choice and true/false, so the bank tests matching
+and ordering skills as multiple-response questions. Supporting the real formats means a new question type in the exam
+runner, review and import; until then, never claim the bank reproduces the exam's formats.
 **The Kafka Lab (2026-10-28)** is `docs/implementation/KAFKA-LAB-CONTRACT.md`: six beginner experiments at `/lab/kafka`
 (log, keys, groups, commits, replication, failures with modes poison and retries) on the ADF lab's runner, made
 lab-neutral by a `LabSpec` (`services/adfLab/lab.ts`; Kafka's in `services/kafkaLab/lab.ts`). Its attempts are `kb:` /
