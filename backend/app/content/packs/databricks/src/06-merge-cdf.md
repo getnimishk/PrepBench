@@ -4,6 +4,7 @@ title: MERGE, deduplication and change data feed
 summary: Upserts in one transaction, the one-source-row-per-target-row rule, insert-only merges that make replays safe, and reading a table's row-level changes.
 sources: §4, §5, §10, §24
 ---
+
 ## Roadmap alignment
 **Roadmap topics covered in this chapter:**
 
@@ -51,17 +52,17 @@ Run it twice and the second run inserts nothing. This is the documented way to a
 ## Change data feed
 **Change data feed (CDF)** records **row-level changes between versions** of a table. Each change row carries the data plus:
 
-| Column | Values |
-|---|---|
-| _change_type | insert, update_preimage, update_postimage, delete |
-| _commit_version | the table version of the change |
-| _commit_timestamp | when that version was committed |
-
 Uses: incremental ETL that processes only changed rows, audit trails, and feeding changes downstream.
 
 - **Reading:** in batch, `SELECT * FROM table_changes('t', 5)` or `spark.read.option("readChangeFeed", "true")`; incrementally, `spark.readStream.option("readChangeFeed", "true").table("t")`. Databricks recommends the streaming read, which tracks versions for you; a new stream first returns the current table as `insert` rows, then the changes.
 - **Two ways to have it (2026):** **automatic CDF** computes changes at read time from row tracking (Databricks Runtime 19 and above, on Unity Catalog Delta tables with row tracking), with no per-table setting and no write cost. **Legacy CDF** is switched on per table with `TBLPROPERTIES (delta.enableChangeDataFeed = true)` and records changes on write. Databricks recommends moving to automatic CDF; the two can't be combined.
 - **Limits:** CDF only covers changes **after it was enabled**, so it is not a permanent record. Legacy change files live in `_change_data` and are removed by `VACUUM` with the table's retention (chapter 4). A query can't span a rename, drop or type change. Automatic CDF isn't supported on tables with row filters or column masks.
+
+| Column | Values |
+|---|---|
+| _change_type | insert, update_preimage, update_postimage, delete |
+| _commit_version | the table version of the change |
+| _commit_timestamp | when that version was committed |
 
 ## Try it in Free Edition
 

@@ -4,6 +4,7 @@ title: History, time travel, RESTORE and VACUUM
 summary: Every write is a version you can query or restore, for as long as both its log entry and its data files are kept; VACUUM is where that ends.
 sources: §2, §19
 ---
+
 ## Roadmap alignment
 **Roadmap topics covered in this chapter:**
 
@@ -49,14 +50,14 @@ Timestamp time travel normally uses file modification times; with **in-commit ti
 ## Two retention settings
 Time travel to a version needs **both** its log entry **and** its data files. Two table properties control how long each is kept:
 
+With the defaults you can reliably time travel about **7 days**, not 30: after a `VACUUM`, older versions have lost their files. For 30 days of time travel, set `deletedFileRetentionDuration` to 30 days as well (longer retention costs storage). The log retention must be at least as long as the deleted-file retention, and recent runtimes **block** time travel to a version older than `deletedFileRetentionDuration`.
+
+The documentation is explicit: **table history is not a long-term backup.**
+
 | Property | Default | Keeps | Removed by |
 |---|---|---|---|
 | delta.logRetentionDuration | 30 days | the history (log entries) | automatic cleanup after checkpoints |
 | delta.deletedFileRetentionDuration | 7 days | data files no longer in the table | VACUUM |
-
-With the defaults you can reliably time travel about **7 days**, not 30: after a `VACUUM`, older versions have lost their files. For 30 days of time travel, set `deletedFileRetentionDuration` to 30 days as well (longer retention costs storage). The log retention must be at least as long as the deleted-file retention, and recent runtimes **block** time travel to a version older than `deletedFileRetentionDuration`.
-
-The documentation is explicit: **table history is not a long-term backup.**
 
 ## VACUUM
 `VACUUM t` deletes data files that are **no longer referenced** by the table **and** older than the retention threshold (default 7 days). It exists for storage cost and for compliance: removed files may still hold deleted or changed records.

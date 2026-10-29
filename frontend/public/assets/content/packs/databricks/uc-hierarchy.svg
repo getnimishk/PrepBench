@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 430" width="980" height="430" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <title>The Unity Catalog hierarchy: a metastore per region holds catalogs, catalogs hold schemas, schemas hold tables, views, volumes, functions and models; storage credentials and external locations sit beside them at the metastore level</title>
+  <rect x="0" y="0" width="980" height="430" fill="#ffffff"/>
+  <text x="490" y="32" text-anchor="middle" font-size="17" font-weight="700" fill="#0f172a">Unity Catalog: three-level names, and storage access as securables too</text>
+
+  <rect x="20" y="52" width="940" height="360" rx="12" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="40" y="80" font-size="15" font-weight="700" fill="#0f172a">Metastore (one per region, attached to that region's workspaces)</text>
+
+  <!-- catalog -->
+  <rect x="40" y="96" width="600" height="296" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="60" y="122" font-size="14" font-weight="700" fill="#1e3a8a">Catalog: sales</text>
+  <rect x="60" y="136" width="560" height="240" rx="10" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="80" y="162" font-size="14" font-weight="700" fill="#1e3a8a">Schema: sales.gold</text>
+  <g font-size="13">
+    <rect x="80" y="178" width="250" height="38" rx="8" fill="#ffffff" stroke="#2563eb"/><text x="95" y="202" fill="#1e3a8a">Table: sales.gold.orders</text>
+    <rect x="350" y="178" width="250" height="38" rx="8" fill="#ffffff" stroke="#2563eb"/><text x="365" y="202" fill="#1e3a8a">View / materialized view</text>
+    <rect x="80" y="228" width="250" height="38" rx="8" fill="#ffffff" stroke="#2563eb"/><text x="95" y="252" fill="#1e3a8a">Volume: files that aren't tables</text>
+    <rect x="350" y="228" width="250" height="38" rx="8" fill="#ffffff" stroke="#2563eb"/><text x="365" y="252" fill="#1e3a8a">Function / model</text>
+  </g>
+  <text x="80" y="300" font-size="13" fill="#1e3a8a">Reading sales.gold.orders needs USE CATALOG on sales,</text>
+  <text x="80" y="318" font-size="13" fill="#1e3a8a">USE SCHEMA on sales.gold, and SELECT on the table (or schema).</text>
+  <text x="80" y="346" font-size="13" fill="#1e3a8a">Grants on a catalog or schema inherit to current and future objects.</text>
+
+  <!-- storage -->
+  <rect x="660" y="96" width="280" height="296" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+  <text x="680" y="122" font-size="14" font-weight="700" fill="#78350f">Storage access</text>
+  <g font-size="13">
+    <rect x="680" y="138" width="240" height="56" rx="8" fill="#ffffff" stroke="#d97706"/>
+    <text x="695" y="160" fill="#78350f" font-weight="700">Storage credential</text>
+    <text x="695" y="180" fill="#78350f">Access Connector managed identity</text>
+    <rect x="680" y="208" width="240" height="56" rx="8" fill="#ffffff" stroke="#d97706"/>
+    <text x="695" y="230" fill="#78350f" font-weight="700">External location</text>
+    <text x="695" y="250" fill="#78350f">abfss:// path + credential</text>
+  </g>
+  <text x="680" y="292" font-size="13" fill="#78350f">External tables and volumes</text>
+  <text x="680" y="310" font-size="13" fill="#78350f">must sit inside an external</text>
+  <text x="680" y="328" font-size="13" fill="#78350f">location. Managed tables use</text>
+  <text x="680" y="346" font-size="13" fill="#78350f">managed storage set on the</text>
+  <text x="680" y="364" font-size="13" fill="#78350f">metastore, catalog or schema.</text>
+</svg>

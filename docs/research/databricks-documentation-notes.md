@@ -494,6 +494,8 @@ https://docs.databricks.com/aws/en/data-governance/unity-catalog/data-lineage (2
   object, or a metastore admin. SQL: `GRANT <privilege> ON <securable-type> <name> TO <principal>`, `REVOKE ... FROM ...`,
   `SHOW GRANTS`; or the Permissions tab in Catalog Explorer. Principals are users, groups and service principals (by
   application ID).
+- **Ownership:** "Databricks generally recommends that you grant table ownership to groups" (upgrade-wizard steps on
+  `.../data-governance/unity-catalog/migrate`, read 2026-10-29).
 - **Inheritance:** a privilege granted on a catalog or schema applies to **current and future** objects inside it (e.g.
   `SELECT` on a schema covers every table and view in it, including ones created later).
 - **Reading a table needs three privileges:** `SELECT` on the table, `USE SCHEMA` on its schema, `USE CATALOG` on its
@@ -1286,7 +1288,9 @@ https://docs.databricks.com/aws/en/query/formats/parquet (2026-08-26) ; `.../tab
   protocol"; workloads shouldn't rely on that directory layout for Delta tables. Databricks recommends **liquid
   clustering** for all managed tables; most tables **under 100 TB don't need partitioning**; **don't partition below
   1 TB**; each partition should hold **at least 1 GB**; partitioning suits low-cardinality columns (dates, locations),
-  not timestamps or IDs. Unpartitioned Delta tables get **ingestion time clustering** automatically.
+  not timestamps or IDs. Unpartitioned Delta tables get **ingestion time clustering** automatically. "Transactions
+  are not defined by partition boundaries": Delta's log gives atomicity, so a batch needn't be isolated in its own
+  partition as with Hive-style tables.
 - **Small files:** many small files are the cost of over-partitioning ("fixed partition boundaries and small-file
   issues common with static partitioning"); `OPTIMIZE` compacts them (§2.4) and liquid clustering avoids the cause.
   Converting a Parquet lake to Delta keeps its old partitioning (§21.2).
