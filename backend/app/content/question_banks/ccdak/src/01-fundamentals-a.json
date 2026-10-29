@@ -1,0 +1,666 @@
+{
+  "section": 1,
+  "domain": "Apache Kafka Fundamentals",
+  "questions": [
+    {
+      "id": "F01",
+      "topic": "Events and topics",
+      "difficulty": "easy",
+      "sources": [
+        "notes §13"
+      ],
+      "q": "A billing service and an analytics service both subscribe to the `orders` topic, in different consumer groups. The billing service reads and processes an order event. What happens to that event in the topic?",
+      "options": [
+        {
+          "t": "It stays in the topic until retention removes it; analytics can still read it",
+          "ok": true
+        },
+        {
+          "t": "It is deleted once billing commits its offset, so the analytics group never receives it",
+          "why": "Kafka does not delete events when they are consumed; reading only moves the reader's own position."
+        },
+        {
+          "t": "It is moved to a per-group copy of the topic for billing only",
+          "why": "There is one log per partition; groups track their own offsets in it, nothing is copied per group."
+        },
+        {
+          "t": "It is hidden from other groups until billing's transaction commits",
+          "why": "Visibility to other readers is not tied to another group consuming the event; transactions concern the producer's writes."
+        }
+      ],
+      "explain": "Events are not deleted when consumed. How long Kafka keeps them is a per-topic retention setting, and every group reads the same log at its own pace."
+    },
+    {
+      "id": "F02",
+      "topic": "Events and topics",
+      "difficulty": "easy",
+      "sources": [
+        "notes §13"
+      ],
+      "q": "Which of these does a Kafka record carry, according to the Apache Kafka documentation? (Pick the complete list.)",
+      "options": [
+        {
+          "t": "A key and a value only",
+          "why": "A record also has a timestamp, and may carry headers."
+        },
+        {
+          "t": "A value, a schema ID and a checksum chosen by the application",
+          "why": "A schema ID is a Schema Registry convention inside the value bytes, not a field of every record."
+        },
+        {
+          "t": "A key, a value, a timestamp and optional headers",
+          "ok": true
+        },
+        {
+          "t": "A topic name, a partition number and a value; keys are stored separately",
+          "why": "The key is part of the record; the topic and partition are where it is stored."
+        }
+      ],
+      "explain": "An event (record, message) has a key, a value, a timestamp and optional headers."
+    },
+    {
+      "id": "F03",
+      "topic": "Partitions and ordering",
+      "difficulty": "easy",
+      "sources": [
+        "notes §13",
+        "notes §5"
+      ],
+      "q": "A producer sends every event for customer `c-42` with the key `c-42`, to a topic with 6 partitions that never changes. What does Kafka guarantee about those events?",
+      "options": [
+        {
+          "t": "They are spread over all 6 partitions to balance the load evenly",
+          "why": "Spreading happens for records without a key; with a key, the key decides the partition."
+        },
+        {
+          "t": "They are delivered to every consumer in the group",
+          "why": "Within a group, each partition goes to exactly one consumer, so not every consumer sees them."
+        },
+        {
+          "t": "They are ordered by timestamp across the whole topic",
+          "why": "Kafka orders records within a partition, not across a topic, and by write order, not timestamp."
+        },
+        {
+          "t": "They all go to one partition and are read in the order written",
+          "ok": true
+        }
+      ],
+      "explain": "The default partitioner hashes the key to choose a partition, so events with the same key go to the same partition, and a partition is read in the order it was written."
+    },
+    {
+      "id": "F04",
+      "topic": "Partitions and ordering",
+      "difficulty": "medium",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "A topic `payments` has 4 partitions and is keyed by account ID. The team runs `kafka-topics --alter --partitions 8`. Which statements describe what follows?",
+      "options": [
+        {
+          "t": "Some account IDs can now hash to a different partition, so ordering for an existing key can be broken across the change",
+          "ok": true
+        },
+        {
+          "t": "Kafka moves existing records to their new partitions so each key's history stays together",
+          "why": "Existing data is not redistributed when partitions are added."
+        },
+        {
+          "t": "A consumer group with auto.offset.reset=latest can miss records written to the new partitions before it notices them",
+          "ok": true
+        },
+        {
+          "t": "The change is refused because a keyed topic cannot gain partitions",
+          "why": "Partitions can be added to any topic; it is reducing them that is impossible."
+        },
+        {
+          "t": "The new partitions are invisible to producers until the brokers restart",
+          "why": "Clients see new partitions after a metadata refresh, not a broker restart."
+        }
+      ],
+      "explain": "The docs list the side effects of adding partitions: keys hashed by `hash(key) % partitions` can move, existing data is not redistributed, and consumers using `latest` can miss early records in new partitions."
+    },
+    {
+      "id": "F05",
+      "topic": "Partitions and ordering",
+      "difficulty": "easy",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "A topic was created with 24 partitions and now holds very little traffic. Can the team reduce it to 6 partitions?",
+      "options": [
+        {
+          "t": "Yes, with `kafka-topics --alter --partitions 6`",
+          "why": "The tool can only increase the count."
+        },
+        {
+          "t": "No. Create a new topic with 6 partitions and move to it",
+          "ok": true
+        },
+        {
+          "t": "Yes, but only while no consumer group is active",
+          "why": "Group activity is irrelevant: the partition count can't go down at all."
+        },
+        {
+          "t": "Yes, but only while no consumer group is reading the topic",
+          "why": "Retention is per topic and does not remove partitions."
+        }
+      ],
+      "explain": "The docs state that Kafka cannot reduce the number of partitions of a topic. Choose the count with care, because only adding is possible."
+    },
+    {
+      "id": "F06",
+      "topic": "Partitions and parallelism",
+      "difficulty": "easy",
+      "sources": [
+        "notes §12",
+        "notes §5"
+      ],
+      "q": "A topic has 6 partitions. A consumer group runs 8 consumer instances using the classic protocol. What happens?",
+      "options": [
+        {
+          "t": "Each consumer reads 6/8 of a partition",
+          "why": "A partition is never split between consumers of one group."
+        },
+        {
+          "t": "Kafka adds 2 partitions automatically so every consumer gets one",
+          "why": "Kafka never changes a topic's partition count by itself."
+        },
+        {
+          "t": "Two consumers are rejected from the group",
+          "why": "They join the group; they simply get no partitions."
+        },
+        {
+          "t": "Six consumers get one partition each and two sit idle",
+          "ok": true
+        }
+      ],
+      "explain": "Each partition is consumed by exactly one consumer in a group, so the partition count is the maximum parallelism of a group. Extra consumers stay idle until a rebalance gives them partitions."
+    },
+    {
+      "id": "F07",
+      "topic": "Offsets",
+      "difficulty": "medium",
+      "sources": [
+        "notes §22"
+      ],
+      "q": "A consumer has processed the record at offset 41 of a partition and commits manually. Which offset should it commit so that a restarted consumer resumes at the right place?",
+      "options": [
+        {
+          "t": "41",
+          "why": "Committing 41 would make the restarted consumer read offset 41 again."
+        },
+        {
+          "t": "40",
+          "why": "That would re-read two records."
+        },
+        {
+          "t": "42",
+          "ok": true
+        },
+        {
+          "t": "Whatever the log-end offset is at commit time",
+          "why": "That would skip every record between 42 and the log end that has not been processed."
+        }
+      ],
+      "explain": "The committed offset should always be the offset of the next message the application will read: the last processed offset plus one."
+    },
+    {
+      "id": "F08",
+      "topic": "Offsets",
+      "difficulty": "medium",
+      "sources": [
+        "notes §2",
+        "notes §12"
+      ],
+      "q": "A brand-new consumer group with default settings subscribes to a topic that already holds a week of data. Where does it start reading?",
+      "options": [
+        {
+          "t": "At the earliest offset, replaying the whole week",
+          "why": "That needs auto.offset.reset=earliest; the default is latest."
+        },
+        {
+          "t": "At the end of each partition: only new records",
+          "ok": true
+        },
+        {
+          "t": "It fails with NoOffsetForPartitionException",
+          "why": "That is the behaviour of auto.offset.reset=none, not the default."
+        },
+        {
+          "t": "At the offset the last group to read the topic had committed",
+          "why": "Committed offsets belong to one group; a new group has none."
+        }
+      ],
+      "explain": "When a group has no committed offset, `auto.offset.reset` decides, and its default is `latest`: start at the end of each partition."
+    },
+    {
+      "id": "F09",
+      "topic": "Retention",
+      "difficulty": "medium",
+      "sources": [
+        "notes §3"
+      ],
+      "q": "A topic has `cleanup.policy=delete`, `retention.ms=604800000` and `retention.bytes=1073741824`. It has 10 partitions. Roughly how much disk can the topic's data occupy (one replica) before size-based retention starts deleting?",
+      "options": [
+        {
+          "t": "1 GiB in total, shared by all partitions",
+          "why": "retention.bytes is a per-partition limit, not a topic total."
+        },
+        {
+          "t": "Unlimited, because retention.ms takes precedence",
+          "why": "Both limits apply; whichever is reached first triggers deletion."
+        },
+        {
+          "t": "100 MiB, one tenth per partition",
+          "why": "The limit is applied to each partition in full, not divided."
+        },
+        {
+          "t": "About 10 GiB: the 1 GiB limit applies to each partition",
+          "ok": true
+        }
+      ],
+      "explain": "`retention.bytes` is the maximum size per partition, so multiply it by the number of partitions to get the topic's size."
+    },
+    {
+      "id": "F10",
+      "topic": "Retention",
+      "difficulty": "hard",
+      "sources": [
+        "notes §3"
+      ],
+      "q": "A low-traffic topic has `retention.ms` of 1 hour but keeps data for days. Its `segment.bytes` and `segment.ms` are at their defaults. What explains it?",
+      "options": [
+        {
+          "t": "Retention deletes whole segments, and the active segment hasn't rolled yet",
+          "ok": true
+        },
+        {
+          "t": "retention.ms is ignored on topics with fewer than 1 GiB of data",
+          "why": "There is no size threshold for time retention; the issue is how segments roll."
+        },
+        {
+          "t": "Retention only runs when a consumer group is empty",
+          "why": "Retention is unrelated to consumer groups."
+        },
+        {
+          "t": "The broker's log.retention.hours overrides the topic's retention.ms setting",
+          "why": "A topic-level setting overrides the broker default, not the other way round."
+        }
+      ],
+      "explain": "Retention and cleaning work a file at a time. Records in the segment still being written are not deleted until it rolls, at `segment.bytes` (1 GiB) or `segment.ms` (7 days) by default."
+    },
+    {
+      "id": "F11",
+      "topic": "Log compaction",
+      "difficulty": "medium",
+      "sources": [
+        "notes §8",
+        "notes §3"
+      ],
+      "q": "Which topic is the best fit for `cleanup.policy=compact`?",
+      "options": [
+        {
+          "t": "A click-stream in which every click is an independent event to count",
+          "why": "Compaction drops older values per key; independent events would be lost."
+        },
+        {
+          "t": "An audit log that must keep every change for seven years",
+          "why": "Compaction removes superseded records, the opposite of keeping every change."
+        },
+        {
+          "t": "The latest address per customer ID, used to rebuild a cache",
+          "ok": true
+        },
+        {
+          "t": "A topic whose records have no key",
+          "why": "Compaction keeps the latest value per key; records need keys."
+        }
+      ],
+      "explain": "Compaction keeps at least the last value for each key. It suits changelogs of keyed, mutable data, such as reloading a cache or restoring state, not standalone events."
+    },
+    {
+      "id": "F12",
+      "topic": "Log compaction",
+      "difficulty": "medium",
+      "sources": [
+        "notes §8"
+      ],
+      "q": "On a compacted topic, a producer writes key `user-7` with a null value. What is that record, and what does it do?",
+      "options": [
+        {
+          "t": "An invalid record: brokers reject null values on compacted topics",
+          "why": "Null values are allowed; they have a special meaning."
+        },
+        {
+          "t": "A tombstone: it deletes earlier records with that key",
+          "ok": true
+        },
+        {
+          "t": "A marker that pauses compaction for that key",
+          "why": "It does the opposite: it lets compaction remove the key."
+        },
+        {
+          "t": "A record that resets the key's offset to 0",
+          "why": "Offsets never change in a compacted log."
+        }
+      ],
+      "explain": "A keyed record with a null value is a tombstone. It deletes earlier records for its key, and is removed itself once `delete.retention.ms` has passed."
+    },
+    {
+      "id": "F13",
+      "topic": "Log compaction",
+      "difficulty": "hard",
+      "sources": [
+        "notes §8"
+      ],
+      "q": "Which statements about a compacted topic are true?",
+      "options": [
+        {
+          "t": "Compaction can change the offset of a record that survives",
+          "why": "Offsets never change; a compacted-away offset is still a valid position."
+        },
+        {
+          "t": "The order of the records that remain is never changed",
+          "ok": true
+        },
+        {
+          "t": "A consumer that reads from the start sees at least the final value of every key",
+          "ok": true
+        },
+        {
+          "t": "Compaction blocks reads on a partition while it runs",
+          "why": "The cleaner recopies segments in the background and does not block reads."
+        },
+        {
+          "t": "Compaction keeps exactly one record per key at all times",
+          "why": "It guarantees at least the last value; the uncompacted head can hold several."
+        }
+      ],
+      "explain": "Compaction removes some records but never reorders them, never changes an offset, and a reader from the start always sees at least the last value of every key."
+    },
+    {
+      "id": "F14",
+      "topic": "Replication",
+      "difficulty": "easy",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "What is the unit of replication in Kafka?",
+      "options": [
+        {
+          "t": "The partition: each has one leader and zero or more followers",
+          "ok": true
+        },
+        {
+          "t": "The topic: each topic is copied to every broker",
+          "why": "Replication is per partition, with a chosen replication factor, not to every broker."
+        },
+        {
+          "t": "The broker: each broker has a standby broker",
+          "why": "Brokers don't pair up; partitions are replicated across brokers."
+        },
+        {
+          "t": "The record batch, copied by the producer to several brokers",
+          "why": "The producer writes to the leader only; followers copy from it."
+        }
+      ],
+      "explain": "The partition is the unit of replication. All writes go to the leader; followers fetch from it like consumers."
+    },
+    {
+      "id": "F15",
+      "topic": "Replication",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7",
+        "notes §4"
+      ],
+      "q": "A follower replica stops fetching from its leader because its broker is overloaded. What removes it from the in-sync replica set (ISR)?",
+      "options": [
+        {
+          "t": "The producer, when its next acks=all write to that partition times out",
+          "why": "Producers don't manage the ISR; the leader does."
+        },
+        {
+          "t": "Nothing: a replica stays in the ISR for its lifetime",
+          "why": "The ISR changes all the time as replicas fall behind and catch up."
+        },
+        {
+          "t": "The consumer group coordinator",
+          "why": "The group coordinator manages consumer groups, not replicas."
+        },
+        {
+          "t": "The leader, after replica.lag.time.max.ms (30 s by default)",
+          "ok": true
+        }
+      ],
+      "explain": "The leader tracks the ISR and removes a follower that hasn't fetched, or hasn't caught up to the log end, for `replica.lag.time.max.ms`."
+    },
+    {
+      "id": "F16",
+      "topic": "Replication",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "When does a record written to a partition become visible to consumers?",
+      "options": [
+        {
+          "t": "As soon as the leader writes it to its own log, whatever the producer's acks",
+          "why": "Consumers only get committed records, not merely written ones."
+        },
+        {
+          "t": "When it is on all in-sync replicas, whatever acks was used",
+          "ok": true
+        },
+        {
+          "t": "Only if the producer used acks=all",
+          "why": "Visibility doesn't depend on the producer's acks setting."
+        },
+        {
+          "t": "After the next segment roll",
+          "why": "Segments roll for retention; visibility doesn't wait for them."
+        }
+      ],
+      "explain": "Only committed messages are given to consumers: a record becomes visible when it is on all in-sync replicas, whatever `acks` the producer used."
+    },
+    {
+      "id": "F17",
+      "topic": "Durability",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23",
+        "notes §3"
+      ],
+      "q": "Which setup does the Apache Kafka documentation give as a typical durable configuration?",
+      "options": [
+        {
+          "t": "Replication factor 2, min.insync.replicas 2, acks=1",
+          "why": "acks=1 doesn't wait for followers, so min.insync.replicas has no effect."
+        },
+        {
+          "t": "Replication factor 3, min.insync.replicas 3, acks=all",
+          "why": "With min ISR equal to the replication factor, one broker down stops all writes."
+        },
+        {
+          "t": "Replication factor 3, min.insync.replicas 2, acks=all",
+          "ok": true
+        },
+        {
+          "t": "Replication factor 1, min.insync.replicas 1, acks=all",
+          "why": "One copy can't survive a broker loss."
+        }
+      ],
+      "explain": "The docs' durability example: create the topic with replication factor 3, set `min.insync.replicas` to 2 and produce with `acks=all`, so a majority of replicas must have a write before it is acknowledged."
+    },
+    {
+      "id": "F18",
+      "topic": "Durability",
+      "difficulty": "hard",
+      "sources": [
+        "notes §7",
+        "notes §3"
+      ],
+      "q": "A topic has replication factor 3 and `min.insync.replicas=1`. Two followers fall out of the ISR. A producer with `acks=all` sends a record. What happens?",
+      "options": [
+        {
+          "t": "It is refused with NotEnoughReplicasException, since two replicas are missing",
+          "why": "That happens only when the ISR is smaller than min.insync.replicas, here 1."
+        },
+        {
+          "t": "The write blocks until both followers rejoin",
+          "why": "acks=all waits for the current ISR, not for every assigned replica."
+        },
+        {
+          "t": "The producer silently falls back to acks=1",
+          "why": "Producers don't change acks by themselves."
+        },
+        {
+          "t": "It succeeds, stored on the leader only",
+          "ok": true
+        }
+      ],
+      "explain": "`acks=all` means the current ISR, not all assigned replicas. With the ISR shrunk to the leader and `min.insync.replicas=1`, the write succeeds with one copy and is lost if that broker fails."
+    },
+    {
+      "id": "F19",
+      "topic": "Durability",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7",
+        "notes §3"
+      ],
+      "q": "What does setting `unclean.leader.election.enable=true` trade?",
+      "options": [
+        {
+          "t": "Durability for availability: an out-of-sync replica may lead and lose data",
+          "ok": true
+        },
+        {
+          "t": "Latency for throughput: leaders are elected in batches",
+          "why": "Batched elections happen anyway; this setting is about which replicas may lead."
+        },
+        {
+          "t": "Nothing, because Kafka never elects a replica outside the ISR",
+          "why": "That is the default behaviour; this setting turns it off."
+        },
+        {
+          "t": "Availability for durability: partitions stay offline until every replica returns",
+          "why": "That is the default (false); true does the reverse."
+        }
+      ],
+      "explain": "When every in-sync replica is down, the default is to wait for one of them (consistent, maybe unavailable). Unclean election lets the first replica back lead (available, may lose committed messages)."
+    },
+    {
+      "id": "F20",
+      "topic": "Replication",
+      "difficulty": "hard",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "Kafka's ISR model tolerates f replica failures without losing committed data with how many replicas, compared with a majority-quorum system?",
+      "options": [
+        {
+          "t": "2f+1, the same as a majority quorum",
+          "why": "That is the majority-quorum figure; the ISR model needs fewer."
+        },
+        {
+          "t": "f+1, because only ISR members can be elected and a write commits only when all of them have it",
+          "ok": true
+        },
+        {
+          "t": "f, because the controller keeps an extra copy",
+          "why": "The controller stores metadata, not partition data."
+        },
+        {
+          "t": "2f, because each replica has a standby",
+          "why": "There are no per-replica standbys."
+        }
+      ],
+      "explain": "A majority quorum needs 2f+1 replicas to survive f failures. Kafka's ISR needs only f+1, because a write commits only when every ISR member has it and only ISR members can be elected."
+    },
+    {
+      "id": "F21",
+      "topic": "Brokers and KRaft",
+      "difficulty": "easy",
+      "sources": [
+        "notes §9"
+      ],
+      "q": "In Apache Kafka 4.x, where is the cluster's metadata (topics, partitions, leaders, configuration) managed?",
+      "options": [
+        {
+          "t": "In a ZooKeeper ensemble the brokers connect to",
+          "why": "Kafka 4.0 removed ZooKeeper mode; 4.x supports only KRaft."
+        },
+        {
+          "t": "In each producer's local cache, synchronised by gossip",
+          "why": "Clients cache metadata they fetch from brokers; they don't own it."
+        },
+        {
+          "t": "A quorum of KRaft controllers",
+          "ok": true
+        },
+        {
+          "t": "In the __consumer_offsets topic",
+          "why": "That topic stores consumer group offsets, not cluster metadata."
+        }
+      ],
+      "explain": "Since Kafka 4.0 metadata is managed by KRaft: controllers form the metadata quorum, with one active controller and the others as hot standbys."
+    },
+    {
+      "id": "F22",
+      "topic": "Brokers and KRaft",
+      "difficulty": "medium",
+      "sources": [
+        "notes §9"
+      ],
+      "q": "A KRaft cluster runs 3 controllers. How many controller failures can the metadata quorum survive and keep working?",
+      "options": [
+        {
+          "t": "None",
+          "why": "A majority (2 of 3) remains after one failure."
+        },
+        {
+          "t": "Two",
+          "why": "With two down, 1 of 3 is not a majority."
+        },
+        {
+          "t": "Three, because brokers take over",
+          "why": "Brokers don't take over the controller role."
+        },
+        {
+          "t": "One, because a majority must stay alive",
+          "ok": true
+        }
+      ],
+      "explain": "A majority of controllers must be alive: 3 controllers tolerate 1 failure, 5 tolerate 2."
+    },
+    {
+      "id": "F23",
+      "topic": "Consumers",
+      "difficulty": "easy",
+      "sources": [
+        "notes §5"
+      ],
+      "q": "Why do Kafka consumers pull data from brokers rather than having brokers push it?",
+      "options": [
+        {
+          "t": "Push is not possible over TCP",
+          "why": "Push is possible; Kafka chose pull for its trade-offs."
+        },
+        {
+          "t": "A slow consumer can fall behind and catch up, and brokers can batch",
+          "ok": true
+        },
+        {
+          "t": "Pull is required for exactly-once semantics",
+          "why": "Exactly-once relies on idempotence and transactions, not on pull."
+        },
+        {
+          "t": "Pull guarantees lower latency than push in every case, which streaming needs",
+          "why": "The docs don't claim that; long polls avoid busy-waiting, but latency is not the reason."
+        }
+      ],
+      "explain": "With pull, a consumer slower than production simply falls behind and catches up, and the broker can batch aggressively. Push tends to overwhelm a slow consumer."
+    }
+  ]
+}

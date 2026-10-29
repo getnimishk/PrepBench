@@ -1,0 +1,606 @@
+{
+  "section": 2,
+  "domain": "Apache Kafka Application Development",
+  "questions": [
+    {
+      "id": "D43",
+      "topic": "Serialization",
+      "difficulty": "easy",
+      "sources": [
+        "ccdak §5"
+      ],
+      "q": "In what form does a Kafka broker store a record's key and value?",
+      "options": [
+        {
+          "t": "As JSON documents it can index and query",
+          "why": "The broker doesn't parse records; it stores bytes."
+        },
+        {
+          "t": "As bytes; clients serialize and deserialize them",
+          "ok": true
+        },
+        {
+          "t": "As Java objects, so only Java clients can read them",
+          "why": "Any client can read the bytes; the format is agreed between producers and consumers."
+        },
+        {
+          "t": "As Avro, which the broker converts on write",
+          "why": "Apache Kafka brokers do no format conversion."
+        }
+      ],
+      "explain": "Keys and values are bytes to the broker. The producer's serializer and the consumer's deserializer must agree on the format."
+    },
+    {
+      "id": "D44",
+      "topic": "Serialization",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §5",
+        "notes §17"
+      ],
+      "q": "A team wants to produce Avro records with the plain Apache Kafka Java client. Which serializer ships with Apache Kafka for this?",
+      "options": [
+        {
+          "t": "org.apache.kafka.common.serialization.AvroSerializer",
+          "why": "There is no such class in Apache Kafka."
+        },
+        {
+          "t": "StringSerializer with an Avro schema property",
+          "why": "StringSerializer encodes strings; it has no schema support."
+        },
+        {
+          "t": "ByteArraySerializer, which validates Avro",
+          "why": "ByteArraySerializer passes bytes through unchanged."
+        },
+        {
+          "t": "None; Avro serializers come with Schema Registry",
+          "ok": true
+        }
+      ],
+      "explain": "Apache Kafka ships serializers for strings, numbers, bytes, UUIDs, lists and void, but none for Avro, Protobuf or JSON Schema; those come with Confluent's Schema Registry."
+    },
+    {
+      "id": "D45",
+      "topic": "Serialization",
+      "difficulty": "easy",
+      "sources": [
+        "ccdak §5"
+      ],
+      "q": "In `org.apache.kafka.common.serialization`, what is a `Serde<T>`?",
+      "options": [
+        {
+          "t": "A serializer and a deserializer for one type, wrapped together",
+          "ok": true
+        },
+        {
+          "t": "A broker plugin that converts formats",
+          "why": "Serdes are client-side; brokers don't convert formats."
+        },
+        {
+          "t": "A schema stored in the cluster metadata",
+          "why": "Schemas are not stored in Kafka's metadata."
+        },
+        {
+          "t": "A serializer that only works in Kafka Connect",
+          "why": "Serdes are used by Kafka Streams and any client code."
+        }
+      ],
+      "explain": "`Serde<T>` is the interface wrapping a serializer and a deserializer for a type; `Serdes` is a factory (`Serdes.String()`, `Serdes.Long()`, …)."
+    },
+    {
+      "id": "D46",
+      "topic": "Serialization",
+      "difficulty": "medium",
+      "sources": [
+        "notes §17"
+      ],
+      "q": "A consumer reads a topic where some records are JSON and some are plain text, and fails with a JSON decode error. What is the underlying problem?",
+      "options": [
+        {
+          "t": "The broker corrupted the plain-text records",
+          "why": "Brokers store bytes as written."
+        },
+        {
+          "t": "The topic needs more partitions",
+          "why": "Partition count has nothing to do with record format."
+        },
+        {
+          "t": "Schemaless JSON enforces nothing, so producers wrote mixed formats",
+          "ok": true
+        },
+        {
+          "t": "JSON records must be compressed",
+          "why": "Compression doesn't change the record format."
+        }
+      ],
+      "explain": "JSON with no schema carries field names in every record and enforces nothing; a topic mixing plain text and JSON is the classic failure. A schema and a registry make producers agree."
+    },
+    {
+      "id": "D47",
+      "topic": "Schema evolution",
+      "difficulty": "medium",
+      "sources": [
+        "notes §17"
+      ],
+      "q": "In Schema Registry, what is the default compatibility type?",
+      "options": [
+        {
+          "t": "FORWARD",
+          "why": "FORWARD is available but not the default."
+        },
+        {
+          "t": "FULL_TRANSITIVE",
+          "why": "Available, but not the default."
+        },
+        {
+          "t": "NONE",
+          "why": "NONE turns checks off and is not the default."
+        },
+        {
+          "t": "BACKWARD",
+          "ok": true
+        }
+      ],
+      "explain": "The default compatibility is BACKWARD: consumers using the new schema can read data written with the previous one."
+    },
+    {
+      "id": "D48",
+      "topic": "Schema evolution",
+      "difficulty": "hard",
+      "sources": [
+        "notes §17"
+      ],
+      "q": "A subject uses BACKWARD compatibility and a new schema version is registered. Which should be upgraded first?",
+      "options": [
+        {
+          "t": "The consumers",
+          "ok": true
+        },
+        {
+          "t": "The producers",
+          "why": "Producers go first under FORWARD compatibility."
+        },
+        {
+          "t": "Both at exactly the same moment",
+          "why": "That's needed by no mode; FULL allows upgrading in any order."
+        },
+        {
+          "t": "The brokers",
+          "why": "Brokers don't read schemas."
+        }
+      ],
+      "explain": "BACKWARD: upgrade consumers first, because the new schema can read old data. FORWARD: producers first. FULL: independently."
+    },
+    {
+      "id": "D49",
+      "topic": "Schema evolution",
+      "difficulty": "hard",
+      "sources": [
+        "notes §17"
+      ],
+      "q": "An Avro schema gains a new field. For readers on the new schema to still read records written before the change, what must the field have?",
+      "options": [
+        {
+          "t": "A union type with null in second place",
+          "why": "The rule is about a default value, not a particular union layout."
+        },
+        {
+          "t": "A default value",
+          "ok": true
+        },
+        {
+          "t": "The same name as a removed field",
+          "why": "Reusing names doesn't make old data readable."
+        },
+        {
+          "t": "A larger field number than every other field",
+          "why": "Field numbers belong to Protobuf, not Avro."
+        }
+      ],
+      "explain": "In Avro schema resolution, a field the reader has but the writer didn't takes the reader's default; without a default it is an error. So an added field needs a default."
+    },
+    {
+      "id": "D50",
+      "topic": "Schema evolution",
+      "difficulty": "medium",
+      "sources": [
+        "notes §17"
+      ],
+      "q": "A Protobuf message field number 4 is no longer used. What should the developer do with it?",
+      "options": [
+        {
+          "t": "Reuse 4 for the next new field to keep numbers compact",
+          "why": "Reusing a field number breaks old data and readers."
+        },
+        {
+          "t": "Renumber the remaining fields to close the gap",
+          "why": "A field number can't change once in use."
+        },
+        {
+          "t": "Mark 4 as reserved so it is never reused",
+          "ok": true
+        },
+        {
+          "t": "Nothing; Protobuf identifies fields by name",
+          "why": "On the wire, Protobuf identifies fields by number."
+        }
+      ],
+      "explain": "Protobuf identifies fields by number on the wire; a number can't change once in use, and deleted numbers should be reserved and never reused."
+    },
+    {
+      "id": "D51",
+      "topic": "Schema evolution",
+      "difficulty": "medium",
+      "sources": [
+        "notes §17"
+      ],
+      "q": "What does a `*_TRANSITIVE` compatibility type (for example BACKWARD_TRANSITIVE) add?",
+      "options": [
+        {
+          "t": "It also checks the schema on the broker",
+          "why": "Compatibility is checked by Schema Registry, not brokers."
+        },
+        {
+          "t": "It applies the rule to keys as well as values",
+          "why": "Keys and values each have their own subject."
+        },
+        {
+          "t": "It disables checks for minor versions",
+          "why": "It checks more, not less."
+        },
+        {
+          "t": "A check against every earlier version, not just the last",
+          "ok": true
+        }
+      ],
+      "explain": "Transitive types check a new schema against all earlier versions in the subject, not just the latest one."
+    },
+    {
+      "id": "D52",
+      "topic": "Schema Registry",
+      "difficulty": "hard",
+      "sources": [
+        "notes §17"
+      ],
+      "q": "With Schema Registry's default wire format, what comes before the encoded data in a record's value?",
+      "options": [
+        {
+          "t": "A magic byte 0, then a 4-byte schema ID",
+          "ok": true
+        },
+        {
+          "t": "The full schema text as JSON",
+          "why": "Sending the schema with every record is what the registry avoids."
+        },
+        {
+          "t": "The subject name and version number",
+          "why": "The prefix is the schema ID, not the subject and version."
+        },
+        {
+          "t": "Nothing; the schema ID is a record header",
+          "why": "In the default format the ID is in the payload prefix; a header option came later."
+        }
+      ],
+      "explain": "Byte 0 is a magic byte 0, bytes 1-4 the schema ID (big-endian), then (for Protobuf) a message index, then the data."
+    },
+    {
+      "id": "D53",
+      "topic": "Schema Registry",
+      "difficulty": "hard",
+      "sources": [
+        "notes §17"
+      ],
+      "q": "A topic must carry several record types (OrderCreated, OrderShipped) with their own schemas. Which subject naming strategy is meant for this?",
+      "options": [
+        {
+          "t": "TopicNameStrategy, the default",
+          "why": "It derives one subject from the topic, so one schema per topic."
+        },
+        {
+          "t": "TopicRecordNameStrategy",
+          "ok": true
+        },
+        {
+          "t": "PartitionNameStrategy",
+          "why": "No such strategy exists."
+        },
+        {
+          "t": "HeaderNameStrategy",
+          "why": "No such strategy exists."
+        }
+      ],
+      "explain": "`TopicNameStrategy` (the default) derives the subject from the topic, so one schema per topic. `TopicRecordNameStrategy` derives it from the topic and the record type, for several record types in one topic."
+    },
+    {
+      "id": "D54",
+      "topic": "Message headers",
+      "difficulty": "easy",
+      "sources": [
+        "ccdak §4"
+      ],
+      "q": "What can a Kafka record header hold?",
+      "options": [
+        {
+          "t": "Only one header per record",
+          "why": "A record can have many headers, even with the same key."
+        },
+        {
+          "t": "Any Java object, serialized by the producer",
+          "why": "Header values are byte arrays; you serialize them yourself."
+        },
+        {
+          "t": "A String key and a byte[] value",
+          "ok": true
+        },
+        {
+          "t": "Only routing information read by the broker",
+          "why": "Brokers don't route by headers; they are for applications."
+        }
+      ],
+      "explain": "A header is a `String` key with a `byte[]` value (which may be null), and multiple headers may share a key."
+    },
+    {
+      "id": "D55",
+      "topic": "Message headers",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §4"
+      ],
+      "q": "A record carries two headers with key `trace`. What does `headers.lastHeader(\"trace\")` return?",
+      "options": [
+        {
+          "t": "The first one added",
+          "why": "lastHeader returns the last one."
+        },
+        {
+          "t": "An error, because keys must be unique",
+          "why": "Multiple headers may have the same key."
+        },
+        {
+          "t": "Both values concatenated",
+          "why": "It returns a single header."
+        },
+        {
+          "t": "The last one added",
+          "ok": true
+        }
+      ],
+      "explain": "`lastHeader(key)` returns the very last header for the key; `headers(key)` returns all of them in the order they were added."
+    },
+    {
+      "id": "D56",
+      "topic": "Message headers",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §4",
+        "notes §13"
+      ],
+      "q": "Which TWO are good uses of record headers?",
+      "options": [
+        {
+          "t": "A correlation or trace ID that travels with the event",
+          "ok": true
+        },
+        {
+          "t": "The partition number the broker should use",
+          "why": "Partitions are chosen by the producer, not by headers."
+        },
+        {
+          "t": "Metadata such as the event type, without changing the value's format",
+          "ok": true
+        },
+        {
+          "t": "The record's offset, set by the producer",
+          "why": "Offsets are assigned by the broker."
+        },
+        {
+          "t": "A replacement for the key in compaction",
+          "why": "Compaction works on keys, not headers."
+        }
+      ],
+      "explain": "Headers are optional key-value metadata on a record, read by applications; they carry things like trace IDs or event types without changing the key or value."
+    },
+    {
+      "id": "D57",
+      "topic": "Admin API",
+      "difficulty": "easy",
+      "sources": [
+        "ccdak §7"
+      ],
+      "q": "How do you wait for the result of an Admin API call such as `createTopics` in a synchronous program?",
+      "options": [
+        {
+          "t": "Call get() on the KafkaFuture in its result",
+          "ok": true
+        },
+        {
+          "t": "Call poll() on the Admin client",
+          "why": "poll() is a consumer method."
+        },
+        {
+          "t": "Admin calls are always synchronous",
+          "why": "Admin methods return futures; get() makes them synchronous."
+        },
+        {
+          "t": "Sleep until the topic appears in kafka-topics --list",
+          "why": "The future already tells you when the call finished."
+        }
+      ],
+      "explain": "Admin methods return results holding `KafkaFuture`s; for synchronous behaviour, call `KafkaFuture.get()`."
+    },
+    {
+      "id": "D58",
+      "topic": "Admin API",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §7",
+        "notes §12"
+      ],
+      "q": "An application calls `admin.createPartitions` asking for 4 partitions on a topic that has 6. What happens?",
+      "options": [
+        {
+          "t": "The topic is shrunk to 4 partitions",
+          "why": "Partitions can only be increased."
+        },
+        {
+          "t": "The two newest partitions are merged into the others",
+          "why": "Kafka never merges partitions."
+        },
+        {
+          "t": "It fails with InvalidPartitionsException",
+          "ok": true
+        },
+        {
+          "t": "It succeeds but takes effect after a broker restart",
+          "why": "The request is rejected outright."
+        }
+      ],
+      "explain": "`createPartitions` only increases. A count less than or equal to the current one fails with `InvalidPartitionsException`; Kafka cannot reduce a topic's partitions."
+    },
+    {
+      "id": "D59",
+      "topic": "Admin API",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §7"
+      ],
+      "q": "Which Admin API method changes one topic setting, such as `retention.ms`, without resetting the topic's other settings?",
+      "options": [
+        {
+          "t": "createTopics with the same name",
+          "why": "That fails for an existing topic."
+        },
+        {
+          "t": "describeConfigs",
+          "why": "That only reads configuration."
+        },
+        {
+          "t": "alterConsumerGroupOffsets",
+          "why": "That changes a group's offsets, not topic configs."
+        },
+        {
+          "t": "incrementalAlterConfigs",
+          "ok": true
+        }
+      ],
+      "explain": "`incrementalAlterConfigs` changes individual settings; `describeConfigs` reads them."
+    },
+    {
+      "id": "D60",
+      "topic": "Admin API",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §7"
+      ],
+      "q": "A team must remove records before offset 10 000 in partition 0 of a topic with the delete cleanup policy, without deleting the topic. Which Admin API method does that?",
+      "options": [
+        {
+          "t": "deleteRecords",
+          "ok": true
+        },
+        {
+          "t": "deleteTopics with a partition filter",
+          "why": "deleteTopics deletes whole topics."
+        },
+        {
+          "t": "deleteConsumerGroupOffsets",
+          "why": "That removes a group's committed offsets, not records."
+        },
+        {
+          "t": "incrementalAlterConfigs with retention.ms=0 on partition 0",
+          "why": "Retention is per topic, not per partition."
+        }
+      ],
+      "explain": "`deleteRecords` deletes records whose offset is smaller than the given offset for a partition."
+    },
+    {
+      "id": "D61",
+      "topic": "Admin API",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §7"
+      ],
+      "q": "Which TWO tasks can the Admin API do?",
+      "options": [
+        {
+          "t": "Create ACLs",
+          "ok": true
+        },
+        {
+          "t": "Produce records to a topic",
+          "why": "Producing is the producer's job."
+        },
+        {
+          "t": "Reset a consumer group's committed offsets",
+          "ok": true
+        },
+        {
+          "t": "Change a broker's JVM heap size",
+          "why": "JVM options are not Kafka configs the Admin API manages."
+        },
+        {
+          "t": "Read records from a topic",
+          "why": "Reading is the consumer's job."
+        }
+      ],
+      "explain": "The Admin client manages and inspects topics, brokers, configurations and ACLs (`createAcls`), and consumer group offsets (`alterConsumerGroupOffsets`)."
+    },
+    {
+      "id": "D62",
+      "topic": "Admin API",
+      "difficulty": "easy",
+      "sources": [
+        "ccdak §7"
+      ],
+      "q": "Is the Admin client safe to share between threads?",
+      "options": [
+        {
+          "t": "No; create one per thread",
+          "why": "Instances from Admin.create are guaranteed thread safe."
+        },
+        {
+          "t": "Only for read-only calls",
+          "why": "The guarantee covers the instance as a whole."
+        },
+        {
+          "t": "Yes; Admin.create returns thread-safe instances",
+          "ok": true
+        },
+        {
+          "t": "Only if every call uses get()",
+          "why": "Thread safety doesn't depend on how results are awaited."
+        }
+      ],
+      "explain": "Instances returned by `Admin.create` are guaranteed to be thread safe."
+    },
+    {
+      "id": "D63",
+      "topic": "Data modeling",
+      "difficulty": "medium",
+      "sources": [
+        "notes §13",
+        "notes §8"
+      ],
+      "q": "Order events must be processed in order for each order, and the latest state of each order must be easy to rebuild. Which key should the producer use?",
+      "options": [
+        {
+          "t": "A random UUID per event",
+          "why": "Random keys spread one order's events over partitions, losing their order."
+        },
+        {
+          "t": "The event type",
+          "why": "All orders' events of one type would share a partition, and one order's events would be split by type."
+        },
+        {
+          "t": "The order ID",
+          "ok": true
+        },
+        {
+          "t": "No key, for the best balance",
+          "why": "Without a key, one order's events can land in different partitions."
+        }
+      ],
+      "explain": "Events with the same key go to the same partition and are read in order; keying by order ID also lets a compacted topic keep the latest state per order."
+    }
+  ]
+}

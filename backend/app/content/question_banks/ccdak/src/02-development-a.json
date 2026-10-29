@@ -1,0 +1,610 @@
+{
+  "section": 2,
+  "domain": "Apache Kafka Application Development",
+  "questions": [
+    {
+      "id": "D01",
+      "topic": "Producer API",
+      "difficulty": "easy",
+      "sources": [
+        "ccdak §2"
+      ],
+      "q": "What does `KafkaProducer.send(record)` do when it is called?",
+      "options": [
+        {
+          "t": "It blocks until every in-sync replica has stored the record",
+          "why": "send() is asynchronous; waiting is what get() on the returned Future does."
+        },
+        {
+          "t": "It adds the record to a buffer and returns a Future at once",
+          "ok": true
+        },
+        {
+          "t": "It writes the record to the local disk, then to the broker",
+          "why": "The producer keeps pending records in memory, not on disk."
+        },
+        {
+          "t": "It opens a new connection to the leader for this one record",
+          "why": "The producer reuses connections and batches records."
+        }
+      ],
+      "explain": "`send()` is asynchronous: it adds the record to a buffer of pending sends and returns a `Future<RecordMetadata>` immediately. Calling `get()` on it blocks until the request completes."
+    },
+    {
+      "id": "D02",
+      "topic": "Producer API",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §2"
+      ],
+      "q": "A web service has 32 request threads that each send to Kafka. How should it use producers?",
+      "options": [
+        {
+          "t": "Create a new producer for every request and close it afterwards",
+          "why": "Producers are expensive to create and are meant to be long-lived and shared."
+        },
+        {
+          "t": "One producer per thread, because KafkaProducer is not thread safe",
+          "why": "KafkaProducer is thread safe; it's KafkaConsumer that isn't."
+        },
+        {
+          "t": "Share one producer instance across the threads",
+          "ok": true
+        },
+        {
+          "t": "One producer per partition, chosen by each thread",
+          "why": "One producer writes to every partition; partitioning is per record."
+        }
+      ],
+      "explain": "The producer is thread safe, and the Javadoc says sharing a single instance across threads will generally be faster than having multiple instances."
+    },
+    {
+      "id": "D03",
+      "topic": "Producer API",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §2"
+      ],
+      "q": "Where do producer send callbacks run, and what follows from that?",
+      "options": [
+        {
+          "t": "In the producer's I/O thread, so slow ones delay other sends",
+          "ok": true
+        },
+        {
+          "t": "In a new thread per callback, so they can block freely",
+          "why": "Callbacks generally run in the single I/O thread, so blocking in them is harmful."
+        },
+        {
+          "t": "In the thread that called send(), after it returns",
+          "why": "send() returns before the record is acknowledged; the callback runs later in the I/O thread."
+        },
+        {
+          "t": "On the broker, which runs them before it acknowledges the batch",
+          "why": "Callbacks are client code and run in the client."
+        }
+      ],
+      "explain": "Callbacks generally execute in the producer's I/O thread and should be reasonably fast; otherwise they delay sending messages from other threads."
+    },
+    {
+      "id": "D04",
+      "topic": "Producer API",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §2"
+      ],
+      "q": "Records A, B and C are sent, in that order, to the same partition with a callback each. In what order do the callbacks run?",
+      "options": [
+        {
+          "t": "In any order, depending on network timing",
+          "why": "For one partition, the order is guaranteed."
+        },
+        {
+          "t": "C, B, A, newest first",
+          "why": "There is no reverse ordering."
+        },
+        {
+          "t": "Only the last callback runs, for the whole batch",
+          "why": "Each record's callback runs."
+        },
+        {
+          "t": "A, B, C: callbacks for one partition run in order",
+          "ok": true
+        }
+      ],
+      "explain": "The Javadoc guarantees that callbacks for records sent to the same partition execute in order."
+    },
+    {
+      "id": "D05",
+      "topic": "Producer API",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §2"
+      ],
+      "q": "A batch job sends 10 000 records with `send()` and then exits. Some records never arrive. What should it call before exiting?",
+      "options": [
+        {
+          "t": "send() again for every record, with acks=0",
+          "why": "Resending doesn't make sure buffered records go out before exit."
+        },
+        {
+          "t": "flush() or close()",
+          "ok": true
+        },
+        {
+          "t": "commitSync(), which forces the producer to send",
+          "why": "commitSync() is a consumer method for offsets."
+        },
+        {
+          "t": "Nothing; send() already waited for each record",
+          "why": "send() returns before the record is sent."
+        }
+      ],
+      "explain": "`flush()` makes buffered records immediately sendable and blocks until their requests complete; `close()` blocks until all previously sent requests complete."
+    },
+    {
+      "id": "D06",
+      "topic": "Producer API",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §2"
+      ],
+      "q": "A shutdown hook calls `producer.close(Duration.ofSeconds(5))`, and some requests are still in flight after 5 seconds. What happens to them?",
+      "options": [
+        {
+          "t": "They are written to a local file and sent on the next start",
+          "why": "The producer has no on-disk spool."
+        },
+        {
+          "t": "close() keeps waiting until they all complete",
+          "why": "That is close() without a timeout."
+        },
+        {
+          "t": "They fail at once, and an open transaction is aborted",
+          "ok": true
+        },
+        {
+          "t": "They are handed to another producer in the same process",
+          "why": "Producers don't hand records to each other."
+        }
+      ],
+      "explain": "`close(Duration)` waits up to the timeout, then fails any unsent and unacknowledged records immediately, and aborts an ongoing transaction."
+    },
+    {
+      "id": "D07",
+      "topic": "Batching",
+      "difficulty": "medium",
+      "sources": [
+        "notes §1"
+      ],
+      "q": "In Kafka 4.3, what are the producer's defaults for `linger.ms` and `batch.size`?",
+      "options": [
+        {
+          "t": "linger.ms=0 and batch.size=16384",
+          "why": "linger.ms changed from 0 to 5 in Kafka 4.0."
+        },
+        {
+          "t": "linger.ms=100 and batch.size=1048576",
+          "why": "Neither is a default; 1 MiB is max.request.size."
+        },
+        {
+          "t": "linger.ms=10 and batch.size=32768",
+          "why": "These are tuning choices some guides suggest, not the defaults."
+        },
+        {
+          "t": "linger.ms=5 and batch.size=16384",
+          "ok": true
+        }
+      ],
+      "explain": "`linger.ms` defaults to 5 (it changed from 0 in Kafka 4.0) and `batch.size` to 16384 bytes (16 KiB)."
+    },
+    {
+      "id": "D08",
+      "topic": "Batching",
+      "difficulty": "medium",
+      "sources": [
+        "notes §1",
+        "notes §23"
+      ],
+      "q": "A producer sends small records at a high rate and the team wants more throughput. Which TWO changes are most likely to help?",
+      "options": [
+        {
+          "t": "Raise linger.ms a little so batches fill up more",
+          "ok": true
+        },
+        {
+          "t": "Set batch.size=0",
+          "why": "0 disables batching, which lowers throughput."
+        },
+        {
+          "t": "Enable compression such as lz4 or zstd, which works better on bigger batches",
+          "ok": true
+        },
+        {
+          "t": "Set acks=all and min.insync.replicas=3",
+          "why": "These raise durability, not throughput."
+        },
+        {
+          "t": "Set max.in.flight.requests.per.connection=1",
+          "why": "Fewer requests in flight reduces throughput."
+        }
+      ],
+      "explain": "Batching trades a little latency for throughput: a slightly longer linger fills bigger batches, and compression works on whole batches, so better batching gives better compression."
+    },
+    {
+      "id": "D09",
+      "topic": "Batching",
+      "difficulty": "hard",
+      "sources": [
+        "notes §1"
+      ],
+      "q": "Brokers become slow and the producer's buffer fills up. What happens to the next `send()` call with default settings?",
+      "options": [
+        {
+          "t": "It throws BufferExhaustedException at once",
+          "why": "send() first blocks, up to max.block.ms."
+        },
+        {
+          "t": "It drops the oldest buffered record to make room",
+          "why": "The producer never drops buffered records to make room."
+        },
+        {
+          "t": "It blocks for up to max.block.ms (60 s), then fails if no space frees up",
+          "ok": true
+        },
+        {
+          "t": "It doubles buffer.memory automatically",
+          "why": "buffer.memory is fixed by configuration."
+        }
+      ],
+      "explain": "`buffer.memory` (32 MiB) bounds records waiting to be sent. When it is full, `send()` blocks for up to `max.block.ms` (60 000 ms) and then fails."
+    },
+    {
+      "id": "D10",
+      "topic": "Compression",
+      "difficulty": "easy",
+      "sources": [
+        "notes §1"
+      ],
+      "q": "Which compression types can a Kafka producer use with `compression.type`?",
+      "options": [
+        {
+          "t": "none, gzip, snappy, lz4, zstd",
+          "ok": true
+        },
+        {
+          "t": "zip, rar, gzip",
+          "why": "zip and rar are not Kafka codecs."
+        },
+        {
+          "t": "Only gzip",
+          "why": "Kafka supports several codecs."
+        },
+        {
+          "t": "none and deflate, chosen per record",
+          "why": "Compression is per batch, and deflate is not one of the options."
+        }
+      ],
+      "explain": "`compression.type` takes `none` (the default), `gzip`, `snappy`, `lz4` or `zstd`, and compresses whole batches."
+    },
+    {
+      "id": "D11",
+      "topic": "Compression",
+      "difficulty": "hard",
+      "sources": [
+        "notes §3",
+        "notes §23"
+      ],
+      "q": "A topic has `compression.type=producer` (the default). A producer sends zstd-compressed batches. What does the broker store, and who decompresses?",
+      "options": [
+        {
+          "t": "The broker decompresses and stores the records uncompressed",
+          "why": "With the producer setting, the batch stays compressed in the log."
+        },
+        {
+          "t": "The broker recompresses everything with gzip",
+          "why": "That would need compression.type=gzip on the topic."
+        },
+        {
+          "t": "zstd batches, decompressed only by the consumer",
+          "ok": true
+        },
+        {
+          "t": "The consumer must use the same producer instance to decompress",
+          "why": "Any consumer can decompress; the codec is recorded in the batch."
+        }
+      ],
+      "explain": "The topic's `producer` setting keeps the producer's codec. Compressed batches stay compressed in the log and are decompressed by the consumer (end-to-end batch compression)."
+    },
+    {
+      "id": "D12",
+      "topic": "Retries and timeouts",
+      "difficulty": "medium",
+      "sources": [
+        "notes §1"
+      ],
+      "q": "The Kafka documentation recommends controlling how long a producer keeps retrying a send with which setting?",
+      "options": [
+        {
+          "t": "retries, set to a small number such as 3",
+          "why": "The docs prefer leaving retries unset and using delivery.timeout.ms."
+        },
+        {
+          "t": "request.timeout.ms",
+          "why": "That bounds one request, not all retries."
+        },
+        {
+          "t": "max.block.ms",
+          "why": "That bounds how long send() itself may block."
+        },
+        {
+          "t": "delivery.timeout.ms",
+          "ok": true
+        }
+      ],
+      "explain": "`retries` defaults to the maximum integer, and the docs prefer leaving it unset and using `delivery.timeout.ms` (default 2 minutes), which bounds waiting, the ack and retries together."
+    },
+    {
+      "id": "D13",
+      "topic": "Retries and timeouts",
+      "difficulty": "hard",
+      "sources": [
+        "notes §1"
+      ],
+      "q": "Which statement about the producer's retry backoff in Kafka 4.3 is right?",
+      "options": [
+        {
+          "t": "It is fixed at retry.backoff.ms for every attempt",
+          "why": "It grows exponentially up to retry.backoff.max.ms."
+        },
+        {
+          "t": "Exponential from 100 ms to 1 s, with ±20% jitter",
+          "ok": true
+        },
+        {
+          "t": "It is chosen by the broker in each error response",
+          "why": "The client computes the backoff."
+        },
+        {
+          "t": "There is no backoff; retries are immediate",
+          "why": "Kafka backs off, with jitter."
+        }
+      ],
+      "explain": "The backoff starts at `retry.backoff.ms` and grows exponentially to `retry.backoff.max.ms`, with ±20% random jitter so clients don't retry in sync."
+    },
+    {
+      "id": "D14",
+      "topic": "Ordering",
+      "difficulty": "hard",
+      "sources": [
+        "notes §1"
+      ],
+      "q": "A producer has `enable.idempotence=false`, `retries` above 0 and `max.in.flight.requests.per.connection=5`. What risk does this create?",
+      "options": [
+        {
+          "t": "None; ordering within a partition is always kept by the broker",
+          "why": "Without idempotence, retries with several requests in flight can reorder."
+        },
+        {
+          "t": "Records may be written to the wrong partition",
+          "why": "Partition choice is not affected by retries."
+        },
+        {
+          "t": "The producer will refuse to start",
+          "why": "This is a valid, if risky, configuration."
+        },
+        {
+          "t": "A retried batch can land after a later one, reordering records",
+          "ok": true
+        }
+      ],
+      "explain": "With idempotence off and more than one request in flight, retries can reorder records. Idempotence keeps order with up to 5 in flight, because the broker retains up to 5 batches per producer."
+    },
+    {
+      "id": "D15",
+      "topic": "Idempotence",
+      "difficulty": "hard",
+      "sources": [
+        "notes §1"
+      ],
+      "q": "A developer explicitly sets `enable.idempotence=true` and also `acks=1`. What happens?",
+      "options": [
+        {
+          "t": "The producer starts, and idempotence is silently turned off",
+          "why": "Silent disabling happens only when idempotence was not explicitly enabled."
+        },
+        {
+          "t": "The producer starts with acks=all instead",
+          "why": "The client doesn't rewrite the setting; it rejects it."
+        },
+        {
+          "t": "Creating the producer fails with a ConfigException",
+          "ok": true
+        },
+        {
+          "t": "It works; idempotence doesn't depend on acks",
+          "why": "Idempotence requires acks=all."
+        }
+      ],
+      "explain": "Idempotence requires `acks=all`, retries > 0 and at most 5 requests in flight. If it is explicitly enabled with conflicting settings, the producer throws `ConfigException`."
+    },
+    {
+      "id": "D16",
+      "topic": "Partitioning",
+      "difficulty": "medium",
+      "sources": [
+        "notes §1"
+      ],
+      "q": "A team needs records routed by a business rule that the key hash doesn't express (for example VIP customers to partition 0). What does Kafka provide for this?",
+      "options": [
+        {
+          "t": "Implement the Partitioner interface and set partitioner.class",
+          "ok": true
+        },
+        {
+          "t": "Set partitioner.ignore.keys=true",
+          "why": "That ignores keys entirely; it doesn't apply a business rule."
+        },
+        {
+          "t": "Use a topic per partition",
+          "why": "That changes the data model instead of routing within a topic."
+        },
+        {
+          "t": "Ask the broker to route by value with a topic setting",
+          "why": "Partitions are chosen by the producer, not the broker."
+        }
+      ],
+      "explain": "A custom partitioner implements `Partitioner` and is set with `partitioner.class`. (The application can also set the partition on each record.)"
+    },
+    {
+      "id": "D17",
+      "topic": "Partitioning",
+      "difficulty": "medium",
+      "sources": [
+        "notes §1",
+        "notes §9"
+      ],
+      "q": "Which TWO statements about the producer's built-in partitioning in Kafka 4.3 are right?",
+      "options": [
+        {
+          "t": "A keyed record goes to the partition chosen by hashing its key",
+          "ok": true
+        },
+        {
+          "t": "DefaultPartitioner must be set explicitly to get key hashing",
+          "why": "DefaultPartitioner was removed in 4.0; the built-in logic applies when partitioner.class is null."
+        },
+        {
+          "t": "With adaptive partitioning (on by default), the producer sends more to partitions on faster brokers",
+          "ok": true
+        },
+        {
+          "t": "Keyless records always go to partition 0",
+          "why": "Keyless records go to a sticky partition that changes."
+        },
+        {
+          "t": "partitioner.ignore.keys defaults to true",
+          "why": "It defaults to false."
+        }
+      ],
+      "explain": "With `partitioner.class` unset, a key is hashed to choose the partition, and keyless records use a sticky partition. `partitioner.adaptive.partitioning.enable` (default true) favours faster brokers."
+    },
+    {
+      "id": "D18",
+      "topic": "Error handling",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §3"
+      ],
+      "q": "A send callback fires with a non-null exception. What does the RecordMetadata argument contain?",
+      "options": [
+        {
+          "t": "The partition and offset the record would have had",
+          "why": "On failure there is no partition and offset to report."
+        },
+        {
+          "t": "null",
+          "why": "The Javadoc says metadata holds the special -1 value for every field."
+        },
+        {
+          "t": "The offset of the last successful record",
+          "why": "The metadata is not about other records."
+        },
+        {
+          "t": "The special value -1 in every field",
+          "ok": true
+        }
+      ],
+      "explain": "When `exception` is not null, `metadata` contains -1 for all fields; on success it holds the record's partition and offset."
+    },
+    {
+      "id": "D19",
+      "topic": "Error handling",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §3"
+      ],
+      "q": "Which TWO of these errors in a producer callback are retriable, meaning a retry may succeed?",
+      "options": [
+        {
+          "t": "NotEnoughReplicasException",
+          "ok": true
+        },
+        {
+          "t": "RecordTooLargeException",
+          "why": "A record that is too large will be too large on every attempt."
+        },
+        {
+          "t": "AuthorizationException",
+          "why": "Missing permissions don't fix themselves by retrying."
+        },
+        {
+          "t": "TimeoutException",
+          "ok": true
+        },
+        {
+          "t": "InvalidTopicException",
+          "why": "An invalid topic name stays invalid."
+        }
+      ],
+      "explain": "The Callback Javadoc lists `NotEnoughReplicasException` and `TimeoutException` among retriable (transient) errors, and `RecordTooLargeException`, `AuthorizationException` and `InvalidTopicException` among non-retriable ones."
+    },
+    {
+      "id": "D20",
+      "topic": "Error handling",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §3",
+        "notes §1"
+      ],
+      "q": "An application's callback sees a `NotEnoughReplicasException` after the producer has been running for two minutes during a broker outage. Why did the producer not retry it away?",
+      "options": [
+        {
+          "t": "It retried until delivery.timeout.ms ran out",
+          "ok": true
+        },
+        {
+          "t": "NotEnoughReplicasException is never retried by the producer",
+          "why": "It is a retriable exception; the producer retries it."
+        },
+        {
+          "t": "Retries are off by default",
+          "why": "retries defaults to the maximum integer."
+        },
+        {
+          "t": "The broker told the producer not to retry",
+          "why": "Retry is a client decision for retriable errors."
+        }
+      ],
+      "explain": "The producer retries retriable errors itself, bounded by `delivery.timeout.ms` (2 minutes by default). The application sees a retriable error only when retrying has run out of time."
+    },
+    {
+      "id": "D21",
+      "topic": "Error handling",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §2"
+      ],
+      "q": "`send()` is called with a value the configured serializer can't handle. How is the error delivered?",
+      "options": [
+        {
+          "t": "Through the callback, after retries",
+          "why": "Serialization happens in send() itself, so the error is thrown there."
+        },
+        {
+          "t": "send() throws SerializationException directly",
+          "ok": true
+        },
+        {
+          "t": "The broker rejects the batch with CorruptRecordException",
+          "why": "The record never reaches the broker."
+        },
+        {
+          "t": "It is silently dropped",
+          "why": "The Javadoc lists SerializationException as thrown by send()."
+        }
+      ],
+      "explain": "The `send()` Javadoc lists `SerializationException`, thrown when the key or value is not valid for the configured serializers."
+    }
+  ]
+}
