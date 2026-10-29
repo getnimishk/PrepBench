@@ -100,13 +100,9 @@ Delta protocol and Apache Spark 4.2 pages, read as page text (not summaries), pl
 Engineer Associate, guide of 6 Aug 2026; Professional, guide of 9 Oct 2026). Neither exam publishes a pass mark; never
 state one. §19 there lists what the docs don't confirm (no `DENY` statement in Unity Catalog SQL despite the Associate
 guide; "standard connectors"; the Professional page/guide mismatch); a new fact goes into the notes first.
-**The learner's goal is to lead a Databricks migration with a deep understanding (decided 2026-10-29).** Databricks has
-no "Solutions Architect" credential (notes §1.4), so **Databricks stays a skill**: no certification preparation, no
-question bank, no mocks. Notes §20 cover the Azure network landing zone and §21 migration (warehouse/Hive/Spark
-differences, Parquet to Delta, Hive metastore to Unity Catalog with UCX/`SYNC`/deep clone/federation, Genie Migrate).
-`docs/implementation/DATABRICKS-GAP-REPORT.md` is the proposal (roadmap, a 26-chapter guide in five layers ending with
-migration, migration-weighted scenarios, seven lab experiments, interview material). **Nothing is built until the
-learner approves the build order.**
+`docs/implementation/DATABRICKS-GAP-REPORT.md` is the proposal (roadmap, guide, scenarios, a 300-question Associate
+bank, six lab experiments, interview material). **Nothing is built until the learner approves it**: which certification,
+whether it becomes its own preparation, and the build order are their decisions.
 
 **Settled decisions, don't reopen these:**
 - The header Settings button stays, even though it isn't in the prototype — kept for
