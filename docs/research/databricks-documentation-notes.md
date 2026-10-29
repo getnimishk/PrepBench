@@ -935,6 +935,9 @@ https://docs.databricks.com/aws/en/getting-started/free-edition-limitations (202
   expects is in Databricks Academy, which these notes did not read (it needs a sign-in). Registration is "free for
   Databricks customers and partners"; the page doesn't say whether anyone else can take it. "Solutions Architect" is not
   a Databricks credential.
+- **Migration tooling (§21):** Lakebridge (linked from the Genie Migrate page) was not read; nothing here describes it.
+  The UCX page shows its own version as 0.20.0 in an example; UCX changes often, so the material teaches its workflow
+  order, not command details. Genie Migrate's availability per Azure region was not checked.
 
 ## 20. Azure Databricks networking and workspace deployment (the Platform Architect areas)
 
@@ -1033,3 +1036,109 @@ Sources: https://learn.microsoft.com/en-us/azure/databricks/security/network/ (u
   account in a **network security perimeter** and allow the `AzureDatabricksServerless` service tag (it can be scoped to
   a region), otherwise serverless gets **403 Forbidden**. A storage firewall also affects classic compute, which must be
   allowed separately.
+
+## 21. Migrating to Databricks
+
+Sources: https://docs.databricks.com/aws/en/migration/ ; `.../migration/warehouse-to-lakehouse` ; `.../migration/etl` ;
+`.../migration/spark` ; `.../migration/parquet-to-delta-lake` ; `.../sql/language-manual/delta-convert-to-delta` (all
+updated 2026-09-11) ; `.../migration/agentic-code-converter` (2026-10-27) ;
+`.../data-governance/unity-catalog/migrate` (2026-10-06) ; `.../data-governance/unity-catalog/ucx` (2026-10-06) ;
+`.../data-governance/unity-catalog/hive-metastore` (2026-09-11) ; `.../query-federation/hms-federation-concepts`
+(2026-09-11) ; https://learn.microsoft.com/en-us/azure/databricks/migration/ (2026-09-11, same content) (all read
+2026-10-29). Station F of the Lakehouse Lab (Migration Factory) teaches the programme side; these notes are the platform
+facts.
+
+### 21.1 What the docs say a migration is
+
+- Databricks frames it as unifying, not removing, warehousing: "Migrating your data warehousing workloads to Databricks is
+  not about eliminating data warehousing, but rather unifying your data ecosystem." Most warehouse queries and dashboards
+  run "with minimal code refactoring" once the initial data migration and governance configuration are done.
+- **Differences a warehouse team will hit:** all transactions are **table-level** (no database-level transactions or
+  locks); **no `BEGIN`/`END`**: each statement is its own transaction; three-level names `catalog.schema.table`
+  ("database" and "schema" are synonyms); **primary and foreign keys are informational only**; data types and numeric
+  precision may differ from the source and must be chosen deliberately.
+- **Hive workloads** mostly run with minimal refactoring. Concerns: Hive SerDes (change DDL from `STORED AS` to
+  `USING`); Hive UDFs installed as libraries or rewritten as native Spark; directory and partition layout (Databricks
+  partitions differently). Converting to Delta at the same time makes some Hive DDL/DML unsupported, among them `ROW
+  FORMAT`, `SERDE`, `STORED AS`, `ALTER TABLE ADD|DROP PARTITION`, `ALTER TABLE RECOVER PARTITIONS`, `CREATE TABLE
+  LIKE`, `INSERT OVERWRITE DIRECTORY`, `LOAD DATA`.
+- **SQL ETL** usually needs little refactoring; much of the work is configuring access to sources. **dbt** runs natively;
+  a light refactor to Lakeflow pipelines "might lower your total cost". Pipelines in languages other than SQL, Spark or
+  Hive "might need to be heavily refactored". File-arrival cloud functions map to Auto Loader + Structured Streaming +
+  Jobs.
+- **Existing Spark code:** write Delta instead of Parquet (and drop pseudo-transaction workarounds such as `MSCK repair`
+  and manual `ALTER TABLE ADD PARTITION`); use libraries the Databricks Runtime ships; replace explicit `SparkSession`
+  creation with `getOrCreate()`; remove `sys.exit()`, `sc.stop()` and `awaitTermination()`; don't hand-tune executor and
+  JVM settings ("Providing custom configurations ... can result in reduced performance"); then run in a test
+  environment and **compare performance and results** with the legacy system.
+
+### 21.2 Moving the data: Parquet to Delta
+
+| Method | Incremental | Duplicates data | Keeps the layout | Backfill | Effort |
+|---|---|---|---|---|---|
+| Deep `CLONE` Parquet | Yes | Yes | Yes | Yes | Easy |
+| Shallow `CLONE` Parquet | Yes | No | Yes | Yes | Easy |
+| `CONVERT TO DELTA` | No | No | Yes | No | Easy |
+| Auto Loader | Yes | Yes | No | Optional | Some configuration |
+| Batch Spark job | Custom | Yes | No | Custom | Custom |
+
+- Keeping the old partitioning is possible but "over-partitioned tables are one of the main culprits that cause slow
+  workloads on Delta Lake".
+- **`CONVERT TO DELTA`** builds a transaction log over the existing files in place and infers the schema from Parquet
+  footers (it also converts Parquet-based Iceberg tables, by path only). Caveats: files written during conversion may be
+  missed; afterwards **all writes must go through Delta**, because **a file the log doesn't track is invisible and
+  `VACUUM` can delete it**; converting a directory shared by several external tables breaks the others until they are
+  converted too. `NO STATISTICS` speeds conversion; liquid clustering is then recommended to regenerate statistics.
+- Keep Parquet only where an upstream writer can't write Delta or a downstream reader can't read it.
+
+### 21.3 Moving the metadata: Hive metastore to Unity Catalog
+
+- The workspace Hive metastore is **legacy**; it appears as the catalog `hive_metastore` beside Unity Catalog catalogs
+  (Unity Catalog is "additive"), and joins across them work **only in the workspace that owns the Hive data**. Its tables
+  lack Unity Catalog auditing, lineage and access control. Databricks recommends migrating and then **disabling direct
+  Hive metastore access** (clusters keep connecting to it until you do).
+- **Access model differences:** Unity Catalog is account-level and grants to **account groups** (Hive: workspace-local
+  groups); `USE CATALOG` + `USE SCHEMA` are always needed; a view owner needs only `SELECT` on what it reads; no `ANY
+  FILE`, `ANONYMOUS FUNCTION`, `DENY` or `READ_METADATA`.
+- **Default catalog:** `hive_metastore` if the workspace was enabled for Unity Catalog manually, the workspace catalog if
+  automatically; keeping `hive_metastore` as default during the move avoids breaking unqualified code.
+
+| Tool | From | Creates in Unity Catalog | Use it when |
+|---|---|---|---|
+| **UCX** (Databricks Labs) | managed or external Hive tables | managed or external | a whole-workspace upgrade: assessment, groups, permissions, storage, tables; **the only bulk path to managed tables** |
+| **Upgrade wizard** (Catalog Explorer) | managed or external | **external only** | a visual, schema-at-a-time upgrade (runs `SYNC`), optionally scheduled |
+| **`SYNC`** | managed or external, **not** managed tables in workspace storage (DBFS root) | **external only** | the same in SQL; can be scheduled to keep a hybrid state current |
+| **`CREATE TABLE CLONE`** (deep) | managed Delta tables | **managed** | full Unity Catalog benefits; `CTAS` if the table doesn't qualify |
+
+- **Impact:** Hive partition commands don't work on Unity Catalog tables, and **a cloned table starts with no history**:
+  no time travel to pre-migration versions. `SYNC` writes bookkeeping properties onto the source table.
+- **UCX** is a Databricks Labs project: "not formally supported by Databricks with service-level agreements". It needs
+  the Databricks CLI, account admin + workspace admin (not a service principal), a Unity Catalog metastore attached in
+  every region involved (which also turns on identity federation), and a Pro or Serverless SQL warehouse. Order:
+  **assessment** (stored as Delta tables in an inventory schema, with a dashboard; rerunnable) → **group migration**
+  (workspace-local groups to account groups, permissions replicated) → **table migration** (external Hive tables via
+  `SYNC`, managed tables in workspace storage via `DEEP CLONE`; preparation commands create a table-mapping CSV to review
+  and an "uber" principal with read-only access to all storage, to be removed afterwards). Its code migration workflow is
+  "not yet available".
+- **Hive metastore federation** is the gradual alternative: Unity Catalog crawls the Hive metastore into a **foreign
+  catalog**. For the workspace's **internal** Hive metastore it is **read and write** (DDL is written through to Hive,
+  so `DROP SCHEMA ... CASCADE` drops the Hive tables too, with no `UNDROP`); for external Hive metastores and Glue it is
+  **read-only**. Workloads move one at a time by switching their default catalog to the foreign catalog, then direct
+  Hive access is disabled. Foreign tables lack managed-table features such as predictive optimization, and can be
+  "marginally" slower. **Fallback mode** on an external location lets unmigrated workloads fall back to their old
+  cluster credentials during the move; it is for migration only, and the audit log (`system.access.audit`,
+  `request_params.fallback_enabled`) shows whether anything still uses it before you turn it off.
+- **Azure:** the pages above are written with AWS examples ("IAM role"); on Azure the storage credential uses the Access
+  Connector's managed identity (§17).
+
+### 21.4 Converting SQL code: Genie Migrate
+
+- **Genie Migrate** (formerly the "agentic code converter") converts SQL from **T-SQL, Snowflake, Redshift, Oracle,
+  BigQuery and Teradata** to Databricks SQL, or (Beta) to notebooks using the DataFrame API, inside a **migration
+  project** that tracks each file's status (converted, needs review, failed). Subagents check **syntax** and **semantic
+  intent** (same joins and `WHERE` clauses) and retry. Limits: **300 files per batch**; **Teradata BTEQ not supported**.
+  Project analysis of complexity and lineage is Beta. **Custom skills** (`Workspace/.assistant/skills/<name>/SKILL.md`)
+  capture conversion rules learned from the first batches.
+- The page's own testing advice: start with two to five files, run the output, include dialect-specific constructs
+  (T-SQL window functions, Snowflake `QUALIFY`, Redshift `LISTAGG`), and **run original and converted queries on
+  equivalent data and compare the results** ("semantically correct, not only syntactically valid").

@@ -100,13 +100,13 @@ Delta protocol and Apache Spark 4.2 pages, read as page text (not summaries), pl
 Engineer Associate, guide of 6 Aug 2026; Professional, guide of 9 Oct 2026). Neither exam publishes a pass mark; never
 state one. §19 there lists what the docs don't confirm (no `DENY` statement in Unity Catalog SQL despite the Associate
 guide; "standard connectors"; the Professional page/guide mismatch); a new fact goes into the notes first.
-**The learner is preparing for solution architecture.** Databricks has no "Solutions Architect" credential; the nearest
-is the **Azure Platform Architect** accreditation badge (notes §1.4: 20 questions, 80% pass mark as published, five
-areas with no published weights, free for customers and partners), whose networking areas are in notes §20.
-`docs/implementation/DATABRICKS-GAP-REPORT.md` is the proposal (roadmap, a 25-chapter guide, scenarios, a 100-question
-architect bank split evenly and a 300-question Associate bank, seven lab experiments, interview material). **Nothing is
-built until the learner approves it**: which credentials, whether they become their own preparations, the build order
-and an architect scenario lens are their decisions.
+**The learner's goal is to lead a Databricks migration with a deep understanding (decided 2026-10-29).** Databricks has
+no "Solutions Architect" credential (notes §1.4), so **Databricks stays a skill**: no certification preparation, no
+question bank, no mocks. Notes §20 cover the Azure network landing zone and §21 migration (warehouse/Hive/Spark
+differences, Parquet to Delta, Hive metastore to Unity Catalog with UCX/`SYNC`/deep clone/federation, Genie Migrate).
+`docs/implementation/DATABRICKS-GAP-REPORT.md` is the proposal (roadmap, a 26-chapter guide in five layers ending with
+migration, migration-weighted scenarios, seven lab experiments, interview material). **Nothing is built until the
+learner approves the build order.**
 
 **Settled decisions, don't reopen these:**
 - The header Settings button stays, even though it isn't in the prototype — kept for
