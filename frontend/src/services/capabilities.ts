@@ -451,12 +451,18 @@ export function getSubjectCapabilities(
     const curriculum = liveCurriculum(live);
     const hasLabQuestions = typeof live.lab_interview_question_count === 'number' && live.lab_interview_question_count > 0;
     const interview = profile.interview || hasLabQuestions;
+    // A pack's lab comes with the pack, here as for a derived profile: the ADF or Kafka pack
+    // attached to a seeded preparation without a lab of its own (System Design, say) brings its
+    // lab, as the lab pages' own pack check already allows. A seeded lab is never replaced.
+    const packLab = profile.learningLab ? null
+      : hasAdfPack(live) ? adfLabStatus() : hasKafkaPack(live) ? kafkaLabStatus() : null;
     const sameCurriculum = Object.entries(curriculum)
       .every(([k, v]) => profile[k as keyof SubjectCapabilityProfile] === v);
-    if (live.question_count === profile.questionCount && sameCurriculum && interview === profile.interview) return profile;
+    if (live.question_count === profile.questionCount && sameCurriculum && interview === profile.interview && !packLab) return profile;
     return Object.freeze({
       ...profile,
       ...curriculum,
+      ...(packLab ? { learningLab: true, lab: true, learningLabStatus: packLab } : {}),
       interview,
       questionCount: live.question_count,
       questionAvailability: live.question_count > 0,

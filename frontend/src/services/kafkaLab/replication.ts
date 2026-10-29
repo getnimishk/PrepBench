@@ -32,9 +32,13 @@ export type ReplicationOutcome = 'safe' | 'one-copy' | 'refused' | 'unconfirmed'
 export interface ReplicationResult {
   outcome: ReplicationOutcome;
   isr: number;
-  /** Copies of the order when the producer is told it succeeded (0 if it never is). */
-  copiesAtAck: number;
-  survivesLeaderLoss: boolean;
+  /**
+   * Copies of the order when the producer is told it succeeded (0 if it never is). Null with acks=0:
+   * no answer comes back, so nothing says whether the leader stored it.
+   */
+  copiesAtAck: number | null;
+  /** Null with acks=0, for the same reason: the outcome is unknown, not a confirmed loss. */
+  survivesLeaderLoss: boolean | null;
   findings: Finding[];
 }
 
@@ -45,8 +49,8 @@ export function runReplication(l: ReplicationLevers): ReplicationResult {
   add('isr', `The ISR is ${isr} of 3 replicas: the leader${l.inSync ? ` and ${l.inSync} follower${l.inSync === 1 ? '' : 's'}` : ' alone'}.`, 'info');
 
   if (l.acks === '0') {
-    add('acks-0', 'With acks=0 the producer doesn’t wait for any answer: the record counts as sent once it leaves, and the producer never learns whether it was written.', 'problem');
-    return { outcome: 'unconfirmed', isr, copiesAtAck: 0, survivesLeaderLoss: false, findings };
+    add('acks-0', 'With acks=0 the producer doesn’t wait for any answer: the record counts as sent once it leaves, and the producer never learns whether it was written. The order may be on the brokers or may be lost; nothing tells the producer which.', 'problem');
+    return { outcome: 'unconfirmed', isr, copiesAtAck: null, survivesLeaderLoss: null, findings };
   }
   if (l.acks === '1') {
     add('acks-leader-only', 'With acks=1 the leader answers as soon as it has written the order to its own log, before any follower has copied it. When the leader’s broker fails right after, the order is gone.', 'problem');
@@ -71,25 +75,30 @@ function picture(l: ReplicationLevers, r: ReplicationResult): LabPicture {
     { name: 'Broker 2 (follower)', inIsr: l.inSync >= 1 },
     { name: 'Broker 3 (follower)', inIsr: l.inSync >= 2 },
   ];
-  const hasCopy = (i: number) => (r.outcome === 'refused' || r.outcome === 'unconfirmed'
+  const hasCopy = (i: number) => (r.outcome === 'refused' || r.copiesAtAck === null
     ? false
     : i === 0 || (r.copiesAtAck > 1 && brokers[i].inIsr));
+  const unknown = r.outcome === 'unconfirmed';
   return {
     lanes: brokers.map((b, i) => ({
       label: b.name,
-      cells: [hasCopy(i)
-        ? { label: 'order', tone: (i === 0 && !r.survivesLeaderLoss ? 'bad' : 'good') as 'bad' | 'good', spoken: 'has a copy of the order when the producer is told yes' }
-        : { label: '—', tone: 'muted' as const, spoken: 'no copy when the producer is told yes' }],
+      cells: [unknown
+        ? { label: '?', tone: 'warn' as const, spoken: 'may or may not have a copy: the producer is never told' }
+        : hasCopy(i)
+          ? { label: 'order', tone: (i === 0 && !r.survivesLeaderLoss ? 'bad' : 'good') as 'bad' | 'good', spoken: 'has a copy of the order when the producer is told yes' }
+          : { label: '—', tone: 'muted' as const, spoken: 'no copy when the producer is told yes' }],
       note: [
         b.inIsr ? 'In the ISR.' : 'Out of the ISR: fallen behind.',
         i === 0 ? 'Fails right after acknowledging.' : '',
       ].filter(Boolean).join(' '),
     })),
-    legend: [
-      { tone: 'good', label: 'Has the order, and it survives' },
-      { tone: 'bad', label: 'The only copy: lost with the leader' },
-      { tone: 'muted', label: 'No copy when the producer was told yes' },
-    ],
+    legend: unknown
+      ? [{ tone: 'warn', label: 'Unknown: with acks=0 no broker answers, so the producer can’t tell' }]
+      : [
+        { tone: 'good', label: 'Has the order, and it survives' },
+        { tone: 'bad', label: 'The only copy: lost with the leader' },
+        { tone: 'muted', label: 'No copy when the producer was told yes' },
+      ],
   };
 }
 
@@ -102,8 +111,8 @@ export function modelRun(_: unknown, levers: Levers): ModelRun {
     outcome: r.outcome,
     measures: {
       isr: { label: 'Replicas in the ISR', value: r.isr, unit: 'of 3' },
-      copies: { label: 'Copies when the producer is told yes', value: r.copiesAtAck },
-      survives: { label: 'Survives the leader failing', value: r.survivesLeaderLoss ? 'yes' : 'no' },
+      copies: { label: 'Copies when the producer is told yes', value: r.copiesAtAck ?? 'unknown' },
+      survives: { label: 'Survives the leader failing', value: r.survivesLeaderLoss === null ? 'unknown' : r.survivesLeaderLoss ? 'yes' : 'no' },
       result: { label: 'What happens', value: r.outcome },
     },
     findings: r.findings,

@@ -373,6 +373,14 @@ describe('Capabilities read from the preparation itself', () => {
     expect(getSubjectCapabilities(without).learningLabStatus).toBe('UNAVAILABLE');
   });
 
+  it('gives a seeded preparation with no lab of its own the Kafka Lab when the Kafka pack is attached', () => {
+    const packs = [{ pack_id: 'kafka', pack_version: 2, chapter_count: 21, written_scenario_count: 18 }] as unknown as Subject['content_packs'];
+    const plain = record({ kind: 'skill', slug: 'system-design', question_count: 0, content_packs: [] });
+    expect(getSubjectCapabilities(plain).learningLab).toBe(false);
+    const withKafka = getSubjectCapabilities(record({ kind: 'skill', slug: 'system-design', question_count: 0, content_packs: packs }));
+    expect(withKafka).toMatchObject({ learningLab: true, lab: true, learningLabStatus: 'AVAILABLE', systemDesignStudio: true });
+  });
+
   it('sees questions imported into Kafka later, instead of keeping the bank locked at a static 0', () => {
     const kafka = record({ id: 4, slug: 'confluent-certified-developer-for-apache-kafka', question_count: 0 });
     expect(getSubjectCapabilities(kafka).questionAvailability).toBe(false);

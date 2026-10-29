@@ -154,6 +154,16 @@ describe('what each scenario shows (the contract’s predict answers)', () => {
     expect(REPLICATION.runReplication({ acks: 'all', minIsr: 2, inSync: 1 }).outcome).toBe('safe');
   });
 
+  it('leaves an acks=0 write unknown, never a confirmed loss', () => {
+    const r = REPLICATION.runReplication({ acks: '0', minIsr: 1, inSync: 2 });
+    expect(r).toMatchObject({ outcome: 'unconfirmed', copiesAtAck: null, survivesLeaderLoss: null });
+    const run = REPLICATION.REPLICATION.run(null, { acks: '0', minIsr: 1, inSync: 2 });
+    expect(run.measures.copies.value).toBe('unknown');
+    expect(run.measures.survives.value).toBe('unknown');
+    const cells = run.picture!.lanes.flatMap((l) => l.cells);
+    expect(cells.every((c) => c.label === '?' && c.tone === 'warn')).toBe(true);
+  });
+
   it('repeats work after a commit-after crash, harmlessly only when the effect checks first', () => {
     expect(COMMITS.runCommits({ commit: 'after', idempotent: false }).outcome).toBe('repeated');
     expect(COMMITS.runCommits({ commit: 'after', idempotent: true }).outcome).toBe('exact');
