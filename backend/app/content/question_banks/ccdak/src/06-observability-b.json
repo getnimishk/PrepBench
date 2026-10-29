@@ -1,0 +1,611 @@
+{
+  "section": 6,
+  "domain": "Application Observability",
+  "questions": [
+    {
+      "id": "O22",
+      "topic": "Streams metrics",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §16"
+      ],
+      "q": "Which setting decides how detailed a Kafka Streams application's metrics are, and what is its default?",
+      "options": [
+        {
+          "t": "metrics.recording.level, default info",
+          "ok": true
+        },
+        {
+          "t": "log4j.rootLogger, default INFO",
+          "why": "That's logging, not metrics."
+        },
+        {
+          "t": "metrics.sample.window.ms, default debug",
+          "why": "That's a sampling window, not a level."
+        },
+        {
+          "t": "statistics.enabled, default false",
+          "why": "Not a Kafka Streams setting."
+        }
+      ],
+      "explain": "Streams metrics have three recording levels, `info`, `debug` and `trace`, chosen by `metrics.recording.level` (default `info`)."
+    },
+    {
+      "id": "O23",
+      "topic": "Streams metrics",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §16"
+      ],
+      "q": "Which TWO statements about Kafka Streams metrics are right?",
+      "options": [
+        {
+          "t": "A Streams instance also has all the producer and consumer metrics",
+          "ok": true
+        },
+        {
+          "t": "Streams metrics are only visible on the brokers",
+          "why": "They are client metrics, exposed by the application."
+        },
+        {
+          "t": "They are organized by client, thread, task and node or store",
+          "ok": true
+        },
+        {
+          "t": "Every metric is recorded whatever the recording level",
+          "why": "Many metrics need debug or trace."
+        },
+        {
+          "t": "Streams exposes no metrics until the app is stopped",
+          "why": "Metrics are exposed while it runs."
+        }
+      ],
+      "explain": "A Streams instance contains all producer and consumer metrics plus its own, in a hierarchy: client, stream thread, task, then processor nodes, state stores and record caches."
+    },
+    {
+      "id": "O24",
+      "topic": "Streams metrics",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §16"
+      ],
+      "q": "A Streams application has 4 threads configured, but some have died after uncaught exceptions. Which client metrics show it?",
+      "options": [
+        {
+          "t": "process-rate and punctuate-rate",
+          "why": "These are per-thread work rates."
+        },
+        {
+          "t": "records-lag-max and fetch-rate",
+          "why": "These are consumer metrics."
+        },
+        {
+          "t": "alive-stream-threads and failed-stream-threads",
+          "ok": true
+        },
+        {
+          "t": "commit-latency-avg and poll-records-avg",
+          "why": "These describe a running thread's work."
+        }
+      ],
+      "explain": "Client-level `alive-stream-threads` is the number of running threads; `failed-stream-threads` counts threads that failed since the client started."
+    },
+    {
+      "id": "O25",
+      "topic": "Streams metrics",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §16"
+      ],
+      "q": "Which Streams metric shows how many records a stream thread processes per second?",
+      "options": [
+        {
+          "t": "records-consumed-rate",
+          "why": "That's the consumer's rate, before processing."
+        },
+        {
+          "t": "poll-records-avg",
+          "why": "That's records per poll, not processed per second."
+        },
+        {
+          "t": "record-send-rate",
+          "why": "That's the producer's send rate."
+        },
+        {
+          "t": "process-rate",
+          "ok": true
+        }
+      ],
+      "explain": "`process-rate` (stream-thread-metrics) is the average number of processed records per second."
+    },
+    {
+      "id": "O26",
+      "topic": "Streams metrics",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §16",
+        "ccdak §9"
+      ],
+      "q": "A windowed aggregation seems to miss some events. Which task metric shows records being discarded, for example as too late for their window?",
+      "options": [
+        {
+          "t": "dropped-records-rate",
+          "ok": true
+        },
+        {
+          "t": "records-lag-max",
+          "why": "Lag shows unread records, not discarded ones."
+        },
+        {
+          "t": "failed-stream-threads",
+          "why": "Threads didn't fail; records were dropped."
+        },
+        {
+          "t": "commit-latency-avg",
+          "why": "Commits don't discard records."
+        }
+      ],
+      "explain": "`dropped-records-rate` / `dropped-records-total` count records dropped within a task, recorded at `info` level. Records arriving after a window's grace period are dropped."
+    },
+    {
+      "id": "O27",
+      "topic": "Streams metrics",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §16"
+      ],
+      "q": "Which Streams task metric shows how late records arrive, as stream time minus the record's timestamp?",
+      "options": [
+        {
+          "t": "process-latency-avg",
+          "why": "That measures processing time, not lateness."
+        },
+        {
+          "t": "record-lateness-avg",
+          "ok": true
+        },
+        {
+          "t": "record-queue-time-avg",
+          "why": "That's a producer buffer metric."
+        },
+        {
+          "t": "blocked-time-ns-total",
+          "why": "That's time blocked on brokers."
+        }
+      ],
+      "explain": "`record-lateness-avg` is the average observed lateness of records in ms (stream time minus record timestamp)."
+    },
+    {
+      "id": "O28",
+      "topic": "Streams metrics",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §16"
+      ],
+      "q": "A Streams operator wants to know whether the application as a whole is running, rebalancing or in error. Which client-level metric gives it?",
+      "options": [
+        {
+          "t": "alive-stream-threads",
+          "why": "That counts threads, not the client's state."
+        },
+        {
+          "t": "process-rate",
+          "why": "A rate doesn't give the state."
+        },
+        {
+          "t": "state",
+          "ok": true
+        },
+        {
+          "t": "task-created-rate",
+          "why": "That counts task creation."
+        }
+      ],
+      "explain": "The client-level `state` metric is the state of the Kafka Streams client as a string."
+    },
+    {
+      "id": "O29",
+      "topic": "Streams metrics",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §16"
+      ],
+      "q": "A Streams thread seems slow but uses little CPU. Which thread metric shows time spent waiting on Kafka brokers?",
+      "options": [
+        {
+          "t": "punctuate-rate",
+          "why": "That counts punctuations."
+        },
+        {
+          "t": "poll-records-avg",
+          "why": "That's records per poll."
+        },
+        {
+          "t": "thread-start-time",
+          "why": "That's when the thread started."
+        },
+        {
+          "t": "blocked-time-ns-total",
+          "ok": true
+        }
+      ],
+      "explain": "`blocked-time-ns-total` is the total time in nanoseconds the thread spent blocked on Kafka brokers."
+    },
+    {
+      "id": "O30",
+      "topic": "Connect metrics",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §16"
+      ],
+      "q": "Which Connect metric gives a connector's current state as a value such as running, paused or failed?",
+      "options": [
+        {
+          "t": "status, in connector-metrics",
+          "ok": true
+        },
+        {
+          "t": "connector-count, in connect-worker-metrics",
+          "why": "That counts connectors on the worker."
+        },
+        {
+          "t": "task-count, in connect-worker-metrics",
+          "why": "That counts tasks on the worker."
+        },
+        {
+          "t": "batch-size-avg, in connector-task-metrics",
+          "why": "That measures batches."
+        }
+      ],
+      "explain": "The connector-level `status` metric is one of unassigned, running, paused, stopped, failed or restarting."
+    },
+    {
+      "id": "O31",
+      "topic": "Connect metrics",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §16",
+        "ccdak §13"
+      ],
+      "q": "An alert must fire when any task of connector `jdbc-orders` fails on a worker. Which metric fits?",
+      "options": [
+        {
+          "t": "connector-count",
+          "why": "That counts connectors, not failed tasks."
+        },
+        {
+          "t": "sink-record-read-rate",
+          "why": "A low rate isn't the same as a failure."
+        },
+        {
+          "t": "connector-failed-task-count",
+          "ok": true
+        },
+        {
+          "t": "offset-commit-failure-percentage",
+          "why": "Commit failures aren't task failures."
+        }
+      ],
+      "explain": "`connector-failed-task-count` (connect-worker-metrics, per connector) is the number of failed tasks of the connector on the worker; Connect doesn't restart failed tasks itself."
+    },
+    {
+      "id": "O32",
+      "topic": "Connect metrics",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §16"
+      ],
+      "q": "A sink connector is falling behind the topic it reads. Which task metric measures that?",
+      "options": [
+        {
+          "t": "source-record-poll-rate",
+          "why": "That's for source tasks."
+        },
+        {
+          "t": "poll-batch-avg-time-ms",
+          "why": "That's for source tasks."
+        },
+        {
+          "t": "connector-running-task-count",
+          "why": "That counts tasks."
+        },
+        {
+          "t": "sink-record-lag-max",
+          "ok": true
+        }
+      ],
+      "explain": "`sink-record-lag-max` is the maximum lag in records that the sink task is behind the consumer's position for any topic partition."
+    },
+    {
+      "id": "O33",
+      "topic": "Connect metrics",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §16",
+        "notes §14"
+      ],
+      "q": "A sink connector uses `errors.tolerance=all` with a dead-letter topic. Which TWO task error metrics show bad records being handled?",
+      "options": [
+        {
+          "t": "total-record-errors",
+          "ok": true
+        },
+        {
+          "t": "records-lead-min",
+          "why": "That's a consumer metric about log position."
+        },
+        {
+          "t": "deadletterqueue-produce-requests",
+          "ok": true
+        },
+        {
+          "t": "alive-stream-threads",
+          "why": "That's a Streams metric."
+        },
+        {
+          "t": "io-wait-ratio",
+          "why": "That's a network metric."
+        }
+      ],
+      "explain": "Task error metrics include `total-record-errors`, `total-errors-logged` and `deadletterqueue-produce-requests` (attempted writes to the dead-letter queue)."
+    },
+    {
+      "id": "O34",
+      "topic": "Connect metrics",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §16"
+      ],
+      "q": "Which task metric shows how long a sink task takes to write a batch to the external system?",
+      "options": [
+        {
+          "t": "poll-batch-avg-time-ms",
+          "why": "That's a source task polling its system."
+        },
+        {
+          "t": "put-batch-avg-time-ms",
+          "ok": true
+        },
+        {
+          "t": "commit-latency-avg",
+          "why": "That's the consumer's offset commits."
+        },
+        {
+          "t": "request-latency-avg",
+          "why": "That's Kafka request latency."
+        }
+      ],
+      "explain": "`put-batch-avg-time-ms` is the average time a sink task takes to put a batch of records; source tasks have `poll-batch-avg-time-ms`."
+    },
+    {
+      "id": "O35",
+      "topic": "Connect metrics",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §16"
+      ],
+      "q": "Besides its own metrics, which metrics does a Connect worker process expose?",
+      "options": [
+        {
+          "t": "Only broker metrics for the cluster it connects to",
+          "why": "Workers expose client metrics, not broker ones."
+        },
+        {
+          "t": "None; Connect metrics replace the client ones",
+          "why": "It contains them all."
+        },
+        {
+          "t": "Only the Kafka Streams metrics",
+          "why": "Connect isn't a Streams application."
+        },
+        {
+          "t": "All the producer and consumer metrics",
+          "ok": true
+        }
+      ],
+      "explain": "A Connect worker process contains all the producer and consumer metrics, plus Connect's worker, connector and task metrics."
+    },
+    {
+      "id": "O36",
+      "topic": "Troubleshooting",
+      "difficulty": "medium",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "Producers using `acks=all` see slower writes. Which broker metric should be 0 normally and points at replicas falling behind?",
+      "options": [
+        {
+          "t": "UnderReplicatedPartitions",
+          "ok": true
+        },
+        {
+          "t": "ActiveControllerCount",
+          "why": "That shows which broker is the active controller."
+        },
+        {
+          "t": "MessagesInPerSec",
+          "why": "That's incoming message rate."
+        },
+        {
+          "t": "BytesOutPerSec",
+          "why": "That's outgoing throughput."
+        }
+      ],
+      "explain": "`UnderReplicatedPartitions` is normally 0. Above 0, some partitions have replicas that have fallen out of sync, so fewer copies stand behind each acknowledged write."
+    },
+    {
+      "id": "O37",
+      "topic": "Troubleshooting",
+      "difficulty": "hard",
+      "sources": [
+        "notes §12",
+        "notes §3"
+      ],
+      "q": "Producers with `acks=all` start failing with NotEnoughReplicasException. Which broker metric confirms the cause?",
+      "options": [
+        {
+          "t": "IsrExpandsPerSec above 0",
+          "why": "Expansion means replicas are rejoining, not missing."
+        },
+        {
+          "t": "UncleanLeaderElectionsPerSec above 0",
+          "why": "That's unclean elections, a different problem."
+        },
+        {
+          "t": "UnderMinIsrPartitionCount above 0",
+          "ok": true
+        },
+        {
+          "t": "NetworkProcessorAvgIdlePercent above 0.3",
+          "why": "That's healthy network idle time."
+        }
+      ],
+      "explain": "`UnderMinIsrPartitionCount` (normally 0) counts partitions whose ISR is below `min.insync.replicas`, where acks=all writes are refused."
+    },
+    {
+      "id": "O38",
+      "topic": "Troubleshooting",
+      "difficulty": "medium",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "What is the normal value of `ActiveControllerCount` across a healthy cluster?",
+      "options": [
+        {
+          "t": "1 on every broker",
+          "why": "Only one broker reports 1."
+        },
+        {
+          "t": "0 on every broker",
+          "why": "Then no controller is active."
+        },
+        {
+          "t": "Equal to the number of controllers in the quorum",
+          "why": "Only one controller is active at a time."
+        },
+        {
+          "t": "Exactly one node reports 1; the rest 0",
+          "ok": true
+        }
+      ],
+      "explain": "Exactly one node should have `ActiveControllerCount` at 1: there is one active controller."
+    },
+    {
+      "id": "O39",
+      "topic": "Troubleshooting",
+      "difficulty": "medium",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "Client requests get slower and slower. Which TWO broker metrics show whether the brokers' request threads are overloaded?",
+      "options": [
+        {
+          "t": "RequestHandlerAvgIdlePercent",
+          "ok": true
+        },
+        {
+          "t": "UnderReplicatedPartitions",
+          "why": "That's about replication."
+        },
+        {
+          "t": "NetworkProcessorAvgIdlePercent",
+          "ok": true
+        },
+        {
+          "t": "ActiveControllerCount",
+          "why": "That's about the controller."
+        },
+        {
+          "t": "IsrShrinksPerSec",
+          "why": "That's about the ISR."
+        }
+      ],
+      "explain": "`RequestHandlerAvgIdlePercent` and `NetworkProcessorAvgIdlePercent` are between 0 and 1, ideally above 0.3; low values mean busy request handling."
+    },
+    {
+      "id": "O40",
+      "topic": "Troubleshooting",
+      "difficulty": "hard",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "A broker's `TotalTimeMs` for produce requests is high. How can the team find which stage is slow?",
+      "options": [
+        {
+          "t": "Compare request-latency-avg across all the producer clients instead",
+          "why": "That shows the total from the client side, not the stages."
+        },
+        {
+          "t": "It's split into queue, local, remote and response-send times",
+          "ok": true
+        },
+        {
+          "t": "Restart the broker to reset the metric",
+          "why": "Restarting hides the problem."
+        },
+        {
+          "t": "Read the broker's GC log only",
+          "why": "GC is one possible cause; the metric breakdown shows the stage."
+        }
+      ],
+      "explain": "`TotalTimeMs` per request type is broken down into queue, local, remote and response-send time, showing where the time goes."
+    },
+    {
+      "id": "O41",
+      "topic": "Monitoring practice",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §15",
+        "notes §12"
+      ],
+      "q": "Which client-side measures does the Kafka monitoring documentation recommend watching?",
+      "options": [
+        {
+          "t": "Only JVM heap size",
+          "why": "The recommendation is broader."
+        },
+        {
+          "t": "Message and byte rates, request rate/size/time, and consumer max lag and min fetch rate",
+          "ok": true
+        },
+        {
+          "t": "Only the number of open files",
+          "why": "That's an OS concern."
+        },
+        {
+          "t": "Only the number of topics",
+          "why": "Topic count isn't a client health signal."
+        }
+      ],
+      "explain": "The docs recommend, on clients, message/byte rate (global and per topic), request rate/size/time, and on consumers max lag and min fetch rate."
+    },
+    {
+      "id": "O42",
+      "topic": "Consumer metrics",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §15"
+      ],
+      "q": "Commits seem to slow a consumer's loop. Which metric measures them?",
+      "options": [
+        {
+          "t": "fetch-latency-avg",
+          "why": "That's for fetches."
+        },
+        {
+          "t": "time-between-poll-avg",
+          "why": "That's the gap between polls, which commits are only part of."
+        },
+        {
+          "t": "commit-latency-avg",
+          "ok": true
+        },
+        {
+          "t": "rebalance-latency-avg",
+          "why": "That's for rebalances."
+        }
+      ],
+      "explain": "`commit-latency-avg` (consumer-coordinator-metrics) is the average time taken for a commit request."
+    }
+  ]
+}

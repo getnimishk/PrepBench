@@ -1,8 +1,16 @@
 {
   "certification": "CCDAK",
-  "source": "PrepBench CCDAK bank v1: Apache Kafka 4.3 docs and Confluent's April 2025 exam guide",
+  "source": "PrepBench CCDAK bank: Apache Kafka 4.3 docs and Confluent's April 2025 exam guide",
   "notes": {
     "notes": "docs/research/kafka-documentation-notes.md",
     "ccdak": "docs/research/ccdak-exam-research.md"
+  },
+  "parts": {
+    "sections-3-6": [
+      3,
+      4,
+      5,
+      6
+    ]
   }
 }

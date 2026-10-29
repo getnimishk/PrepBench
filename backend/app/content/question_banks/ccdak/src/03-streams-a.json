@@ -1,0 +1,515 @@
+{
+  "section": 3,
+  "domain": "Apache Kafka Streams",
+  "questions": [
+    {
+      "id": "S01",
+      "topic": "Streams and tables",
+      "difficulty": "easy",
+      "sources": [
+        "ccdak §9"
+      ],
+      "q": "A topic holds account balance updates keyed by account ID, where each new record replaces the account's previous balance. Which Kafka Streams abstraction models it?",
+      "options": [
+        {
+          "t": "KStream, because each record is an independent event",
+          "why": "A KStream treats every record as an insert, so old balances would never be replaced."
+        },
+        {
+          "t": "KTable",
+          "ok": true
+        },
+        {
+          "t": "A windowed KStream with one-minute tumbling windows",
+          "why": "Windowing groups records by time; it doesn't turn updates into the latest value per key."
+        },
+        {
+          "t": "A KGroupedStream, read straight from the topic",
+          "why": "A KGroupedStream comes from grouping a KStream; it isn't read from a topic."
+        }
+      ],
+      "explain": "A KTable is a changelog stream: each record is an update (upsert) for its key, so it holds the latest balance per account. A KStream treats each record as a self-contained insert."
+    },
+    {
+      "id": "S02",
+      "topic": "Streams and tables",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §9"
+      ],
+      "q": "In a KTable, what does a record with a key and a null value mean?",
+      "options": [
+        {
+          "t": "A record to skip, because null values are invalid input",
+          "why": "Null values are meaningful in a KTable."
+        },
+        {
+          "t": "An instruction to keep the previous value and ignore this one",
+          "why": "It removes the key rather than keeping it."
+        },
+        {
+          "t": "A delete of that key",
+          "ok": true
+        },
+        {
+          "t": "A marker that starts a new window for the key",
+          "why": "KTables aren't windowed by nulls."
+        }
+      ],
+      "explain": "In a KTable each record is an update, and a null value is a delete (tombstone) for its key."
+    },
+    {
+      "id": "S03",
+      "topic": "Streams and tables",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §9"
+      ],
+      "q": "An application enriches a high-volume stream of orders with a small, rarely changing product catalogue topic that has a different partition count. Which abstraction for the catalogue avoids a co-partitioning requirement?",
+      "options": [
+        {
+          "t": "GlobalKTable",
+          "ok": true
+        },
+        {
+          "t": "KTable, after calling selectKey on the catalogue",
+          "why": "A KTable join still needs co-partitioned inputs."
+        },
+        {
+          "t": "KStream, joined with a 1-hour window",
+          "why": "A stream-stream join also needs co-partitioning."
+        },
+        {
+          "t": "A repartition of the orders topic to match the catalogue",
+          "why": "That is how to make inputs co-partitioned, not how to avoid the requirement."
+        }
+      ],
+      "explain": "A GlobalKTable is populated with all partitions of its topic on every instance, so joins against it don't need co-partitioning, at the cost of more local storage."
+    },
+    {
+      "id": "S04",
+      "topic": "Stateless operations",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §9"
+      ],
+      "q": "A stream keyed by customer ID needs each value converted from JSON text to an object, keeping the key, before a `groupByKey().count()`. Which operation avoids an unnecessary repartition?",
+      "options": [
+        {
+          "t": "map, returning the same key and the new value",
+          "why": "map can change the key, so Kafka Streams marks the stream for repartitioning."
+        },
+        {
+          "t": "selectKey followed by map",
+          "why": "selectKey marks the stream for repartitioning."
+        },
+        {
+          "t": "flatMap that returns a single key-value pair",
+          "why": "flatMap can change the key, so it also marks the stream for repartitioning."
+        },
+        {
+          "t": "mapValues",
+          "ok": true
+        }
+      ],
+      "explain": "`mapValues` and `flatMapValues` never cause repartitioning. `map`, `flatMap` and `selectKey` can change the key, so a later grouping or join repartitions."
+    },
+    {
+      "id": "S05",
+      "topic": "Aggregations",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §9"
+      ],
+      "q": "What is the difference between `groupBy` and `groupByKey` on a KStream?",
+      "options": [
+        {
+          "t": "groupBy always repartitions; groupByKey only if already marked",
+          "ok": true
+        },
+        {
+          "t": "groupByKey always repartitions; groupBy never does",
+          "why": "It's the other way round."
+        },
+        {
+          "t": "groupBy works only on KTables, and groupByKey only on KStreams",
+          "why": "Both exist for KStreams."
+        },
+        {
+          "t": "There is none; they are aliases",
+          "why": "groupBy selects a new key, which needs repartitioning."
+        }
+      ],
+      "explain": "`groupBy` always repartitions, because it chooses a new key. `groupByKey` repartitions only if the stream was already marked for repartitioning by an earlier key-changing operation."
+    },
+    {
+      "id": "S06",
+      "topic": "Aggregations",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §9"
+      ],
+      "q": "A team needs the average order value per customer, from a stream of order amounts (Long). Which aggregation lets the result have a different type from the input values?",
+      "options": [
+        {
+          "t": "count",
+          "why": "count returns the number of records, not a custom result."
+        },
+        {
+          "t": "reduce",
+          "why": "reduce keeps the input value type."
+        },
+        {
+          "t": "aggregate",
+          "ok": true
+        },
+        {
+          "t": "filter",
+          "why": "filter is a stateless operation, not an aggregation."
+        }
+      ],
+      "explain": "`reduce` keeps the value type; `aggregate` allows the aggregate to have a different type (here a sum and a count to compute an average)."
+    },
+    {
+      "id": "S07",
+      "topic": "Aggregations",
+      "difficulty": "easy",
+      "sources": [
+        "ccdak §9"
+      ],
+      "q": "What does `stream.groupByKey().count()` return?",
+      "options": [
+        {
+          "t": "A KStream of counts, one per input record",
+          "why": "An aggregation of a KStream yields a KTable."
+        },
+        {
+          "t": "A single Long for the whole stream",
+          "why": "It counts per key, continuously."
+        },
+        {
+          "t": "A GlobalKTable replicated to every instance",
+          "why": "Aggregations produce a KTable, not a GlobalKTable."
+        },
+        {
+          "t": "A KTable of counts per key",
+          "ok": true
+        }
+      ],
+      "explain": "An aggregation of a KStream yields a KTable, updated as new (and out-of-order) records arrive."
+    },
+    {
+      "id": "S08",
+      "topic": "Windowing",
+      "difficulty": "easy",
+      "sources": [
+        "ccdak §9"
+      ],
+      "q": "Which window type is fixed-size and non-overlapping, so each record belongs to exactly one window?",
+      "options": [
+        {
+          "t": "Hopping",
+          "why": "Hopping windows can overlap, so a record can be in several."
+        },
+        {
+          "t": "Tumbling",
+          "ok": true
+        },
+        {
+          "t": "Session",
+          "why": "Session windows vary in size per key."
+        },
+        {
+          "t": "Sliding",
+          "why": "Sliding windows are aligned to record timestamps and overlap."
+        }
+      ],
+      "explain": "Tumbling windows are fixed-size, non-overlapping and gap-less; a tumbling window is a hopping window whose advance equals its size."
+    },
+    {
+      "id": "S09",
+      "topic": "Windowing",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §9"
+      ],
+      "q": "A hopping window has a size of 5 minutes and an advance of 1 minute. How many windows does one record belong to?",
+      "options": [
+        {
+          "t": "One",
+          "why": "That is true of tumbling windows."
+        },
+        {
+          "t": "Two",
+          "why": "With a 1-minute hop over 5 minutes, more windows overlap each moment."
+        },
+        {
+          "t": "Five",
+          "ok": true
+        },
+        {
+          "t": "It depends on the record's key",
+          "why": "Hopping windows are aligned to the epoch, not to keys."
+        }
+      ],
+      "explain": "Hopping windows are fixed-size and can overlap: with size 5 minutes and advance 1 minute, a new window starts every minute, so each moment is covered by five windows."
+    },
+    {
+      "id": "S10",
+      "topic": "Windowing",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §9"
+      ],
+      "q": "An analytics team wants to group each user's clicks into visits that end after 30 minutes with no activity. Which window type fits?",
+      "options": [
+        {
+          "t": "Session windows with a 30-minute inactivity gap",
+          "ok": true
+        },
+        {
+          "t": "Tumbling windows of 30 minutes",
+          "why": "Tumbling windows cut at fixed times, not at gaps in activity."
+        },
+        {
+          "t": "Hopping windows of 30 minutes with a 1-minute hop",
+          "why": "Hopping windows are fixed-size and overlap; they don't follow activity."
+        },
+        {
+          "t": "A grace period of 30 minutes on any window",
+          "why": "A grace period accepts late records; it doesn't define sessions."
+        }
+      ],
+      "explain": "Session windows group periods of activity separated by a gap of inactivity, tracked per key, so their sizes vary. User behaviour analysis is their main use."
+    },
+    {
+      "id": "S11",
+      "topic": "Windowing",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §9"
+      ],
+      "q": "A one-hour tumbling window from 09:00 to 10:00 has a grace period of 10 minutes. A record with a 09:55 timestamp arrives when stream time is 10:15. What happens to it?",
+      "options": [
+        {
+          "t": "It is counted in the 09:00-10:00 window",
+          "why": "The window closed at 10:10, when its grace period ended."
+        },
+        {
+          "t": "It is counted in the 10:00-11:00 window instead",
+          "why": "Records go to the window of their own timestamp, or are dropped."
+        },
+        {
+          "t": "The window reopens for it",
+          "why": "A closed window doesn't reopen."
+        },
+        {
+          "t": "It is dropped as too late",
+          "ok": true
+        }
+      ],
+      "explain": "The grace period bounds lateness: the 09:00-10:00 window accepts out-of-order records until 10:10, then closes, and later records for it are dropped."
+    },
+    {
+      "id": "S12",
+      "topic": "Windowing",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §9"
+      ],
+      "q": "A windowed count updates its result many times as records arrive, but downstream wants one result per window. Which operation does that?",
+      "options": [
+        {
+          "t": "A longer grace period on the window",
+          "why": "Grace allows later records; it doesn't stop intermediate updates."
+        },
+        {
+          "t": "suppress(Suppressed.untilWindowCloses(...))",
+          "ok": true
+        },
+        {
+          "t": "Switching the count to reduce",
+          "why": "reduce emits updates just as count does."
+        },
+        {
+          "t": "Setting commit.interval.ms to the window size",
+          "why": "Committing less often isn't a guarantee of final results."
+        }
+      ],
+      "explain": "`suppress(Suppressed.untilWindowCloses(...))` holds a window's updates and emits only its final result once the window closes."
+    },
+    {
+      "id": "S13",
+      "topic": "Joins",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §9"
+      ],
+      "q": "Which statement about KStream-KStream joins is right?",
+      "options": [
+        {
+          "t": "They are never windowed",
+          "why": "They are always windowed."
+        },
+        {
+          "t": "They support inner joins only",
+          "why": "They support inner, left and outer joins."
+        },
+        {
+          "t": "They are always windowed",
+          "ok": true
+        },
+        {
+          "t": "They need a GlobalKTable on one side",
+          "why": "Both sides are streams."
+        }
+      ],
+      "explain": "KStream-KStream joins are always windowed joins, and they support inner, left and outer variants."
+    },
+    {
+      "id": "S14",
+      "topic": "Joins",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §9"
+      ],
+      "q": "A KStream of payments (12 partitions) is joined with a KTable of accounts (8 partitions), both keyed by account ID. What is the problem?",
+      "options": [
+        {
+          "t": "None, because both inputs are keyed by the same account ID",
+          "why": "The same key isn't enough; the partition counts must match too."
+        },
+        {
+          "t": "KStream-KTable joins are not supported",
+          "why": "They are supported, as inner and left joins."
+        },
+        {
+          "t": "The join must be windowed",
+          "why": "Only KStream-KStream joins are windowed."
+        },
+        {
+          "t": "The inputs aren't co-partitioned: partition counts differ",
+          "ok": true
+        }
+      ],
+      "explain": "Joins need co-partitioned inputs: the same number of partitions and the same partitioning strategy, so equal keys land in the same partition number. Only foreign-key and GlobalKTable joins are exempt."
+    },
+    {
+      "id": "S15",
+      "topic": "Joins",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §9"
+      ],
+      "q": "Which TWO join types support an outer join in the Kafka Streams DSL?",
+      "options": [
+        {
+          "t": "KStream-KStream",
+          "ok": true
+        },
+        {
+          "t": "KStream-KTable",
+          "why": "It supports inner and left only."
+        },
+        {
+          "t": "KTable-KTable",
+          "ok": true
+        },
+        {
+          "t": "KStream-GlobalKTable",
+          "why": "It supports inner and left only."
+        },
+        {
+          "t": "KTable-KTable foreign-key",
+          "why": "It supports inner and left only."
+        }
+      ],
+      "explain": "KStream-KStream and KTable-KTable joins support inner, left and outer. KStream-KTable, KStream-GlobalKTable and foreign-key joins support inner and left."
+    },
+    {
+      "id": "S16",
+      "topic": "Stateless operations",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §9"
+      ],
+      "q": "A stream is split with `split()` into branches for `EU` and `US` orders, with no default branch. What happens to an order from `APAC`?",
+      "options": [
+        {
+          "t": "It goes to both branches",
+          "why": "Each record goes to at most one branch, the first that matches."
+        },
+        {
+          "t": "It goes to the last branch",
+          "why": "Branches don't catch unmatched records."
+        },
+        {
+          "t": "It is dropped",
+          "ok": true
+        },
+        {
+          "t": "It stops the application with an exception",
+          "why": "Unmatched records are dropped quietly when there is no default branch."
+        }
+      ],
+      "explain": "Each record goes to the first branch whose predicate matches; unmatched records go to the default branch, or are dropped if none was created."
+    },
+    {
+      "id": "S17",
+      "topic": "Configuration",
+      "difficulty": "easy",
+      "sources": [
+        "ccdak §10"
+      ],
+      "q": "What is `application.id` used for in Kafka Streams?",
+      "options": [
+        {
+          "t": "Only as a label that appears in the application's own log lines",
+          "why": "It drives the group ID, internal topic names and more."
+        },
+        {
+          "t": "The group ID, client ID prefix and internal topic prefix",
+          "ok": true
+        },
+        {
+          "t": "The name of the output topic",
+          "why": "Output topics are named in the topology."
+        },
+        {
+          "t": "The ID of the broker the application runs on",
+          "why": "Applications don't run on brokers."
+        }
+      ],
+      "explain": "`application.id` (required, unique in the cluster) becomes the consumer group ID, the client ID prefix, the state directory subfolder and the prefix of internal topic names."
+    },
+    {
+      "id": "S18",
+      "topic": "Configuration",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §10",
+        "notes §15"
+      ],
+      "q": "A Streams application needs exactly-once processing. Which setting turns it on, and what changes with it by default?",
+      "options": [
+        {
+          "t": "enable.idempotence=true; nothing else changes",
+          "why": "Streams uses processing.guarantee for exactly-once."
+        },
+        {
+          "t": "isolation.level=read_committed only",
+          "why": "That's a consumer setting Streams manages for you under exactly-once."
+        },
+        {
+          "t": "processing.guarantee=exactly_once, which keeps a 30 s commit",
+          "why": "The value is exactly_once_v2, and the commit interval drops to 100 ms."
+        },
+        {
+          "t": "processing.guarantee=exactly_once_v2; commits every 100 ms",
+          "ok": true
+        }
+      ],
+      "explain": "`processing.guarantee` is `at_least_once` by default; `exactly_once_v2` turns on exactly-once, and `commit.interval.ms` then defaults to 100 instead of 30 000."
+    }
+  ]
+}

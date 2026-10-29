@@ -1,0 +1,528 @@
+{
+  "section": 3,
+  "domain": "Apache Kafka Streams",
+  "questions": [
+    {
+      "id": "S19",
+      "topic": "Parallelism",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §10",
+        "notes §15"
+      ],
+      "q": "A Streams application reads one topic with 10 partitions. The team runs 14 instances with one thread each. What happens?",
+      "options": [
+        {
+          "t": "Ten instances process data and four are idle",
+          "ok": true
+        },
+        {
+          "t": "All 14 share the work, each taking about 0.7 of a partition",
+          "why": "A partition's task runs on one thread; it isn't split."
+        },
+        {
+          "t": "Kafka Streams adds 4 partitions to the input topic",
+          "why": "Streams never changes an input topic's partition count."
+        },
+        {
+          "t": "The four extra instances fail to start",
+          "why": "They start and join, but get no tasks."
+        }
+      ],
+      "explain": "Parallelism is set by input partitions: with ten partitions you can run up to ten instances; further instances are idle."
+    },
+    {
+      "id": "S20",
+      "topic": "Parallelism",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §10",
+        "notes §15"
+      ],
+      "q": "An application has 6 input partitions and runs on one instance. How can it use more CPU cores on that machine?",
+      "options": [
+        {
+          "t": "Raise num.stream.threads (default 1) up to 6",
+          "ok": true
+        },
+        {
+          "t": "Raise num.standby.replicas to 6",
+          "why": "Standbys keep state copies; they don't process records."
+        },
+        {
+          "t": "Set processing.guarantee=exactly_once_v2",
+          "why": "This changes guarantees, not parallelism."
+        },
+        {
+          "t": "Lower commit.interval.ms to 100",
+          "why": "Committing more often doesn't add processing threads."
+        }
+      ],
+      "explain": "Threads run tasks; `num.stream.threads` (default 1) sets how many an instance uses. Tasks, and so useful threads in total, are bounded by the input partitions."
+    },
+    {
+      "id": "S21",
+      "topic": "State",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §10"
+      ],
+      "q": "An instance running a stateful task crashes, and the task moves to another instance. How does its state store get rebuilt?",
+      "options": [
+        {
+          "t": "From a backup that the crashed instance uploaded every hour",
+          "why": "Kafka Streams has no such backup; it uses changelog topics."
+        },
+        {
+          "t": "By re-reading the input topic from the beginning",
+          "why": "Restoration replays the changelog, not the input."
+        },
+        {
+          "t": "It isn't rebuilt; the task starts with empty state",
+          "why": "Kafka Streams restores state to its content before the failure."
+        },
+        {
+          "t": "By replaying the store's changelog topic before processing",
+          "ok": true
+        }
+      ],
+      "explain": "Each state store has a replicated changelog topic. A task restarted elsewhere restores its store by replaying the changelog before it resumes processing."
+    },
+    {
+      "id": "S22",
+      "topic": "State",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §10"
+      ],
+      "q": "After failovers, state restoration takes several minutes for a large store. Which setting is meant to shorten it?",
+      "options": [
+        {
+          "t": "num.standby.replicas",
+          "ok": true
+        },
+        {
+          "t": "num.stream.threads",
+          "why": "More threads don't make a task's restore start from a caught-up copy."
+        },
+        {
+          "t": "statestore.cache.max.bytes",
+          "why": "The record cache doesn't hold a copy of the store for failover."
+        },
+        {
+          "t": "replication.factor",
+          "why": "This protects the changelog topic, not restore time."
+        }
+      ],
+      "explain": "Standby replicas keep caught-up copies of local state on other instances, so a migrated task can be placed where a copy already exists, cutting restore time."
+    },
+    {
+      "id": "S23",
+      "topic": "State",
+      "difficulty": "easy",
+      "sources": [
+        "ccdak §10"
+      ],
+      "q": "What is the default persistent state store in Kafka Streams?",
+      "options": [
+        {
+          "t": "An in-memory hash map",
+          "why": "In-memory stores exist, but they aren't the persistent default."
+        },
+        {
+          "t": "A compacted Kafka topic queried directly",
+          "why": "Topics back stores as changelogs; queries go to the local store."
+        },
+        {
+          "t": "RocksDB on local disk",
+          "ok": true
+        },
+        {
+          "t": "An external database the app connects to",
+          "why": "Kafka Streams state is local to the application."
+        }
+      ],
+      "explain": "RocksDB is the default persistent store, recommended for most uses: it keeps data on local disk and can hold more than the heap."
+    },
+    {
+      "id": "S24",
+      "topic": "Internal topics",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §10"
+      ],
+      "q": "Which TWO statements about the internal topics a Streams application creates are right?",
+      "options": [
+        {
+          "t": "A key-value store's changelog topic is compacted",
+          "ok": true
+        },
+        {
+          "t": "Repartition topics are compacted",
+          "why": "Repartition topics use delete, with infinite retention."
+        },
+        {
+          "t": "Their names start with the application.id",
+          "ok": true
+        },
+        {
+          "t": "They must be created by an administrator first",
+          "why": "The application creates them (it needs permission to on a secured cluster)."
+        },
+        {
+          "t": "They are shared by every Streams application",
+          "why": "Internal topics are used only by the application that created them."
+        }
+      ],
+      "explain": "Internal topics are named `<application.id>-<operatorName>-<suffix>`. Key-value store changelogs are compacted; repartition topics use delete with infinite retention."
+    },
+    {
+      "id": "S25",
+      "topic": "Error handling",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §10",
+        "notes §23"
+      ],
+      "q": "In Kafka Streams 4.3, what happens by default when a record in an input topic can't be deserialized?",
+      "options": [
+        {
+          "t": "It is skipped, and a warning is written to the application log",
+          "why": "That is LogAndContinueExceptionHandler, which you must configure."
+        },
+        {
+          "t": "It is sent to a dead-letter topic",
+          "why": "Only if errors.dead.letter.queue.topic.name is set."
+        },
+        {
+          "t": "The processing fails, with LogAndFailExceptionHandler",
+          "ok": true
+        },
+        {
+          "t": "It is retried until it deserializes",
+          "why": "A record that can't be deserialized won't succeed on retry."
+        }
+      ],
+      "explain": "`deserialization.exception.handler` defaults to `LogAndFailExceptionHandler` (stop). `LogAndContinueExceptionHandler` skips bad records, and a dead-letter topic is used only when configured."
+    },
+    {
+      "id": "S26",
+      "topic": "Time",
+      "difficulty": "medium",
+      "sources": [
+        "notes §15",
+        "ccdak §10"
+      ],
+      "q": "A GPS reading is taken at 08:00, reaches the broker at 08:02 and is processed at 08:05. Which is its event time?",
+      "options": [
+        {
+          "t": "08:00",
+          "ok": true
+        },
+        {
+          "t": "08:02",
+          "why": "That is ingestion time, when the broker appended it."
+        },
+        {
+          "t": "08:05",
+          "why": "That is processing time."
+        },
+        {
+          "t": "Whichever is latest",
+          "why": "Event time is when the event happened at the source."
+        }
+      ],
+      "explain": "Event time is when the event happened at the source; ingestion time when the broker appended it; processing time when the application processes it."
+    },
+    {
+      "id": "S27",
+      "topic": "Processor API",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §10"
+      ],
+      "q": "A processor schedules a punctuator every 10 seconds with `PunctuationType.STREAM_TIME`. No new records arrive for an hour. How often does it fire in that hour?",
+      "options": [
+        {
+          "t": "Every 10 seconds, 360 times",
+          "why": "That's wall-clock punctuation."
+        },
+        {
+          "t": "Once, at the end of the hour",
+          "why": "Nothing advances stream time during the hour."
+        },
+        {
+          "t": "Every 10 seconds of processing CPU time",
+          "why": "Punctuation uses stream time or wall-clock time, not CPU time."
+        },
+        {
+          "t": "Never: stream time only advances with input",
+          "ok": true
+        }
+      ],
+      "explain": "Stream-time punctuation is driven by data: stream time advances with the timestamps of input records, so with no new input, `punctuate()` isn't called."
+    },
+    {
+      "id": "S28",
+      "topic": "Interactive queries",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §10"
+      ],
+      "q": "A dashboard wants to read the current count per key from a running Streams application's state store. Which statement is right?",
+      "options": [
+        {
+          "t": "Each instance queries its local stores; reaching others needs your own RPC layer",
+          "ok": true
+        },
+        {
+          "t": "Kafka Streams runs a built-in REST server that serves every store of every instance",
+          "why": "You add your own RPC layer, such as a REST API."
+        },
+        {
+          "t": "The dashboard can write corrections into the store",
+          "why": "Interactive queries are read-only."
+        },
+        {
+          "t": "Stores can only be queried after the application stops",
+          "why": "Querying works while the application runs."
+        }
+      ],
+      "explain": "Interactive queries read local state stores, read-only. To expose the whole application's state, you add an RPC layer (for example a REST API) between instances."
+    },
+    {
+      "id": "S29",
+      "topic": "Tools",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §11"
+      ],
+      "q": "After fixing a bug, a team runs the application reset tool to reprocess everything. Which TWO things must they still handle themselves?",
+      "options": [
+        {
+          "t": "Resetting the input topics' offsets",
+          "why": "The tool does this, to the beginning by default."
+        },
+        {
+          "t": "Deleting each instance's local state",
+          "ok": true
+        },
+        {
+          "t": "Deleting the internal topics",
+          "why": "The tool deletes them."
+        },
+        {
+          "t": "The output topics, which the tool doesn't reset",
+          "ok": true
+        },
+        {
+          "t": "Recreating the input topics",
+          "why": "The input topics stay; only their offsets are reset."
+        }
+      ],
+      "explain": "The reset tool resets input offsets and deletes internal topics; it doesn't reset output topics or delete local state, which you must do yourself."
+    },
+    {
+      "id": "S30",
+      "topic": "Configuration",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §10"
+      ],
+      "q": "A team sets `topology.optimization=all` but sees no change in the topology. What is the likely cause?",
+      "options": [
+        {
+          "t": "Optimization only works with exactly_once_v2",
+          "why": "Optimization is independent of the processing guarantee."
+        },
+        {
+          "t": "The value must be 'true', not 'all'",
+          "why": "'all' is a valid value."
+        },
+        {
+          "t": "The properties weren't also passed to StreamsBuilder.build()",
+          "ok": true
+        },
+        {
+          "t": "Optimization needs a broker setting too",
+          "why": "It is a Streams application setting only."
+        }
+      ],
+      "explain": "To apply topology optimizations, the same properties must be passed to `StreamsBuilder.build(props)` as well as set in the configuration."
+    },
+    {
+      "id": "S31",
+      "topic": "Configuration",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §10"
+      ],
+      "q": "Which replication factor do a Streams application's changelog and repartition topics get by default?",
+      "options": [
+        {
+          "t": "Always 1",
+          "why": "The default (-1) uses the broker's default."
+        },
+        {
+          "t": "The broker's default (replication.factor=-1)",
+          "ok": true
+        },
+        {
+          "t": "Always 3",
+          "why": "The default defers to the broker."
+        },
+        {
+          "t": "The same as the input topic",
+          "why": "It comes from the replication.factor setting."
+        }
+      ],
+      "explain": "Streams' `replication.factor` defaults to -1, meaning the broker's default replication factor."
+    },
+    {
+      "id": "S32",
+      "topic": "Stateless operations",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §9"
+      ],
+      "q": "Which TWO operations can mark a stream for repartitioning before a later `groupByKey()`?",
+      "options": [
+        {
+          "t": "selectKey",
+          "ok": true
+        },
+        {
+          "t": "mapValues",
+          "why": "mapValues can't change the key, so it never repartitions."
+        },
+        {
+          "t": "filter",
+          "why": "filter keeps keys as they are."
+        },
+        {
+          "t": "map",
+          "ok": true
+        },
+        {
+          "t": "peek",
+          "why": "peek only looks at records."
+        }
+      ],
+      "explain": "`selectKey`, `map` and `flatMap` can change the key, so a grouping or join after them repartitions; `mapValues`, `filter` and `peek` don't."
+    },
+    {
+      "id": "S33",
+      "topic": "Windowing",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §9"
+      ],
+      "q": "How do sliding windows in Kafka Streams differ from hopping windows?",
+      "options": [
+        {
+          "t": "They are aligned to record timestamps, with both bounds inclusive",
+          "ok": true
+        },
+        {
+          "t": "They are aligned to the epoch, like tumbling and hopping windows are",
+          "why": "Hopping and tumbling windows are epoch-aligned; sliding windows aren't."
+        },
+        {
+          "t": "They never overlap",
+          "why": "Sliding windows can overlap."
+        },
+        {
+          "t": "They have no fixed size",
+          "why": "That describes session windows."
+        }
+      ],
+      "explain": "Sliding windows are aligned to record timestamps, not the epoch, and both their bounds are inclusive. They're used for windowed aggregations and joins."
+    },
+    {
+      "id": "S34",
+      "topic": "Streams and tables",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §9"
+      ],
+      "q": "A change data capture (CDC) feed records each insert, update and delete of a database table's rows, keyed by row ID. How should a Streams application read it to have each row's current state?",
+      "options": [
+        {
+          "t": "As a KStream, since each change is an event",
+          "why": "A KStream keeps every change as an insert, not the current row."
+        },
+        {
+          "t": "As a windowed KStream with session windows",
+          "why": "Sessions group activity by gaps, not by row state."
+        },
+        {
+          "t": "As a KTable, a changelog of the table",
+          "ok": true
+        },
+        {
+          "t": "As a GlobalKTable only, since CDC requires one",
+          "why": "A KTable models it; a GlobalKTable is a choice for joins, not a requirement."
+        }
+      ],
+      "explain": "CDC records from a database's changelog are an example of a changelog stream: read as a KTable, they give each key's latest state."
+    },
+    {
+      "id": "S35",
+      "topic": "Exactly-once",
+      "difficulty": "medium",
+      "sources": [
+        "notes §5",
+        "notes §15",
+        "ccdak §10"
+      ],
+      "q": "Why does the Kafka documentation describe Kafka Streams as the simplest way to get exactly-once processing?",
+      "options": [
+        {
+          "t": "It never writes back to Kafka, so nothing can ever be duplicated",
+          "why": "Streams reads from and writes to Kafka."
+        },
+        {
+          "t": "It disables retries everywhere",
+          "why": "Exactly-once uses idempotence and transactions, not disabled retries."
+        },
+        {
+          "t": "It needs no broker support",
+          "why": "exactly_once_v2 needs brokers 2.5 or newer."
+        },
+        {
+          "t": "One setting, processing.guarantee=exactly_once_v2, turns it on",
+          "ok": true
+        }
+      ],
+      "explain": "The design docs call Kafka Streams the simplest way to get exactly-once: setting `processing.guarantee=exactly_once_v2` turns it on, where the plain clients need a transactional producer, offsets sent in the transaction and read_committed consumers wired by hand."
+    },
+    {
+      "id": "S36",
+      "topic": "Testing and tooling",
+      "difficulty": "easy",
+      "sources": [
+        "ccdak §11"
+      ],
+      "q": "Which artifact provides `TopologyTestDriver` for testing Kafka Streams applications?",
+      "options": [
+        {
+          "t": "kafka-clients",
+          "why": "That holds the producer and consumer, not the Streams test driver."
+        },
+        {
+          "t": "kafka-streams-test-utils",
+          "ok": true
+        },
+        {
+          "t": "kafka-streams-scala",
+          "why": "That is the Scala API, deprecated in 4.3."
+        },
+        {
+          "t": "connect-runtime",
+          "why": "That is Kafka Connect."
+        }
+      ],
+      "explain": "Kafka provides `kafka-streams-test-utils` as a separate artifact, added as a test dependency, with `TopologyTestDriver` and the test topic helpers."
+    }
+  ]
+}

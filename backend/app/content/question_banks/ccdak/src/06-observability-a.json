@@ -1,0 +1,610 @@
+{
+  "section": 6,
+  "domain": "Application Observability",
+  "questions": [
+    {
+      "id": "O01",
+      "topic": "Client metrics",
+      "difficulty": "easy",
+      "sources": [
+        "ccdak §15"
+      ],
+      "q": "How do the Apache Kafka Java clients expose their metrics by default?",
+      "options": [
+        {
+          "t": "Through a built-in HTTP endpoint on port 9090",
+          "why": "The clients don't run an HTTP server for metrics."
+        },
+        {
+          "t": "Through JMX",
+          "ok": true
+        },
+        {
+          "t": "Only in the broker's metrics, never in the client",
+          "why": "Clients have their own metrics registry."
+        },
+        {
+          "t": "In a dedicated metrics topic the client writes every minute",
+          "why": "The clients don't write metrics to a topic by default."
+        }
+      ],
+      "explain": "The Java clients use Kafka Metrics and expose metrics via JMX, with pluggable reporters for other monitoring systems."
+    },
+    {
+      "id": "O02",
+      "topic": "Client metrics",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §15"
+      ],
+      "q": "A dashboard shows `records-consumed-rate`. Which metric gives the cumulative count of records consumed?",
+      "options": [
+        {
+          "t": "records-consumed-count",
+          "why": "The cumulative partner has the -total suffix."
+        },
+        {
+          "t": "records-consumed-sum",
+          "why": "The cumulative partner has the -total suffix."
+        },
+        {
+          "t": "records-consumed-total",
+          "ok": true
+        },
+        {
+          "t": "There is none; only rates are recorded",
+          "why": "Every rate metric has a -total partner."
+        }
+      ],
+      "explain": "All Kafka rate metrics have a corresponding cumulative count metric with the suffix `-total`."
+    },
+    {
+      "id": "O03",
+      "topic": "Consumer lag",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §15"
+      ],
+      "q": "What does the consumer metric `records-lag-max` measure?",
+      "options": [
+        {
+          "t": "The largest record lag of any partition, from the current position",
+          "ok": true
+        },
+        {
+          "t": "The time since the oldest unconsumed record was produced",
+          "why": "It counts records, not time."
+        },
+        {
+          "t": "The lag from the last committed offset, summed over all partitions",
+          "why": "It's based on the current offset, not the committed one, and is a maximum."
+        },
+        {
+          "t": "The highest offset the producer has written",
+          "why": "That's the log-end offset, not lag."
+        }
+      ],
+      "explain": "`records-lag-max` is the maximum lag in records for any partition in the window, based on the current offset, not the committed offset."
+    },
+    {
+      "id": "O04",
+      "topic": "Consumer lag",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §15",
+        "notes §12"
+      ],
+      "q": "`kafka-consumer-groups --describe` shows lag of 5 000 on a partition, but the consumer's `records-lag` metric shows 200. What explains it?",
+      "options": [
+        {
+          "t": "The metric counts bytes, the tool counts records",
+          "why": "Both are in records."
+        },
+        {
+          "t": "One of them must be broken",
+          "why": "They measure from different offsets."
+        },
+        {
+          "t": "The tool also counts records in transactions that haven't committed yet",
+          "why": "The difference comes from position versus committed offset."
+        },
+        {
+          "t": "The tool uses the committed offset; the metric the current position",
+          "ok": true
+        }
+      ],
+      "explain": "The group tool shows lag from the group's committed offset; the client metric is based on the consumer's current position, which runs ahead of commits."
+    },
+    {
+      "id": "O05",
+      "topic": "Consumer lag",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §15",
+        "notes §12"
+      ],
+      "q": "According to the Kafka monitoring docs, which TWO consumer conditions show it is keeping up?",
+      "options": [
+        {
+          "t": "Max lag below a threshold",
+          "ok": true
+        },
+        {
+          "t": "poll-idle-ratio-avg equal to zero",
+          "why": "Zero idle means the consumer is always busy, not necessarily keeping up."
+        },
+        {
+          "t": "Min fetch rate above zero",
+          "ok": true
+        },
+        {
+          "t": "assigned-partitions equal to the partition count",
+          "why": "That depends on group size, not on keeping up."
+        },
+        {
+          "t": "commit-latency-avg above 1 second",
+          "why": "High commit latency isn't a health signal."
+        }
+      ],
+      "explain": "For a consumer to keep up, max lag needs to be less than a threshold and min fetch rate needs to be larger than 0."
+    },
+    {
+      "id": "O06",
+      "topic": "Consumer health",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §15",
+        "notes §2"
+      ],
+      "q": "Consumers keep getting removed from their group for being slow. Which metric shows how close they get to `max.poll.interval.ms`?",
+      "options": [
+        {
+          "t": "fetch-latency-avg",
+          "why": "That measures fetch requests, not the gap between polls."
+        },
+        {
+          "t": "time-between-poll-max",
+          "ok": true
+        },
+        {
+          "t": "heartbeat-rate, which drops when polls slow down",
+          "why": "Heartbeats continue even when polls are slow."
+        },
+        {
+          "t": "records-consumed-rate",
+          "why": "A rate doesn't show the gap between polls."
+        }
+      ],
+      "explain": "`time-between-poll-max` is the max delay between `poll()` calls; when it nears `max.poll.interval.ms`, members get removed."
+    },
+    {
+      "id": "O07",
+      "topic": "Consumer health",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §15"
+      ],
+      "q": "A consumer's `poll-idle-ratio-avg` is close to 0. What does that suggest?",
+      "options": [
+        {
+          "t": "The consumer spends most of its time waiting for new data to arrive",
+          "why": "That would be a high idle ratio."
+        },
+        {
+          "t": "The broker is throttling the consumer",
+          "why": "Throttling shows in fetch-throttle-time-avg."
+        },
+        {
+          "t": "Its user code processing records takes almost all the time",
+          "ok": true
+        },
+        {
+          "t": "The consumer has no partitions assigned",
+          "why": "That shows in assigned-partitions."
+        }
+      ],
+      "explain": "`poll-idle-ratio-avg` is the fraction of time `poll()` is idle rather than waiting for user code to process records: near 0 means processing dominates."
+    },
+    {
+      "id": "O08",
+      "topic": "Consumer health",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §15"
+      ],
+      "q": "An alert should fire when a consumer has stopped calling `poll()`. Which metric fits best?",
+      "options": [
+        {
+          "t": "records-lead-min",
+          "why": "Lead measures distance from the start of the log."
+        },
+        {
+          "t": "connection-count",
+          "why": "Connections can stay open while poll isn't called."
+        },
+        {
+          "t": "bytes-consumed-rate falling to zero",
+          "why": "It can be zero simply because no data arrives."
+        },
+        {
+          "t": "last-poll-seconds-ago",
+          "ok": true
+        }
+      ],
+      "explain": "`last-poll-seconds-ago` is the number of seconds since the last `poll()` invocation."
+    },
+    {
+      "id": "O09",
+      "topic": "Rebalances",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §15"
+      ],
+      "q": "Which consumer metrics show how long rebalances take and whether they fail?",
+      "options": [
+        {
+          "t": "rebalance-latency-avg and failed-rebalance-total",
+          "ok": true
+        },
+        {
+          "t": "fetch-latency-avg and fetch-rate, from the fetch manager",
+          "why": "These are about fetching."
+        },
+        {
+          "t": "commit-latency-avg and heartbeat-rate",
+          "why": "These cover commits and heartbeats."
+        },
+        {
+          "t": "io-wait-ratio and connection-count",
+          "why": "These describe the network layer."
+        }
+      ],
+      "explain": "The coordinator metrics include `rebalance-latency-avg`, `failed-rebalance-total` and `last-rebalance-seconds-ago`."
+    },
+    {
+      "id": "O10",
+      "topic": "Rebalances",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §15"
+      ],
+      "q": "To check how many partitions a single consumer instance owns right now, which metric is used?",
+      "options": [
+        {
+          "t": "records-lag-max",
+          "why": "That measures lag."
+        },
+        {
+          "t": "assigned-partitions",
+          "ok": true
+        },
+        {
+          "t": "connection-count",
+          "why": "That counts connections."
+        },
+        {
+          "t": "fetch-rate",
+          "why": "That counts fetch requests."
+        }
+      ],
+      "explain": "`assigned-partitions` (consumer-coordinator-metrics) is the number of partitions currently assigned to the consumer."
+    },
+    {
+      "id": "O11",
+      "topic": "Producer metrics",
+      "difficulty": "easy",
+      "sources": [
+        "ccdak §15"
+      ],
+      "q": "Which producer metric shows sends that ended in errors?",
+      "options": [
+        {
+          "t": "record-retry-rate",
+          "why": "Retries may still succeed; errors are counted separately."
+        },
+        {
+          "t": "request-latency-avg",
+          "why": "Latency isn't an error count."
+        },
+        {
+          "t": "record-error-rate",
+          "ok": true
+        },
+        {
+          "t": "batch-size-avg",
+          "why": "That's a batching measure."
+        }
+      ],
+      "explain": "`record-error-rate` is the average per-second number of record sends that resulted in errors; `record-retry-rate` counts retried sends."
+    },
+    {
+      "id": "O12",
+      "topic": "Producer metrics",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §15",
+        "ccdak §3"
+      ],
+      "q": "`record-retry-rate` climbs during a broker restart but `record-error-rate` stays at 0. What does that show?",
+      "options": [
+        {
+          "t": "Records are being lost silently, without any error being counted",
+          "why": "Errors would be counted; none were."
+        },
+        {
+          "t": "The producer has stopped sending",
+          "why": "Retries mean it is still sending."
+        },
+        {
+          "t": "The metrics are misconfigured",
+          "why": "This pattern is expected."
+        },
+        {
+          "t": "Retriable errors were retried successfully",
+          "ok": true
+        }
+      ],
+      "explain": "Retriable errors (such as a leader change) are retried by the producer; if retries succeed within `delivery.timeout.ms`, no send ends in an error."
+    },
+    {
+      "id": "O13",
+      "topic": "Producer metrics",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §15",
+        "notes §1"
+      ],
+      "q": "A producer's `send()` calls start blocking. `buffer-available-bytes` is near zero and `bufferpool-wait-ratio` is high. What is happening?",
+      "options": [
+        {
+          "t": "The record accumulator is full, so send() waits for buffer space",
+          "ok": true
+        },
+        {
+          "t": "The broker is rejecting the producer's records as too large to store",
+          "why": "That would show as errors, not buffer waits."
+        },
+        {
+          "t": "The consumer group is rebalancing",
+          "why": "Consumer rebalances don't block producers."
+        },
+        {
+          "t": "Compression is turned off",
+          "why": "Compression doesn't block send()."
+        }
+      ],
+      "explain": "When `buffer.memory` is used up, `send()` blocks up to `max.block.ms`. `buffer-available-bytes` shows free buffer memory and `bufferpool-wait-ratio` the time spent waiting for it."
+    },
+    {
+      "id": "O14",
+      "topic": "Producer metrics",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §15"
+      ],
+      "q": "End-to-end latency is high. Which producer metric shows how long batches wait in the send buffer before being sent?",
+      "options": [
+        {
+          "t": "request-latency-avg",
+          "why": "That measures the request once sent."
+        },
+        {
+          "t": "produce-throttle-time-avg",
+          "why": "That measures broker throttling."
+        },
+        {
+          "t": "record-queue-time-avg",
+          "ok": true
+        },
+        {
+          "t": "io-wait-ratio",
+          "why": "That's the I/O thread's idle time."
+        }
+      ],
+      "explain": "`record-queue-time-avg` is the average time record batches spent in the send buffer; `request-latency-avg` covers the request itself."
+    },
+    {
+      "id": "O15",
+      "topic": "Producer metrics",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §15",
+        "notes §1"
+      ],
+      "q": "A team raised `linger.ms` to improve batching. Which TWO producer metrics show whether batches got bigger?",
+      "options": [
+        {
+          "t": "batch-size-avg",
+          "ok": true
+        },
+        {
+          "t": "record-error-rate",
+          "why": "Errors don't measure batch size."
+        },
+        {
+          "t": "records-per-request-avg",
+          "ok": true
+        },
+        {
+          "t": "connection-count",
+          "why": "Connections don't measure batch size."
+        },
+        {
+          "t": "records-lag-max",
+          "why": "That's a consumer metric."
+        }
+      ],
+      "explain": "`batch-size-avg` is the average bytes sent per partition per request, and `records-per-request-avg` the average records per request."
+    },
+    {
+      "id": "O16",
+      "topic": "Producer metrics",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §15"
+      ],
+      "q": "A producer uses zstd compression. What does a `compression-rate-avg` of 0.25 mean?",
+      "options": [
+        {
+          "t": "Only a quarter of the producer's batches were actually compressed",
+          "why": "It's a ratio of sizes, not of batches."
+        },
+        {
+          "t": "Compressed batches are about a quarter of their original size",
+          "ok": true
+        },
+        {
+          "t": "Compression made batches 25% larger",
+          "why": "0.25 means they shrank to a quarter."
+        },
+        {
+          "t": "The CPU spent 25% of its time compressing",
+          "why": "It measures size, not CPU."
+        }
+      ],
+      "explain": "`compression-rate-avg` is the average ratio of compressed batch size to uncompressed size."
+    },
+    {
+      "id": "O17",
+      "topic": "Quotas and throttling",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §15"
+      ],
+      "q": "A producer's throughput is capped well below its usual rate, with no errors. `produce-throttle-time-avg` is high. What is the likely cause?",
+      "options": [
+        {
+          "t": "A failing disk on the producer's host",
+          "why": "The producer doesn't write to its own disk."
+        },
+        {
+          "t": "Too many partitions in the topic",
+          "why": "Partition count isn't throttling."
+        },
+        {
+          "t": "The brokers are throttling the producer's requests",
+          "ok": true
+        },
+        {
+          "t": "Idempotence is enabled",
+          "why": "Idempotence doesn't throttle requests."
+        }
+      ],
+      "explain": "`produce-throttle-time-avg` is the average time a request was throttled by a broker; consumers have `fetch-throttle-time-avg`."
+    },
+    {
+      "id": "O18",
+      "topic": "Client metrics",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §15",
+        "ccdak §8"
+      ],
+      "q": "Several applications on one host each run a producer, and their metrics are hard to tell apart in JMX. What helps most?",
+      "options": [
+        {
+          "t": "Setting a meaningful client.id, which appears in the metric names",
+          "ok": true
+        },
+        {
+          "t": "Using a different bootstrap.servers order per application",
+          "why": "Server order doesn't label metrics."
+        },
+        {
+          "t": "Running each producer with acks=all",
+          "why": "acks doesn't label metrics."
+        },
+        {
+          "t": "Turning off idempotence",
+          "why": "Unrelated to metric names."
+        }
+      ],
+      "explain": "Client metrics are registered per `client-id` (for example `kafka.producer:type=producer-metrics,client-id=…`), so a meaningful `client.id` tells them apart."
+    },
+    {
+      "id": "O19",
+      "topic": "Consumer metrics",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §15"
+      ],
+      "q": "A consumer's fetch requests seem slow. Which metric measures them directly?",
+      "options": [
+        {
+          "t": "commit-latency-avg",
+          "why": "That's for commits."
+        },
+        {
+          "t": "rebalance-latency-avg",
+          "why": "That's for rebalances."
+        },
+        {
+          "t": "time-between-poll-avg",
+          "why": "That's the gap between polls."
+        },
+        {
+          "t": "fetch-latency-avg",
+          "ok": true
+        }
+      ],
+      "explain": "`fetch-latency-avg` is the average time taken for a fetch request; `fetch-rate` is fetch requests per second."
+    },
+    {
+      "id": "O20",
+      "topic": "Consumer metrics",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §15",
+        "notes §3"
+      ],
+      "q": "A consumer reads a topic with short retention. Which metric warns that it is close to the start of the log, where records may be deleted before it reads them?",
+      "options": [
+        {
+          "t": "records-lead-min",
+          "ok": true
+        },
+        {
+          "t": "records-lag-max",
+          "why": "Lag measures distance from the end of the log."
+        },
+        {
+          "t": "fetch-throttle-time-avg",
+          "why": "That's broker throttling."
+        },
+        {
+          "t": "heartbeat-rate",
+          "why": "That's group liveness."
+        }
+      ],
+      "explain": "`records-lead-min` is the minimum lead in records for any partition: how far the consumer is from the start of the log, which retention moves forward."
+    },
+    {
+      "id": "O21",
+      "topic": "Consumer metrics",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §15"
+      ],
+      "q": "Which metric shows the lag of one specific partition, rather than the maximum across partitions?",
+      "options": [
+        {
+          "t": "records-lag-max",
+          "why": "That is the maximum across partitions."
+        },
+        {
+          "t": "records-lag, tagged with topic and partition",
+          "ok": true
+        },
+        {
+          "t": "fetch-rate divided by the number of assigned partitions",
+          "why": "That isn't lag."
+        },
+        {
+          "t": "last-rebalance-seconds-ago",
+          "why": "That's about rebalances."
+        }
+      ],
+      "explain": "`records-lag` is reported per partition (`partition` and `topic` tags) with the partition's latest lag."
+    }
+  ]
+}

@@ -78,14 +78,15 @@ This is one of the AI-backed tasks (`content_validation`; the full list is on [A
 `backend/app/content/question_banks/ccdak/ccdak_question_bank.json` is a CCDAK (Confluent Certified Developer for Apache
 Kafka) bank, ready to import as JSON. Its questions carry `certification: "CCDAK"`, so they join the preparation whose
 certification is exactly `CCDAK`; change that field first if yours is named differently. It follows the six sections of
-Confluent's exam guide (April 2025) by weight; sections arrive in stages, and the file holds those written so far.
+Confluent's exam guide (April 2025) by weight: 300 questions across all six sections.
 
 Every question names its sources in its explanation: sections of `docs/research/ccdak-exam-research.md` or
 `docs/research/kafka-documentation-notes.md`, each checked against the Apache Kafka 4.3 documentation or a named
 Confluent page. The JSON is built from one file per section under `src/` by `backend/scripts/build_question_bank.py`;
 edit the sources and rebuild, never the JSON (`tests/test_ccdak_question_bank.py` fails if they differ). Duplicates are
-only warned about, not blocked: when a later version adds sections, import only the new questions, or the validation
-step will flag every earlier one as already in your bank.
+only warned about, not blocked. If you imported the first version (Fundamentals and Application Development, 153
+questions), import `ccdak_question_bank_sections-3-6.json` instead of the full file: it holds only the four sections added
+since (Streams, Connect, Testing, Observability; 147 questions).
 
 ---
 

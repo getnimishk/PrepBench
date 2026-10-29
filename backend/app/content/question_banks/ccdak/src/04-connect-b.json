@@ -1,0 +1,632 @@
+{
+  "section": 4,
+  "domain": "Kafka Connect",
+  "questions": [
+    {
+      "id": "C24",
+      "topic": "REST API",
+      "difficulty": "easy",
+      "sources": [
+        "ccdak §14"
+      ],
+      "q": "On which port does the Connect REST API listen when `listeners` is not set?",
+      "options": [
+        {
+          "t": "9092",
+          "why": "9092 is the broker's default listener port."
+        },
+        {
+          "t": "8081",
+          "why": "8081 isn't Connect's default; with no listeners set, the REST API uses 8083."
+        },
+        {
+          "t": "8083, over HTTP",
+          "ok": true
+        },
+        {
+          "t": "9093",
+          "why": "That's the controller listener in Kafka's sample config."
+        }
+      ],
+      "explain": "Without `listeners`, the Connect REST server runs on port 8083 over HTTP, in both standalone and distributed mode."
+    },
+    {
+      "id": "C25",
+      "topic": "REST API",
+      "difficulty": "easy",
+      "sources": [
+        "ccdak §14"
+      ],
+      "q": "Which request creates a new connector?",
+      "options": [
+        {
+          "t": "POST /connectors, with a name and a config",
+          "ok": true
+        },
+        {
+          "t": "PUT /connectors/{name}/start with the config in the body",
+          "why": "There is no start endpoint; connectors start when created."
+        },
+        {
+          "t": "GET /connectors?create={name}",
+          "why": "GET requests don't create resources."
+        },
+        {
+          "t": "POST /connector-plugins/{name}",
+          "why": "That path lists or validates plugins."
+        }
+      ],
+      "explain": "`POST /connectors` creates a connector; the body has a `name` and a `config` object, and optionally `initial_state`."
+    },
+    {
+      "id": "C26",
+      "topic": "REST API",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §14"
+      ],
+      "q": "Which request shows whether a connector and each of its tasks are running or failed, and on which worker?",
+      "options": [
+        {
+          "t": "GET /connectors/{name}/config",
+          "why": "That returns the configuration only."
+        },
+        {
+          "t": "GET /connectors",
+          "why": "That lists connectors' names."
+        },
+        {
+          "t": "GET /connector-plugins",
+          "why": "That lists installed plugins."
+        },
+        {
+          "t": "GET /connectors/{name}/status",
+          "ok": true
+        }
+      ],
+      "explain": "`GET /connectors/{name}/status` returns the connector's state, its worker, error information if it failed, and the state of all its tasks."
+    },
+    {
+      "id": "C27",
+      "topic": "REST API",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §14"
+      ],
+      "q": "A source system is down for maintenance for two hours. The team wants the connector to stop polling but resume quickly afterwards. Which request fits best?",
+      "options": [
+        {
+          "t": "PUT /connectors/{name}/pause",
+          "ok": true
+        },
+        {
+          "t": "DELETE /connectors/{name}",
+          "why": "Deleting removes the connector and its configuration."
+        },
+        {
+          "t": "PUT /connectors/{name}/stop",
+          "why": "Stop frees resources, so starting again takes longer."
+        },
+        {
+          "t": "POST /connectors/{name}/restart",
+          "why": "Restarting keeps it polling."
+        }
+      ],
+      "explain": "Pause stops message processing but leaves the tasks' resources allocated, so it resumes quickly. Stop shuts tasks down and frees resources, saving them but taking longer to start again."
+    },
+    {
+      "id": "C28",
+      "topic": "REST API",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §14"
+      ],
+      "q": "A team must reset a source connector's offsets through the REST API. What state must the connector be in first?",
+      "options": [
+        {
+          "t": "PAUSED",
+          "why": "Offsets can be changed only when the connector is stopped."
+        },
+        {
+          "t": "RUNNING, so the change takes effect at once",
+          "why": "A running connector's offsets can't be changed."
+        },
+        {
+          "t": "FAILED",
+          "why": "The required state is STOPPED."
+        },
+        {
+          "t": "STOPPED",
+          "ok": true
+        }
+      ],
+      "explain": "`DELETE` and `PATCH /connectors/{name}/offsets` need the connector to exist and be stopped (`PUT /connectors/{name}/stop`)."
+    },
+    {
+      "id": "C29",
+      "topic": "REST API",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §14"
+      ],
+      "q": "Which request restarts a connector together with only those of its tasks that have failed?",
+      "options": [
+        {
+          "t": "PUT /connectors/{name}/resume",
+          "why": "Resume restarts processing of a paused or stopped connector, not failed tasks."
+        },
+        {
+          "t": "POST /connectors/{name}/restart?includeTasks=true&onlyFailed=true",
+          "ok": true
+        },
+        {
+          "t": "DELETE then POST the connector again",
+          "why": "That recreates it, losing its state and history."
+        },
+        {
+          "t": "PATCH /connectors/{name}/config with an empty body",
+          "why": "Patching config doesn't restart failed tasks on its own."
+        }
+      ],
+      "explain": "`POST /connectors/{name}/restart` takes `includeTasks` and `onlyFailed`; a single task can also be restarted with `POST /connectors/{name}/tasks/{id}/restart`."
+    },
+    {
+      "id": "C30",
+      "topic": "Operations",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §13",
+        "ccdak §14"
+      ],
+      "q": "A sink task fails with an exception at 02:00. At 09:00 it is still FAILED. Why didn't Connect restart it?",
+      "options": [
+        {
+          "t": "Connect retries failed tasks automatically, but only once an hour",
+          "why": "Connect doesn't restart failed tasks at all."
+        },
+        {
+          "t": "Connect does not restart failed tasks automatically",
+          "ok": true
+        },
+        {
+          "t": "The worker must be restarted first",
+          "why": "The REST API restarts tasks without a worker restart."
+        },
+        {
+          "t": "Failed tasks restart only after a rebalance",
+          "why": "Restarting is a manual action through the REST API."
+        }
+      ],
+      "explain": "Connect does not automatically restart failed tasks; use the restart endpoints (a restart during a rebalance returns 409 Conflict)."
+    },
+    {
+      "id": "C31",
+      "topic": "Operations",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §14"
+      ],
+      "q": "A restart request for a task returns HTTP 409. What does it mean?",
+      "options": [
+        {
+          "t": "The task doesn't exist",
+          "why": "The docs give 409 for a restart attempted during a rebalance."
+        },
+        {
+          "t": "The worker that owns the task has run out of heap memory",
+          "why": "409 here means a rebalance conflict."
+        },
+        {
+          "t": "A rebalance is in progress; retry after it completes",
+          "ok": true
+        },
+        {
+          "t": "The task is already running",
+          "why": "409 is returned during a rebalance."
+        }
+      ],
+      "explain": "Restarting a task while a rebalance is taking place returns 409 (Conflict). You can retry afterwards, though a rebalance effectively restarts connectors and tasks anyway."
+    },
+    {
+      "id": "C32",
+      "topic": "Operations",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §14"
+      ],
+      "q": "Which TWO are valid states for a connector in the status API?",
+      "options": [
+        {
+          "t": "STOPPED",
+          "ok": true
+        },
+        {
+          "t": "DEGRADED",
+          "why": "Not a Connect state."
+        },
+        {
+          "t": "UNASSIGNED",
+          "ok": true
+        },
+        {
+          "t": "LAGGING",
+          "why": "Not a Connect state."
+        },
+        {
+          "t": "QUEUED",
+          "why": "Not a Connect state."
+        }
+      ],
+      "explain": "Connector and task states are UNASSIGNED, RUNNING, PAUSED, FAILED and RESTARTING; STOPPED applies to connectors only."
+    },
+    {
+      "id": "C33",
+      "topic": "Operations",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §14"
+      ],
+      "q": "A connector is paused and then the whole Connect cluster restarts. What state is the connector in afterwards?",
+      "options": [
+        {
+          "t": "RUNNING, because a restart clears the pause",
+          "why": "The pause state is persistent."
+        },
+        {
+          "t": "FAILED, because it was interrupted",
+          "why": "A pause isn't a failure."
+        },
+        {
+          "t": "UNASSIGNED until someone reassigns it by hand",
+          "why": "Workers reassign connectors automatically."
+        },
+        {
+          "t": "Still PAUSED, until it is resumed",
+          "ok": true
+        }
+      ],
+      "explain": "The pause state is persistent: even after the cluster restarts, the connector won't process messages until it is resumed."
+    },
+    {
+      "id": "C34",
+      "topic": "Rebalancing",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §13"
+      ],
+      "q": "A Connect worker crashes. With default settings, when are its tasks given to the other workers?",
+      "options": [
+        {
+          "t": "Only if it hasn't returned within 5 minutes",
+          "ok": true
+        },
+        {
+          "t": "Immediately, in a full eager rebalance of every task",
+          "why": "Since 2.3 rebalancing is incremental and delayed for departed workers."
+        },
+        {
+          "t": "Never; the tasks wait for the worker to return",
+          "why": "They are reassigned after the delay."
+        },
+        {
+          "t": "After the session timeout of 45 seconds",
+          "why": "Connect waits scheduled.rebalance.max.delay.ms."
+        }
+      ],
+      "explain": "Connect waits `scheduled.rebalance.max.delay.ms` (default 5 minutes) for a departed worker; if it returns it gets its tasks back, otherwise they are reassigned."
+    },
+    {
+      "id": "C35",
+      "topic": "Rebalancing",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §13"
+      ],
+      "q": "A new connector is added to a Connect cluster running dozens of tasks. With the default protocol, what happens to the existing tasks?",
+      "options": [
+        {
+          "t": "All of them stop and restart, as they do in every rebalance",
+          "why": "That was the eager protocol before 2.3."
+        },
+        {
+          "t": "They are paused until the new connector is running",
+          "why": "Rebalancing doesn't pause unrelated tasks."
+        },
+        {
+          "t": "Only tasks that must move are stopped and restarted",
+          "ok": true
+        },
+        {
+          "t": "Nothing; adding a connector never rebalances",
+          "why": "Adding a connector triggers a rebalance."
+        }
+      ],
+      "explain": "Since 2.3, Connect uses incremental cooperative rebalancing: only new, removed or moving tasks are affected; others keep running."
+    },
+    {
+      "id": "C36",
+      "topic": "Plugins",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §13"
+      ],
+      "q": "A worker can't find a connector class that the team installed as a JAR. Which worker setting tells Connect where plugins are?",
+      "options": [
+        {
+          "t": "connector.class",
+          "why": "That names the class to use; it doesn't say where to find it."
+        },
+        {
+          "t": "bootstrap.servers",
+          "why": "That's for connecting to Kafka."
+        },
+        {
+          "t": "config.storage.topic",
+          "why": "That stores connector configs."
+        },
+        {
+          "t": "plugin.path",
+          "ok": true
+        }
+      ],
+      "explain": "`plugin.path` lists the directories that contain Connect plugins: connectors, converters and transformations."
+    },
+    {
+      "id": "C37",
+      "topic": "Configuration",
+      "difficulty": "easy",
+      "sources": [
+        "ccdak §13"
+      ],
+      "q": "A sink connector must read every topic whose name starts with `orders-`. Which setting fits?",
+      "options": [
+        {
+          "t": "topics.regex=orders-.*",
+          "ok": true
+        },
+        {
+          "t": "topics=orders-*",
+          "why": "topics takes a comma-separated list, not a pattern."
+        },
+        {
+          "t": "connector.class=orders-*",
+          "why": "That names the connector class."
+        },
+        {
+          "t": "tasks.max=orders-*",
+          "why": "tasks.max is a number."
+        }
+      ],
+      "explain": "Sink connectors take `topics` (a comma-separated list) or `topics.regex` (a Java regular expression)."
+    },
+    {
+      "id": "C38",
+      "topic": "Configuration",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §14"
+      ],
+      "q": "An operator wants to remove one key from a running connector's configuration, leaving the rest as it is. Which request does that?",
+      "options": [
+        {
+          "t": "PUT /connectors/{name}/config with only that key, set to null",
+          "why": "PUT replaces the whole configuration, so every other key would be lost."
+        },
+        {
+          "t": "DELETE /connectors/{name}/config/{key}",
+          "why": "No such endpoint exists."
+        },
+        {
+          "t": "POST /connectors with the same name",
+          "why": "Registering an existing name fails."
+        },
+        {
+          "t": "PATCH /connectors/{name}/config with that key set to null",
+          "ok": true
+        }
+      ],
+      "explain": "`PATCH /connectors/{name}/config` patches the configuration; a null value in the body removes that key."
+    },
+    {
+      "id": "C39",
+      "topic": "Configuration",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §14"
+      ],
+      "q": "Before creating a connector, a team wants to check its configuration and get error messages for bad values. Which endpoint does that?",
+      "options": [
+        {
+          "t": "GET /connectors/{name}/status",
+          "why": "The connector doesn't exist yet."
+        },
+        {
+          "t": "PUT /connector-plugins/{type}/config/validate",
+          "ok": true
+        },
+        {
+          "t": "POST /connectors?dryRun=true",
+          "why": "There is no dryRun parameter."
+        },
+        {
+          "t": "GET /connectors/{name}/topics",
+          "why": "That lists topics a connector has used."
+        }
+      ],
+      "explain": "`PUT /connector-plugins/{type}/config/validate` validates config values against the plugin's definition, returning suggestions and error messages."
+    },
+    {
+      "id": "C40",
+      "topic": "CDC",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §13",
+        "ccdak §9"
+      ],
+      "q": "What does a change data capture (CDC) source connector deliver into Kafka?",
+      "options": [
+        {
+          "t": "A nightly full copy of each table",
+          "why": "CDC streams changes as they happen, not periodic copies."
+        },
+        {
+          "t": "The database's query logs, as one record for each SQL statement run",
+          "why": "CDC records row changes, not queries."
+        },
+        {
+          "t": "The rows inserted, updated and deleted, as change events",
+          "ok": true
+        },
+        {
+          "t": "Only the schema of each table",
+          "why": "It delivers data changes."
+        }
+      ],
+      "explain": "CDC records represent which row in a table was inserted, updated or deleted; read in Kafka Streams they form a changelog (a KTable). CDC connectors may also use extra topics, for example for schema history."
+    },
+    {
+      "id": "C41",
+      "topic": "Connect basics",
+      "difficulty": "medium",
+      "sources": [
+        "notes §19"
+      ],
+      "q": "Which part of Apache Kafka is built on Kafka Connect source connectors?",
+      "options": [
+        {
+          "t": "MirrorMaker 2",
+          "ok": true
+        },
+        {
+          "t": "Kafka Streams",
+          "why": "Streams is a client library, not Connect-based."
+        },
+        {
+          "t": "The KRaft controller",
+          "why": "The controller is part of the server."
+        },
+        {
+          "t": "The console producer",
+          "why": "That's a command-line tool on the producer API."
+        }
+      ],
+      "explain": "MirrorMaker 2, which replicates topics, configs, consumer offsets and ACLs between clusters, is built on Kafka Connect source connectors."
+    },
+    {
+      "id": "C42",
+      "topic": "Configuration",
+      "difficulty": "easy",
+      "sources": [
+        "ccdak §13"
+      ],
+      "q": "A team submits a second connector with the same `name` as an existing one. What happens?",
+      "options": [
+        {
+          "t": "It replaces the first connector's config",
+          "why": "Registering an existing name fails."
+        },
+        {
+          "t": "Both run, sharing the name",
+          "why": "Connector names are unique."
+        },
+        {
+          "t": "The registration fails",
+          "ok": true
+        },
+        {
+          "t": "Connect appends -2 to the new name",
+          "why": "Connect doesn't rename connectors."
+        }
+      ],
+      "explain": "`name` must be unique; attempting to register again with the same name fails (use the config endpoints to change an existing connector)."
+    },
+    {
+      "id": "C43",
+      "topic": "Operations",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §14"
+      ],
+      "q": "Which TWO statements about pausing versus stopping a connector are right?",
+      "options": [
+        {
+          "t": "Stopping frees the tasks' resources; pausing keeps them",
+          "ok": true
+        },
+        {
+          "t": "Only stopping is persistent across cluster restarts",
+          "why": "Pause is persistent too."
+        },
+        {
+          "t": "A paused connector resumes faster than a stopped one",
+          "ok": true
+        },
+        {
+          "t": "Pausing deletes the connector's offsets",
+          "why": "Offsets are kept."
+        },
+        {
+          "t": "A stopped connector keeps polling but discards records",
+          "why": "Stopped tasks are shut down."
+        }
+      ],
+      "explain": "Pause stops processing but leaves resources allocated, so it resumes quickly; stop shuts tasks down and frees resources, so resuming takes longer."
+    },
+    {
+      "id": "C44",
+      "topic": "Configuration",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §13"
+      ],
+      "q": "How can `connector.class` name the built-in file sink connector?",
+      "options": [
+        {
+          "t": "Only by its full class name",
+          "why": "Short aliases also work."
+        },
+        {
+          "t": "By full class name, or an alias such as FileStreamSink",
+          "ok": true
+        },
+        {
+          "t": "By the JAR file name",
+          "why": "connector.class takes a class name or alias."
+        },
+        {
+          "t": "By a number from GET /connector-plugins",
+          "why": "Plugins are named, not numbered."
+        }
+      ],
+      "explain": "`connector.class` accepts the full class name or an alias: `FileStreamSink` or `FileStreamSinkConnector` for `org.apache.kafka.connect.file.FileStreamSinkConnector`."
+    },
+    {
+      "id": "C45",
+      "topic": "Deployment modes",
+      "difficulty": "medium",
+      "sources": [
+        "notes §14"
+      ],
+      "q": "When does standalone mode suit a Connect job best?",
+      "options": [
+        {
+          "t": "When the job must keep running even when one of its workers fails",
+          "why": "Standalone has no fault tolerance."
+        },
+        {
+          "t": "When many workers must share a heavy load",
+          "why": "Sharing load across workers is distributed mode."
+        },
+        {
+          "t": "When connectors must be created through the REST API",
+          "why": "Both modes have the REST API."
+        },
+        {
+          "t": "For a single-worker job, such as collecting log files",
+          "ok": true
+        }
+      ],
+      "explain": "Standalone runs one process: simpler, suited to a single-worker job such as collecting log files, but with no fault tolerance."
+    }
+  ]
+}

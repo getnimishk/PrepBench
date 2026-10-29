@@ -1,0 +1,698 @@
+{
+  "section": 5,
+  "domain": "Application Testing",
+  "questions": [
+    {
+      "id": "T01",
+      "topic": "Testing Streams",
+      "difficulty": "easy",
+      "sources": [
+        "ccdak §11"
+      ],
+      "q": "A developer wants fast unit tests for a Kafka Streams topology, without starting a broker. Which tool is meant for that?",
+      "options": [
+        {
+          "t": "A single-node KRaft cluster started inside each test method",
+          "why": "That works but is slow; TopologyTestDriver needs no broker."
+        },
+        {
+          "t": "TopologyTestDriver",
+          "ok": true
+        },
+        {
+          "t": "MockProducer wired into the StreamsBuilder by hand",
+          "why": "MockProducer tests producer code, not a topology."
+        },
+        {
+          "t": "kafka-streams-application-reset run before every test",
+          "why": "The reset tool resets a deployed application's offsets and topics."
+        }
+      ],
+      "explain": "`TopologyTestDriver` (in `kafka-streams-test-utils`) pipes records through a `Topology` and simulates the runtime, with no broker."
+    },
+    {
+      "id": "T02",
+      "topic": "Testing Streams",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §11"
+      ],
+      "q": "In a `TopologyTestDriver` test, how is a record sent into the topology's input topic?",
+      "options": [
+        {
+          "t": "With a KafkaProducer pointed at the test driver's port",
+          "why": "The driver has no network port; it has test topic helpers."
+        },
+        {
+          "t": "By calling the topology's process() method directly",
+          "why": "The driver feeds records through TestInputTopic."
+        },
+        {
+          "t": "pipeInput on a TestInputTopic from createInputTopic",
+          "ok": true
+        },
+        {
+          "t": "By writing to a file the driver watches for new lines",
+          "why": "The driver doesn't read files."
+        }
+      ],
+      "explain": "`createInputTopic(name, keySerializer, valueSerializer)` returns a `TestInputTopic`, whose `pipeInput` sends records (keys, values, timestamps or lists) into the topology."
+    },
+    {
+      "id": "T03",
+      "topic": "Testing Streams",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §11"
+      ],
+      "q": "How does a `TopologyTestDriver` test read what the topology wrote to its output topic?",
+      "options": [
+        {
+          "t": "With readKeyValue on a TestOutputTopic, created with deserializers",
+          "ok": true
+        },
+        {
+          "t": "With a KafkaConsumer subscribed to the test driver's own in-memory output topic",
+          "why": "There is no broker; the driver captures output itself."
+        },
+        {
+          "t": "By querying the driver's changelog topics over HTTP",
+          "why": "The driver offers TestOutputTopic, not HTTP access."
+        },
+        {
+          "t": "From System.out, where the driver prints every output record",
+          "why": "Output is captured for TestOutputTopic, not printed."
+        }
+      ],
+      "explain": "`createOutputTopic(name, keyDeserializer, valueDeserializer)` returns a `TestOutputTopic`, with helpers such as `readKeyValue` and `isEmpty`."
+    },
+    {
+      "id": "T04",
+      "topic": "Testing Streams",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §11"
+      ],
+      "q": "A topology only updates a state store and emits nothing for some inputs. How can a test check that nothing was emitted, and what the store holds?",
+      "options": [
+        {
+          "t": "Wait 30 seconds, then count all the records stored in the output topic's log",
+          "why": "The driver works synchronously; there's no log to count."
+        },
+        {
+          "t": "Assert outputTopic.isEmpty(), then read testDriver.getKeyValueStore(...)",
+          "ok": true
+        },
+        {
+          "t": "Use interactive queries over the application's RPC layer",
+          "why": "The driver gives direct access to stores; no RPC is needed."
+        },
+        {
+          "t": "It can't: stores are private to the topology",
+          "why": "The driver lets tests query its state stores."
+        }
+      ],
+      "explain": "The driver captures output records and lets tests query its embedded state stores; `TestOutputTopic.isEmpty()` checks that nothing was emitted."
+    },
+    {
+      "id": "T05",
+      "topic": "Testing Streams",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §11",
+        "ccdak §10"
+      ],
+      "q": "A processor emits a summary on a wall-clock punctuation every 60 seconds. How can a `TopologyTestDriver` test trigger it without waiting?",
+      "options": [
+        {
+          "t": "Thread.sleep(60_000) in the test",
+          "why": "The driver mocks wall-clock time, so sleeping isn't needed."
+        },
+        {
+          "t": "Pipe records with timestamps 60 s apart",
+          "why": "That advances stream time, which drives stream-time punctuations, not wall-clock ones."
+        },
+        {
+          "t": "Call the punctuator's punctuate method directly from the test code",
+          "why": "The driver controls punctuation; advancing its clock is the supported way."
+        },
+        {
+          "t": "testDriver.advanceWallClockTime(Duration.ofSeconds(60))",
+          "ok": true
+        }
+      ],
+      "explain": "The driver mocks wall-clock time: `advanceWallClockTime` triggers wall-clock punctuations. Event-time punctuations fire from piped records' timestamps."
+    },
+    {
+      "id": "T06",
+      "topic": "Testing Streams",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §11",
+        "ccdak §10"
+      ],
+      "q": "A topology uses a stream-time punctuation every 10 seconds. Which `TopologyTestDriver` action triggers it?",
+      "options": [
+        {
+          "t": "advanceWallClockTime by 10 seconds",
+          "why": "That drives wall-clock punctuations."
+        },
+        {
+          "t": "Nothing; punctuations don't run in the test driver",
+          "why": "The driver supports both kinds of punctuation."
+        },
+        {
+          "t": "Piping records whose timestamps advance by 10 seconds",
+          "ok": true
+        },
+        {
+          "t": "Calling testDriver.close(), which flushes punctuations",
+          "why": "close() ends the test; it isn't how punctuations are triggered."
+        }
+      ],
+      "explain": "Event-time (stream-time) punctuations are triggered automatically from the timestamps of the records piped in."
+    },
+    {
+      "id": "T07",
+      "topic": "Testing Streams",
+      "difficulty": "easy",
+      "sources": [
+        "ccdak §11"
+      ],
+      "q": "What should a test do with its `TopologyTestDriver` when it finishes?",
+      "options": [
+        {
+          "t": "Call testDriver.close()",
+          "ok": true
+        },
+        {
+          "t": "Delete its internal topics with the Admin API",
+          "why": "The driver has no real topics to delete."
+        },
+        {
+          "t": "Nothing; the driver cleans up when garbage-collected",
+          "why": "The docs show closing the driver after each test."
+        },
+        {
+          "t": "Run the application reset tool against it",
+          "why": "The reset tool works on deployed applications, not the driver."
+        }
+      ],
+      "explain": "The testing guide closes the driver after each test with `testDriver.close()`."
+    },
+    {
+      "id": "T08",
+      "topic": "Testing Streams",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §11"
+      ],
+      "q": "Which Maven dependency provides `TopologyTestDriver`, and with which scope?",
+      "options": [
+        {
+          "t": "kafka-streams, compile scope",
+          "why": "The test driver is in a separate test artifact."
+        },
+        {
+          "t": "kafka-clients, test scope",
+          "why": "kafka-clients holds the producer and consumer."
+        },
+        {
+          "t": "connect-runtime, provided scope",
+          "why": "That's Kafka Connect."
+        },
+        {
+          "t": "kafka-streams-test-utils, test scope",
+          "ok": true
+        }
+      ],
+      "explain": "Kafka provides `org.apache.kafka:kafka-streams-test-utils` as a separate artifact, added as a test-scope dependency."
+    },
+    {
+      "id": "T09",
+      "topic": "Testing producers",
+      "difficulty": "easy",
+      "sources": [
+        "ccdak §12"
+      ],
+      "q": "Code under test takes a `Producer<String, String>`. Which class lets a unit test check what it sent, with no broker?",
+      "options": [
+        {
+          "t": "MockProducer, then inspect history()",
+          "ok": true
+        },
+        {
+          "t": "KafkaProducer with bootstrap.servers=localhost:0",
+          "why": "A real producer needs a broker to send to."
+        },
+        {
+          "t": "TopologyTestDriver with a producer topology",
+          "why": "The driver tests Streams topologies."
+        },
+        {
+          "t": "MockConsumer reading the producer's output",
+          "why": "MockConsumer can't see a producer's sends."
+        }
+      ],
+      "explain": "`MockProducer` is a mock of the producer interface for testing code that uses Kafka; `history()` returns the records sent."
+    },
+    {
+      "id": "T10",
+      "topic": "Testing producers",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §12",
+        "ccdak §3"
+      ],
+      "q": "A test must check that the application handles a failed send (for example a `TimeoutException`) correctly. How can `MockProducer` simulate it?",
+      "options": [
+        {
+          "t": "Create it with autoComplete=true, then disconnect the test machine's network",
+          "why": "With autoComplete=true every send succeeds at once."
+        },
+        {
+          "t": "Create it with autoComplete=false, then call errorNext(...)",
+          "ok": true
+        },
+        {
+          "t": "Send a record larger than max.request.size",
+          "why": "MockProducer doesn't enforce broker limits; errorNext is the way to fail a send."
+        },
+        {
+          "t": "Call clear() while the send is in progress",
+          "why": "clear() resets the history; it doesn't fail sends."
+        }
+      ],
+      "explain": "With `autoComplete=false` sends wait for the test: `completeNext()` succeeds the next one, `errorNext(RuntimeException)` fails it, so error handling can be tested."
+    },
+    {
+      "id": "T11",
+      "topic": "Testing producers",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §12"
+      ],
+      "q": "A `MockProducer` was created with `autoComplete=true`. What happens when the code under test calls `send()` with a callback?",
+      "options": [
+        {
+          "t": "The send stays pending until completeNext() is called",
+          "why": "That's autoComplete=false."
+        },
+        {
+          "t": "The callback runs only after flush()",
+          "why": "With autoComplete=true it completes at once."
+        },
+        {
+          "t": "It completes successfully at once and runs the callback",
+          "ok": true
+        },
+        {
+          "t": "It throws, since a mock can't run callbacks",
+          "why": "Callbacks run on completion."
+        }
+      ],
+      "explain": "With `autoComplete=true` each send completes successfully immediately and its callback runs."
+    },
+    {
+      "id": "T12",
+      "topic": "Testing producers",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §12",
+        "ccdak §2"
+      ],
+      "q": "A test checks how transactional code reacts when another instance takes over its `transactional.id`. Which `MockProducer` method simulates that?",
+      "options": [
+        {
+          "t": "errorNext(new TimeoutException())",
+          "why": "A timeout is not fencing."
+        },
+        {
+          "t": "clear()",
+          "why": "clear() resets the history."
+        },
+        {
+          "t": "closed()",
+          "why": "closed() reports whether the producer was closed."
+        },
+        {
+          "t": "fenceProducer()",
+          "ok": true
+        }
+      ],
+      "explain": "`MockProducer.fenceProducer()` simulates fencing; `transactionCommitted()` and `flushed()` let tests check what the code did."
+    },
+    {
+      "id": "T13",
+      "topic": "Testing consumers",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §12"
+      ],
+      "q": "How does a test feed records to code that reads from a `MockConsumer`?",
+      "options": [
+        {
+          "t": "Assign partitions, set beginning offsets, then addRecord(...)",
+          "ok": true
+        },
+        {
+          "t": "Send them with a MockProducer that is linked to the consumer under test",
+          "why": "The two mocks aren't linked; records are added to the consumer."
+        },
+        {
+          "t": "Write them into a temp file named after the topic",
+          "why": "MockConsumer doesn't read files."
+        },
+        {
+          "t": "Pipe them with TestInputTopic.pipeInput",
+          "why": "That belongs to TopologyTestDriver."
+        }
+      ],
+      "explain": "Tests assign (or subscribe and `rebalance`) partitions, set offsets with `updateBeginningOffsets`, then `addRecord`; the code's `poll` returns them."
+    },
+    {
+      "id": "T14",
+      "topic": "Testing consumers",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §12"
+      ],
+      "q": "Code polls a `MockConsumer` on a background thread. How should a test add records safely?",
+      "options": [
+        {
+          "t": "Call addRecord from the test thread at any time",
+          "why": "MockConsumer isn't thread safe."
+        },
+        {
+          "t": "Wrap every call in a synchronized block on the test class",
+          "why": "The documented approach is schedulePollTask."
+        },
+        {
+          "t": "Use a second MockConsumer per thread",
+          "why": "Both threads must use the same consumer under test."
+        },
+        {
+          "t": "Use schedulePollTask to run them during the next poll",
+          "ok": true
+        }
+      ],
+      "explain": "MockConsumer is not thread safe; `schedulePollTask(Runnable)` lets a test run code during the next `poll` called by a background thread."
+    },
+    {
+      "id": "T15",
+      "topic": "Testing consumers",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §12",
+        "notes §23"
+      ],
+      "q": "A test must check that consumer code handles an exception thrown from `poll()`. How can `MockConsumer` do that?",
+      "options": [
+        {
+          "t": "Add a record with a null value",
+          "why": "A null value is a valid record, not an exception."
+        },
+        {
+          "t": "setPollException(...) before the next poll",
+          "ok": true
+        },
+        {
+          "t": "Call close() and then poll again",
+          "why": "That tests a closed consumer, not the code's handling of a thrown exception."
+        },
+        {
+          "t": "Set max.poll.interval.ms to zero",
+          "why": "MockConsumer doesn't run the group protocol."
+        }
+      ],
+      "explain": "`setPollException(KafkaException)` makes the next `poll` throw, so tests can exercise error handling (for example of a deserialization failure)."
+    },
+    {
+      "id": "T16",
+      "topic": "Testing consumers",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §12",
+        "notes §22"
+      ],
+      "q": "Code commits offsets in a `ConsumerRebalanceListener`. How can a `MockConsumer` test exercise a rebalance?",
+      "options": [
+        {
+          "t": "Start a second MockConsumer in the same group to force a rebalance",
+          "why": "MockConsumer has no group coordinator."
+        },
+        {
+          "t": "Change group.id while the test runs",
+          "why": "That doesn't simulate a rebalance."
+        },
+        {
+          "t": "Subscribe with the listener, then call rebalance(...)",
+          "ok": true
+        },
+        {
+          "t": "It can't: rebalances need a real broker",
+          "why": "MockConsumer can simulate them with rebalance()."
+        }
+      ],
+      "explain": "After subscribing, a test calls `MockConsumer.rebalance(newAssignment)` to simulate partitions being assigned, exercising the rebalance listener."
+    },
+    {
+      "id": "T17",
+      "topic": "Testing strategy",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §12",
+        "ccdak §11"
+      ],
+      "q": "Which TWO tests run without any Kafka broker?",
+      "options": [
+        {
+          "t": "A Streams topology test with TopologyTestDriver",
+          "ok": true
+        },
+        {
+          "t": "A load test with kafka-producer-perf-test",
+          "why": "The perf test sends to a real cluster."
+        },
+        {
+          "t": "A producer unit test with MockProducer",
+          "ok": true
+        },
+        {
+          "t": "Reading a topic with kafka-console-consumer",
+          "why": "The console consumer reads from a real cluster."
+        },
+        {
+          "t": "Checking lag with kafka-consumer-groups --describe",
+          "why": "This queries a real cluster."
+        }
+      ],
+      "explain": "TopologyTestDriver simulates the Streams runtime, and MockProducer/MockConsumer mock the client interfaces, so neither needs a broker; the command-line tools work against a cluster."
+    },
+    {
+      "id": "T18",
+      "topic": "Performance testing",
+      "difficulty": "medium",
+      "sources": [
+        "notes §21"
+      ],
+      "q": "Before release, a team wants to measure how many records per second a cluster accepts with `acks=all` and 1 KB records. Which tool fits?",
+      "options": [
+        {
+          "t": "kafka-producer-perf-test",
+          "ok": true
+        },
+        {
+          "t": "kafka-console-producer with a long input file",
+          "why": "It sends records but doesn't measure throughput or latency."
+        },
+        {
+          "t": "kafka-get-offsets run every second",
+          "why": "That reads end offsets; it doesn't load-test."
+        },
+        {
+          "t": "MockProducer in a unit test",
+          "why": "A mock has no broker, so it can't measure the cluster."
+        }
+      ],
+      "explain": "`kafka-producer-perf-test` (`--num-records`, `--record-size`, `--throughput`, `--command-property`) prints records/sec, MB/sec and latency percentiles."
+    },
+    {
+      "id": "T19",
+      "topic": "Performance testing",
+      "difficulty": "hard",
+      "sources": [
+        "notes §21"
+      ],
+      "q": "In Kafka 4.3, how do you pass `acks=all` to `kafka-producer-perf-test`?",
+      "options": [
+        {
+          "t": "--producer-props acks=all, the current option",
+          "why": "--producer-props is deprecated in 4.3."
+        },
+        {
+          "t": "--acks all",
+          "why": "There's no dedicated --acks option."
+        },
+        {
+          "t": "In an environment variable named KAFKA_ACKS",
+          "why": "The tool takes settings as options."
+        },
+        {
+          "t": "--command-property acks=all",
+          "ok": true
+        }
+      ],
+      "explain": "The 4.3 perf test takes producer settings with `--command-property k=v`; `--producer-props` is deprecated."
+    },
+    {
+      "id": "T20",
+      "topic": "Performance testing",
+      "difficulty": "medium",
+      "sources": [
+        "notes §21"
+      ],
+      "q": "Which TWO results does `kafka-producer-perf-test` print?",
+      "options": [
+        {
+          "t": "Records per second and MB per second",
+          "ok": true
+        },
+        {
+          "t": "Consumer group lag for each partition",
+          "why": "Lag comes from kafka-consumer-groups."
+        },
+        {
+          "t": "Average, maximum and percentile latencies",
+          "ok": true
+        },
+        {
+          "t": "The broker's CPU usage",
+          "why": "The tool reports client-side figures."
+        },
+        {
+          "t": "The number of under-replicated partitions",
+          "why": "That's a broker metric."
+        }
+      ],
+      "explain": "The producer perf test prints records/sec, MB/sec, and average, maximum and percentile latencies."
+    },
+    {
+      "id": "T21",
+      "topic": "Testing strategy",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §11"
+      ],
+      "q": "After a bug fix, a team wants a test environment's Streams application to reprocess its input from the start. Which TWO steps are needed?",
+      "options": [
+        {
+          "t": "Run the application reset tool",
+          "ok": true
+        },
+        {
+          "t": "Delete and recreate the input topics",
+          "why": "The reset tool resets input offsets; the data stays."
+        },
+        {
+          "t": "Delete the local state on every instance",
+          "ok": true
+        },
+        {
+          "t": "Change the brokers' log.retention.hours",
+          "why": "Retention doesn't make an application reprocess."
+        },
+        {
+          "t": "Raise num.stream.threads",
+          "why": "Threads don't change where processing starts."
+        }
+      ],
+      "explain": "The reset tool resets input offsets and deletes internal topics; local state must be deleted separately on each instance (and output topics handled by downstream consumers)."
+    },
+    {
+      "id": "T22",
+      "topic": "Testing producers",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §12"
+      ],
+      "q": "Between two test cases that reuse one `MockProducer`, how is the record history emptied?",
+      "options": [
+        {
+          "t": "close() and reopen it",
+          "why": "A closed producer isn't reopened."
+        },
+        {
+          "t": "flush()",
+          "why": "flush completes pending sends; it doesn't clear history."
+        },
+        {
+          "t": "clear()",
+          "ok": true
+        },
+        {
+          "t": "It can't be emptied; create a new mock",
+          "why": "clear() resets it."
+        }
+      ],
+      "explain": "`MockProducer.clear()` resets the history (and other recorded state) for reuse."
+    },
+    {
+      "id": "T23",
+      "topic": "Testing strategy",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §12",
+        "ccdak §3"
+      ],
+      "q": "A unit test fails a `MockProducer` send with a `RecordTooLargeException`. What should well-written application code do?",
+      "options": [
+        {
+          "t": "Retry the send until it succeeds",
+          "why": "It's non-retriable: the same record will be too large every time."
+        },
+        {
+          "t": "Treat it as non-retriable: log or divert the record, not retry it",
+          "ok": true
+        },
+        {
+          "t": "Raise retries to the maximum integer",
+          "why": "Retries can't fix a record that's too large."
+        },
+        {
+          "t": "Ignore it, because the broker retries for you",
+          "why": "Non-retriable errors are reported to the application."
+        }
+      ],
+      "explain": "`RecordTooLargeException` is non-retriable (the message will never be sent); testing it with `errorNext` checks that the code handles it rather than retrying."
+    },
+    {
+      "id": "T24",
+      "topic": "Testing Streams",
+      "difficulty": "hard",
+      "sources": [
+        "ccdak §11"
+      ],
+      "q": "What does `TopologyTestDriver` NOT need, compared with running the application for real?",
+      "options": [
+        {
+          "t": "Serializers for the input topic",
+          "why": "createInputTopic takes serializers."
+        },
+        {
+          "t": "Deserializers for the output topic",
+          "why": "createOutputTopic takes deserializers."
+        },
+        {
+          "t": "A Topology to drive",
+          "why": "The driver is built from a Topology."
+        },
+        {
+          "t": "A running Kafka cluster",
+          "ok": true
+        }
+      ],
+      "explain": "The driver simulates the runtime that fetches records and traverses the topology, so it needs a Topology and serdes, but no broker."
+    }
+  ]
+}
