@@ -50,10 +50,16 @@ def question_owned_by(subject_id: Optional[int]):
 # ---- reading a learning attempt ----------------------------------------------------------------
 
 # The labs on the shared experiment runner, each with its own attempt ids (frontend services/adfLab/attempts.ts
-# LabIds): the ADF Behaviour Lab (`ab:`, `adf.lab.`) and the Kafka Lab (`kb:`, `kafka.lab.`).
+# LabIds): the ADF Behaviour Lab (`ab:`, `adf.lab.`), the Kafka Lab (`kb:`, `kafka.lab.`) and the Databricks Lab
+# (`dbl:`, `databricks.lab.`).
 ADF_LAB = re.compile(r"^ab:(\d+):([a-z][a-z.-]*):r(\d+):([a-z]+)$")
 KAFKA_LAB = re.compile(r"^kb:(\d+):([a-z][a-z.-]*):r(\d+):([a-z]+)$")
-_LABS = (("adf", "adf.lab.", ADF_LAB, "/lab/adf"), ("kafka", "kafka.lab.", KAFKA_LAB, "/lab/kafka"))
+DATABRICKS_LAB = re.compile(r"^dbl:(\d+):([a-z][a-z.-]*):r(\d+):([a-z]+)$")
+_LABS = (
+    ("adf", "adf.lab.", ADF_LAB, "/lab/adf"),
+    ("kafka", "kafka.lab.", KAFKA_LAB, "/lab/kafka"),
+    ("databricks", "databricks.lab.", DATABRICKS_LAB, "/lab/databricks"),
+)
 SCENARIO_CHECK = re.compile(r"^([a-z0-9][a-z0-9_-]*)/([^/]+)/check/(\d+)$")
 SCENARIO_LENS = re.compile(r"^([a-z0-9][a-z0-9_-]*)/([^/]+)/lens/([a-z-]+)$")
 PACK_VERSION = re.compile(r"pack_version=(\d+)")

@@ -115,6 +115,22 @@ const SANDBOXES: SandboxCard[] = [
     iconBgKey: 'warning',
   },
   {
+    // Beside the Lakehouse Lab, not instead of it: these six cover the exam topics its stations don't.
+    id: 'databricks-lab',
+    label: 'Databricks Lab',
+    domain: 'Databricks, topic by topic',
+    description:
+      'Predict what a small model does, change it, and watch: table history and VACUUM, Auto Loader, streaming tables and '
+      + 'materialized views, job retries and repair, skew, and Unity Catalog privileges. Works in a preparation with the '
+      + 'Databricks guide attached.',
+    metricFamilies: ['Retention & VACUUM', 'Auto Loader', 'Pipeline datasets', 'Jobs & repair', 'Skew & AQE', 'Privileges & drops'],
+    familiesLabel: 'Six experiments',
+    path: '/lab/databricks',
+    live: true,
+    icon: <FlaskConical size={22} aria-hidden />,
+    iconBgKey: 'primary',
+  },
+  {
     id: 'finance',
     label: 'Financial Learning',
     domain: 'Company financial modelling',

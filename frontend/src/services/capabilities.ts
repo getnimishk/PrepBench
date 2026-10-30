@@ -6,6 +6,7 @@ import type { CapabilityName, SubjectCapabilityProfile, SubjectSummary } from '.
 import type { Subject } from '../types/subject';
 import { adfLabStatus, hasAdfPack } from './adfLab/experiments';
 import { hasKafkaPack, kafkaLabStatus } from './kafkaLab/lab';
+import { databricksLabStatus, hasDatabricksPack } from './databricksLab/lab';
 
 /**
  * The slug of the preparation the Lakehouse Lab writes to (skills plan D11): the page
@@ -388,16 +389,18 @@ function deriveCapabilities(s: LiveSubject): SubjectCapabilityProfile {
   const adfLab = hasAdfPack(s);
   // The Kafka Lab is for any preparation with the Kafka pack attached, the same way (services/kafkaLab/lab.ts).
   const kafkaLab = !adfLab && hasKafkaPack(s);
+  // And the Databricks Lab for one with the Databricks pack (services/databricksLab/lab.ts).
+  const databricksLab = !adfLab && !kafkaLab && hasDatabricksPack(s);
   const hasLabQuestions = typeof s.lab_interview_question_count === 'number' && s.lab_interview_question_count > 0;
   const hasScenarioQuestions = Boolean(s.content_packs?.some((p) => (p.written_scenario_count ?? 0) > 0));
   return Object.freeze({
     certification: s.kind.toLowerCase() === 'certification',
     interview: adfLab || hasLabQuestions || hasScenarioQuestions,
-    learningLab: adfLab || kafkaLab,
-    lab: adfLab || kafkaLab,
+    learningLab: adfLab || kafkaLab || databricksLab,
+    lab: adfLab || kafkaLab || databricksLab,
     lakehouseLab: s.slug === LAKEHOUSE_SLUG,
     systemDesignStudio: s.slug === SYSTEM_DESIGN_SLUG,
-    learningLabStatus: adfLab ? adfLabStatus() : kafkaLab ? kafkaLabStatus() : 'UNAVAILABLE',
+    learningLabStatus: adfLab ? adfLabStatus() : kafkaLab ? kafkaLabStatus() : databricksLab ? databricksLabStatus() : 'UNAVAILABLE',
     workspace: true,
     evidence: true,
     roadmap: true,
@@ -458,7 +461,8 @@ export function getSubjectCapabilities(
     // attached to a seeded preparation without a lab of its own (System Design, say) brings its
     // lab, as the lab pages' own pack check already allows. A seeded lab is never replaced.
     const packLab = profile.learningLab ? null
-      : hasAdfPack(live) ? adfLabStatus() : hasKafkaPack(live) ? kafkaLabStatus() : null;
+      : hasAdfPack(live) ? adfLabStatus() : hasKafkaPack(live) ? kafkaLabStatus()
+        : hasDatabricksPack(live) ? databricksLabStatus() : null;
     const sameCurriculum = Object.entries(curriculum)
       .every(([k, v]) => profile[k as keyof SubjectCapabilityProfile] === v);
     if (live.question_count === profile.questionCount && sameCurriculum && interview === profile.interview && !packLab) return profile;

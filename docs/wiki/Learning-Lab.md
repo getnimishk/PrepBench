@@ -11,13 +11,14 @@ The prediction is write-once, so you cannot change it after seeing the result. E
 
 This page explains how the labs are built and the rules behind them. To learn how to *use* them, station by station, see **[How to use the Learning Lab](Learning-Lab-Guide)**.
 
-There are four sandboxes.
+There are five sandboxes.
 
 | Sandbox | Route | Who it is for |
 |---|---|---|
 | **Agile Metrics** | `/chart-sandbox` | Everyone. No preparation is needed |
 | **ADF Behaviour Lab** | `/lab/adf` | A preparation with the `adf` content pack attached |
 | **Kafka Lab** | `/lab/kafka` | A preparation with the `kafka` content pack attached |
+| **Databricks Lab** | `/lab/databricks` | A preparation with the `databricks` content pack attached |
 | **Lakehouse Lab** | `/databricks-sandbox` | The preparation whose slug is `databricks` |
 
 ## The rules every sandbox holds to
@@ -27,7 +28,7 @@ There are four sandboxes.
   - **arithmetic:** follows from definitions;
   - **assumption:** a claim the sandbox makes so the lesson lands;
   - **convention:** a counting choice.
-  - **fact** (ADF and Kafka labs): stated by that lab's study guide.
+  - **fact** (ADF, Kafka and Databricks labs): stated by that lab's study guide.
 
   Each one is shown to the learner with its kind, so a modelling choice is never presented as a law.
 - **The model grades, never AI.** A prediction is checked against the model's own outcome, and only that sets `correct`. The [AI feedback](AI-Providers) on acceptance criteria is advice only. It never sets `correct` and never raises an evidence level.
@@ -61,6 +62,18 @@ Six experiments for a beginner who has never seen Kafka run, at `/lab/kafka/:slu
 - **When things go wrong** (`failures`). It has two modes: `?mode=poison` and `?mode=retries`.
 
 It runs on the ADF Behaviour Lab's runner, with the same eight stages and the same way of keeping a run, under its own attempt ids (`kb:`, `kafka.lab.`) so the two labs' work never mixes. The facts its models rest on come from the Kafka study guide, each labelled with its chapter; every other rule is labelled an assumption, a convention or arithmetic. The design is `docs/implementation/KAFKA-LAB-CONTRACT.md`.
+
+## Databricks Lab
+
+Six experiments at `/lab/databricks/:slug`. They cover the exam topics the Lakehouse Lab's stations don't, each on a small model drawn on screen:
+- **Versions, retention and VACUUM** (`retention`)
+- **Auto Loader, schema changes and the checkpoint** (`auto-loader`)
+- **Streaming tables and materialized views** (`datasets`)
+- **Retries, repair and duplicates** (`jobs`)
+- **Shuffle, skew and AQE** (`skew`)
+- **Privileges and dropped tables** (`governance`). It has two modes: `?mode=grants` and `?mode=drop`.
+
+It runs on the same runner as the ADF and Kafka labs. Its attempts have their own ids (`dbl:`, `databricks.lab.`). Its facts come from the Databricks study guide, each labelled with its chapter. Every screen says it is a teaching simulation, not a Databricks workspace. The Lakehouse Lab below is a separate sandbox and is unchanged. The design is `docs/implementation/DATABRICKS-LAB-CONTRACT.md`.
 
 ## Lakehouse Lab
 

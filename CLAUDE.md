@@ -137,7 +137,16 @@ cites; chapters' practice links are built from them. **v1 (the guide alone, PR #
 holds the scenarios to the page's shape, real notes sections and chapters, answer positions (none over half), the right
 answer the longest option in at most 40% of checks, current product names, no `DENY` taught as Unity Catalog SQL and no
 pass mark. A seeded preparation (the Databricks skill) now also gets `interview` from an attached pack with written
-scenarios, as a derived one does, so their Say-it questions have an Interview hub. The lab is not built yet.
+scenarios, as a derived one does, so their Say-it questions have an Interview hub.
+**The Databricks Lab (2026-10-30)** is `docs/implementation/DATABRICKS-LAB-CONTRACT.md`. It has six beginner experiments at
+`/lab/databricks`: retention, auto-loader, datasets, jobs, skew, and governance with modes `grants` and `drop`. They run on the
+shared runner like the Kafka Lab and cover the exam topics the Lakehouse Lab's stations don't. The Lakehouse Lab
+(`/databricks-sandbox`) is a separate sandbox and is unchanged. Its attempts are `dbl:` / `databricks.lab.` /
+`databricks-lab=`; Evidence and Workspace show them with `ref.lab = "databricks"`. Any preparation with the `databricks`
+pack gets `learningLab` from the registry's status; the seeded Databricks skill already has the Lakehouse Lab, so its
+flags don't change. Models are pure, graded only from their own runs, and draw a picture. Every `fact` coupling names its
+guide chapter, and every Retrieve quote is checked word for word against the pack (`databricksLab/lab.test.ts`). The
+retry default is never stated, because the notes record a conflict (§19). Scope is six; changing it is a product decision.
 
 **Settled decisions, don't reopen these:**
 - The header Settings button stays, even though it isn't in the prototype — kept for
@@ -600,7 +609,7 @@ docs/
   any app import — this is the mechanism, not a suggestion; new tests that open their own
   `SessionLocal()` bypass it and have caused real leaks before.
 - **The Learning Lab** (`/lab`) is a hub for simulation sandboxes (predict → manipulate →
-  observe → explain). Four are live: Agile Metrics, the ADF Behaviour Lab, the Kafka Lab and the Lakehouse Lab
+  observe → explain). Five are live: Agile Metrics, the ADF Behaviour Lab, the Kafka Lab, the Databricks Lab and the Lakehouse Lab
   (see `docs/wiki/Learning-Lab.md`; the learner's guide is `docs/wiki/Learning-Lab-Guide.md`).
   Adding a new one means: a card in
   `LearningLabPage.tsx`, a `NavEntry` in `navigation.ts`, a route in `App.tsx`, and the
