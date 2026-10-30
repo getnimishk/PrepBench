@@ -450,7 +450,10 @@ export function getSubjectCapabilities(
     // attached shows at once (Phase 7, D3/D5), as an imported bank does.
     const curriculum = liveCurriculum(live);
     const hasLabQuestions = typeof live.lab_interview_question_count === 'number' && live.lab_interview_question_count > 0;
-    const interview = profile.interview || hasLabQuestions;
+    // Written scenarios end with Say-it questions saved under this preparation, as for a
+    // derived profile (the Databricks pack's, attached to the seeded Databricks skill).
+    const hasScenarioQuestions = Boolean(live.content_packs?.some((p) => (p.written_scenario_count ?? 0) > 0));
+    const interview = profile.interview || hasLabQuestions || hasScenarioQuestions;
     // A pack's lab comes with the pack, here as for a derived profile: the ADF or Kafka pack
     // attached to a seeded preparation without a lab of its own (System Design, say) brings its
     // lab, as the lab pages' own pack check already allows. A seeded lab is never replaced.

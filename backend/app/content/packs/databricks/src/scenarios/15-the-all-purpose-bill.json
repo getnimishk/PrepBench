@@ -1,0 +1,230 @@
+{
+  "id": "15",
+  "number": 15,
+  "title": "The all-purpose bill",
+  "outcome": "Production jobs ran on an all-purpose cluster that never shut down, and the first monthly bill was several times the estimate.",
+  "sources": "§12, §15, §23",
+  "chapter": "compute",
+  "content": {
+    "bookmark": "All-purpose compute is for interactive work and is billed at a different rate from jobs compute. Automated work belongs on jobs compute or serverless, and idle compute should terminate.",
+    "check": [
+      {
+        "prompt": "On Azure, what counts as a Jobs Compute workload for billing?",
+        "options": [
+          "Any job, whatever cluster it uses",
+          "A job that both starts and terminates the cluster it runs on",
+          "Any cluster, all-purpose or not, with fewer than ten workers at the time of the run"
+        ],
+        "answer": 1,
+        "why": "The Azure pricing page defines Jobs Compute as a job that both starts and terminates its cluster; other work, such as notebook commands, is all-purpose and billed at a different rate."
+      },
+      {
+        "prompt": "For classic compute, what does Azure Databricks bill?",
+        "options": [
+          "The virtual machines provisioned plus DBUs",
+          "DBUs only",
+          "A flat monthly fee per workspace, whatever compute runs in it"
+        ],
+        "answer": 0,
+        "why": "Azure Databricks bills for the VMs in clusters and for DBUs based on the VM type. For serverless, compute is in Databricks' account, so only DBUs are billed."
+      },
+      {
+        "prompt": "Which system table holds billable usage in DBUs?",
+        "options": [
+          "system.access.audit",
+          "system.query.history",
+          "system.billing.usage"
+        ],
+        "answer": 2,
+        "why": "system.billing.usage records all billable usage in DBUs; joined with prices and compute tables, it attributes spend to jobs and warehouses."
+      },
+      {
+        "prompt": "Which control lets admins limit cluster size and cost per cluster?",
+        "options": [
+          "Secret scopes",
+          "Compute policies",
+          "Git folders"
+        ],
+        "answer": 1,
+        "why": "Compute policies limit what users can create: fixed or hidden settings, cluster counts, maximum cost per cluster."
+      }
+    ],
+    "caseStudy": {
+      "setting": "A healthcare analytics start-up (fictional) moves its nightly pipelines to Azure Databricks. To move fast, the team creates one large all-purpose cluster with autoscaling, attaches every job to it, and switches off automatic termination \"so jobs never wait for start-up\".",
+      "events": [
+        {
+          "when": "Month 1",
+          "what": "Everything works. The cluster also hosts the team's daytime notebooks."
+        },
+        {
+          "when": "Month 1, end",
+          "what": "The first bill is several times the estimate. The cluster ran all month, and all of its work was billed at the all-purpose rate."
+        },
+        {
+          "when": "Month 2, day 1",
+          "what": "The CFO asks which jobs cost what, and what can be cut without slowing the pipelines."
+        }
+      ],
+      "pipeline": [
+        "One all-purpose cluster · autoscaling, auto termination off",
+        "Nightly jobs · attached to the all-purpose cluster",
+        "Daytime notebooks · same cluster"
+      ],
+      "tasks": [
+        "Why was the bill so high?",
+        "What would you change, and how would you show the CFO where the money goes?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why the bill was high",
+        "text": [
+          "Two things. The cluster never shut down, so VMs and DBUs were billed every hour of the month, including idle nights and weekends.",
+          "And on Azure, Jobs Compute means a job that starts and terminates its own cluster. Jobs run on a shared all-purpose cluster are all-purpose work, billed at a different rate. Databricks doesn't recommend all-purpose compute for production jobs."
+        ]
+      },
+      {
+        "title": "What to change",
+        "text": [
+          "Run each job on jobs compute (a cluster the job starts and stops) or on serverless jobs compute, Databricks' recommended compute for notebook and Python tasks, which starts fast and leaves minimal idle time.",
+          "Keep a smaller all-purpose cluster for daytime notebooks, with automatic termination after a set number of idle minutes. Use compute policies to cap size and enforce termination, and tag compute so usage can be attributed."
+        ]
+      },
+      {
+        "title": "Showing where the money goes",
+        "text": [
+          "Query system.billing.usage: usage in DBUs by date, SKU and job (usage_metadata.job_id), joined with system.billing.list_prices to estimate cost. Records usually appear within 12 hours.",
+          "Report spend per job and per team from tags, and review it monthly."
+        ]
+      }
+    ],
+    "takeaway": [
+      "All-purpose compute isn't for production jobs.",
+      "Jobs compute or serverless for automated work; auto termination for interactive clusters.",
+      "Attribute spend with system.billing.usage and compute tags."
+    ],
+    "honesty": "If you haven't managed Databricks costs, say so, and explain the difference between all-purpose and jobs compute and where usage is recorded. If you have cut a bill, give the main levers you used.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What cost information should the product have from the start?",
+          "How would you decide what to cut?"
+        ],
+        "debrief": [
+          {
+            "title": "From the start",
+            "text": [
+              "A cost estimate per pipeline and a monthly report of actual spend per pipeline."
+            ]
+          },
+          {
+            "title": "What to cut",
+            "text": [
+              "Waste first (idle compute, the wrong compute type), then pipelines whose value doesn't justify their cost."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you manage the cost of a data product?",
+          "points": [
+            "Estimate cost before building.",
+            "Measure actual cost per pipeline or feature.",
+            "Remove waste before cutting value.",
+            "Review cost against value regularly.",
+            "Make cost visible to the team that drives it."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What do you tell the CFO?",
+          "How do you stop a repeat?"
+        ],
+        "debrief": [
+          {
+            "title": "CFO",
+            "text": [
+              "The overspend came from compute left running and from billing at the interactive rate. Moving jobs to jobs compute or serverless and enabling termination fixes both; a per-job cost report follows from the billing tables."
+            ]
+          },
+          {
+            "title": "No repeat",
+            "text": [
+              "Compute policies that enforce termination and size limits, and a monthly cost review."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Your platform costs far more than estimated. How do you handle it?",
+          "points": [
+            "Find the cause with data, not guesses.",
+            "Fix waste quickly.",
+            "Report the cause and the expected saving.",
+            "Put guard rails in place.",
+            "Track cost monthly against the estimate."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you sequence the migration of jobs off the shared cluster?",
+          "Who owns cost?"
+        ],
+        "debrief": [
+          {
+            "title": "Sequence",
+            "text": [
+              "Biggest jobs first; move each to jobs compute or serverless and check its run time; then turn on termination for the interactive cluster."
+            ]
+          },
+          {
+            "title": "Ownership",
+            "text": [
+              "Each team owns its pipelines' cost; the platform team owns policies and reporting."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you introduce cost governance on a cloud data platform?",
+          "points": [
+            "Make spend visible per team and per workload.",
+            "Set policies that prevent the costliest mistakes.",
+            "Give teams ownership of their spend.",
+            "Review regularly and act on outliers.",
+            "Balance cost against delivery speed."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "What compute would you choose for each workload?",
+          "How would you write the cost report?"
+        ],
+        "debrief": [
+          {
+            "title": "Compute",
+            "text": [
+              "Serverless jobs compute for notebook and Python tasks; classic jobs compute where serverless doesn't fit (JAR or Spark Submit tasks, for example); a small all-purpose cluster with auto termination for interactive work."
+            ]
+          },
+          {
+            "title": "Cost report",
+            "text": [
+              "SELECT usage_date, sku_name, usage_metadata.job_id, SUM(usage_quantity) FROM system.billing.usage GROUP BY usage_date, sku_name, usage_metadata.job_id, joined with system.billing.list_prices for cost."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you choose and control compute on Databricks?",
+          "points": [
+            "Serverless for jobs, notebooks and pipelines where available: fast start, little idle time.",
+            "Jobs compute, not all-purpose, for automated work; LTS runtimes for production.",
+            "Auto termination, spot workers where latency allows, and right-sized instances.",
+            "Compute policies to cap size and enforce settings.",
+            "system.billing.usage and tags to attribute spend."
+          ]
+        }
+      }
+    }
+  }
+}

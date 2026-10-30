@@ -1,0 +1,234 @@
+{
+  "id": "2",
+  "number": 2,
+  "title": "The folder read in full every night",
+  "outcome": "A hand-written load appended the whole landing folder each night, and every order was counted once more each day.",
+  "sources": "§4, §7, §8, §13",
+  "chapter": "ingestion",
+  "content": {
+    "bookmark": "COPY INTO and Auto Loader remember which files they have loaded. A plain read of a folder doesn't, so appending it again loads everything again.",
+    "check": [
+      {
+        "prompt": "COPY INTO runs again over a folder that still holds yesterday's files. What happens to those files?",
+        "options": [
+          "They are loaded again",
+          "The command fails, because a file it has seen before must be removed from the folder first",
+          "They are skipped: files already loaded aren't loaded again"
+        ],
+        "answer": 2,
+        "why": "COPY INTO is retriable and idempotent: files it has already loaded are skipped on later runs."
+      },
+      {
+        "prompt": "What does Databricks recommend to SQL users as the alternative to COPY INTO for loading files incrementally?",
+        "options": [
+          "CREATE STREAMING TABLE, using Auto Loader",
+          "A nightly INSERT OVERWRITE of the whole folder",
+          "spark.read with a filter on the file date"
+        ],
+        "answer": 0,
+        "why": "The ingestion pages name CREATE STREAMING TABLE (with Auto Loader) as the recommended alternative to COPY INTO."
+      },
+      {
+        "prompt": "How does Auto Loader know which files it has already processed?",
+        "options": [
+          "It renames each processed file in the source folder, adding a suffix it checks on the next run",
+          "It keeps file metadata in RocksDB in the checkpoint location",
+          "It reads the target table's history and compares file names with the last commit"
+        ],
+        "answer": 1,
+        "why": "Discovered files are tracked in RocksDB in the checkpoint location, which gives exactly-once processing and lets a failed stream resume."
+      },
+      {
+        "prompt": "Which MERGE appends only the records a table doesn't already hold?",
+        "options": [
+          "MERGE ... WHEN MATCHED THEN UPDATE SET *",
+          "MERGE ... ON t.id = s.id WHEN NOT MATCHED THEN INSERT *",
+          "MERGE ... WHEN NOT MATCHED BY SOURCE THEN DELETE, removing rows the batch lacks"
+        ],
+        "answer": 1,
+        "why": "An insert-only merge on a unique key appends only new records: the documented way to avoid duplicates when a batch is replayed."
+      }
+    ],
+    "caseStudy": {
+      "setting": "A ticketing company (fictional) receives box-office sales as CSV files, a few new files every night, in an ADLS container registered as an external location. To get started quickly, an engineer wrote a notebook that reads the whole folder with spark.read.csv and appends the result to a bronze table. It runs nightly as a job.",
+      "events": [
+        {
+          "when": "Week 1",
+          "what": "Everything looks right. Bronze row counts rise every night, which everyone expects."
+        },
+        {
+          "when": "Week 3",
+          "what": "Finance notices ticket revenue in the gold report is far above the box-office system's own figures, and the gap grows each day."
+        },
+        {
+          "when": "Week 3, next day",
+          "what": "An engineer finds that bronze holds the first night's files twenty times over. Each run read every file in the folder, not just the new ones."
+        }
+      ],
+      "pipeline": [
+        "Box-office CSV files · ADLS container, files never removed",
+        "Notebook · spark.read.csv(folder) then write.mode(\"append\")",
+        "Bronze table · sales_raw",
+        "Silver and gold · built from bronze by later tasks"
+      ],
+      "tasks": [
+        "Why did the counts grow?",
+        "How should the load work, and how do you repair the data?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why the counts grew",
+        "text": [
+          "spark.read.csv on a folder reads every file in it. Nothing records what an earlier run loaded, so each nightly append added all the old files again plus the new ones.",
+          "On night n, the first night's files were in bronze n times. The duplicates flowed into silver and gold."
+        ]
+      },
+      {
+        "title": "Loading only new files",
+        "text": [
+          "COPY INTO skips files it has already loaded, so it can run every night over the same folder. It is retriable: a failed run can simply run again.",
+          "Auto Loader does the same as a stream, tracking files in its checkpoint, and scales to far more files. Run with availableNow, it processes what has arrived and stops, which suits a nightly job.",
+          "For SQL users, Databricks recommends a streaming table with Auto Loader over COPY INTO. Databricks also recommends starting with the most managed ingestion option that fits."
+        ]
+      },
+      {
+        "title": "Repairing the data",
+        "text": [
+          "Rebuild bronze once with the new load, then rebuild silver and gold from it. Bronze is the base for reprocessing, which is exactly what this needs.",
+          "Where a replay could still happen, an insert-only MERGE on a unique key (such as a ticket id) keeps duplicates out of later layers."
+        ]
+      }
+    ],
+    "takeaway": [
+      "Reading a folder isn't incremental; COPY INTO and Auto Loader are.",
+      "Choose the most managed ingestion option that fits.",
+      "A replay-safe write (insert-only MERGE on a key) is a second line of defence."
+    ],
+    "honesty": "If you haven't built a file ingestion pipeline, say so, and explain the difference between reading a folder and tracking files. If you have cleaned up duplicated data, describe how you found it.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What check would have caught this in week 1?",
+          "What would you add to acceptance criteria for a data load?"
+        ],
+        "debrief": [
+          {
+            "title": "An early check",
+            "text": [
+              "Reconcile a total with the source system: ticket revenue in the report against the box-office figure, every day."
+            ]
+          },
+          {
+            "title": "Acceptance criteria",
+            "text": [
+              "Running the load twice on the same files changes nothing.",
+              "Daily totals match the source system within an agreed tolerance."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you know the numbers in a data product are right?",
+          "points": [
+            "Reconcile key totals against the source system regularly.",
+            "Make reruns safe: running a load twice must not double data.",
+            "Track rows in and rows out at each layer.",
+            "Give a named owner to each reconciliation.",
+            "Tell users how fresh and how checked the data is."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What do you tell finance?",
+          "How do you plan the repair?"
+        ],
+        "debrief": [
+          {
+            "title": "Finance",
+            "text": [
+              "Ticket revenue in the report has been overstated since launch because some sales were loaded many times. Corrected figures by a named date; the box-office system's own numbers are right."
+            ]
+          },
+          {
+            "title": "The repair",
+            "text": [
+              "Rebuild bronze with an incremental load, rebuild silver and gold, then reconcile against the source before announcing the fix."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "A report has shown wrong numbers for three weeks. How do you handle it?",
+          "points": [
+            "Tell the affected users quickly, with what is wrong and what isn't.",
+            "Give a date for corrected figures.",
+            "Fix the cause, then the data, then reconcile.",
+            "Check whether any decisions used the wrong figures.",
+            "Add a reconciliation so it is caught early next time."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you sequence the fix?",
+          "What standard should come out of it?"
+        ],
+        "debrief": [
+          {
+            "title": "Sequence",
+            "text": [
+              "Stop the nightly job, switch to COPY INTO or Auto Loader, rebuild bronze, rebuild silver and gold, reconcile, then restart the schedule."
+            ]
+          },
+          {
+            "title": "Standard",
+            "text": [
+              "Every file load is incremental and safe to rerun; a reconciliation against the source is part of done."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you plan rebuilding a data pipeline's tables without breaking reports?",
+          "points": [
+            "Fix the load first, so the rebuild isn't immediately undone.",
+            "Rebuild layers in order: bronze, then silver, then gold.",
+            "Reconcile before switching users over.",
+            "Tell users when figures will change.",
+            "Keep a way back until the new figures are confirmed."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "What would you replace the notebook with?",
+          "How do you rebuild safely?"
+        ],
+        "debrief": [
+          {
+            "title": "Replacement",
+            "text": [
+              "COPY INTO sales_raw FROM the folder with FILEFORMAT = CSV, or Auto Loader with trigger(availableNow=True) and its own checkpoint, or a streaming table defined in SQL.",
+              "Add _metadata.file_name to bronze so every row says which file it came from."
+            ]
+          },
+          {
+            "title": "Rebuilding",
+            "text": [
+              "Recreate bronze from the files with the new load, then rerun silver and gold; check row counts per file against the source."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Compare COPY INTO and Auto Loader for loading files into Delta tables.",
+          "points": [
+            "Both load only new files: COPY INTO skips files it already loaded; Auto Loader tracks them in its checkpoint.",
+            "COPY INTO is a SQL command, retriable and idempotent.",
+            "Auto Loader is a Structured Streaming source (cloudFiles) that scales to billions of files.",
+            "Auto Loader adds schema inference, evolution and the rescued data column.",
+            "Databricks recommends streaming tables with Auto Loader for SQL users."
+          ]
+        }
+      }
+    }
+  }
+}

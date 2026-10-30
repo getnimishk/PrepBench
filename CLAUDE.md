@@ -129,7 +129,15 @@ SQL and no stated pass mark. **Pass mark (decided 2026-10-30):** creating a cert
 and Databricks publishes none, so the learner chose **85% as their own target** for the preparation they create (45
 questions, 90 minutes, the exam's format). It is the learner's target, not Databricks': the bank, guide and any text
 written from code never present 85% (or any number) as the exam's pass mark, and nothing sets it from code; the learner
-enters it when creating the preparation. Scenarios and the lab are not built yet.
+enters it when creating the preparation. **The scenarios are pack `databricks` v2 (2026-10-30)**: 18 written
+scenarios in four levels (Getting data in; Tables you can trust; Governing and running; Platform at scale), in the
+Kafka/ADF format, one JSON file each under `src/scenarios/`, every fact traced to the notes sections the scenario
+cites; chapters' practice links are built from them. **v1 (the guide alone, PR #116) is published and never changes**
+(pinned by fingerprint); attaching or upgrading to v2 is the learner's action. `tests/test_databricks_pack.py` also
+holds the scenarios to the page's shape, real notes sections and chapters, answer positions (none over half), the right
+answer the longest option in at most 40% of checks, current product names, no `DENY` taught as Unity Catalog SQL and no
+pass mark. A seeded preparation (the Databricks skill) now also gets `interview` from an attached pack with written
+scenarios, as a derived one does, so their Say-it questions have an Interview hub. The lab is not built yet.
 
 **Settled decisions, don't reopen these:**
 - The header Settings button stays, even though it isn't in the prototype — kept for
@@ -155,7 +163,7 @@ enters it when creating the preparation. Scenarios and the lab are not built yet
     six-subject table when the record's slug matches an entry **exactly** -- never by id, so a recreated
     System Design at id 33 keeps its rounds and another preparation holding id 3 gets nothing of System
     Design's (a bare numeric id still reads the table: avoid passing one); a derived profile gets
-    `interview` from the ADF pack or any attached pack with written scenarios (their Say-it questions; Kafka v2, 2026-10-28) or from `lab_interview_question_count > 0`
+    `interview` from the ADF pack or any attached pack with written scenarios (their Say-it questions; Kafka v2, 2026-10-28; a seeded one too since Databricks v2, 2026-10-30) or from `lab_interview_question_count > 0`
     (P1-1, PR #86 -- never a hand-set flag); question counts always come from the record (so Kafka
     unlocks the moment a bank is really imported); a preparation the table does not describe (every
     learner-created one) gets a profile derived from its own `kind`, `question_count` and

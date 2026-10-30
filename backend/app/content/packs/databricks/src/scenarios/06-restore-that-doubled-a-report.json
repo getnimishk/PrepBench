@@ -1,0 +1,231 @@
+{
+  "id": "6",
+  "number": 6,
+  "title": "The restore that doubled a report",
+  "outcome": "A RESTORE put silver right after a bad load, but gold, fed by a stream, kept the bad rows and the restore added to them.",
+  "sources": "§2, §6, §8, §10, §23",
+  "chapter": "history",
+  "content": {
+    "bookmark": "RESTORE is a data change: a stream reading the table can see it as new data. And restoring a source never removes what a streaming table already appended downstream.",
+    "check": [
+      {
+        "prompt": "Which privilege does RESTORE TABLE need?",
+        "options": [
+          "SELECT",
+          "BROWSE",
+          "MODIFY"
+        ],
+        "answer": 2,
+        "why": "Restoring changes the table's data, so it needs MODIFY."
+      },
+      {
+        "prompt": "Why can a RESTORE cause duplicates downstream?",
+        "options": [
+          "It is recorded as a data change, so a stream reading the table treats it as new data",
+          "It copies the table to a new location",
+          "It switches off the transaction log while it runs"
+        ],
+        "answer": 0,
+        "why": "RESTORE is a data-changing operation (dataChange=true). A streaming job reading the table sees it as new data and can produce duplicates downstream."
+      },
+      {
+        "prompt": "A streaming table has already appended some rows, and its source is then corrected. What happens to those rows?",
+        "options": [
+          "They are recomputed at the next update, like every other row whose source changed",
+          "They stay as they are unless the table is fully refreshed",
+          "They are removed when the source is vacuumed"
+        ],
+        "answer": 1,
+        "why": "Rows a streaming table has already appended are not reprocessed; a full refresh clears the table and reprocesses the source."
+      },
+      {
+        "prompt": "Which kind of pipeline dataset stays correct when its source updates or deletes rows?",
+        "options": [
+          "A view used only inside the pipeline",
+          "A streaming table",
+          "A materialized view"
+        ],
+        "answer": 2,
+        "why": "A materialized view is recomputed to match the source's current state, incrementally when possible; it suits sources that update or delete."
+      }
+    ],
+    "caseStudy": {
+      "setting": "A food-delivery company (fictional) keeps orders in silver.orders. A declarative pipeline reads silver.orders as a stream into a gold streaming table, revenue_events, which feeds a revenue dashboard.",
+      "events": [
+        {
+          "when": "Thursday 09:00",
+          "what": "A job is rerun by mistake and appends Wednesday's orders to silver a second time. The pipeline's next update appends them to gold too, and Wednesday's revenue doubles on the dashboard."
+        },
+        {
+          "when": "Thursday 10:00",
+          "what": "An engineer runs RESTORE TABLE silver.orders TO VERSION AS OF the version before the rerun. Silver is correct again."
+        },
+        {
+          "when": "Thursday 12:00",
+          "what": "The dashboard is still wrong. Gold still holds the duplicate orders, and after the restore some appear yet again."
+        }
+      ],
+      "pipeline": [
+        "silver.orders · Delta table",
+        "Declarative pipeline · streaming read of silver.orders",
+        "gold.revenue_events · streaming table",
+        "Revenue dashboard · sums gold"
+      ],
+      "tasks": [
+        "Why didn't restoring silver fix gold?",
+        "How do they recover, and what should they do next time?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why gold stayed wrong",
+        "text": [
+          "A streaming table processes each source row once and doesn't reprocess rows it has already appended. Restoring silver changed silver, not the rows gold had already taken.",
+          "RESTORE is also recorded as a data change. To a stream reading silver, that commit can look like new data, which is how the restore added to gold instead of cleaning it."
+        ]
+      },
+      {
+        "title": "Recovering",
+        "text": [
+          "Run a full refresh of gold.revenue_events: the table is cleared, its checkpoints reset, and the now-correct silver reprocessed. Then check Wednesday's revenue against silver.",
+          "Weigh making revenue a materialized view, which is recomputed to match its source, so corrections in silver flow through without a full refresh."
+        ]
+      },
+      {
+        "title": "Next time",
+        "text": [
+          "Before restoring a table, find what reads it (lineage shows the downstream tables) and plan the step for each: a full refresh for streaming tables, nothing for materialized views.",
+          "Make the load safe to rerun, so a mistaken rerun doesn't duplicate data in the first place."
+        ]
+      }
+    ],
+    "takeaway": [
+      "RESTORE is a data change; streams reading the table can duplicate it.",
+      "Fixing a source doesn't fix what a streaming table already appended: full refresh it.",
+      "Plan the downstream step before you restore."
+    ],
+    "honesty": "If you haven't restored a production table, say so, and explain what RESTORE does to downstream streams. If you have, describe how you handled the consumers.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What should be known about a table before anyone restores it?",
+          "What would you ask for in the runbook?"
+        ],
+        "debrief": [
+          {
+            "title": "Before restoring",
+            "text": [
+              "Who reads it, and how: as a stream, through a materialized view, or in a report."
+            ]
+          },
+          {
+            "title": "Runbook",
+            "text": [
+              "A restore procedure that lists the downstream tables and the step for each one, ending with a check of the figures users see."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you make sure fixing one data problem doesn't create another?",
+          "points": [
+            "Know who depends on the data before changing it.",
+            "Use lineage to see the downstream tables.",
+            "Plan the downstream steps with the fix.",
+            "Check results downstream after the fix.",
+            "Keep the procedure written down."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What do you tell dashboard users?",
+          "How do you avoid a second surprise?"
+        ],
+        "debrief": [
+          {
+            "title": "Dashboard users",
+            "text": [
+              "Wednesday's revenue is overstated while a correction runs; figures will be right by a stated time."
+            ]
+          },
+          {
+            "title": "No second surprise",
+            "text": [
+              "Agree that any repair of a shared table includes the downstream plan and a check of the figures users see."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "A fix didn't fix the dashboard users look at. What do you do?",
+          "points": [
+            "Warn users quickly and say what is affected.",
+            "Pause further changes until the plan is clear.",
+            "Correct downstream, then check the figures.",
+            "Explain what happened in plain terms.",
+            "Add downstream checks to the repair procedure."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you run the recovery?",
+          "What process change follows?"
+        ],
+        "debrief": [
+          {
+            "title": "Recovery",
+            "text": [
+              "Full refresh of gold, reconcile Wednesday's revenue against silver, then confirm with the dashboard owner."
+            ]
+          },
+          {
+            "title": "Process",
+            "text": [
+              "Restores of shared tables go through a short review that names the downstream tables and their steps; loads are made safe to rerun."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you control risky operational changes without slowing the team down?",
+          "points": [
+            "Keep a lightweight review for operations that affect others.",
+            "Write runbooks for common repairs.",
+            "Make the safe option the documented one.",
+            "Review incidents to improve the runbooks.",
+            "Trust the team inside agreed limits."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "What would you run now?",
+          "Would you change the gold table's design?"
+        ],
+        "debrief": [
+          {
+            "title": "Now",
+            "text": [
+              "A full refresh of the gold streaming table from the pipeline, then a reconciliation query comparing gold and silver for Wednesday."
+            ]
+          },
+          {
+            "title": "Design",
+            "text": [
+              "If silver is ever corrected in place, a materialized view for revenue is the safer fit. A streaming table suits append-only sources."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you recover a Delta table from a bad write, and what are the side effects?",
+          "points": [
+            "RESTORE TABLE to a version or timestamp; it needs MODIFY and the old files must still exist.",
+            "RESTORE is a data change, so streams reading the table can produce duplicates.",
+            "Streaming tables don't reprocess rows already appended: full refresh them.",
+            "Materialized views are recomputed to match their source.",
+            "Check the downstream figures after the repair."
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,230 @@
+{
+  "id": "12",
+  "number": 12,
+  "title": "The repair that duplicated a batch",
+  "outcome": "A task failed after writing half its output, Repair ran it again from the start, and silver held part of the day twice.",
+  "sources": "§4, §11, §23",
+  "chapter": "jobs",
+  "content": {
+    "bookmark": "Repair reruns failed tasks from the beginning with the current settings, and doesn't make them idempotent. A task that appends can duplicate on repair; write with MERGE or overwrite.",
+    "check": [
+      {
+        "prompt": "What does Repair run in a failed multi-task job run?",
+        "options": [
+          "Every task in the job again, in the original order, with the original settings",
+          "Only the unsuccessful tasks and their dependants",
+          "Only the first task"
+        ],
+        "answer": 1,
+        "why": "Repair reruns only the unsuccessful tasks and the tasks that depend on them."
+      },
+      {
+        "prompt": "Which job and task settings does a repair run use?",
+        "options": [
+          "The current settings",
+          "The settings of the failed run",
+          "The job's original settings when it was created"
+        ],
+        "answer": 0,
+        "why": "Repair uses the current job and task settings, so you fix the problem first and then repair."
+      },
+      {
+        "prompt": "A task wrote part of its output, then failed. What does Repair do about the part already written?",
+        "options": [
+          "It rolls back the failed attempt's partial write first, then reruns the task",
+          "It skips the rows already written",
+          "Nothing: the task restarts from the beginning and isn't made idempotent"
+        ],
+        "answer": 2,
+        "why": "Lakeflow Jobs doesn't make tasks idempotent. A repaired task restarts from the beginning, so an appending task can duplicate data."
+      },
+      {
+        "prompt": "Which Run if condition runs a clean-up task whatever happened upstream?",
+        "options": [
+          "All succeeded",
+          "At least one failed",
+          "All done"
+        ],
+        "answer": 2,
+        "why": "All done runs the task regardless of upstream results, which suits clean-up."
+      }
+    ],
+    "caseStudy": {
+      "setting": "An airline (fictional) runs a nightly job with three tasks: ingest bookings, transform them into silver, and publish a gold summary. The transform task processes each day's bookings in several steps, appending each step's output to silver.bookings.",
+      "events": [
+        {
+          "when": "Night 1, 02:10",
+          "what": "Transform appends the first three steps' output, then fails on a bad date format. Publish is marked Upstream failed."
+        },
+        {
+          "when": "Night 1, 07:30",
+          "what": "An engineer fixes the date parsing in the notebook and clicks Repair run. Transform and publish succeed."
+        },
+        {
+          "when": "Day 2",
+          "what": "Revenue analysts find that some of the day's bookings appear twice in silver and in the gold summary."
+        }
+      ],
+      "pipeline": [
+        "Task 1 ingest · loads raw bookings into bronze",
+        "Task 2 transform · several steps, each appending to silver.bookings",
+        "Task 3 publish · builds the gold summary from silver"
+      ],
+      "tasks": [
+        "Why did the repair create duplicates?",
+        "How should the transform task write?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why the repair duplicated",
+        "text": [
+          "Repair did exactly what it says: it reran the failed transform task and its dependant, from the beginning, with the fixed code. The rows the failed attempt had already appended were still in silver.",
+          "Lakeflow Jobs doesn't make tasks idempotent. A task that appends will append again on repair."
+        ]
+      },
+      {
+        "title": "Writing so reruns are safe",
+        "text": [
+          "Make the transform's writes idempotent. Overwrite the day's slice, or MERGE on a booking key so a rerun updates rows instead of adding them. An insert-only MERGE on a unique key appends only rows that aren't already there.",
+          "Then Repair, Run now and retries are all safe, which is what a nightly job needs."
+        ]
+      },
+      {
+        "title": "Cleaning up and the repair itself",
+        "text": [
+          "Remove the duplicates for that day (rerun the day's transform with overwrite once it is idempotent), then let publish rebuild gold.",
+          "Repair was the right tool, used after the fix, because it uses the current settings. It only needs the tasks themselves to be safe to rerun."
+        ]
+      }
+    ],
+    "takeaway": [
+      "Repair reruns failed tasks from the start with current settings.",
+      "Jobs don't make tasks idempotent: design writes to be rerun safely.",
+      "Overwrite a slice or MERGE on a key instead of appending."
+    ],
+    "honesty": "If you haven't operated Lakeflow Jobs, say so, and explain what Repair does and why tasks must be idempotent. If you have repaired a failed run, describe what you checked first.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What should be true of every scheduled data task?",
+          "How would you test it?"
+        ],
+        "debrief": [
+          {
+            "title": "Every task",
+            "text": [
+              "Running it twice for the same day gives the same result as running it once."
+            ]
+          },
+          {
+            "title": "Testing",
+            "text": [
+              "An acceptance test that reruns the task for a day and checks the row counts don't change."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "What makes a data pipeline safe to operate?",
+          "points": [
+            "Every step can be rerun without duplicating data.",
+            "Failures are visible quickly to someone who can act.",
+            "Recovery steps are documented.",
+            "Results are reconciled against sources.",
+            "Changes are tested before production."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What do you tell revenue analysts?",
+          "How do you prioritise the fix?"
+        ],
+        "debrief": [
+          {
+            "title": "Analysts",
+            "text": [
+              "One day's bookings were partly counted twice after a recovery; corrected figures by a stated time."
+            ]
+          },
+          {
+            "title": "Priority",
+            "text": [
+              "High: every future failure and repair would duplicate data again until the task is made idempotent."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you prioritise a fix for a problem that only appears during recovery?",
+          "points": [
+            "Recognise that recovery will happen again.",
+            "Estimate the impact each time.",
+            "Fix the design, not just the occurrence.",
+            "Test recovery as part of the fix.",
+            "Check other pipelines for the same pattern."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "What standard should come out of this?",
+          "How do you check existing jobs?"
+        ],
+        "debrief": [
+          {
+            "title": "Standard",
+            "text": [
+              "Every task that writes data is idempotent; a rerun test is part of done."
+            ]
+          },
+          {
+            "title": "Existing jobs",
+            "text": [
+              "Review jobs for tasks that append, and plan their conversion by risk."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you improve reliability across many existing pipelines?",
+          "points": [
+            "Define the reliability standard.",
+            "Assess pipelines against it.",
+            "Prioritise by business impact.",
+            "Fix in planned increments.",
+            "Track progress and verify fixes."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "How would you rewrite the transform's writes?",
+          "How would you clean up the duplicated day?"
+        ],
+        "debrief": [
+          {
+            "title": "Rewrite",
+            "text": [
+              "Build the day's output, then MERGE INTO silver.bookings ON booking_id (update when matched, insert when not), or overwrite that day's rows in one write."
+            ]
+          },
+          {
+            "title": "Clean-up",
+            "text": [
+              "Rerun the day with the idempotent version, which replaces its rows, then rerun publish."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Explain how you recover a failed multi-task job safely.",
+          "points": [
+            "Find the failure in the Runs tab and matrix view.",
+            "Fix the cause first: repair uses the current settings.",
+            "Repair reruns only failed tasks and their dependants, from the beginning.",
+            "Tasks must be idempotent: overwrite or MERGE, not append.",
+            "Single-task jobs are rerun with Run now."
+          ]
+        }
+      }
+    }
+  }
+}
