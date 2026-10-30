@@ -1,0 +1,860 @@
+{
+  "section": 5,
+  "domain": "Implementing CI/CD",
+  "questions": [
+    {
+      "id": "C01",
+      "topic": "Git folders",
+      "difficulty": "easy",
+      "sources": [
+        "notes §16",
+        "notes §0"
+      ],
+      "q": "What are Databricks Git folders?",
+      "options": [
+        {
+          "t": "A Unity Catalog securable that stores table versions in Git",
+          "why": "Git folders are a Git client in the workspace, not a securable."
+        },
+        {
+          "t": "A visual Git client and API inside the workspace (formerly Repos)",
+          "ok": true
+        },
+        {
+          "t": "A storage location in ADLS that mirrors a Git repository",
+          "why": "Git folders live in the workspace."
+        },
+        {
+          "t": "A backup feature that copies notebooks to Git every night",
+          "why": "Git folders are an interactive Git client and API."
+        }
+      ],
+      "explain": "Databricks Git folders (formerly Repos) are a visual Git client and API in the workspace: clone, branch, commit and push, pull, resolve conflicts."
+    },
+    {
+      "id": "C02",
+      "topic": "Git folders",
+      "difficulty": "medium",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "You can't commit to a repository's default branch. How do you get your change into it?",
+      "options": [
+        {
+          "t": "Commit to the default branch with the force option in the Git dialog",
+          "why": "Create a branch and open a pull request in the Git provider."
+        },
+        {
+          "t": "Ask a workspace admin to copy the notebook into the main folder",
+          "why": "Changes go through a branch and a pull request."
+        },
+        {
+          "t": "Create a branch, push, and open a pull request in your Git provider",
+          "ok": true
+        },
+        {
+          "t": "Export the notebook and email it to the repository's owner",
+          "why": "The documented route is a branch and a pull request."
+        }
+      ],
+      "explain": "If you don't have permission to commit to the default branch, create a new branch and use your Git provider's interface to create a pull request and merge it."
+    },
+    {
+      "id": "C03",
+      "topic": "Git folders",
+      "difficulty": "medium",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "Where are pull requests for Git folder changes created and reviewed?",
+      "options": [
+        {
+          "t": "In the Databricks Git dialog, which merges into main",
+          "why": "PRs are created in the Git provider."
+        },
+        {
+          "t": "In Catalog Explorer, under the folder's History tab",
+          "why": "PRs are created in the Git provider."
+        },
+        {
+          "t": "In the job's run history",
+          "why": "PRs are created in the Git provider."
+        },
+        {
+          "t": "In the Git provider, such as GitHub or Azure DevOps",
+          "ok": true
+        }
+      ],
+      "explain": "After pushing from a Git folder, users open pull requests on their Git provider, review with the team, and merge into the deployment branch."
+    },
+    {
+      "id": "C04",
+      "topic": "Git folders",
+      "difficulty": "medium",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "How does Databricks recommend developers share a repository in Git folders?",
+      "options": [
+        {
+          "t": "Each developer works on their own branch",
+          "ok": true
+        },
+        {
+          "t": "Everyone edits the main branch in one shared Git folder",
+          "why": "Databricks recommends each developer work on their own branch."
+        },
+        {
+          "t": "One developer commits for everybody to avoid conflicts",
+          "why": "Each developer works on their own branch."
+        },
+        {
+          "t": "Developers share one branch but different notebooks",
+          "why": "Each developer works on their own branch."
+        }
+      ],
+      "explain": "Databricks recommends that each developer work on their own branch; users clone into their own user folder."
+    },
+    {
+      "id": "C05",
+      "topic": "Git folders",
+      "difficulty": "medium",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "A notebook saved as a .py source file is committed from a Git folder. Are its cell outputs included?",
+      "options": [
+        {
+          "t": "Yes, always, so reviewers can see results",
+          "why": "Outputs aren't committed by default in source formats."
+        },
+        {
+          "t": "No, not by default when saved in a source format",
+          "ok": true
+        },
+        {
+          "t": "Only outputs smaller than 1 MB",
+          "why": "Outputs aren't committed by default in source formats."
+        },
+        {
+          "t": "Only if the notebook ran on serverless",
+          "why": "Compute doesn't decide what is committed."
+        }
+      ],
+      "explain": "Notebook outputs aren't included in commits by default when notebooks are saved in source file formats (.py, .scala, .sql, .r)."
+    },
+    {
+      "id": "C06",
+      "topic": "Git folders",
+      "difficulty": "hard",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "An admin sets up a production Git folder for a deployment branch. Which identity should hold the Git credential?",
+      "options": [
+        {
+          "t": "The admin's personal account, so changes are traceable to them",
+          "why": "Production Git folders use a service principal's credential."
+        },
+        {
+          "t": "A service principal",
+          "ok": true
+        },
+        {
+          "t": "Every user who runs the job, each with their own token",
+          "why": "One service principal credential serves the production folder."
+        },
+        {
+          "t": "No credential: production folders read Git anonymously",
+          "why": "A service principal's Git credential is configured."
+        }
+      ],
+      "explain": "To create a production Git folder, create or use a service principal and configure a Git credential so it can access the repository; grant Can Run to users and service principals."
+    },
+    {
+      "id": "C07",
+      "topic": "Git folders",
+      "difficulty": "hard",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "How is a production Git folder kept in sync with its deployment branch after a pull request merges?",
+      "options": [
+        {
+          "t": "It syncs itself every minute without any configuration",
+          "why": "Automation such as external CI/CD pulls the changes."
+        },
+        {
+          "t": "Each user clicks Pull in their own folder",
+          "why": "User folders don't update the production folder."
+        },
+        {
+          "t": "External CI/CD, such as GitHub Actions, pulls the changes through the Repos API",
+          "ok": true
+        },
+        {
+          "t": "A pipeline full refresh pulls the latest code",
+          "why": "Full refresh reprocesses data, not code."
+        }
+      ],
+      "explain": "When a PR is merged, automation such as GitHub Actions can pull changes into production Git folders using the Databricks Repos API."
+    },
+    {
+      "id": "C08",
+      "topic": "Choosing a CI/CD approach",
+      "difficulty": "medium",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "What does Databricks recommend for packaging and deploying CI/CD workflows?",
+      "options": [
+        {
+          "t": "Copying notebooks between workspaces with the export button",
+          "why": "Databricks recommends Declarative Automation Bundles."
+        },
+        {
+          "t": "A production Git folder for every job and pipeline",
+          "why": "That deploys code only; bundles deploy code and resources."
+        },
+        {
+          "t": "Editing jobs by hand in each environment",
+          "why": "Bundles make environments reproducible from Git."
+        },
+        {
+          "t": "Declarative Automation Bundles",
+          "ok": true
+        }
+      ],
+      "explain": "Databricks recommends Declarative Automation Bundles to package and deploy CI/CD workflows; a production Git folder is the option for deploying only code."
+    },
+    {
+      "id": "C09",
+      "topic": "Bundles",
+      "difficulty": "easy",
+      "sources": [
+        "notes §16",
+        "notes §0"
+      ],
+      "q": "What is the current name of Databricks Asset Bundles?",
+      "options": [
+        {
+          "t": "Lakeflow Bundles",
+          "why": "They are now Declarative Automation Bundles."
+        },
+        {
+          "t": "Declarative Automation Bundles",
+          "ok": true
+        },
+        {
+          "t": "Databricks Deployment Packages for CI/CD",
+          "why": "They are now Declarative Automation Bundles."
+        },
+        {
+          "t": "Unity Catalog Bundles",
+          "why": "They are now Declarative Automation Bundles."
+        }
+      ],
+      "explain": "Declarative Automation Bundles were formerly called Databricks Asset Bundles (renamed in March 2026)."
+    },
+    {
+      "id": "C10",
+      "topic": "Bundles",
+      "difficulty": "medium",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "What does a bundle deploy to a target environment?",
+      "options": [
+        {
+          "t": "Only job definitions; source files are copied separately",
+          "why": "A bundle deploys resource definitions together with their source files."
+        },
+        {
+          "t": "Only notebooks; jobs must be created by hand afterwards",
+          "why": "A bundle includes resource definitions such as jobs and pipelines."
+        },
+        {
+          "t": "Resource definitions such as jobs and pipelines, together with their source files",
+          "ok": true
+        },
+        {
+          "t": "The data in the tables the jobs write",
+          "why": "Bundles deploy code and configuration, not data."
+        }
+      ],
+      "explain": "A bundle holds configuration, source files (notebooks, Python files), resource definitions (jobs, pipelines, dashboards and more) and tests, deployed together to a target."
+    },
+    {
+      "id": "C11",
+      "topic": "Bundles",
+      "difficulty": "easy",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "In what format is a bundle's configuration written?",
+      "options": [
+        {
+          "t": "YAML: databricks.yml plus resource files",
+          "ok": true
+        },
+        {
+          "t": "A single JSON file exported from the Jobs UI",
+          "why": "Bundles are YAML, starting with databricks.yml."
+        },
+        {
+          "t": "Python code run by a notebook on deploy",
+          "why": "Bundle configuration is YAML."
+        },
+        {
+          "t": "SQL DDL statements kept in a volume",
+          "why": "Bundle configuration is YAML."
+        }
+      ],
+      "explain": "Bundles are defined in YAML: databricks.yml plus resource files."
+    },
+    {
+      "id": "C12",
+      "topic": "Databricks CLI",
+      "difficulty": "medium",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "Which tool deploys a bundle from a developer's machine or a CI system?",
+      "options": [
+        {
+          "t": "The Azure CLI's databricks extension, installed separately",
+          "why": "Bundles are a feature of the Databricks CLI."
+        },
+        {
+          "t": "The notebook's Run all button",
+          "why": "Bundles deploy with the Databricks CLI."
+        },
+        {
+          "t": "Terraform only",
+          "why": "Bundles are a feature of the Databricks CLI."
+        },
+        {
+          "t": "The Databricks CLI (v0.218.0 or above)",
+          "ok": true
+        }
+      ],
+      "explain": "Bundles are a feature of the Databricks CLI, v0.218.0 and above."
+    },
+    {
+      "id": "C13",
+      "topic": "Databricks CLI",
+      "difficulty": "medium",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "Which command checks a bundle's configuration before deploying it?",
+      "options": [
+        {
+          "t": "databricks bundle test",
+          "why": "The check is databricks bundle validate."
+        },
+        {
+          "t": "databricks bundle validate",
+          "ok": true
+        },
+        {
+          "t": "databricks bundle lint",
+          "why": "The check is databricks bundle validate."
+        },
+        {
+          "t": "databricks bundle plan --dry-run",
+          "why": "The check is databricks bundle validate."
+        }
+      ],
+      "explain": "The lifecycle is databricks bundle init, bundle validate, bundle deploy -t <target>, bundle run."
+    },
+    {
+      "id": "C14",
+      "topic": "Databricks CLI",
+      "difficulty": "medium",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "Which command deploys a bundle to its `prod` target?",
+      "options": [
+        {
+          "t": "databricks bundle run prod",
+          "why": "run runs a deployed resource; deploy deploys."
+        },
+        {
+          "t": "databricks bundle publish --env prod",
+          "why": "The command is bundle deploy -t prod."
+        },
+        {
+          "t": "databricks bundle deploy -t prod",
+          "ok": true
+        },
+        {
+          "t": "databricks deploy bundle prod",
+          "why": "The command is bundle deploy -t <target>."
+        }
+      ],
+      "explain": "databricks bundle deploy -t <target> deploys a bundle to a target."
+    },
+    {
+      "id": "C15",
+      "topic": "Databricks CLI",
+      "difficulty": "medium",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "What is the fastest way to start a new bundle project?",
+      "options": [
+        {
+          "t": "databricks bundle init, choosing a template",
+          "ok": true
+        },
+        {
+          "t": "Exporting a job's JSON and renaming it to databricks.yml",
+          "why": "bundle init starts from a template."
+        },
+        {
+          "t": "Cloning the workspace into a Git folder",
+          "why": "bundle init creates the project from a template."
+        },
+        {
+          "t": "Creating a new catalog for the bundle",
+          "why": "Catalogs hold data, not bundle projects."
+        }
+      ],
+      "explain": "databricks bundle init presents Databricks' default templates (or custom ones) and creates the project."
+    },
+    {
+      "id": "C16",
+      "topic": "Databricks CLI",
+      "difficulty": "medium",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "Which authentication does Databricks recommend for a person using the Databricks CLI?",
+      "options": [
+        {
+          "t": "A personal access token pasted into databricks.yml",
+          "why": "Databricks recommends OAuth user-to-machine authentication."
+        },
+        {
+          "t": "OAuth user-to-machine (U2M)",
+          "ok": true
+        },
+        {
+          "t": "The storage account key of the workspace",
+          "why": "That isn't CLI authentication."
+        },
+        {
+          "t": "No authentication, using the workspace URL only",
+          "why": "The CLI needs authentication; OAuth U2M is recommended."
+        }
+      ],
+      "explain": "Databricks recommends OAuth user-to-machine (U2M) authentication for the CLI."
+    },
+    {
+      "id": "C17",
+      "topic": "Variables and targets",
+      "difficulty": "medium",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "A bundle variable `schema` must be `sales_dev` in dev and `sales_prod` in prod. Where is the prod value set?",
+      "options": [
+        {
+          "t": "In a separate databricks-prod.yml that replaces the whole bundle",
+          "why": "Override variables per target in the targets mapping."
+        },
+        {
+          "t": "Under targets: prod: variables: schema",
+          "ok": true
+        },
+        {
+          "t": "In the job's parameters in the prod workspace UI",
+          "why": "Bundle variables are overridden in the target."
+        },
+        {
+          "t": "In a secret scope named after the target",
+          "why": "Secret scopes hold secrets, not bundle variables."
+        }
+      ],
+      "explain": "Variables are declared under variables (optionally with a default) and overridden per target in targets."
+    },
+    {
+      "id": "C18",
+      "topic": "Variables and targets",
+      "difficulty": "hard",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "A CI system must pass a token into a bundle variable without writing it into databricks.yml. How?",
+      "options": [
+        {
+          "t": "Hard-code it under targets: prod: variables",
+          "why": "Secrets must never be written into databricks.yml."
+        },
+        {
+          "t": "As an environment variable named BUNDLE_VAR_<name>",
+          "ok": true
+        },
+        {
+          "t": "As a Spark configuration on the job cluster",
+          "why": "Bundle variables come from --var, BUNDLE_VAR_ or an overrides file."
+        },
+        {
+          "t": "In a comment in databricks.yml that the CLI reads",
+          "why": "Comments aren't read as values."
+        }
+      ],
+      "explain": "Bundle variables can be given at run time with --var, an environment variable BUNDLE_VAR_<name>, or a variable-overrides.json file; secrets are passed this way, never written into databricks.yml."
+    },
+    {
+      "id": "C19",
+      "topic": "Variables and targets",
+      "difficulty": "medium",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "Which substitution gives each target its own schema name, such as pipeline_bundle_dev?",
+      "options": [
+        {
+          "t": "${bundle.environment}",
+          "why": "Use ${bundle.target} instead of ${bundle.environment}."
+        },
+        {
+          "t": "${workspace.host}",
+          "why": "That is the workspace URL."
+        },
+        {
+          "t": "${bundle.name}",
+          "why": "That is the bundle's name, the same in every target."
+        },
+        {
+          "t": "${bundle.target}",
+          "ok": true
+        }
+      ],
+      "explain": "Substitutions such as ${bundle.target} give environment-specific names, e.g. pipeline_bundle_${bundle.target}; use it instead of ${bundle.environment}."
+    },
+    {
+      "id": "C20",
+      "topic": "Variables and targets",
+      "difficulty": "hard",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "How many targets in one bundle can be marked `default: true`?",
+      "options": [
+        {
+          "t": "One",
+          "ok": true
+        },
+        {
+          "t": "Two: one for development and one for production",
+          "why": "One and only one target can be the default."
+        },
+        {
+          "t": "Any number; the CLI picks the first",
+          "why": "One and only one target can be the default."
+        },
+        {
+          "t": "None: a default target isn't supported",
+          "why": "One target can be the default."
+        }
+      ],
+      "explain": "One and only one of a bundle's targets can be set to default: true."
+    },
+    {
+      "id": "C21",
+      "topic": "Variables and targets",
+      "difficulty": "hard",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "Which are ways to set a bundle variable's value?",
+      "options": [
+        {
+          "t": "--var=\"name=value\" on the command line",
+          "ok": true
+        },
+        {
+          "t": "A BUNDLE_VAR_<name> environment variable",
+          "ok": true
+        },
+        {
+          "t": "A widget in the deployed notebook",
+          "why": "Widgets are notebook inputs, not bundle variables."
+        },
+        {
+          "t": "A table property on the target schema",
+          "why": "Table properties don't set bundle variables."
+        },
+        {
+          "t": "A tag on the job cluster",
+          "why": "Tags don't set bundle variables."
+        }
+      ],
+      "explain": "Bundle variables come from their default, a per-target override, --var=\"name=value\", a BUNDLE_VAR_<name> environment variable, or .databricks/bundle/<target>/variable-overrides.json."
+    },
+    {
+      "id": "C22",
+      "topic": "Deployment modes",
+      "difficulty": "medium",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "A dev target sets `mode: development`. What happens to the jobs' schedules when the bundle is deployed there?",
+      "options": [
+        {
+          "t": "They run as defined, the same as in production",
+          "why": "Development mode pauses schedules and triggers."
+        },
+        {
+          "t": "They are deleted from the deployed jobs",
+          "why": "They are paused, not deleted."
+        },
+        {
+          "t": "They are paused",
+          "ok": true
+        },
+        {
+          "t": "They are converted to file arrival triggers",
+          "why": "They are paused."
+        }
+      ],
+      "explain": "Development mode pauses all schedules and triggers on deployed resources, prefixes resources with [dev <short_name>], enables concurrent runs and disables the deployment lock."
+    },
+    {
+      "id": "C23",
+      "topic": "Deployment modes",
+      "difficulty": "hard",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "Which name does development mode give a deployed job?",
+      "options": [
+        {
+          "t": "The job's name followed by the target name",
+          "why": "Development mode prefixes resources with [dev <short_name>]."
+        },
+        {
+          "t": "The job's name, unchanged",
+          "why": "Development mode prefixes the name."
+        },
+        {
+          "t": "A random name, to avoid collisions",
+          "why": "The prefix is [dev <short_name>]."
+        },
+        {
+          "t": "The job's name prefixed with [dev <your short name>]",
+          "ok": true
+        }
+      ],
+      "explain": "Development mode prepends resources not deployed as files or notebooks with [dev ${workspace.current_user.short_name}] and tags jobs and pipelines dev."
+    },
+    {
+      "id": "C24",
+      "topic": "Deployment modes",
+      "difficulty": "hard",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "A prod target sets `mode: production` and `git.branch: main`. A developer deploys from a feature branch. What happens?",
+      "options": [
+        {
+          "t": "The deployment is refused unless --force is given, because the branch doesn't match",
+          "ok": true
+        },
+        {
+          "t": "It deploys, and the feature branch becomes the new main",
+          "why": "Production mode validates the branch."
+        },
+        {
+          "t": "It deploys into the developer's personal folder instead",
+          "why": "Production mode validates the branch."
+        },
+        {
+          "t": "It deploys with schedules paused",
+          "why": "Pausing is development mode behaviour."
+        }
+      ],
+      "explain": "Production mode validates that the current Git branch equals the branch specified in the target; the validation can be overridden with --force."
+    },
+    {
+      "id": "C25",
+      "topic": "Deployment modes",
+      "difficulty": "medium",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "Which identity does Databricks recommend for production bundle deployments?",
+      "options": [
+        {
+          "t": "The personal account of the team lead",
+          "why": "Databricks recommends service principals for production deployments."
+        },
+        {
+          "t": "A service principal, enforced with run_as",
+          "ok": true
+        },
+        {
+          "t": "The workspace admin group",
+          "why": "A service principal set with run_as is recommended."
+        },
+        {
+          "t": "Any user, as production mode removes identities",
+          "why": "Production mode requires run_as and permissions to be specified."
+        }
+      ],
+      "explain": "Databricks recommends service principals for production deployments; set run_as to a service principal. Production mode requires run_as and permissions to be specified."
+    },
+    {
+      "id": "C26",
+      "topic": "Deployment modes",
+      "difficulty": "hard",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "Which behaviours does `mode: production` add when deploying?",
+      "options": [
+        {
+          "t": "It checks that pipelines are marked development: false",
+          "ok": true
+        },
+        {
+          "t": "It requires run_as and permissions to be specified",
+          "ok": true
+        },
+        {
+          "t": "It pauses every schedule and trigger",
+          "why": "That is development mode."
+        },
+        {
+          "t": "It prefixes resources with [dev <name>]",
+          "why": "That is development mode."
+        },
+        {
+          "t": "It lets --cluster-id override cluster definitions",
+          "why": "Production mode doesn't allow overriding cluster definitions."
+        }
+      ],
+      "explain": "Production mode validates pipelines are development: false, validates the Git branch, checks paths aren't overridden to a specific user, and requires run_as and permissions."
+    },
+    {
+      "id": "C27",
+      "topic": "Identity and secrets",
+      "difficulty": "medium",
+      "sources": [
+        "notes §14"
+      ],
+      "q": "Which kind of service principal does Databricks recommend for automation inside Databricks on Azure?",
+      "options": [
+        {
+          "t": "An Azure Databricks-managed service principal",
+          "ok": true
+        },
+        {
+          "t": "A personal user account shared by the team",
+          "why": "Service principals are recommended for automation."
+        },
+        {
+          "t": "An Entra ID guest account",
+          "why": "Databricks recommends Databricks-managed service principals for Databricks automation."
+        },
+        {
+          "t": "The Access Connector's managed identity",
+          "why": "That identity is for storage access, not CI/CD automation."
+        }
+      ],
+      "explain": "On Azure there are Azure Databricks-managed service principals (recommended for Databricks automation) and Microsoft Entra ID-managed ones."
+    },
+    {
+      "id": "C28",
+      "topic": "Git folders",
+      "difficulty": "medium",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "Where does a developer usually create their own Git folder?",
+      "options": [
+        {
+          "t": "Under /Workspace/Users/<email>/",
+          "ok": true
+        },
+        {
+          "t": "In a Unity Catalog volume",
+          "why": "Git folders live in the workspace tree."
+        },
+        {
+          "t": "In the production folder shared by the team",
+          "why": "Users work in their own user folder; production folders are admin-managed."
+        },
+        {
+          "t": "In DBFS root",
+          "why": "Git folders live in the workspace tree."
+        }
+      ],
+      "explain": "In the user flow, a user creates a Git folder under /Workspace/Users/<email>/ from a remote repository, works on a branch and pushes."
+    },
+    {
+      "id": "C29",
+      "topic": "Bundles",
+      "difficulty": "medium",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "Which resources can a bundle define?",
+      "options": [
+        {
+          "t": "Lakeflow jobs",
+          "ok": true
+        },
+        {
+          "t": "Lakeflow pipelines",
+          "ok": true
+        },
+        {
+          "t": "Row values inside tables",
+          "why": "Bundles define resources, not data."
+        },
+        {
+          "t": "Azure virtual networks",
+          "why": "Networks are Azure resources outside bundles."
+        },
+        {
+          "t": "Users' passwords",
+          "why": "Bundles don't hold credentials."
+        }
+      ],
+      "explain": "Bundle resources include Lakeflow jobs, Lakeflow pipelines, dashboards, model serving endpoints, MLflow experiments and registered models."
+    },
+    {
+      "id": "C30",
+      "topic": "Deployment modes",
+      "difficulty": "hard",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "Why does development mode disable the deployment lock?",
+      "options": [
+        {
+          "t": "For faster iteration; conflicts are unlikely in dev",
+          "ok": true
+        },
+        {
+          "t": "Because locks don't work with serverless jobs",
+          "why": "It is disabled for faster iteration."
+        },
+        {
+          "t": "To let production deployments overwrite dev resources",
+          "why": "It is disabled for faster iteration in dev."
+        },
+        {
+          "t": "Because the lock is replaced by Git branch checks",
+          "why": "It is disabled for faster iteration."
+        }
+      ],
+      "explain": "Development mode disables the deployment lock for faster iteration, since deployment conflicts are unlikely in dev; it can be re-enabled with bundle.deployment.lock.enabled."
+    }
+  ]
+}
