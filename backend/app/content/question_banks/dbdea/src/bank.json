@@ -1,0 +1,7 @@
+{
+  "certification": "Databricks Certified Data Engineer Associate",
+  "source": "PrepBench Databricks Data Engineer Associate bank: Databricks and Azure Databricks documentation, the Delta protocol, Apache Spark 4.2, and Databricks' August 2026 exam guide",
+  "notes": {
+    "notes": "docs/research/databricks-documentation-notes.md"
+  }
+}

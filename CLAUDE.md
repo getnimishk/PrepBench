@@ -116,7 +116,18 @@ Edition can run them ("read, not run" otherwise) and ends with a design trade-of
 `tests/test_databricks_pack.py` reads the topic list from the workbook and fails on a missing or misnamed topic, an
 uncited section, a former product name taught as current, a `DENY` taught as Unity Catalog SQL, or a stated pass mark.
 Packs attach only to skills (D1): the guide is for the existing Databricks skill; attaching it is the learner's action.
-Scenarios, the question bank and the lab are not built yet; the certification-preparation decision is still open.
+**The Databricks Data Engineer Associate question bank, part 1 (2026-10-29)** is
+`backend/app/content/question_banks/dbdea/` (`certification: "Databricks Certified Data Engineer Associate"`, matched
+exactly on import), built from one source file per exam section by `build_question_bank.py`: Ingestion and Loading (63),
+Transformation and Modeling (66) and Governance and Security (45), 174 of the planned 300 (sized by the August 2026
+guide's weights; the other four sections come in part 2, with a `parts` delta file). `tests/test_dbdea_question_bank.py`
+holds it to the import validator, four or more options, its notes citations, the section counts, answer positions (18-32%
+each), the right answer the longest option in at most 30% overall and 40% per section, no `DENY` taught as Unity Catalog
+SQL and no stated pass mark. **Pass mark (decided 2026-10-30):** creating a certification preparation requires a pass mark,
+and Databricks publishes none, so the learner chose **85% as their own target** for the preparation they create (45
+questions, 90 minutes, the exam's format). It is the learner's target, not Databricks': the bank, guide and any text
+written from code never present 85% (or any number) as the exam's pass mark, and nothing sets it from code; the learner
+enters it when creating the preparation. Scenarios and the lab are not built yet.
 
 **Settled decisions, don't reopen these:**
 - The header Settings button stays, even though it isn't in the prototype — kept for

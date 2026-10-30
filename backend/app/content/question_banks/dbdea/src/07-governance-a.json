@@ -1,0 +1,656 @@
+{
+  "section": 7,
+  "domain": "Governance and Security",
+  "questions": [
+    {
+      "id": "G01",
+      "topic": "Managed and external tables",
+      "difficulty": "easy",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "A managed table in Unity Catalog is dropped. What happens to its data files?",
+      "options": [
+        {
+          "t": "They are deleted immediately, with no way to recover the table",
+          "why": "Files are deleted after a recovery period, during which UNDROP works."
+        },
+        {
+          "t": "They are deleted after a recovery period; UNDROP TABLE works within it",
+          "ok": true
+        },
+        {
+          "t": "They stay in storage forever, because Unity Catalog never deletes files",
+          "why": "For managed tables, Unity Catalog deletes the files after the recovery period."
+        },
+        {
+          "t": "They are moved to the workspace's trash folder for 30 days",
+          "why": "There is no trash folder; a recovery period with UNDROP TABLE applies."
+        }
+      ],
+      "explain": "Managed tables get automatic file deletion after DROP TABLE once a recovery period ends (default 7 days); UNDROP TABLE recovers the table within it."
+    },
+    {
+      "id": "G02",
+      "topic": "Managed and external tables",
+      "difficulty": "easy",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "An external table in Unity Catalog is dropped. What happens to its data files?",
+      "options": [
+        {
+          "t": "They are deleted together with the table's metadata",
+          "why": "Dropping an external table removes metadata and leaves the files."
+        },
+        {
+          "t": "They are moved into the schema's managed storage location",
+          "why": "Nothing is moved; the files stay where they are."
+        },
+        {
+          "t": "They stay where they are; only the metadata is removed",
+          "ok": true
+        },
+        {
+          "t": "They are deleted after a 7-day recovery period, as with managed tables",
+          "why": "The recovery-period deletion applies to managed tables."
+        }
+      ],
+      "explain": "Unity Catalog manages only an external table's metadata; dropping it removes the metadata and leaves the files."
+    },
+    {
+      "id": "G03",
+      "topic": "Managed and external tables",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "Which table type does Databricks call the default and recommended one?",
+      "options": [
+        {
+          "t": "External tables, because the files stay under your control",
+          "why": "Managed tables are the default and recommended type."
+        },
+        {
+          "t": "Hive metastore tables, for compatibility with older workloads",
+          "why": "The legacy Hive metastore is still supported, but Unity Catalog managed tables are recommended."
+        },
+        {
+          "t": "Foreign tables reached through Lakehouse Federation",
+          "why": "Federation reads external systems; managed tables are the default."
+        },
+        {
+          "t": "Managed tables",
+          "ok": true
+        }
+      ],
+      "explain": "Managed tables are the default and recommended table type: Unity Catalog manages reads, writes, storage and optimization, and they cost less to store and query."
+    },
+    {
+      "id": "G04",
+      "topic": "Managed and external tables",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "Which feature is available to Unity Catalog managed tables but not to external tables?",
+      "options": [
+        {
+          "t": "Predictive optimization",
+          "ok": true
+        },
+        {
+          "t": "Time travel to earlier versions of the table",
+          "why": "Delta time travel works on external Delta tables too."
+        },
+        {
+          "t": "Grants with SELECT and MODIFY on the table",
+          "why": "Both table types are securables you can grant on."
+        },
+        {
+          "t": "Storing data as Parquet files under the Delta log",
+          "why": "Both can be Delta tables built on Parquet files."
+        }
+      ],
+      "explain": "Features only managed tables get include predictive optimization, automatic liquid clustering, multi-statement transactions, metadata caching and automatic file deletion after DROP."
+    },
+    {
+      "id": "G05",
+      "topic": "Managed and external tables",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "When are external tables the right choice, according to Databricks?",
+      "options": [
+        {
+          "t": "Whenever the data is larger than a terabyte, for performance",
+          "why": "Size isn't the criterion; managed tables are the default."
+        },
+        {
+          "t": "When non-Databricks clients must read the files directly, or the format can't be a managed table",
+          "ok": true
+        },
+        {
+          "t": "Whenever you need row filters and column masks on the table",
+          "why": "Fine-grained controls work on managed tables too."
+        },
+        {
+          "t": "For every bronze table, because Databricks requires raw bronze data never to be deleted by a DROP",
+          "why": "That isn't a documented rule; managed tables are the default."
+        }
+      ],
+      "explain": "Use external tables for existing data in a format managed tables can't hold, or for direct access from non-Databricks clients."
+    },
+    {
+      "id": "G06",
+      "topic": "Managed and external tables",
+      "difficulty": "hard",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "An external engine reads an external table's files straight from ADLS. Do the table's Unity Catalog grants apply to that access?",
+      "options": [
+        {
+          "t": "Yes, because Unity Catalog checks every read of the storage account",
+          "why": "Unity Catalog privileges are not enforced on direct file access."
+        },
+        {
+          "t": "Yes, but only for SELECT; MODIFY isn't checked on direct reads",
+          "why": "Direct file access bypasses Unity Catalog privileges entirely."
+        },
+        {
+          "t": "Only if the external location has row filters attached",
+          "why": "Direct file access isn't governed by Unity Catalog grants."
+        },
+        {
+          "t": "No: Unity Catalog privileges aren't enforced on direct file access",
+          "ok": true
+        }
+      ],
+      "explain": "Unity Catalog privileges are not enforced on direct file access to an external table's files."
+    },
+    {
+      "id": "G07",
+      "topic": "Converting external to managed",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "Which command converts a Delta external table to a managed table while keeping its history and permissions?",
+      "options": [
+        {
+          "t": "CREATE TABLE new_t AS SELECT * FROM t, then drop t",
+          "why": "CTAS works but loses history and the other benefits."
+        },
+        {
+          "t": "ALTER TABLE t SET MANAGED",
+          "ok": true
+        },
+        {
+          "t": "ALTER TABLE t SET TBLPROPERTIES ('type' = 'MANAGED')",
+          "why": "The command is ALTER TABLE ... SET MANAGED."
+        },
+        {
+          "t": "CONVERT TO DELTA t, which converts it to managed",
+          "why": "CONVERT TO DELTA turns Parquet into Delta; it doesn't make a table managed."
+        }
+      ],
+      "explain": "ALTER TABLE t SET MANAGED converts a Delta external table to managed (DBR 17.3 LTS+ or serverless; you must own it), keeping name, settings, permissions, views and history."
+    },
+    {
+      "id": "G08",
+      "topic": "Converting external to managed",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "A table was converted with SET MANAGED last week and must be rolled back to external. What is the documented way?",
+      "options": [
+        {
+          "t": "RESTORE TABLE t TO VERSION AS OF the version before the conversion",
+          "why": "The documented rollback is ALTER TABLE t UNSET MANAGED."
+        },
+        {
+          "t": "DROP the table and recreate it as external from the old path",
+          "why": "UNSET MANAGED rolls back without dropping."
+        },
+        {
+          "t": "ALTER TABLE t UNSET MANAGED, within 14 days",
+          "ok": true
+        },
+        {
+          "t": "It can't be rolled back once converted to managed",
+          "why": "Rollback is possible within 14 days with UNSET MANAGED."
+        }
+      ],
+      "explain": "Roll back within 14 days with ALTER TABLE t UNSET MANAGED; writes made after the conversion are kept."
+    },
+    {
+      "id": "G09",
+      "topic": "Converting external to managed",
+      "difficulty": "hard",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "What happens to writes made after a SET MANAGED conversion if the table is rolled back with UNSET MANAGED?",
+      "options": [
+        {
+          "t": "They are lost, and the table returns to its pre-conversion state",
+          "why": "Writes made after the conversion are kept."
+        },
+        {
+          "t": "They are kept",
+          "ok": true
+        },
+        {
+          "t": "They are moved to a separate table named t_managed_backup",
+          "why": "No separate table is created; the writes are kept."
+        },
+        {
+          "t": "The rollback is blocked until they are deleted by hand",
+          "why": "Rollback works, and writes after the conversion are kept."
+        }
+      ],
+      "explain": "ALTER TABLE ... UNSET MANAGED rolls back within 14 days, keeping writes made after the conversion."
+    },
+    {
+      "id": "G10",
+      "topic": "Managed and external tables",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "What privileges does creating an external table need?",
+      "options": [
+        {
+          "t": "CREATE EXTERNAL TABLE on the external location, plus USE CATALOG, USE SCHEMA and CREATE TABLE",
+          "ok": true
+        },
+        {
+          "t": "Only Storage Blob Data Contributor on the storage account",
+          "why": "Azure roles go to the Access Connector; users need Unity Catalog privileges."
+        },
+        {
+          "t": "Only ownership of the metastore, since external tables are account-level",
+          "why": "Specific privileges are needed, not metastore ownership."
+        },
+        {
+          "t": "READ FILES on the volume that sits in the same path",
+          "why": "External tables need CREATE EXTERNAL TABLE on the external location."
+        }
+      ],
+      "explain": "Creating an external table needs CREATE EXTERNAL TABLE on the external location plus USE CATALOG, USE SCHEMA and CREATE TABLE."
+    },
+    {
+      "id": "G11",
+      "topic": "Storage credentials and external locations",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6",
+        "notes §17"
+      ],
+      "q": "What is an external location in Unity Catalog?",
+      "options": [
+        {
+          "t": "A cloud region where the workspace's metastore is replicated for disaster recovery",
+          "why": "An external location is a storage path plus a credential."
+        },
+        {
+          "t": "A schema whose tables are all external",
+          "why": "It is a securable for a storage path, not a kind of schema."
+        },
+        {
+          "t": "A Lakehouse Federation connection to another database",
+          "why": "That is a connection."
+        },
+        {
+          "t": "A storage path plus the storage credential that can reach it",
+          "ok": true
+        }
+      ],
+      "explain": "An external location is a storage path plus its credential; every external table and external volume must sit inside one."
+    },
+    {
+      "id": "G12",
+      "topic": "Storage credentials and external locations",
+      "difficulty": "medium",
+      "sources": [
+        "notes §17"
+      ],
+      "q": "On Azure, what does a Unity Catalog storage credential typically use to reach ADLS Gen2?",
+      "options": [
+        {
+          "t": "The managed identity of an Access Connector for Azure Databricks",
+          "ok": true
+        },
+        {
+          "t": "The storage account key, stored in the storage credential's properties",
+          "why": "Databricks recommends against account keys; the managed identity is recommended."
+        },
+        {
+          "t": "The personal Entra ID login of whoever creates the table",
+          "why": "Storage credentials use a long-term identity such as the Access Connector's managed identity."
+        },
+        {
+          "t": "A SAS token that is renewed by a scheduled job every hour",
+          "why": "The recommended credential is a managed identity, with no rotation."
+        }
+      ],
+      "explain": "Create an Access Connector (holding a managed identity), grant it a storage role on the ADLS account, and use it in a storage credential."
+    },
+    {
+      "id": "G13",
+      "topic": "Storage credentials and external locations",
+      "difficulty": "hard",
+      "sources": [
+        "notes §17"
+      ],
+      "q": "Which Azure role on the ADLS account does the documentation give as an example for the Access Connector's managed identity?",
+      "options": [
+        {
+          "t": "Owner, so the identity can manage the account's settings",
+          "why": "A data role such as Storage Blob Data Contributor is the example."
+        },
+        {
+          "t": "Reader, which allows reading blobs in every container",
+          "why": "Reader is a management-plane role; the example is Storage Blob Data Contributor."
+        },
+        {
+          "t": "Storage Blob Data Contributor",
+          "ok": true
+        },
+        {
+          "t": "Network Contributor, so the identity can reach private endpoints",
+          "why": "That is a networking role, not a data role."
+        }
+      ],
+      "explain": "Grant the identity a storage role on the ADLS account, for example Storage Blob Data Contributor (or Storage Blob Delegator on the account plus Contributor on one container)."
+    },
+    {
+      "id": "G14",
+      "topic": "Storage credentials and external locations",
+      "difficulty": "medium",
+      "sources": [
+        "notes §17"
+      ],
+      "q": "Why does Databricks prefer a managed identity over a service principal's client secret for storage access?",
+      "options": [
+        {
+          "t": "Managed identities can read any storage account in the tenant",
+          "why": "They get only the roles you grant them."
+        },
+        {
+          "t": "Managed identities need no secret rotation and can reach firewalled storage from a VNet-injected workspace",
+          "ok": true
+        },
+        {
+          "t": "Client secrets can't be used with ADLS Gen2 at all",
+          "why": "They can, in the legacy pattern; managed identities are preferred."
+        },
+        {
+          "t": "Managed identities bypass Unity Catalog grants, so setup is simpler",
+          "why": "Access still goes through Unity Catalog privileges."
+        }
+      ],
+      "explain": "Managed identities need no secret rotation and can reach a firewall-protected storage account from a VNet-injected workspace."
+    },
+    {
+      "id": "G15",
+      "topic": "Volumes",
+      "difficulty": "easy",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "What are Unity Catalog volumes for?",
+      "options": [
+        {
+          "t": "Storing tables in a faster format than Delta",
+          "why": "Volumes hold non-tabular files, not tables."
+        },
+        {
+          "t": "Caching query results on SQL warehouses",
+          "why": "Volumes govern files in storage, not caches."
+        },
+        {
+          "t": "Governing non-tabular files, accessed by path",
+          "ok": true
+        },
+        {
+          "t": "Holding cloud credentials for external locations",
+          "why": "That is a storage credential."
+        }
+      ],
+      "explain": "Volumes govern non-tabular files of any format, at /Volumes/<catalog>/<schema>/<volume>/...; files in volumes can't be registered as tables."
+    },
+    {
+      "id": "G16",
+      "topic": "Privileges",
+      "difficulty": "easy",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "Which three privileges does a user need to read the table sales.gold.orders?",
+      "options": [
+        {
+          "t": "SELECT on the table only, since it is the object being read",
+          "why": "USE CATALOG and USE SCHEMA are also required."
+        },
+        {
+          "t": "USE CATALOG on sales, USE SCHEMA on sales.gold, and SELECT on the table",
+          "ok": true
+        },
+        {
+          "t": "BROWSE on the catalog, then USE SCHEMA on the schema and SELECT on the table itself",
+          "why": "BROWSE shows that objects exist; USE CATALOG is needed to read."
+        },
+        {
+          "t": "MODIFY on the table, plus ownership of the schema it sits in",
+          "why": "MODIFY is for writes; reading needs USE CATALOG, USE SCHEMA and SELECT."
+        }
+      ],
+      "explain": "Reading a table needs SELECT on the table, USE SCHEMA on its schema and USE CATALOG on its catalog."
+    },
+    {
+      "id": "G17",
+      "topic": "Privileges",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "A table owner grants SELECT to the analysts group, but analysts still get a permission error. What is the most likely cause?",
+      "options": [
+        {
+          "t": "SELECT takes 24 hours to propagate to every workspace",
+          "why": "Grants apply directly; the usual cause is missing usage privileges."
+        },
+        {
+          "t": "Analysts also need MODIFY to read a table",
+          "why": "MODIFY is for writes."
+        },
+        {
+          "t": "Grants to groups don't work; each analyst needs a personal grant",
+          "why": "Granting to groups is the recommended practice."
+        },
+        {
+          "t": "They lack USE CATALOG or USE SCHEMA on the parents",
+          "ok": true
+        }
+      ],
+      "explain": "USE CATALOG and USE SCHEMA grant no data by themselves; they are boundaries the parents' owners control, and a table owner's SELECT grant is useless without them."
+    },
+    {
+      "id": "G18",
+      "topic": "Privileges",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "SELECT is granted on the schema sales.gold. A new table is created in it next month. Can grantees read the new table?",
+      "options": [
+        {
+          "t": "No, schema grants cover only tables that existed at grant time",
+          "why": "Privileges on a schema apply to current and future objects."
+        },
+        {
+          "t": "Yes, schema privileges apply to current and future objects",
+          "ok": true
+        },
+        {
+          "t": "Only if the new table's owner re-runs the GRANT on the schema",
+          "why": "Inheritance covers future objects automatically."
+        },
+        {
+          "t": "Only if the new table is a view rather than a table",
+          "why": "Inheritance covers every table and view."
+        }
+      ],
+      "explain": "A privilege granted on a catalog or schema applies to the current and future objects inside it."
+    },
+    {
+      "id": "G19",
+      "topic": "Privileges",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "Which privilege lets a user insert, update and delete rows in a table?",
+      "options": [
+        {
+          "t": "WRITE, which is the general data-change privilege for tables and views",
+          "why": "The privilege for data changes is MODIFY."
+        },
+        {
+          "t": "OWN, which is granted per table for data changes",
+          "why": "Ownership isn't granted as a privilege; MODIFY allows data changes."
+        },
+        {
+          "t": "MODIFY, together with SELECT and the usage privileges",
+          "ok": true
+        },
+        {
+          "t": "REFRESH, which also covers table data changes",
+          "why": "REFRESH applies to materialized views."
+        }
+      ],
+      "explain": "MODIFY on a table allows insert, update and delete, and needs SELECT plus the usage privileges."
+    },
+    {
+      "id": "G20",
+      "topic": "Privileges",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "What does the BROWSE privilege allow?",
+      "options": [
+        {
+          "t": "Reading the first 100 rows of any table in the catalog",
+          "why": "BROWSE gives no data access."
+        },
+        {
+          "t": "Seeing that objects exist and requesting access, without reading data",
+          "ok": true
+        },
+        {
+          "t": "Browsing files in the catalog's managed storage",
+          "why": "BROWSE concerns metadata visibility, not files."
+        },
+        {
+          "t": "Listing other users' grants on the catalog and changing them where needed",
+          "why": "Changing grants needs ownership or MANAGE."
+        }
+      ],
+      "explain": "BROWSE (granted on a catalog) lets users see that objects exist and request access without reading data; Databricks recommends granting it to All account users."
+    },
+    {
+      "id": "G21",
+      "topic": "Privileges",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "Which principals can be granted privileges in Unity Catalog?",
+      "options": [
+        {
+          "t": "Users, groups and service principals",
+          "ok": true
+        },
+        {
+          "t": "Users only; groups are for workspace access",
+          "why": "Groups and service principals can be granted privileges too."
+        },
+        {
+          "t": "Groups only; users must be added to a group",
+          "why": "Users and service principals can also be grantees."
+        },
+        {
+          "t": "Service principals only, for automation",
+          "why": "Users and groups are grantees too."
+        }
+      ],
+      "explain": "Principals are users, groups and service principals (by application ID)."
+    },
+    {
+      "id": "G22",
+      "topic": "Privileges",
+      "difficulty": "hard",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "Who can grant privileges on a Unity Catalog table?",
+      "options": [
+        {
+          "t": "The table's owner",
+          "ok": true
+        },
+        {
+          "t": "A user with MANAGE on the table",
+          "ok": true
+        },
+        {
+          "t": "Any user with SELECT on the table",
+          "why": "SELECT doesn't allow granting."
+        },
+        {
+          "t": "Any workspace admin of any workspace",
+          "why": "Granting needs ownership, parent ownership, MANAGE or metastore admin."
+        },
+        {
+          "t": "Any member of the All account users group",
+          "why": "That group has no special granting rights."
+        }
+      ],
+      "explain": "Privileges can be granted by the owner, the owner of the containing catalog or schema, a user with MANAGE on the object, or a metastore admin."
+    },
+    {
+      "id": "G23",
+      "topic": "Privileges",
+      "difficulty": "hard",
+      "sources": [
+        "notes §6",
+        "notes §19"
+      ],
+      "q": "The exam guide lists GRANT, REVOKE and DENY. Which statement about DENY in Unity Catalog is accurate?",
+      "options": [
+        {
+          "t": "DENY is a SQL statement that overrides GRANT on any securable",
+          "why": "Unity Catalog SQL has no DENY statement."
+        },
+        {
+          "t": "DENY works like REVOKE but also blocks future grants",
+          "why": "There is no DENY statement in Unity Catalog SQL."
+        },
+        {
+          "t": "DENY is required before a REVOKE takes effect",
+          "why": "REVOKE works on its own; there is no DENY statement."
+        },
+        {
+          "t": "Unity Catalog SQL has no DENY statement; denial exists only as an ABAC DENY policy (Beta)",
+          "ok": true
+        }
+      ],
+      "explain": "There is no DENY statement in Unity Catalog SQL; GRANT, REVOKE and DENY statements belong to legacy Hive metastore table access control. The only Unity Catalog denial is an ABAC DENY policy (Beta), limited to MANAGE ACCESS CONTROL."
+    }
+  ]
+}

@@ -1,0 +1,603 @@
+{
+  "section": 2,
+  "domain": "Data Ingestion and Loading",
+  "questions": [
+    {
+      "id": "I43",
+      "topic": "Streaming checkpoints",
+      "difficulty": "easy",
+      "sources": [
+        "notes §8"
+      ],
+      "q": "What does a Structured Streaming checkpoint store?",
+      "options": [
+        {
+          "t": "A full copy of the target table, for recovery",
+          "why": "The checkpoint stores progress and state, not a copy of the output."
+        },
+        {
+          "t": "The offsets read, the commits made, any state, and the query ID",
+          "ok": true
+        },
+        {
+          "t": "The code of the query, so it can be restarted without the notebook",
+          "why": "The checkpoint holds progress, not the query's code."
+        },
+        {
+          "t": "Only the list of files that failed to load",
+          "why": "It records offsets, commits and state for every micro-batch."
+        }
+      ],
+      "explain": "A checkpoint stores offsets (what each micro-batch read), commits (which batches reached the sink, for exactly-once), state (aggregations, joins, deduplication) and the query ID."
+    },
+    {
+      "id": "I44",
+      "topic": "Streaming checkpoints",
+      "difficulty": "medium",
+      "sources": [
+        "notes §8"
+      ],
+      "q": "Two different streaming queries are configured with the same checkpoint location. What does the documentation say?",
+      "options": [
+        {
+          "t": "It's fine as long as they write different tables",
+          "why": "Each query needs its own checkpoint location; never share one."
+        },
+        {
+          "t": "It's recommended, to save storage",
+          "why": "Sharing a checkpoint is never recommended."
+        },
+        {
+          "t": "Each query needs its own checkpoint location; never share one",
+          "ok": true
+        },
+        {
+          "t": "It's required when both read from the same source",
+          "why": "Each query needs its own checkpoint, whatever its source."
+        }
+      ],
+      "explain": "Each query needs its own checkpoint location. Two streams writing one Delta table with one checkpoint fail with DELTA_CONCURRENT_TRANSACTION."
+    },
+    {
+      "id": "I45",
+      "topic": "Streaming checkpoints",
+      "difficulty": "hard",
+      "sources": [
+        "notes §8"
+      ],
+      "q": "Which change to a running streaming query is generally safe to make without a new checkpoint?",
+      "options": [
+        {
+          "t": "Changing the sink from a Delta table to Kafka",
+          "why": "Changing the sink type generally needs a new checkpoint."
+        },
+        {
+          "t": "Adding a second source with a union",
+          "why": "Changing the number of sources generally needs a new checkpoint."
+        },
+        {
+          "t": "Changing the Auto Loader input path",
+          "why": "Changing Auto Loader paths generally needs a new checkpoint."
+        },
+        {
+          "t": "Changing a filter or the trigger interval",
+          "ok": true
+        }
+      ],
+      "explain": "Adding or removing filters and changing rate limits and trigger intervals is generally safe; changing sources, Auto Loader paths, stateful operations, state schema or sink type generally needs a new checkpoint."
+    },
+    {
+      "id": "I46",
+      "topic": "Triggers",
+      "difficulty": "medium",
+      "sources": [
+        "notes §8",
+        "notes §12"
+      ],
+      "q": "A notebook job on serverless compute uses `.trigger(processingTime='1 minute')`. What does the documentation say?",
+      "options": [
+        {
+          "t": "Serverless notebooks and jobs support only availableNow and Once triggers",
+          "ok": true
+        },
+        {
+          "t": "It works, but processingTime costs more on serverless",
+          "why": "Serverless notebooks and jobs support only the availableNow and Once triggers."
+        },
+        {
+          "t": "It works only with a pool attached",
+          "why": "Pools are classic compute; serverless supports only availableNow and Once."
+        },
+        {
+          "t": "It works if autoscaling is disabled",
+          "why": "The limit is the trigger type, not autoscaling."
+        }
+      ],
+      "explain": "Serverless notebooks and jobs support only AvailableNow and Once streaming triggers; for continuous processing on serverless, use a continuous pipeline."
+    },
+    {
+      "id": "I47",
+      "topic": "Triggers",
+      "difficulty": "medium",
+      "sources": [
+        "notes §8"
+      ],
+      "q": "Which trigger is not supported on Databricks?",
+      "options": [
+        {
+          "t": "availableNow",
+          "why": "availableNow is supported and recommended for scheduled incremental jobs."
+        },
+        {
+          "t": "processingTime",
+          "why": "processingTime is supported for fixed-interval micro-batches."
+        },
+        {
+          "t": "continuous",
+          "ok": true
+        },
+        {
+          "t": "realTime",
+          "why": "realTime is the trigger for Databricks' real-time mode."
+        }
+      ],
+      "explain": "The continuous trigger is not supported on Databricks; micro-batch triggers and real-time mode are."
+    },
+    {
+      "id": "I48",
+      "topic": "Watermarks",
+      "difficulty": "medium",
+      "sources": [
+        "notes §8"
+      ],
+      "q": "What does a watermark do in a stateful streaming query?",
+      "options": [
+        {
+          "t": "It guarantees every late record is processed however late it is",
+          "why": "Records later than the threshold might not be processed."
+        },
+        {
+          "t": "It bounds state: state older than the threshold behind the latest event time is dropped",
+          "ok": true
+        },
+        {
+          "t": "It orders records by event time before they are written",
+          "why": "A watermark bounds state; it doesn't sort the output."
+        },
+        {
+          "t": "It limits how many files each micro-batch reads",
+          "why": "That is what rate limits do."
+        }
+      ],
+      "explain": "The engine tracks the latest event time and drops state older than the threshold. Records within the threshold are always processed; later ones might not be."
+    },
+    {
+      "id": "I49",
+      "topic": "Watermarks",
+      "difficulty": "hard",
+      "sources": [
+        "notes §8"
+      ],
+      "q": "A team shortens a watermark from 2 hours to 10 minutes. What trade-off have they made?",
+      "options": [
+        {
+          "t": "Lower latency and less state, but less tolerance for late data",
+          "ok": true
+        },
+        {
+          "t": "More state and higher latency, but no late data is ever dropped",
+          "why": "That describes lengthening the watermark."
+        },
+        {
+          "t": "No effect on state; only the output mode changes",
+          "why": "The watermark directly controls how much state is kept."
+        },
+        {
+          "t": "Higher cost, because state is now written twice",
+          "why": "A shorter watermark keeps less state, not more."
+        }
+      ],
+      "explain": "A shorter watermark means lower latency and less state but less tolerance for late data; a longer one the reverse."
+    },
+    {
+      "id": "I50",
+      "topic": "Output modes",
+      "difficulty": "medium",
+      "sources": [
+        "notes §8"
+      ],
+      "q": "Which output mode rewrites the whole result table on every trigger, and is poor at scale?",
+      "options": [
+        {
+          "t": "append",
+          "why": "append emits only rows that won't change again."
+        },
+        {
+          "t": "update",
+          "why": "update emits only rows changed in this trigger."
+        },
+        {
+          "t": "overwrite",
+          "why": "overwrite is a batch write mode, not a streaming output mode."
+        },
+        {
+          "t": "complete",
+          "ok": true
+        }
+      ],
+      "explain": "complete rewrites the whole result each trigger, for aggregations only; Databricks suggests materialized views instead at scale."
+    },
+    {
+      "id": "I51",
+      "topic": "Output modes",
+      "difficulty": "hard",
+      "sources": [
+        "notes §8"
+      ],
+      "q": "Which output mode do stream-stream joins support?",
+      "options": [
+        {
+          "t": "complete only",
+          "why": "Stream-stream joins support append only."
+        },
+        {
+          "t": "append only",
+          "ok": true
+        },
+        {
+          "t": "update only",
+          "why": "Stream-stream joins support append only."
+        },
+        {
+          "t": "any of the three",
+          "why": "Stream-stream joins support append only."
+        }
+      ],
+      "explain": "Stream joins support append output mode only."
+    },
+    {
+      "id": "I52",
+      "topic": "foreachBatch",
+      "difficulty": "medium",
+      "sources": [
+        "notes §8",
+        "notes §4"
+      ],
+      "q": "You need to upsert a stream of changes into a Delta table with MERGE. How is that done in Structured Streaming?",
+      "options": [
+        {
+          "t": "writeStream.format(\"merge\")",
+          "why": "There is no merge sink format; MERGE runs inside foreachBatch."
+        },
+        {
+          "t": "writeStream.outputMode(\"update\").toTable(...)",
+          "why": "Update mode emits changed aggregate rows; it doesn't run a MERGE."
+        },
+        {
+          "t": "writeStream.foreachBatch(fn), running MERGE inside fn",
+          "ok": true
+        },
+        {
+          "t": "A streaming read with readChangeFeed set to true",
+          "why": "That reads a table's changes; it doesn't write with MERGE."
+        }
+      ],
+      "explain": "foreachBatch runs batch code on each micro-batch and is required for Delta MERGE from a stream."
+    },
+    {
+      "id": "I53",
+      "topic": "foreachBatch",
+      "difficulty": "hard",
+      "sources": [
+        "notes §8"
+      ],
+      "q": "What delivery guarantee does foreachBatch give, and what follows?",
+      "options": [
+        {
+          "t": "Exactly-once, so the function can append freely",
+          "why": "foreachBatch gives at-least-once writes."
+        },
+        {
+          "t": "At-most-once, so failed batches are lost",
+          "why": "Failed batches are retried; the guarantee is at-least-once."
+        },
+        {
+          "t": "Exactly-once only when the target has deletion vectors",
+          "why": "Deletion vectors don't change foreachBatch's guarantee."
+        },
+        {
+          "t": "At-least-once, so the function should be idempotent, for example a key-based MERGE",
+          "ok": true
+        }
+      ],
+      "explain": "foreachBatch provides at-least-once writes; use batch_id or an idempotent operation such as a MERGE on a key so a rerun changes nothing."
+    },
+    {
+      "id": "I54",
+      "topic": "Change data feed",
+      "difficulty": "medium",
+      "sources": [
+        "notes §5"
+      ],
+      "q": "A silver job should process only rows that changed in a bronze Delta table since its last run. Which feature and read does Databricks recommend?",
+      "options": [
+        {
+          "t": "Change data feed, read incrementally with spark.readStream and readChangeFeed",
+          "ok": true
+        },
+        {
+          "t": "DESCRIBE HISTORY, parsed for row values",
+          "why": "History lists operations, not changed rows."
+        },
+        {
+          "t": "Time travel to yesterday's version, then a full EXCEPT",
+          "why": "That rereads the whole table; change data feed gives row-level changes."
+        },
+        {
+          "t": "VACUUM DRY RUN, to list changed files",
+          "why": "That lists files to delete, not changed rows."
+        }
+      ],
+      "explain": "Change data feed records row-level changes between versions; Databricks recommends reading it incrementally with Structured Streaming, which tracks versions for you."
+    },
+    {
+      "id": "I55",
+      "topic": "Change data feed",
+      "difficulty": "hard",
+      "sources": [
+        "notes §5"
+      ],
+      "q": "Which values can the `_change_type` column of change data feed take?",
+      "options": [
+        {
+          "t": "insert, update, delete",
+          "why": "Updates appear as update_preimage and update_postimage."
+        },
+        {
+          "t": "add, remove, cdc",
+          "why": "Those are transaction log actions, not change types."
+        },
+        {
+          "t": "insert, update_preimage, update_postimage, delete",
+          "ok": true
+        },
+        {
+          "t": "create, merge, vacuum",
+          "why": "Those are operations, not change types."
+        }
+      ],
+      "explain": "Each change record carries _change_type (insert, update_preimage, update_postimage, delete), _commit_version and _commit_timestamp."
+    },
+    {
+      "id": "I56",
+      "topic": "Change data feed",
+      "difficulty": "medium",
+      "sources": [
+        "notes §5"
+      ],
+      "q": "Legacy change data feed was enabled on a table last month. A team asks for the row changes from two months ago. What can they get?",
+      "options": [
+        {
+          "t": "All changes since the table was created",
+          "why": "Change data feed records changes only after it was enabled."
+        },
+        {
+          "t": "Nothing from before it was enabled: it only records changes from then on",
+          "ok": true
+        },
+        {
+          "t": "The changes, reconstructed from time travel automatically",
+          "why": "Legacy CDF doesn't reconstruct changes from before it was turned on."
+        },
+        {
+          "t": "The changes, but only for deletes",
+          "why": "No change types are recorded from before it was enabled."
+        }
+      ],
+      "explain": "CDF only records changes after it was enabled; it is not a permanent record."
+    },
+    {
+      "id": "I57",
+      "topic": "Reaching ADLS",
+      "difficulty": "easy",
+      "sources": [
+        "notes §17"
+      ],
+      "q": "Which path form does Databricks use for ADLS Gen2?",
+      "options": [
+        {
+          "t": "wasbs://<container>@<account>.blob.core.windows.net/<path>",
+          "why": "That is the legacy Azure Blob driver form; ADLS Gen2 uses abfss."
+        },
+        {
+          "t": "dbfs:/mnt/<account>/<container>/<path>",
+          "why": "That is a legacy mount path, not the ADLS Gen2 URI."
+        },
+        {
+          "t": "adls://<account>/<container>/<path>",
+          "why": "The scheme is abfss, with the dfs endpoint."
+        },
+        {
+          "t": "abfss://<container>@<account>.dfs.core.windows.net/<path>",
+          "ok": true
+        }
+      ],
+      "explain": "ADLS Gen2 paths are abfss://<container>@<account>.dfs.core.windows.net/<path>."
+    },
+    {
+      "id": "I58",
+      "topic": "Reaching ADLS",
+      "difficulty": "medium",
+      "sources": [
+        "notes §17",
+        "notes §6"
+      ],
+      "q": "What is the recommended way for Unity Catalog to read data in an ADLS Gen2 account?",
+      "options": [
+        {
+          "t": "An account key in a secret scope, set in the cluster's Spark properties",
+          "why": "That is a legacy pattern; Databricks recommends against account keys."
+        },
+        {
+          "t": "An Access Connector's managed identity, used in a storage credential and external locations",
+          "ok": true
+        },
+        {
+          "t": "A SAS token pasted into each notebook",
+          "why": "Tokens in notebooks are neither governed nor recommended."
+        },
+        {
+          "t": "Making the container public and reading it anonymously",
+          "why": "That removes access control entirely."
+        }
+      ],
+      "explain": "Create an Access Connector (a managed identity), grant it a storage role, and use it in a Unity Catalog storage credential and external locations; no secret rotation is needed."
+    },
+    {
+      "id": "I59",
+      "topic": "Bronze design",
+      "difficulty": "medium",
+      "sources": [
+        "notes §13"
+      ],
+      "q": "Why does Databricks recommend building silver tables from bronze rather than straight from ingestion?",
+      "options": [
+        {
+          "t": "Bronze keeps the raw source data, so silver can be rebuilt without asking the source again",
+          "ok": true
+        },
+        {
+          "t": "Silver tables can't read from cloud storage directly",
+          "why": "They can; the reason is reprocessing and audit from bronze."
+        },
+        {
+          "t": "Bronze tables are faster to query than source files",
+          "why": "Speed isn't the reason; bronze is the base for reprocessing and audit."
+        },
+        {
+          "t": "Unity Catalog doesn't allow silver tables over external locations",
+          "why": "That isn't a rule; the reason is the reprocessing base bronze provides."
+        }
+      ],
+      "explain": "Bronze keeps the source's raw state, appended incrementally, as the base for reprocessing and audit. Build silver from bronze, mostly with streaming reads of append-only bronze."
+    },
+    {
+      "id": "I60",
+      "topic": "Bronze design",
+      "difficulty": "medium",
+      "sources": [
+        "notes §13"
+      ],
+      "q": "Which provenance column does Databricks suggest adding in bronze when loading files with Auto Loader?",
+      "options": [
+        {
+          "t": "_change_type",
+          "why": "That is a change data feed column, not provenance for loaded files."
+        },
+        {
+          "t": "_commit_version",
+          "why": "That is a change data feed column."
+        },
+        {
+          "t": "_rescued_data",
+          "why": "That holds values that don't fit the schema, not provenance."
+        },
+        {
+          "t": "The source file name, from _metadata.file_name",
+          "ok": true
+        }
+      ],
+      "explain": "Bronze adds provenance metadata such as the source file name (_metadata.file_name with Auto Loader) and the load time."
+    },
+    {
+      "id": "I61",
+      "topic": "Batch, streaming and incremental",
+      "difficulty": "medium",
+      "sources": [
+        "notes §8"
+      ],
+      "q": "In which mode does Databricks run Structured Streaming by default, and what latency does it target?",
+      "options": [
+        {
+          "t": "Real-time mode, with latency of a few milliseconds",
+          "why": "Real-time mode is for sub-second operational workloads; the default is micro-batch."
+        },
+        {
+          "t": "Micro-batch mode, with latency of seconds to minutes",
+          "ok": true
+        },
+        {
+          "t": "Continuous mode, with sub-millisecond latency",
+          "why": "Continuous mode isn't supported on Databricks."
+        },
+        {
+          "t": "Batch mode, run once a day",
+          "why": "Structured Streaming runs incrementally; the default is micro-batch mode."
+        }
+      ],
+      "explain": "Databricks runs Structured Streaming in micro-batch mode by default (seconds to minutes, for ETL and analytics), or in real-time mode for sub-second operational workloads."
+    },
+    {
+      "id": "I62",
+      "topic": "Batch, streaming and incremental",
+      "difficulty": "hard",
+      "sources": [
+        "notes §8",
+        "notes §2"
+      ],
+      "q": "A stream reads a bronze Delta table. Someone runs RESTORE on that table to an older version. What can happen downstream?",
+      "options": [
+        {
+          "t": "Nothing: RESTORE is a metadata-only operation",
+          "why": "RESTORE is a data-changing operation that re-adds files."
+        },
+        {
+          "t": "The stream rewinds to the restored version automatically",
+          "why": "The stream doesn't rewind; it sees the restored files as new data."
+        },
+        {
+          "t": "The stream sees the restored files as new data and can write duplicates",
+          "ok": true
+        },
+        {
+          "t": "The stream stops permanently and must be dropped",
+          "why": "The risk is duplicates, not a permanent stop."
+        }
+      ],
+      "explain": "RESTORE is a data-changing operation (dataChange=true), so a stream reading the table sees it as new data and can produce duplicates downstream."
+    },
+    {
+      "id": "I63",
+      "topic": "Batch, streaming and incremental",
+      "difficulty": "hard",
+      "sources": [
+        "notes §8",
+        "notes §2"
+      ],
+      "q": "A stream writes to a Delta table with toTable, without foreachBatch. It fails and restarts. Why doesn't it write the last micro-batch twice?",
+      "options": [
+        {
+          "t": "The Delta sink records each batch with a transaction identifier in the log and skips batches already committed",
+          "ok": true
+        },
+        {
+          "t": "The checkpoint's commits record which batches reached the sink",
+          "ok": true
+        },
+        {
+          "t": "Delta tables reject duplicate rows by default",
+          "why": "Primary keys are informational; Delta doesn't reject duplicate rows."
+        },
+        {
+          "t": "Auto Loader deletes the source files after each batch",
+          "why": "Auto Loader doesn't delete source files."
+        },
+        {
+          "t": "The stream always starts from the beginning after a failure",
+          "why": "It resumes from its checkpoint."
+        }
+      ],
+      "explain": "The checkpoint's commits record which batches reached the sink, and the Delta sink records an application ID and version (a txn action) atomically with each batch, skipping a batch already committed."
+    }
+  ]
+}

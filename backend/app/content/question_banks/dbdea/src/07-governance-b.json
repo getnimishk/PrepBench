@@ -1,0 +1,637 @@
+{
+  "section": 7,
+  "domain": "Governance and Security",
+  "questions": [
+    {
+      "id": "G24",
+      "topic": "Column masks",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "Only members of the HR group may see real social security numbers; everyone else sees a masked value. What is the documented way to do this on one table?",
+      "options": [
+        {
+          "t": "A column mask: a SQL function using is_account_group_member, set with ALTER COLUMN ... SET MASK",
+          "ok": true
+        },
+        {
+          "t": "Two copies of the table, one masked, with SELECT granted separately on each",
+          "why": "A column mask does this on one table without copies."
+        },
+        {
+          "t": "REVOKE SELECT on the ssn column from everyone outside HR",
+          "why": "Column-level masking is done with a mask function."
+        },
+        {
+          "t": "A DENY on the ssn column for the All account users group",
+          "why": "Unity Catalog SQL has no DENY statement."
+        }
+      ],
+      "explain": "A column mask is a SQL function that returns the real value or a masked one; for example CASE WHEN is_account_group_member('HumanResourceDept') THEN ssn ELSE '***-**-****' END, applied with ALTER TABLE ... ALTER COLUMN ssn SET MASK."
+    },
+    {
+      "id": "G25",
+      "topic": "Row filters",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "How does a row filter decide which rows a user sees?",
+      "options": [
+        {
+          "t": "It reads a list of allowed row IDs stored in the table's properties",
+          "why": "A row filter is a SQL function evaluated per row."
+        },
+        {
+          "t": "It is a SQL function evaluated per row; rows where it returns FALSE are hidden",
+          "ok": true
+        },
+        {
+          "t": "It removes the rows from storage for users who aren't allowed",
+          "why": "Rows are hidden at query time, not removed."
+        },
+        {
+          "t": "It applies a partition filter chosen from the name of the group that the user belongs to",
+          "why": "It is a function evaluated for each row at query time."
+        }
+      ],
+      "explain": "A row filter is a SQL UDF evaluated per row at query time; rows where it returns FALSE are hidden. ALTER TABLE sales SET ROW FILTER us_filter ON (region)."
+    },
+    {
+      "id": "G26",
+      "topic": "Column masks",
+      "difficulty": "hard",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "How many column masks can one column have?",
+      "options": [
+        {
+          "t": "Up to four, applied in order",
+          "why": "There is one mask per column."
+        },
+        {
+          "t": "One per group that queries the table",
+          "why": "There is one mask per column; the function can test group membership."
+        },
+        {
+          "t": "One",
+          "ok": true
+        },
+        {
+          "t": "Unlimited, combined with OR",
+          "why": "There is one mask per column."
+        }
+      ],
+      "explain": "A column mask returns the real value or a masked one, of the same or a castable type; there is one mask per column."
+    },
+    {
+      "id": "G27",
+      "topic": "Row filters and masks",
+      "difficulty": "hard",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "Who can set a row filter or column mask on a table?",
+      "options": [
+        {
+          "t": "Any user with SELECT on the table",
+          "why": "Setting filters and masks needs ownership or MANAGE."
+        },
+        {
+          "t": "Only a metastore admin",
+          "why": "The table owner (or a user with MANAGE) can set them."
+        },
+        {
+          "t": "Any member of the group named in the function",
+          "why": "Group membership is evaluated by the function; setting it needs ownership or MANAGE."
+        },
+        {
+          "t": "The table's owner, or a user with MANAGE",
+          "ok": true
+        }
+      ],
+      "explain": "Row filters and column masks are table-level controls set by the table owner (or with MANAGE), one table at a time."
+    },
+    {
+      "id": "G28",
+      "topic": "ABAC",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "Hundreds of tables contain columns tagged PII, and new ones are added weekly. What is Databricks' recommended approach to mask them consistently?",
+      "options": [
+        {
+          "t": "A column mask set by hand on each table, with a review each week",
+          "why": "Per-table masks don't scale; ABAC policies cover tagged columns automatically."
+        },
+        {
+          "t": "An ABAC policy on governed tags, attached to the catalog or schema",
+          "ok": true
+        },
+        {
+          "t": "Dynamic views for every table, created by a nightly job",
+          "why": "ABAC is the recommended approach for consistency across many tables."
+        },
+        {
+          "t": "Revoking SELECT on all PII tables and granting it case by case",
+          "why": "That blocks whole tables; ABAC masks the tagged columns."
+        }
+      ],
+      "explain": "ABAC policies use governed tags and a policy attached to a catalog, schema or table; new tables with the tag are covered automatically, and table owners can't override the policy."
+    },
+    {
+      "id": "G29",
+      "topic": "ABAC",
+      "difficulty": "hard",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "An ABAC column-mask policy is attached to a catalog. A new table with a PII-tagged column is created in it. What applies?",
+      "options": [
+        {
+          "t": "Nothing until the table owner opts in to the catalog's policy",
+          "why": "New tables carrying the tag are covered automatically."
+        },
+        {
+          "t": "The policy, but the table owner can turn it off for that table",
+          "why": "Table owners can't override the policy."
+        },
+        {
+          "t": "The policy covers it automatically, and the table owner can't override it",
+          "ok": true
+        },
+        {
+          "t": "The policy, but only after the catalog's grants are re-run",
+          "why": "Coverage is automatic; no grants need re-running."
+        }
+      ],
+      "explain": "New tables that carry the tag are covered automatically, and table owners can't override the policy."
+    },
+    {
+      "id": "G30",
+      "topic": "ABAC",
+      "difficulty": "hard",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "Which policy types can an ABAC policy be?",
+      "options": [
+        {
+          "t": "Row filter",
+          "ok": true
+        },
+        {
+          "t": "Column mask",
+          "ok": true
+        },
+        {
+          "t": "VACUUM retention",
+          "why": "Retention is a table property, not an ABAC policy type."
+        },
+        {
+          "t": "Compute policy",
+          "why": "Compute policies govern clusters, not data access."
+        },
+        {
+          "t": "Notebook permission",
+          "why": "Notebooks are workspace assets with their own access lists."
+        }
+      ],
+      "explain": "ABAC has four policy types: row filter, column mask, GRANT and DENY (Beta)."
+    },
+    {
+      "id": "G31",
+      "topic": "Dynamic views",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "Analysts need a joined, filtered slice of two tables they have no access to. Which object fits?",
+      "options": [
+        {
+          "t": "A column mask on each base table, granted to the analysts",
+          "why": "Masks act on columns of tables the user can read; a dynamic view exposes a curated slice."
+        },
+        {
+          "t": "An external location over the two tables' storage paths",
+          "why": "That governs storage access, not a curated slice."
+        },
+        {
+          "t": "A storage credential shared with the analysts' group",
+          "why": "That gives storage access, which isn't the goal."
+        },
+        {
+          "t": "A dynamic view over the base tables",
+          "ok": true
+        }
+      ],
+      "explain": "Dynamic views wrap base tables in a view that filters or masks, usually with is_account_group_member(), to expose a curated or joined slice to people without access to the base tables."
+    },
+    {
+      "id": "G32",
+      "topic": "Row filters and masks",
+      "difficulty": "hard",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "What can go wrong with a row filter function when ANSI mode is off?",
+      "options": [
+        {
+          "t": "A type mismatch silently becomes NULL, and the filter can return every row",
+          "ok": true
+        },
+        {
+          "t": "The filter is ignored for members of the admins group",
+          "why": "The documented risk is a silent NULL from a type mismatch."
+        },
+        {
+          "t": "The filter runs twice for each row, doubling query time",
+          "why": "The documented risk is about NULL results, not double evaluation."
+        },
+        {
+          "t": "The filter can't use is_account_group_member",
+          "why": "The function works; the risk is silent NULLs."
+        }
+      ],
+      "explain": "Databricks advises ANSI mode on; with it off, a type mismatch silently becomes NULL and a filter can return every row."
+    },
+    {
+      "id": "G33",
+      "topic": "Lineage",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "At what level does Unity Catalog capture lineage automatically?",
+      "options": [
+        {
+          "t": "Only at table level, and only for tables that are written by Lakeflow declarative pipelines",
+          "why": "Lineage is captured down to column level for DataFrame and SQL queries."
+        },
+        {
+          "t": "Down to column level, for queries through Spark DataFrames or Databricks SQL",
+          "ok": true
+        },
+        {
+          "t": "Only for tables with lineage enabled in their properties",
+          "why": "It is captured automatically."
+        },
+        {
+          "t": "Only within one workspace",
+          "why": "Lineage covers all workspaces on the metastore."
+        }
+      ],
+      "explain": "Lineage is captured automatically, down to column level, for queries through Spark DataFrames or Databricks SQL, across all workspaces on the metastore."
+    },
+    {
+      "id": "G34",
+      "topic": "Lineage",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6",
+        "notes §15"
+      ],
+      "q": "Where can lineage be queried with SQL?",
+      "options": [
+        {
+          "t": "In DESCRIBE HISTORY of each table",
+          "why": "History lists operations on one table; lineage is in system tables."
+        },
+        {
+          "t": "In the table's _delta_log commit files",
+          "why": "The log records file actions, not lineage."
+        },
+        {
+          "t": "In system.access.table_lineage and system.access.column_lineage",
+          "ok": true
+        },
+        {
+          "t": "In the information_schema.lineage view of each catalog",
+          "why": "The documented tables are in the system catalog."
+        }
+      ],
+      "explain": "Lineage shows in Catalog Explorer and is queryable in system.access.table_lineage and system.access.column_lineage."
+    },
+    {
+      "id": "G35",
+      "topic": "Lineage",
+      "difficulty": "hard",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "What is the minimum privilege a user needs to view lineage for objects in a catalog?",
+      "options": [
+        {
+          "t": "SELECT on every table in the lineage graph",
+          "why": "Viewing lineage needs at least BROWSE on the catalog."
+        },
+        {
+          "t": "Metastore admin",
+          "why": "BROWSE on the catalog is enough to view lineage."
+        },
+        {
+          "t": "MODIFY on the catalog",
+          "why": "BROWSE is the documented minimum."
+        },
+        {
+          "t": "BROWSE on the catalog",
+          "ok": true
+        }
+      ],
+      "explain": "Viewing lineage needs at least BROWSE on the catalog."
+    },
+    {
+      "id": "G36",
+      "topic": "Audit",
+      "difficulty": "medium",
+      "sources": [
+        "notes §15"
+      ],
+      "q": "Which system table holds audit events, and how long is its free retention?",
+      "options": [
+        {
+          "t": "system.access.audit, 365 days",
+          "ok": true
+        },
+        {
+          "t": "system.billing.usage, 30 days",
+          "why": "That table holds billable usage; audit events are in system.access.audit."
+        },
+        {
+          "t": "system.query.history, 7 days of retention",
+          "why": "That holds query history; audit events are in system.access.audit."
+        },
+        {
+          "t": "system.lakeflow.jobs, 90 days",
+          "why": "That holds jobs; audit events are in system.access.audit."
+        }
+      ],
+      "explain": "system.access.audit holds audit events, with 365 days of free retention."
+    },
+    {
+      "id": "G37",
+      "topic": "Identity",
+      "difficulty": "medium",
+      "sources": [
+        "notes §14"
+      ],
+      "q": "Why should production jobs run as a service principal rather than as a person?",
+      "options": [
+        {
+          "t": "Service principals bypass Unity Catalog checks, so jobs run faster",
+          "why": "They are granted access like any principal; nothing is bypassed."
+        },
+        {
+          "t": "Jobs keep working when people leave, with only the access granted to that identity",
+          "ok": true
+        },
+        {
+          "t": "Service principals are the only identities that can use serverless",
+          "why": "Users can use serverless too."
+        },
+        {
+          "t": "Jobs run as a person can't be scheduled",
+          "why": "They can be scheduled; the reason is continuity and least privilege."
+        }
+      ],
+      "explain": "A service principal is an identity for automation with API-only access; running jobs as a service principal keeps them working when a person leaves."
+    },
+    {
+      "id": "G38",
+      "topic": "Secrets",
+      "difficulty": "medium",
+      "sources": [
+        "notes §14"
+      ],
+      "q": "On Azure, what is an Azure Key Vault-backed secret scope?",
+      "options": [
+        {
+          "t": "A copy of the vault's secrets stored by Databricks and writable from notebooks",
+          "why": "It is a read-only interface; secrets are managed in Azure."
+        },
+        {
+          "t": "A Unity Catalog securable that replaces storage credentials",
+          "why": "It is a secret scope, not a storage credential."
+        },
+        {
+          "t": "A read-only interface to the Key Vault; secrets are managed in Azure",
+          "ok": true
+        },
+        {
+          "t": "A scope that holds Entra ID passwords for every user",
+          "why": "It exposes the vault's secrets read-only."
+        }
+      ],
+      "explain": "An Azure Key Vault-backed scope is a read-only interface to a Key Vault; manage the secrets in Azure. It needs the vault access policy permission model and Contributor or Owner on the vault to create."
+    },
+    {
+      "id": "G39",
+      "topic": "Secrets",
+      "difficulty": "hard",
+      "sources": [
+        "notes §14"
+      ],
+      "q": "A notebook prints a secret read with the secret manager. What does the documentation say about exposure?",
+      "options": [
+        {
+          "t": "Secrets can never be exposed, because output is always encrypted",
+          "why": "Redaction is best effort; a reader of the secret can still expose it."
+        },
+        {
+          "t": "Output is redacted where possible, but anyone allowed to read the secret can still expose it",
+          "ok": true
+        },
+        {
+          "t": "Printing a secret fails with a permission error",
+          "why": "It prints [REDACTED] where possible; access control is what protects it."
+        },
+        {
+          "t": "The secret is shown in clear text to admins only",
+          "why": "Output shows [REDACTED] where possible, for everyone."
+        }
+      ],
+      "explain": "Notebook output and SQL using the secret function are redacted ([REDACTED]) where possible, but anyone allowed to read a secret can still expose it, so grant carefully."
+    },
+    {
+      "id": "G40",
+      "topic": "Unity Catalog object model",
+      "difficulty": "easy",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "What is the shape of a table's full name in Unity Catalog?",
+      "options": [
+        {
+          "t": "workspace.schema.table",
+          "why": "The first level is the catalog."
+        },
+        {
+          "t": "metastore.catalog.table",
+          "why": "The three levels are catalog, schema and table."
+        },
+        {
+          "t": "schema.table, with the catalog implied by the workspace",
+          "why": "The namespace has three levels; the default catalog is only used when you omit it."
+        },
+        {
+          "t": "catalog.schema.table",
+          "ok": true
+        }
+      ],
+      "explain": "Unity Catalog uses a three-level namespace, catalog.schema.object."
+    },
+    {
+      "id": "G41",
+      "topic": "Unity Catalog object model",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "Which of these is governed by workspace access control lists rather than Unity Catalog grants?",
+      "options": [
+        {
+          "t": "A volume holding landing files",
+          "why": "Volumes are Unity Catalog securables."
+        },
+        {
+          "t": "A notebook",
+          "ok": true
+        },
+        {
+          "t": "An external location",
+          "why": "External locations are Unity Catalog securables."
+        },
+        {
+          "t": "A registered model",
+          "why": "Models are Unity Catalog securables."
+        }
+      ],
+      "explain": "Workspace-level assets such as notebooks, dashboards, jobs, pipelines, workspace files, queries and experiments are not in Unity Catalog; workspace access control lists govern them."
+    },
+    {
+      "id": "G42",
+      "topic": "Unity Catalog object model",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6",
+        "notes §17"
+      ],
+      "q": "A company runs workspaces in two Azure regions. How do Unity Catalog metastores relate to them?",
+      "options": [
+        {
+          "t": "One metastore per region, attached to that region's workspaces",
+          "ok": true
+        },
+        {
+          "t": "One metastore per workspace, linked together",
+          "why": "A metastore is shared by the workspaces of its region."
+        },
+        {
+          "t": "One global metastore for all regions",
+          "why": "Metastores are per region."
+        },
+        {
+          "t": "No metastore; catalogs belong directly to workspaces",
+          "why": "Catalogs are registered in a metastore at the account level."
+        }
+      ],
+      "explain": "The metastore is managed at the account level, and a metastore can be attached to several workspaces in the same region."
+    },
+    {
+      "id": "G43",
+      "topic": "Legacy Hive metastore",
+      "difficulty": "hard",
+      "sources": [
+        "notes §6",
+        "notes §21"
+      ],
+      "q": "How does Unity Catalog's access model differ from legacy Hive metastore table access control?",
+      "options": [
+        {
+          "t": "Unity Catalog grants to account groups; Hive grants to workspace-local groups",
+          "ok": true
+        },
+        {
+          "t": "Unity Catalog has no DENY statement; legacy table ACLs do",
+          "ok": true
+        },
+        {
+          "t": "Hive table ACLs cover all workspaces of a region",
+          "why": "The Hive metastore is per workspace."
+        },
+        {
+          "t": "Unity Catalog needs no USE CATALOG or USE SCHEMA",
+          "why": "Unity Catalog always requires them."
+        },
+        {
+          "t": "A view owner in Unity Catalog must own every table the view reads",
+          "why": "In Unity Catalog, SELECT is enough; that ownership rule is the legacy model."
+        }
+      ],
+      "explain": "Unity Catalog is account-level and grants to account groups; Hive metastore ACLs are per workspace with workspace-local groups. Unity Catalog has no DENY, ANY FILE or READ_METADATA, and always requires USE CATALOG and USE SCHEMA."
+    },
+    {
+      "id": "G44",
+      "topic": "Ownership",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "Who should own production tables, according to Databricks' general recommendation?",
+      "options": [
+        {
+          "t": "Groups",
+          "ok": true
+        },
+        {
+          "t": "The engineer who created each table",
+          "why": "Databricks generally recommends granting table ownership to groups."
+        },
+        {
+          "t": "A metastore admin, for every table in the metastore",
+          "why": "The recommendation is ownership by groups."
+        },
+        {
+          "t": "Nobody: production tables should have no owner",
+          "why": "Every object has an owner; groups are recommended."
+        }
+      ],
+      "explain": "Every object has an owner holding all privileges on it; Databricks generally recommends granting table ownership to groups."
+    },
+    {
+      "id": "G45",
+      "topic": "Unity Catalog object model",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "Which of these are Unity Catalog securable objects?",
+      "options": [
+        {
+          "t": "Storage credentials",
+          "ok": true
+        },
+        {
+          "t": "External locations",
+          "ok": true
+        },
+        {
+          "t": "Notebooks",
+          "why": "Notebooks are workspace assets governed by workspace ACLs."
+        },
+        {
+          "t": "Job runs",
+          "why": "Jobs are workspace assets."
+        },
+        {
+          "t": "SQL queries",
+          "why": "Queries are workspace assets."
+        }
+      ],
+      "explain": "Securables include the metastore, catalogs, schemas, tables, views, volumes, functions, models, storage credentials, external locations, connections and OpenSharing shares, providers and recipients."
+    }
+  ]
+}

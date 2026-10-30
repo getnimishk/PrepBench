@@ -1,0 +1,606 @@
+{
+  "section": 2,
+  "domain": "Data Ingestion and Loading",
+  "questions": [
+    {
+      "id": "I01",
+      "topic": "Choosing an ingestion method",
+      "difficulty": "easy",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "Databricks describes three layers for ingestion: Structured Streaming, Lakeflow pipelines and managed connectors. Which layer does Databricks recommend starting with?",
+      "options": [
+        {
+          "t": "The most managed layer that fits the source, dropping down only if it doesn't",
+          "ok": true
+        },
+        {
+          "t": "Structured Streaming, because it gives full control and exactly-once guarantees",
+          "why": "It is the most customisable layer, but Databricks recommends starting with the most managed one."
+        },
+        {
+          "t": "Lakeflow pipelines always, since managed connectors are only for SaaS sources",
+          "why": "Managed connectors also cover databases, files and streams, and are the recommended starting point where they fit."
+        },
+        {
+          "t": "Whichever layer the team already knows, as the three are equivalent",
+          "why": "The layers differ in what they manage for you; the recommendation is to start with the most managed."
+        }
+      ],
+      "explain": "Databricks orders the layers from most customisable (Structured Streaming) to most managed (managed connectors) and recommends starting with the most managed layer that fits."
+    },
+    {
+      "id": "I02",
+      "topic": "COPY INTO",
+      "difficulty": "easy",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "A COPY INTO statement loads CSV files from an ADLS folder into a Delta table. It is run again an hour later, and no new files have arrived. What happens?",
+      "options": [
+        {
+          "t": "Every file is loaded again, duplicating the rows unless the table is truncated first",
+          "why": "COPY INTO skips files it has already loaded; reruns don't duplicate them."
+        },
+        {
+          "t": "Nothing is loaded: files already loaded are skipped",
+          "ok": true
+        },
+        {
+          "t": "The statement fails because the target table already contains the files' rows",
+          "why": "It doesn't fail; it is idempotent and simply loads nothing new."
+        },
+        {
+          "t": "Only rows that changed in the files since the first run are merged in",
+          "why": "COPY INTO tracks files, not rows; an already-loaded file is skipped as a whole."
+        }
+      ],
+      "explain": "COPY INTO is retriable and idempotent: files already loaded are skipped on later runs, giving exactly-once file processing by default."
+    },
+    {
+      "id": "I03",
+      "topic": "COPY INTO",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "You want COPY INTO to infer the schema of new JSON files and create the columns in an empty target table. What is the documented approach?",
+      "options": [
+        {
+          "t": "Create the target with all columns typed as STRING, then run COPY INTO",
+          "why": "Not needed: COPY INTO can infer and merge the schema into an empty placeholder table."
+        },
+        {
+          "t": "Run a CREATE TABLE AS SELECT on the files first; COPY INTO can't change a schema",
+          "why": "COPY INTO can infer, merge and evolve the target schema with mergeSchema."
+        },
+        {
+          "t": "Create an empty placeholder table, then set mergeSchema in FORMAT_OPTIONS and COPY_OPTIONS",
+          "ok": true
+        },
+        {
+          "t": "Set the session property spark.databricks.delta.schema.autoMerge.enabled to true and run COPY INTO with no options",
+          "why": "That session setting is legacy; the documented COPY INTO pattern uses mergeSchema in both option lists."
+        }
+      ],
+      "explain": "Create an empty table (CREATE TABLE IF NOT EXISTS t;) and set 'mergeSchema' = 'true' in both FORMAT_OPTIONS and COPY_OPTIONS (Databricks Runtime 11.3 LTS and above)."
+    },
+    {
+      "id": "I04",
+      "topic": "COPY INTO",
+      "difficulty": "easy",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "Which of these sources can COPY INTO load from?",
+      "options": [
+        {
+          "t": "Only Unity Catalog volumes; cloud storage paths such as ADLS need Auto Loader instead",
+          "why": "COPY INTO also loads from cloud storage paths such as ADLS (abfss://), S3 and GCS."
+        },
+        {
+          "t": "Only Kafka topics and Event Hubs",
+          "why": "COPY INTO loads files; streams need a streaming read."
+        },
+        {
+          "t": "Only tables in the legacy Hive metastore",
+          "why": "COPY INTO loads files from a location into a Delta table."
+        },
+        {
+          "t": "Files in cloud storage such as ADLS, or in a Unity Catalog volume",
+          "ok": true
+        }
+      ],
+      "explain": "COPY INTO loads files from a location (S3, ADLS/ABFS, GCS or a Unity Catalog volume) into a Delta table, in formats including CSV, JSON, XML, Avro, ORC, Parquet, text and binary."
+    },
+    {
+      "id": "I05",
+      "topic": "COPY INTO",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "A SQL analyst loads new files into a table every hour with COPY INTO. For incremental file loading in SQL, what does Databricks recommend instead?",
+      "options": [
+        {
+          "t": "A streaming table that reads the files with Auto Loader",
+          "ok": true
+        },
+        {
+          "t": "A plain INSERT INTO ... SELECT from read_files() every hour",
+          "why": "That reloads every file each time; Databricks recommends streaming tables with Auto Loader for incremental SQL loads."
+        },
+        {
+          "t": "A materialized view over read_files(), refreshed hourly",
+          "why": "Databricks names CREATE STREAMING TABLE with Auto Loader as the recommended alternative to COPY INTO."
+        },
+        {
+          "t": "A Lakeflow Connect SaaS connector pointed at the folder",
+          "why": "SaaS connectors read SaaS applications; files in storage are read with Auto Loader."
+        }
+      ],
+      "explain": "For SQL users loading files incrementally, Databricks recommends CREATE STREAMING TABLE (with Auto Loader) as the recommended alternative to COPY INTO, calling it more scalable and robust."
+    },
+    {
+      "id": "I06",
+      "topic": "Lakeflow Connect",
+      "difficulty": "easy",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "A team needs to ingest a SQL Server database with change data capture into Databricks, with as little custom code as possible. What should they start with?",
+      "options": [
+        {
+          "t": "A JDBC read in a notebook scheduled every five minutes",
+          "why": "Possible, but you own CDC, retries and schema changes; Databricks recommends the most managed option first."
+        },
+        {
+          "t": "Auto Loader pointed at the database's data files",
+          "why": "Auto Loader reads files in cloud storage, not a database."
+        },
+        {
+          "t": "COPY INTO with the database's connection string",
+          "why": "COPY INTO loads files from storage locations, not databases."
+        },
+        {
+          "t": "A Lakeflow Connect database connector for SQL Server",
+          "ok": true
+        }
+      ],
+      "explain": "Lakeflow Connect's database connectors (MySQL, PostgreSQL, Oracle, SQL Server) use change data capture and handle authentication, schema evolution and retries, which is the most managed layer."
+    },
+    {
+      "id": "I07",
+      "topic": "Lakeflow Connect",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "Which components make up a Lakeflow Connect managed connector for a database source?",
+      "options": [
+        {
+          "t": "A connection, an ingestion gateway, staging storage, an ingestion pipeline and destination tables",
+          "ok": true
+        },
+        {
+          "t": "A secret scope with the source password, a JDBC notebook, and an all-purpose cluster that runs it on a schedule",
+          "why": "Managed connectors don't rely on hand-written notebooks; they use a connection, gateway, pipeline and destination tables."
+        },
+        {
+          "t": "A storage credential, an external location and a COPY INTO job",
+          "why": "Those are storage-access objects and a file-loading command, not the parts of a database connector."
+        },
+        {
+          "t": "A Kafka topic, a schema registry and a streaming sink",
+          "why": "Those belong to event streaming, not to a managed database connector."
+        }
+      ],
+      "explain": "A managed connector has a connection (a Unity Catalog securable holding the source credentials), an ingestion pipeline writing streaming tables, and destination tables; database connectors add an ingestion gateway (a continuous job task) and staging storage."
+    },
+    {
+      "id": "I08",
+      "topic": "Lakeflow Connect",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "After a Lakeflow Connect database connector's first full load, what does it ingest on later runs?",
+      "options": [
+        {
+          "t": "A complete snapshot of every table on every run, compared with the previous snapshot",
+          "why": "After the first full load, managed connectors ingest only changes."
+        },
+        {
+          "t": "Only the changes, using CDC or change tracking where the source supports it",
+          "ok": true
+        },
+        {
+          "t": "Only new tables added to the source since the last run",
+          "why": "It ingests changed rows of the tables it covers, not only new tables."
+        },
+        {
+          "t": "Nothing unless a full refresh is requested",
+          "why": "Incremental change ingestion is what the connector does after the first load."
+        }
+      ],
+      "explain": "After the first full load, managed connectors ingest only changes: CDC or change tracking where the source supports it (a cursor column for Salesforce)."
+    },
+    {
+      "id": "I09",
+      "topic": "Lakeflow Connect",
+      "difficulty": "easy",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "In a Lakeflow Connect managed connector, what holds the credentials for the source system?",
+      "options": [
+        {
+          "t": "A notebook widget filled in at run time",
+          "why": "Credentials aren't passed through notebooks; the connector uses a connection object."
+        },
+        {
+          "t": "An environment variable set on the ingestion cluster by a workspace admin",
+          "why": "Managed connectors store source credentials in a Unity Catalog connection."
+        },
+        {
+          "t": "A storage credential in Unity Catalog",
+          "why": "Storage credentials hold cloud storage credentials; the source's credentials go in a connection."
+        },
+        {
+          "t": "A connection, which is a Unity Catalog securable",
+          "ok": true
+        }
+      ],
+      "explain": "The connection is a Unity Catalog securable that holds the source credentials, so access to it is governed like any other securable."
+    },
+    {
+      "id": "I10",
+      "topic": "Lakeflow Connect",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "What does a Lakeflow Connect ingestion pipeline write its data into?",
+      "options": [
+        {
+          "t": "Streaming tables, on serverless compute by default",
+          "ok": true
+        },
+        {
+          "t": "Materialized views, recomputed in full on each run",
+          "why": "Managed connectors' ingestion pipelines write streaming tables."
+        },
+        {
+          "t": "External Parquet folders that you register afterwards",
+          "why": "They write Unity Catalog streaming tables, not unregistered folders."
+        },
+        {
+          "t": "Temporary views that disappear after each run",
+          "why": "The destination tables persist; they are streaming tables."
+        }
+      ],
+      "explain": "An ingestion pipeline writes streaming tables, serverless by default, into the destination tables."
+    },
+    {
+      "id": "I11",
+      "topic": "Choosing an ingestion method",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7",
+        "notes §19"
+      ],
+      "q": "The exam guide mentions Lakeflow Connect 'standard connectors'. How does the current Databricks documentation describe the non-managed ways to ingest files and streams?",
+      "options": [
+        {
+          "t": "As 'standard connectors', a separate product tier with its own setup UI and pricing",
+          "why": "The documentation read for this bank doesn't define 'standard connectors'; it describes SQL and Spark APIs."
+        },
+        {
+          "t": "As SQL and Spark APIs: Auto Loader, COPY INTO, Kafka and other sources",
+          "ok": true
+        },
+        {
+          "t": "As partner connectors installed from Partner Connect only",
+          "why": "Partner tools exist, but the documentation's own term for these methods is SQL and Spark APIs."
+        },
+        {
+          "t": "As legacy methods that Databricks no longer supports",
+          "why": "Auto Loader and COPY INTO are current, documented ingestion methods."
+        }
+      ],
+      "explain": "The documentation uses 'managed connectors' and 'SQL and Spark APIs' (Auto Loader, COPY INTO, Kafka and other sources). It does not define 'standard connectors', the exam guide's term."
+    },
+    {
+      "id": "I12",
+      "topic": "Choosing an ingestion method",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "Which is a benefit managed connectors add on top of Lakeflow pipelines, according to Databricks?",
+      "options": [
+        {
+          "t": "Exactly-once processing, which pipelines don't provide",
+          "why": "Exactly-once is a property of the lower layers too; connectors add source-specific handling."
+        },
+        {
+          "t": "The ability to write Delta tables, which pipelines can't",
+          "why": "Pipelines write Delta tables; that isn't what connectors add."
+        },
+        {
+          "t": "Source authentication, CDC, API maintenance, retries and automatic schema evolution",
+          "ok": true
+        },
+        {
+          "t": "Running only on classic compute in your own VNet, for tighter network control over sources",
+          "why": "Their ingestion pipelines are serverless by default."
+        }
+      ],
+      "explain": "Managed connectors are built on pipelines and add source authentication, CDC, handling of edge cases, API maintenance, retries and automatic schema evolution."
+    },
+    {
+      "id": "I13",
+      "topic": "Choosing an ingestion method",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7",
+        "notes §8"
+      ],
+      "q": "Events arrive continuously on a Kafka topic and must land in a bronze Delta table within seconds. Which approach fits?",
+      "options": [
+        {
+          "t": "COPY INTO run every minute against the topic",
+          "why": "COPY INTO loads files from storage locations, not topics."
+        },
+        {
+          "t": "Auto Loader with the topic name as its path",
+          "why": "Auto Loader reads files in cloud storage, not Kafka topics."
+        },
+        {
+          "t": "A materialized view defined over the Kafka topic and refreshed every hour by a scheduled job",
+          "why": "Hourly refreshes don't meet a latency of seconds, and a topic is read as a stream."
+        },
+        {
+          "t": "A streaming read of the topic, as Structured Streaming or a pipeline streaming table",
+          "ok": true
+        }
+      ],
+      "explain": "Kafka is a streaming source: read it with Structured Streaming or a streaming table in a pipeline (Lakeflow Connect also lists Kafka among its streaming connectors)."
+    },
+    {
+      "id": "I14",
+      "topic": "COPY INTO",
+      "difficulty": "hard",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "Which statements about COPY INTO are true?",
+      "options": [
+        {
+          "t": "It is idempotent: files already loaded are skipped",
+          "ok": true
+        },
+        {
+          "t": "It can infer and evolve the target schema with mergeSchema",
+          "ok": true
+        },
+        {
+          "t": "It reads only from Kafka and Event Hubs",
+          "why": "It loads files from cloud storage and volumes."
+        },
+        {
+          "t": "It deletes the source files after loading them",
+          "why": "Nothing in COPY INTO's behaviour deletes source files; it tracks which ones it loaded."
+        },
+        {
+          "t": "It requires a Lakeflow pipeline to run",
+          "why": "COPY INTO is a SQL command you can run anywhere SQL runs."
+        }
+      ],
+      "explain": "COPY INTO is retriable and idempotent (already-loaded files are skipped) and can infer, merge and evolve the target schema with mergeSchema."
+    },
+    {
+      "id": "I15",
+      "topic": "Semi-structured data",
+      "difficulty": "medium",
+      "sources": [
+        "notes §13",
+        "notes §9"
+      ],
+      "q": "Raw JSON events have an array field `items`. In silver you need one row per item. Which function produces that?",
+      "options": [
+        {
+          "t": "approx_count_distinct(items)",
+          "why": "That estimates a distinct count; it doesn't produce rows."
+        },
+        {
+          "t": "explode(items)",
+          "ok": true
+        },
+        {
+          "t": "dropDuplicates(['items'])",
+          "why": "That removes duplicate rows; it doesn't split an array into rows."
+        },
+        {
+          "t": "unionByName(items)",
+          "why": "unionByName combines two DataFrames; it doesn't flatten an array."
+        }
+      ],
+      "explain": "explode(col) returns one row per element of an array (or entry of a map), which is how nested JSON arrays are flattened."
+    },
+    {
+      "id": "I16",
+      "topic": "Semi-structured data",
+      "difficulty": "medium",
+      "sources": [
+        "notes §13"
+      ],
+      "q": "Databricks suggests how bronze tables should store fields from sources whose schema may change unexpectedly. What is the suggestion?",
+      "options": [
+        {
+          "t": "Cast every field to its final business type on ingestion so errors surface early",
+          "why": "Strict typing in bronze risks dropping data on schema surprises; typing belongs in silver."
+        },
+        {
+          "t": "Store only the fields analysts need and drop the rest",
+          "why": "Bronze keeps the raw state of the source as the base for reprocessing and audit."
+        },
+        {
+          "t": "Store most fields as string, VARIANT or binary, plus provenance metadata",
+          "ok": true
+        },
+        {
+          "t": "Store each record as a separate Parquet file without a table",
+          "why": "Bronze is a table, appended incrementally; loose files lose the guarantees of Delta."
+        }
+      ],
+      "explain": "Bronze keeps the source's raw state with minimal validation; Databricks suggests storing most fields as string, VARIANT or binary so schema surprises don't drop data, plus provenance metadata such as the file name."
+    },
+    {
+      "id": "I17",
+      "topic": "Ingestion with notebooks",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11",
+        "notes §7"
+      ],
+      "q": "A REST API has no Lakeflow Connect connector. A notebook calls it and appends the results to a bronze table. How should the load be run every night?",
+      "options": [
+        {
+          "t": "As a task in a Lakeflow job with a scheduled trigger",
+          "ok": true
+        },
+        {
+          "t": "As a COPY INTO statement pointed at the API URL",
+          "why": "COPY INTO loads files from storage locations, not REST endpoints."
+        },
+        {
+          "t": "By leaving the notebook attached to an all-purpose cluster with a sleep loop",
+          "why": "Scheduled work belongs in a job; all-purpose compute isn't recommended for production jobs."
+        },
+        {
+          "t": "As an Auto Loader stream with the API as its source path",
+          "why": "Auto Loader reads files in cloud storage, not REST APIs."
+        }
+      ],
+      "explain": "Custom ingestion code (JDBC, ODBC or REST clients in notebooks) is scheduled as a Lakeflow job task, here with a scheduled (time-based) trigger."
+    },
+    {
+      "id": "I18",
+      "topic": "Batch, streaming and incremental",
+      "difficulty": "medium",
+      "sources": [
+        "notes §8"
+      ],
+      "q": "A job must pick up whatever new files arrived since its last run, process them exactly once, and stop. It runs hourly on serverless. Which streaming trigger fits?",
+      "options": [
+        {
+          "t": "processingTime='1 hour', with the job left running",
+          "why": "Serverless jobs support only availableNow and Once; a continuously running stream isn't the hourly pattern."
+        },
+        {
+          "t": "No trigger, so it runs micro-batches continuously",
+          "why": "That runs continuously; serverless notebooks and jobs don't support it."
+        },
+        {
+          "t": "Continuous mode",
+          "why": "Continuous mode isn't supported on Databricks."
+        },
+        {
+          "t": "availableNow=True",
+          "ok": true
+        }
+      ],
+      "explain": "availableNow processes everything available now in micro-batches, then stops: the incremental batch pattern for scheduled jobs, and the trigger serverless jobs support."
+    },
+    {
+      "id": "I19",
+      "topic": "Batch, streaming and incremental",
+      "difficulty": "easy",
+      "sources": [
+        "notes §8"
+      ],
+      "q": "Which trigger is deprecated and should be replaced by availableNow?",
+      "options": [
+        {
+          "t": "processingTime",
+          "why": "processingTime is a current trigger for fixed-interval micro-batches."
+        },
+        {
+          "t": "Trigger.Once",
+          "ok": true
+        },
+        {
+          "t": "realTime",
+          "why": "realTime is the trigger for real-time mode, not deprecated."
+        },
+        {
+          "t": "The default (unspecified) trigger",
+          "why": "The default trigger is current: a new micro-batch as soon as the previous finishes."
+        }
+      ],
+      "explain": "Trigger.Once is deprecated (since Databricks Runtime 11.3 LTS); availableNow replaces it, processing everything available in micro-batches and then stopping."
+    },
+    {
+      "id": "I20",
+      "topic": "Volumes for landing data",
+      "difficulty": "easy",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "Raw CSV files from a partner must land somewhere governed by Unity Catalog before they are ingested. What is the Unity Catalog object for that?",
+      "options": [
+        {
+          "t": "A managed table with a single STRING column holding each file's contents",
+          "why": "Files can't be registered as tables this way; volumes hold non-tabular files."
+        },
+        {
+          "t": "A schema with no tables",
+          "why": "A schema is a container; the governed object for files is a volume inside it."
+        },
+        {
+          "t": "A volume, at /Volumes/<catalog>/<schema>/<volume>/",
+          "ok": true
+        },
+        {
+          "t": "A storage credential",
+          "why": "A storage credential wraps a cloud credential; it doesn't hold files."
+        }
+      ],
+      "explain": "Volumes govern non-tabular files of any format; uses include landing zones for raw files and staging for Auto Loader or COPY INTO."
+    },
+    {
+      "id": "I21",
+      "topic": "Choosing an ingestion method",
+      "difficulty": "hard",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "Which sources are listed among Lakeflow Connect's managed connectors?",
+      "options": [
+        {
+          "t": "Salesforce and Workday",
+          "ok": true
+        },
+        {
+          "t": "SQL Server and PostgreSQL",
+          "ok": true
+        },
+        {
+          "t": "Unity Catalog volumes only",
+          "why": "Lakeflow Connect covers databases, SaaS, files and streams, not only volumes."
+        },
+        {
+          "t": "The legacy Hive metastore",
+          "why": "The Hive metastore is a metadata store, not an ingestion source of Lakeflow Connect."
+        },
+        {
+          "t": "Notebook output cells",
+          "why": "Notebook output isn't an ingestion source."
+        }
+      ],
+      "explain": "Lakeflow Connect includes database connectors (MySQL, PostgreSQL, Oracle, SQL Server) and SaaS connectors (Salesforce, HubSpot, Jira, Workday and others), plus file and streaming connectors."
+    }
+  ]
+}
