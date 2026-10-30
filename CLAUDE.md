@@ -141,7 +141,23 @@ SQL and no stated pass mark. **Pass mark (decided 2026-10-30):** creating a cert
 and Databricks publishes none, so the learner chose **85% as their own target** for the preparation they create (45
 questions, 90 minutes, the exam's format). It is the learner's target, not Databricks': the bank, guide and any text
 written from code never present 85% (or any number) as the exam's pass mark, and nothing sets it from code; the learner
-enters it when creating the preparation. **The scenarios are pack `databricks` v2 (2026-10-30)**: 18 written
+enters it when creating the preparation.
+**The Databricks Data Engineer Professional question bank (2026-10-30)** is `backend/app/content/question_banks/dbdep/`
+(`certification: "Databricks Certified Data Engineer Professional"`), built the same way. It has **182 questions**, about
+three times the exam's 60, sized by the 9 October 2026 guide's nine sections (41 / 22 / 22 / 18 / 27 / 14 / 10 / 18 / 10,
+at least ten per section). The exam page still shows the older ten-section outline (notes §1.3, §19). The topics the
+Associate doesn't cover come from notes **§25**, read from 23 official pages on 2026-10-30:
+- UDFs and Unity Catalog functions;
+- window functions, VARIANT and AI functions;
+- Kafka, Lakeflow Connect SQL Server, Lakehouse Federation and Iceberg;
+- OpenSharing and Clean Rooms;
+- job parameters, dynamic values and serverless jobs;
+- tags, GDPR deletion and the SDK;
+- metric views.
+
+`tests/test_dbdep_question_bank.py` holds it to the same rules as the Associate bank. No pass mark is stated and none
+is set from code; creating the preparation and importing the bank are the learner's actions.
+**The scenarios are pack `databricks` v2 (2026-10-30)**: 18 written
 scenarios in four levels (Getting data in; Tables you can trust; Governing and running; Platform at scale), in the
 Kafka/ADF format, one JSON file each under `src/scenarios/`, every fact traced to the notes sections the scenario
 cites; chapters' practice links are built from them. **v1 (the guide alone, PR #116) is published and never changes**
