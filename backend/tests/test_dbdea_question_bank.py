@@ -61,6 +61,25 @@ def test_the_shipped_bank_is_what_the_sources_build_to():
     assert built == BANK.read_text(encoding="utf-8"), "out of date: run scripts/build_question_bank.py dbdea"
 
 
+def test_each_part_file_holds_exactly_its_sections_of_the_bank():
+    # A learner who imported part 1 (sections 2, 3 and 7) imports only the part that is new; the import
+    # warns about duplicates but adds them, so a part must hold its sections and nothing else.
+    parts = build_question_bank.part_paths("dbdea")
+    assert parts, "the bank declares its parts in src/bank.json"
+    whole = _bank()
+    for path, sections in parts.items():
+        assert path.read_text(encoding="utf-8") == build_question_bank.render(
+            build_question_bank.build("dbdea", sections=sections)), f"{path.name} is out of date"
+        part = json.loads(path.read_text(encoding="utf-8"))
+        assert {q["domain"] for q in part} == {d for i, d in enumerate(SECTIONS, start=1) if i in sections}
+        assert all(q in whole for q in part)
+
+
+def test_the_whole_bank_covers_every_section():
+    assert set(Counter(q["domain"] for q in _bank())) == set(SECTIONS)
+    assert len(_bank()) == sum(SECTIONS.values()) == 300
+
+
 def test_every_question_belongs_to_the_certification_and_an_exam_section():
     for q in _bank():
         assert q["certification"] == CERTIFICATION, q["tags"]

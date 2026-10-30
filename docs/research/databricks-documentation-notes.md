@@ -937,6 +937,27 @@ Sources: https://docs.databricks.com/aws/en/repos/ (updated 2026-09-11) ; https:
   at run time with `--var="name=value"`, an environment variable **`BUNDLE_VAR_<name>`**, or
   `.databricks/bundle/<target>/variable-overrides.json`. Substitutions such as `${bundle.target}` and
   `${workspace.current_user.userName}` give environment-specific names (e.g. a schema `pipeline_bundle_${bundle.target}`).
+- **More on bundles** (`.../dev-tools/bundles/` 2026-09-11; `.../deployment-modes` 2026-09-11; `.../settings`;
+  `.../variables` 2026-09-14; read 2026-10-29): a bundle holds infrastructure and workspace configuration, **source files**
+  (notebooks, Python files), **resource definitions** (Lakeflow Jobs, pipelines, dashboards, model serving endpoints,
+  MLflow experiments and models) and **tests**. Workspace files must be enabled (default from DBR 11.3 LTS). Exactly one
+  target may be `default: true`. Other substitutions: `${bundle.name}`, `${workspace.host}`, `${workspace.file_path}`,
+  `${workspace.root_path}`, `${resources.jobs.<name>.id}`; use `${bundle.target}`, not `${bundle.environment}`.
+  **Deployment modes** (optional): **`mode: development`** prefixes resources with `[dev <short_name>]` and tags jobs and
+  pipelines `dev`, marks pipelines `development: true`, allows `--cluster-id` to override cluster definitions, **pauses
+  schedules and triggers**, enables concurrent job runs, and disables the deployment lock (re-enable with `bundle.deployment.lock.enabled: true`). **`mode: production`** checks
+  pipelines are `development: false`, checks the current Git branch matches the target's `git.branch` (override with
+  `--force`), checks paths aren't overridden to a specific user, and requires `run_as` and `permissions` to be specified;
+  Databricks recommends **service principals** for production deployments (enforce with `run_as`), and cluster
+  definitions can't be overridden.
+- **More on Git folders** (`.../repos/ci-cd-techniques-with-repos` and `.../repos/git-operations-with-repos`, 2026-09-11):
+  commits need a message and are made with **Commit & Push**; without permission to commit to the default branch, create a
+  branch and open a **pull request in the Git provider's interface**; Databricks recommends **each developer work on their
+  own branch**. Notebook outputs aren't committed by default when notebooks are saved in source formats (`.py`, `.sql`...).
+  Flows: users clone into `/Workspace/Users/<email>/`, work on a branch, push, and open PRs; admins create **production Git
+  folders** outside user folders (deployment branch, a service principal's Git credential, Can Run for users and service
+  principals), kept in sync by external CI/CD (e.g. GitHub Actions) calling the Repos API when a PR merges. Databricks
+  recommends bundles to package and deploy CI/CD workflows; a production Git folder is the option for deploying code only.
 
 ## 17. Azure Databricks specifics
 
@@ -1366,7 +1387,7 @@ https://learn.microsoft.com/en-us/azure/databricks/security/keys/ ; `.../admin/d
   notifications for every failure. "Succeeded with failures" counts as success. Streaming backlog alerts use a 10-minute
   average and repeat every 30 minutes.
 - **Databricks SQL alerts** run a query on a schedule and notify when a condition on its result is met (states `OK`,
-  `TRIGGERED`, `ERROR`); uses include data quality, cost from system tables, warehouse health and audit events; an alert
+  `TRIGGERED`, `ERROR`; the `UNKNOWN` status of legacy alerts is gone); uses include data quality, cost from system tables, warehouse health and audit events; an alert
   can run as a **job task** so later tasks branch on it.
 
 ### 23.4 Troubleshooting a failed job
@@ -1404,7 +1425,7 @@ https://learn.microsoft.com/en-us/azure/databricks/security/keys/ ; `.../admin/d
   daemon ping timeout", means **routing or firewall** stops nodes reaching the control plane: test from a VM in the
   workspace subnet (`nc -zv` to the web app, the SCC relay, artifact storage, the metastore on 3306, log storage), then
   check for SSL inspection by the firewall. **`METASTORE_DOWN`** events: check for a web application firewall or proxy
-  in the path. (Networking rules: §20.)
+  in the path (the page's example is a Squid proxy). (Networking rules: §20.)
 
 ### 23.8 Libraries and init scripts
 
@@ -1413,7 +1434,8 @@ https://learn.microsoft.com/en-us/azure/databricks/security/keys/ ; `.../admin/d
   writable by any workspace user and are discouraged. Check the runtime's preinstalled libraries in its release notes.
 - **Init scripts** run on each node before Spark starts; **serverless doesn't support them**. Databricks recommends
   platform features (compute policies for configuration and libraries) instead, cluster-scoped over global scripts,
-  never installing libraries through init scripts, pinning OS package versions, and storing scripts in volumes (DBR
+  never installing libraries through init scripts, pinning OS package versions, standard access mode for all workloads
+  ("No isolation shared access mode is a legacy configuration ... that is not recommended", libraries page), and storing scripts in volumes (DBR
   13.3 LTS+ with Unity Catalog). Many init scripts slow runtime upgrades.
 
 ### 23.9 Runtime lifecycle

@@ -1,0 +1,684 @@
+{
+  "section": 4,
+  "domain": "Working with Lakeflow Jobs",
+  "questions": [
+    {
+      "id": "J01",
+      "topic": "Tasks and the DAG",
+      "difficulty": "easy",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "How does a Lakeflow job organise its tasks?",
+      "options": [
+        {
+          "t": "As a strict list run one after another, in the order they were added",
+          "why": "Tasks form a DAG; independent tasks can run in parallel."
+        },
+        {
+          "t": "As a DAG of dependencies; independent tasks run in parallel",
+          "ok": true
+        },
+        {
+          "t": "As separate jobs that must each be scheduled on their own",
+          "why": "One job coordinates several tasks."
+        },
+        {
+          "t": "As notebooks that call each other with %run in sequence",
+          "why": "Jobs define task dependencies, not notebook calls."
+        }
+      ],
+      "explain": "A job coordinates one or more tasks shown as a DAG; upstream tasks run first, in parallel where possible."
+    },
+    {
+      "id": "J02",
+      "topic": "Task types",
+      "difficulty": "easy",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "A job must refresh a Lakeflow declarative pipeline before its SQL reporting step. Which task type runs the pipeline?",
+      "options": [
+        {
+          "t": "A notebook task that imports the pipeline's source files and executes them",
+          "why": "Pipelines have their own pipeline task type."
+        },
+        {
+          "t": "A Run Job task pointing at the pipeline's name",
+          "why": "Run Job calls another job; pipelines use the pipeline task."
+        },
+        {
+          "t": "A pipeline task",
+          "ok": true
+        },
+        {
+          "t": "A SQL alert task that triggers the pipeline when data is stale",
+          "why": "A SQL alert task evaluates an alert; the pipeline task runs a pipeline."
+        }
+      ],
+      "explain": "Task types include notebook, Python script, Python wheel, SQL, pipeline, ingestion pipeline, dashboard, Power BI, dbt, JAR, Spark Submit, Run Job, If/else, For each and SQL alert."
+    },
+    {
+      "id": "J03",
+      "topic": "Task types",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "One job should start another, already defined job as one of its steps. Which task type does that?",
+      "options": [
+        {
+          "t": "Run Job",
+          "ok": true
+        },
+        {
+          "t": "For each, with the other job's name as the single input element",
+          "why": "For each runs a nested task per element; Run Job calls another job."
+        },
+        {
+          "t": "If/else, with the other job as its true branch target",
+          "why": "If/else branches inside a job; Run Job calls another job."
+        },
+        {
+          "t": "A notebook task that sleeps until the other job's schedule fires",
+          "why": "Run Job starts another job directly."
+        }
+      ],
+      "explain": "The Run Job task type runs another job as a task."
+    },
+    {
+      "id": "J04",
+      "topic": "Run if conditions",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "What is the default Run if condition of a task?",
+      "options": [
+        {
+          "t": "All done",
+          "why": "The default is All succeeded."
+        },
+        {
+          "t": "At least one succeeded",
+          "why": "The default is All succeeded."
+        },
+        {
+          "t": "None failed",
+          "why": "The default is All succeeded."
+        },
+        {
+          "t": "All succeeded",
+          "ok": true
+        }
+      ],
+      "explain": "Run if conditions: All succeeded (default), At least one succeeded, None failed, All done, At least one failed, All failed."
+    },
+    {
+      "id": "J05",
+      "topic": "Run if conditions",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "A cleanup task must run after the main tasks whether they succeed or fail. Which Run if condition fits?",
+      "options": [
+        {
+          "t": "All succeeded, with retries on the main tasks so they always pass",
+          "why": "All succeeded skips the cleanup when anything fails."
+        },
+        {
+          "t": "All done",
+          "ok": true
+        },
+        {
+          "t": "At least one failed, so it runs only when something broke",
+          "why": "That skips the cleanup on success."
+        },
+        {
+          "t": "None failed, which treats a failure as finished",
+          "why": "None failed doesn't run when an upstream task failed."
+        }
+      ],
+      "explain": "All done runs the task regardless of upstream results, which is what cleanup needs."
+    },
+    {
+      "id": "J06",
+      "topic": "Run if conditions",
+      "difficulty": "hard",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "A task with Run if 'All succeeded' doesn't run because an upstream task failed. What status does it get?",
+      "options": [
+        {
+          "t": "Excluded",
+          "why": "Excluded is for unmet failure-type conditions."
+        },
+        {
+          "t": "Skipped by concurrency",
+          "why": "That concerns runs beyond maximum concurrent runs, not task conditions."
+        },
+        {
+          "t": "Upstream failed",
+          "ok": true
+        },
+        {
+          "t": "Timed Out",
+          "why": "Timed Out is for a task exceeding its timeout."
+        }
+      ],
+      "explain": "Unmet success-type conditions mark the task Upstream failed; unmet failure-type conditions mark it Excluded (skipped)."
+    },
+    {
+      "id": "J07",
+      "topic": "Run if conditions",
+      "difficulty": "hard",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "A notification task has Run if 'At least one failed'. Every upstream task succeeds. What happens to the notification task?",
+      "options": [
+        {
+          "t": "It runs anyway, because conditions are checked only on failure",
+          "why": "Its condition isn't met, so it doesn't run."
+        },
+        {
+          "t": "It is marked Upstream failed and fails the job",
+          "why": "Unmet failure-type conditions mark the task Excluded."
+        },
+        {
+          "t": "It is marked Excluded (skipped)",
+          "ok": true
+        },
+        {
+          "t": "It waits until an upstream task fails in a later run",
+          "why": "It is evaluated per run and excluded in this one."
+        }
+      ],
+      "explain": "Unmet failure-type conditions (At least one failed, All failed) mark the task Excluded."
+    },
+    {
+      "id": "J08",
+      "topic": "Branching",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "Transformations should run only when the ingestion task actually added rows. Which task type implements that branch?",
+      "options": [
+        {
+          "t": "If/else condition",
+          "ok": true
+        },
+        {
+          "t": "For each, iterating over the number of rows added by ingestion",
+          "why": "For each loops; If/else branches on a boolean."
+        },
+        {
+          "t": "Run Job, pointing at a job that checks the row count first",
+          "why": "If/else branches inside the same job."
+        },
+        {
+          "t": "A SQL alert task set to fail the job when no rows were added",
+          "why": "If/else branches cleanly without failing the run."
+        }
+      ],
+      "explain": "An If/else condition task branches on a boolean expression, for example running transformations only if ingestion added rows."
+    },
+    {
+      "id": "J09",
+      "topic": "Looping",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "The same notebook must run once for each of 20 country codes. Which task type fits?",
+      "options": [
+        {
+          "t": "Twenty copies of the notebook task, one per country, edited by hand",
+          "why": "For each runs one nested task per element."
+        },
+        {
+          "t": "If/else, with one branch per country code",
+          "why": "If/else branches on a boolean; For each loops."
+        },
+        {
+          "t": "A Run Job task called twenty times from a notebook",
+          "why": "For each is the looping task type."
+        },
+        {
+          "t": "For each",
+          "ok": true
+        }
+      ],
+      "explain": "For each runs one nested task per element of an input array (a JSON array, task values or job parameters), with {{input}} available in the nested task."
+    },
+    {
+      "id": "J10",
+      "topic": "Looping",
+      "difficulty": "hard",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "What is the default Concurrency of a For each task, and can it contain another For each?",
+      "options": [
+        {
+          "t": "Concurrency 10; nesting up to two levels is allowed",
+          "why": "The default is 1, and a For each can't nest another For each."
+        },
+        {
+          "t": "Concurrency 1; it can't contain another For each",
+          "ok": true
+        },
+        {
+          "t": "Unlimited concurrency; nesting is allowed",
+          "why": "The default is 1, and nesting isn't allowed."
+        },
+        {
+          "t": "Concurrency equal to the cluster's cores; nesting is allowed",
+          "why": "The default is 1, and nesting isn't allowed."
+        }
+      ],
+      "explain": "For each has a Concurrency setting (default 1); a For each can't nest another For each."
+    },
+    {
+      "id": "J11",
+      "topic": "Task values",
+      "difficulty": "hard",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "Task `ingest` sets a task value named `rows`. How does a later task refer to it?",
+      "options": [
+        {
+          "t": "{{tasks.ingest.values.rows}}",
+          "ok": true
+        },
+        {
+          "t": "{{job.parameters.ingest.rows}}, because task values become job parameters",
+          "why": "Task values are referenced under tasks.<task>.values."
+        },
+        {
+          "t": "dbutils.widgets.get(\"ingest.rows\") in the later notebook",
+          "why": "The documented reference is {{tasks.<task_name>.values.<name>}}."
+        },
+        {
+          "t": "${resources.tasks.ingest.rows}, the bundle substitution form",
+          "why": "That is bundle syntax, not a task value reference."
+        }
+      ],
+      "explain": "A task sets a value with dbutils.jobs.taskValues.set(key = ..., value = ...); later tasks reference it as {{tasks.<task_name>.values.<task_value_name>}}."
+    },
+    {
+      "id": "J12",
+      "topic": "Task values",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "How does a notebook task set a task value for downstream tasks?",
+      "options": [
+        {
+          "t": "dbutils.notebook.exit(value), which every later task can read",
+          "why": "That returns a notebook result; task values use dbutils.jobs.taskValues.set."
+        },
+        {
+          "t": "spark.conf.set(key, value), which is shared across the job's tasks",
+          "why": "Task values are set with dbutils.jobs.taskValues.set."
+        },
+        {
+          "t": "dbutils.jobs.taskValues.set(key = ..., value = ...)",
+          "ok": true
+        },
+        {
+          "t": "By writing the value into the job's JSON definition at run time",
+          "why": "Task values are set with dbutils.jobs.taskValues.set."
+        }
+      ],
+      "explain": "A task sets a task value with dbutils.jobs.taskValues.set(key = ..., value = ...)."
+    },
+    {
+      "id": "J13",
+      "topic": "Parameters",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "A job parameter `run_date` is defined at job level. Which tasks receive it?",
+      "options": [
+        {
+          "t": "Only the first task in the DAG",
+          "why": "Job parameters are pushed to the job's tasks."
+        },
+        {
+          "t": "Only tasks that declare it in their own settings",
+          "why": "Job parameters are pushed to tasks."
+        },
+        {
+          "t": "Only notebook tasks; SQL tasks can't receive parameters",
+          "why": "Parameters are pushed to the job's tasks."
+        },
+        {
+          "t": "The job's tasks: job parameters are pushed down to them",
+          "ok": true
+        }
+      ],
+      "explain": "A job has a trigger, parameters pushed to its tasks, notifications and Git settings."
+    },
+    {
+      "id": "J14",
+      "topic": "Retries and timeouts",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11",
+        "notes §19"
+      ],
+      "q": "A task calls a flaky external API. How should its retries be configured?",
+      "options": [
+        {
+          "t": "Rely on the default, which always retries every task three times",
+          "why": "The documentation is inconsistent about the default; set a retry policy explicitly."
+        },
+        {
+          "t": "Set a retry policy on the task, with a count and an interval",
+          "ok": true
+        },
+        {
+          "t": "Wrap the whole job in a For each that repeats it until it works",
+          "why": "Retries are set per task with a retry policy."
+        },
+        {
+          "t": "Use Run if 'All failed' on a copy of the task",
+          "why": "A retry policy is the documented mechanism."
+        }
+      ],
+      "explain": "Add a retry policy per task (count and interval). The Databricks pages disagree on the default, so set it explicitly."
+    },
+    {
+      "id": "J15",
+      "topic": "Retries and timeouts",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "A run shows the status 'Timed Out' for one task. What caused it?",
+      "options": [
+        {
+          "t": "The task ran longer than its Timeout setting",
+          "ok": true
+        },
+        {
+          "t": "The task exceeded its duration warning threshold",
+          "why": "A warning only raises an event for a notification; the timeout stops the task."
+        },
+        {
+          "t": "The cluster's auto-termination fired during the task",
+          "why": "Timed Out comes from the task's own timeout."
+        },
+        {
+          "t": "An upstream task failed and the task was skipped",
+          "why": "That would be Upstream failed."
+        }
+      ],
+      "explain": "A task's Timeout sets its maximum run time; exceeding it gives the status Timed Out. The Warning duration only raises an event."
+    },
+    {
+      "id": "J16",
+      "topic": "Retries and timeouts",
+      "difficulty": "hard",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "A task has a 30-minute timeout and two retries. How does the timeout apply?",
+      "options": [
+        {
+          "t": "To all attempts together: 30 minutes in total",
+          "why": "The timeout applies to each retry."
+        },
+        {
+          "t": "Only to the first attempt; retries have no timeout",
+          "why": "The timeout applies to each retry."
+        },
+        {
+          "t": "To each attempt",
+          "ok": true
+        },
+        {
+          "t": "Only to the last retry",
+          "why": "The timeout applies to each retry."
+        }
+      ],
+      "explain": "With both a timeout and retries, the timeout applies to each retry."
+    },
+    {
+      "id": "J17",
+      "topic": "Retries and timeouts",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "What does a task's duration warning do when it is exceeded?",
+      "options": [
+        {
+          "t": "Stops the task and marks it Timed Out",
+          "why": "That is the timeout."
+        },
+        {
+          "t": "Retries the task once with more compute",
+          "why": "A warning only raises an event."
+        },
+        {
+          "t": "Cancels the whole job run",
+          "why": "A warning only raises an event."
+        },
+        {
+          "t": "Raises an event that can drive a notification",
+          "ok": true
+        }
+      ],
+      "explain": "The Warning duration only raises an event (for a notification); the Timeout stops the task."
+    },
+    {
+      "id": "J18",
+      "topic": "Triggers",
+      "difficulty": "easy",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "Partner files land in a volume at unpredictable times, and processing should start soon after each drop. Which trigger fits?",
+      "options": [
+        {
+          "t": "A schedule every minute, checking whether anything arrived",
+          "why": "A file arrival trigger starts the job when files land."
+        },
+        {
+          "t": "File arrival",
+          "ok": true
+        },
+        {
+          "t": "Continuous, so a run is always active",
+          "why": "File arrival starts runs only when files land."
+        },
+        {
+          "t": "Manual runs whenever someone notices new files",
+          "why": "File arrival automates this."
+        }
+      ],
+      "explain": "A file arrival trigger starts the job when new files land in a Unity Catalog external location or volume; it fits unpredictable drops."
+    },
+    {
+      "id": "J19",
+      "topic": "Triggers",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "How often does a file arrival trigger check for new files, and what does it cost?",
+      "options": [
+        {
+          "t": "About every minute, best effort, with no cost beyond the cloud's file listing",
+          "ok": true
+        },
+        {
+          "t": "Every second, exactly, billed as an always-on cluster",
+          "why": "It checks about every minute, best effort."
+        },
+        {
+          "t": "Every hour, using a dedicated serverless job each time",
+          "why": "It checks about every minute with no extra cost beyond listing."
+        },
+        {
+          "t": "Only when someone opens the job page in the UI",
+          "why": "It checks on its own about every minute."
+        }
+      ],
+      "explain": "File arrival checks about every minute, recursively and best effort, with no cost beyond the cloud's file listing; file events make it faster."
+    },
+    {
+      "id": "J20",
+      "topic": "Triggers",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "A gold refresh should run whenever its silver source tables change, not on a clock. Which trigger fits?",
+      "options": [
+        {
+          "t": "Scheduled, every five minutes",
+          "why": "That is time-based; a table update trigger is data-driven."
+        },
+        {
+          "t": "File arrival on the silver tables' storage folder",
+          "why": "Table update watches tables, not files."
+        },
+        {
+          "t": "Table update",
+          "ok": true
+        },
+        {
+          "t": "Model update",
+          "why": "That watches models, not tables."
+        }
+      ],
+      "explain": "A table update trigger runs the job when source tables change; scheduled triggers are time-based."
+    },
+    {
+      "id": "J21",
+      "topic": "Triggers",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "Which of these triggers are data-driven rather than time-based?",
+      "options": [
+        {
+          "t": "File arrival",
+          "ok": true
+        },
+        {
+          "t": "Table update",
+          "ok": true
+        },
+        {
+          "t": "Scheduled (cron)",
+          "why": "A schedule is time-based."
+        },
+        {
+          "t": "A schedule paused in development mode",
+          "why": "Still a time-based schedule."
+        },
+        {
+          "t": "Manual Run now",
+          "why": "Manual runs aren't triggered by data."
+        }
+      ],
+      "explain": "Scheduled triggers are time-based; file arrival and table update triggers start runs when data changes."
+    },
+    {
+      "id": "J22",
+      "topic": "Triggers",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11",
+        "notes §23"
+      ],
+      "q": "What does a Continuous job trigger do?",
+      "options": [
+        {
+          "t": "Runs the job every minute on a fixed schedule",
+          "why": "A new run starts whenever one ends, not on a clock."
+        },
+        {
+          "t": "Starts a new run whenever the previous one ends",
+          "ok": true
+        },
+        {
+          "t": "Runs the job once and never again",
+          "why": "That is a manual run."
+        },
+        {
+          "t": "Runs each task in parallel with no dependencies",
+          "why": "The trigger concerns runs, not task order."
+        }
+      ],
+      "explain": "With the Continuous trigger, a new run starts whenever one ends; Databricks recommends it for streaming jobs, where it also retries failed runs with exponential backoff."
+    },
+    {
+      "id": "J23",
+      "topic": "Concurrency",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "An hourly job's run takes 90 minutes, and maximum concurrent runs is at its default. What happens to the next hour's run?",
+      "options": [
+        {
+          "t": "It is queued and starts when the current run finishes",
+          "why": "Runs beyond maximum concurrent runs are skipped."
+        },
+        {
+          "t": "It is skipped",
+          "ok": true
+        },
+        {
+          "t": "It cancels the current run and starts fresh",
+          "why": "Runs beyond the limit are skipped."
+        },
+        {
+          "t": "It runs in parallel on a second cluster",
+          "why": "By default one run of a job runs at a time."
+        }
+      ],
+      "explain": "By default one run of a job runs at a time; runs beyond maximum concurrent runs are skipped."
+    },
+    {
+      "id": "J24",
+      "topic": "Concurrency",
+      "difficulty": "hard",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "A workspace hits `429 Too Many Requests` when starting job tasks. Which documented limit has it reached?",
+      "options": [
+        {
+          "t": "1,000 tasks in one job",
+          "why": "That limit is per job definition; 429 relates to concurrent task runs."
+        },
+        {
+          "t": "12,000 saved jobs",
+          "why": "That limits saved jobs, not concurrent runs."
+        },
+        {
+          "t": "10,000 job creations per hour",
+          "why": "That limits job creation; 429 here relates to concurrent task runs."
+        },
+        {
+          "t": "2,000 concurrent task runs per workspace",
+          "ok": true
+        }
+      ],
+      "explain": "Limits: 2,000 concurrent task runs per workspace (429 Too Many Requests beyond), 10,000 job creations per hour, 12,000 saved jobs, 1,000 tasks per job."
+    }
+  ]
+}

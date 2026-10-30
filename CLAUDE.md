@@ -116,12 +116,14 @@ Edition can run them ("read, not run" otherwise) and ends with a design trade-of
 `tests/test_databricks_pack.py` reads the topic list from the workbook and fails on a missing or misnamed topic, an
 uncited section, a former product name taught as current, a `DENY` taught as Unity Catalog SQL, or a stated pass mark.
 Packs attach only to skills (D1): the guide is for the existing Databricks skill; attaching it is the learner's action.
-**The Databricks Data Engineer Associate question bank, part 1 (2026-10-29)** is
+**The Databricks Data Engineer Associate question bank (2026-10-29/30)** is
 `backend/app/content/question_banks/dbdea/` (`certification: "Databricks Certified Data Engineer Associate"`, matched
-exactly on import), built from one source file per exam section by `build_question_bank.py`: Ingestion and Loading (63),
-Transformation and Modeling (66) and Governance and Security (45), 174 of the planned 300 (sized by the August 2026
-guide's weights; the other four sections come in part 2, with a `parts` delta file). `tests/test_dbdea_question_bank.py`
-holds it to the import validator, four or more options, its notes citations, the section counts, answer positions (18-32%
+exactly on import), built from one source file per exam section by `build_question_bank.py`: **300 questions** sized by
+the August 2026 guide's weights: Platform 18, Ingestion and Loading 63, Transformation and Modeling 66, Lakeflow Jobs 48,
+CI/CD 30, Troubleshooting, Monitoring and Optimization 30, Governance and Security 45. Part 1 (sections 2, 3, 7; 174) was
+PR #117; part 2 adds the other four, with `dbdea_question_bank_sections-1-4-5-6.json` (a `parts` entry) for a learner who
+imported part 1, since the import warns about duplicates but adds them. `tests/test_dbdea_question_bank.py`
+holds it to the import validator, four or more options, its notes citations, the section counts, the part file, answer positions (18-32%
 each), the right answer the longest option in at most 30% overall and 40% per section, no `DENY` taught as Unity Catalog
 SQL and no stated pass mark. **Pass mark (decided 2026-10-30):** creating a certification preparation requires a pass mark,
 and Databricks publishes none, so the learner chose **85% as their own target** for the preparation they create (45
