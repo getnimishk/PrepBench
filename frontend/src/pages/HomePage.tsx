@@ -5,6 +5,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { KAFKA_LAB, hasKafkaPack } from '../services/kafkaLab/lab';
+import { DATABRICKS_LAB, hasDatabricksPack } from '../services/databricksLab/lab';
 import { Alert, Box, Button, Stack, Typography, useTheme } from '@mui/material';
 import {
   Activity, ArrowRight, Award, BookOpen, ChevronRight, Database, FileCheck2, FlaskConical,
@@ -840,8 +841,12 @@ export const HomePage: React.FC = () => {
   // Which lab this preparation's Learning Lab opens: the Lakehouse Lab, else the Kafka Lab for a preparation with the
   // Kafka guide, else the ADF Behaviour Lab (the only other lab a preparation can have).
   const hasKafkaLab = !hasLakehouse && hasKafkaPack(primary);
-  const labPath = hasLakehouse ? '/databricks-sandbox' : hasKafkaLab ? KAFKA_LAB.basePath : '/lab/adf';
-  const labOpen = hasLakehouse ? 'Open Lakehouse Lab' : hasKafkaLab ? 'Open Kafka Lab' : 'Open Behaviour Lab';
+  // The Databricks Lab comes with the Databricks guide: beside the Lakehouse Lab for the seeded Databricks skill,
+  // or as the preparation's lab for any other one with the pack.
+  const hasDatabricksLab = !hasKafkaLab && hasDatabricksPack(primary);
+  const labIsDatabricks = !hasLakehouse && hasDatabricksLab;
+  const labPath = hasLakehouse ? '/databricks-sandbox' : hasKafkaLab ? KAFKA_LAB.basePath : labIsDatabricks ? DATABRICKS_LAB.basePath : '/lab/adf';
+  const labOpen = hasLakehouse ? 'Open Lakehouse Lab' : hasKafkaLab ? 'Open Kafka Lab' : labIsDatabricks ? 'Open Databricks Lab' : 'Open Behaviour Lab';
 
   const unmeasured = isCertification && r.mock_count === 0 && r.state === 'needs_evaluation';
   const averageScore = r.recent_scores.length > 0
@@ -1187,19 +1192,34 @@ export const HomePage: React.FC = () => {
 
             {capabilities.learningLab && (
               isLabAvailable ? (
-                <Row
-                  title={hasLakehouse ? 'Lakehouse Simulation Lab' : hasKafkaLab ? 'Kafka Lab' : 'ADF Behaviour Labs'}
-                  detail={hasLakehouse
-                    ? 'Interactive Delta Lake & ADLS Gen2 pipeline sandbox'
-                    : hasKafkaLab
-                      ? 'Predict what a small simulated Kafka cluster does, change it, and watch: from the log to acks and failures'
-                      : 'Manipulate pipeline parameters, inject transient faults, and observe mechanistic causality'}
-                  action={
-                    <Button size="small" variant="contained" component={RouterLink} to={labPath}>
-                      {labOpen}
-                    </Button>
-                  }
-                />
+                <>
+                  <Row
+                    title={hasLakehouse ? 'Lakehouse Simulation Lab' : hasKafkaLab ? 'Kafka Lab' : labIsDatabricks ? 'Databricks Lab' : 'ADF Behaviour Labs'}
+                    detail={hasLakehouse
+                      ? 'Interactive Delta Lake & ADLS Gen2 pipeline sandbox'
+                      : hasKafkaLab
+                        ? 'Predict what a small simulated Kafka cluster does, change it, and watch: from the log to acks and failures'
+                        : labIsDatabricks
+                          ? 'Predict, change and watch: table history, Auto Loader, pipeline datasets, jobs, skew and privileges'
+                          : 'Manipulate pipeline parameters, inject transient faults, and observe mechanistic causality'}
+                    action={
+                      <Button size="small" variant="contained" component={RouterLink} to={labPath}>
+                        {labOpen}
+                      </Button>
+                    }
+                  />
+                  {hasLakehouse && hasDatabricksLab && (
+                    <Row
+                      title="Databricks Lab"
+                      detail="Six experiments on the exam topics: table history, Auto Loader, pipeline datasets, jobs, skew and privileges"
+                      action={
+                        <Button size="small" variant="outlined" component={RouterLink} to={DATABRICKS_LAB.basePath}>
+                          Open Databricks Lab
+                        </Button>
+                      }
+                    />
+                  )}
+                </>
               ) : (
                 <Row
                   title="ADF Behaviour Labs"
@@ -1265,7 +1285,7 @@ export const HomePage: React.FC = () => {
                 component={RouterLink}
                 to={labPath}
               >
-                {hasLakehouse ? 'Lakehouse Sandbox' : hasKafkaLab ? 'All six experiments' : 'All five experiments'}
+                {hasLakehouse ? 'Lakehouse Sandbox' : hasKafkaLab || labIsDatabricks ? 'All six experiments' : 'All five experiments'}
               </Button>
             ) : isLabPending ? (
               <Pill tone="warning">Integration Pending (Phase 5)</Pill>
@@ -1360,7 +1380,26 @@ export const HomePage: React.FC = () => {
                   </Button>
                 </Actions>
               </Box>
-            ) : hasKafkaLab ? (
+            ) : null}
+            {(hasLakehouse && hasDatabricksLab) || labIsDatabricks ? (
+              DATABRICKS_LAB.experiments.slice(0, hasLakehouse ? 2 : 3).map((e) => (
+                <Box key={e.slug} sx={{ p: (t) => t.typography.pxToRem(14), borderRadius: '8px', border: `1px solid ${t.line}`, bgcolor: t.surface2 }}>
+                  <Pill tone="accent">Databricks Lab</Pill>
+                  <Typography variant="subtitle1" component="p" sx={{ fontWeight: 800, mt: '8px' }}>
+                    {e.title}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: t.muted, mt: '4px' }}>
+                    {e.purpose}
+                  </Typography>
+                  <Actions sx={{ mt: (t) => t.typography.pxToRem(12) }}>
+                    <Button size="small" variant="contained" component={RouterLink} to={`${DATABRICKS_LAB.basePath}/${e.slug}`} aria-label={`Launch ${e.title}`}>
+                      Launch Experiment
+                    </Button>
+                  </Actions>
+                </Box>
+              ))
+            ) : null}
+            {hasLakehouse || labIsDatabricks ? null : hasKafkaLab ? (
               <>
                 {KAFKA_LAB.experiments.slice(0, 2).map((e) => (
                   <Box key={e.slug} sx={{ p: (t) => t.typography.pxToRem(14), borderRadius: '8px', border: `1px solid ${t.line}`, bgcolor: t.surface2 }}>
