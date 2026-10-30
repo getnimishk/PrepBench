@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 440" width="980" height="440" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <title>The three network connections of an Azure Databricks workspace: users to the control plane, the control plane to classic compute in your VNet through the secure cluster connectivity relay, and serverless compute to your storage through an NCC</title>
+  <rect x="0" y="0" width="980" height="440" fill="#ffffff"/>
+  <text x="490" y="30" text-anchor="middle" font-size="17" font-weight="700" fill="#0f172a">Three connections, each secured on its own</text>
+
+  <!-- Users -->
+  <rect x="20" y="60" width="180" height="90" rx="12" fill="#f8fafc" stroke="#64748b" stroke-width="1.5"/>
+  <text x="110" y="92" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">Users and apps</text>
+  <text x="110" y="114" text-anchor="middle" font-size="12" fill="#334155">browser, REST API,</text>
+  <text x="110" y="131" text-anchor="middle" font-size="12" fill="#334155">BI tools</text>
+
+  <!-- Databricks account -->
+  <rect x="300" y="50" width="400" height="200" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="500" y="76" text-anchor="middle" font-size="14" font-weight="700" fill="#1e3a8a">Azure Databricks account</text>
+  <rect x="320" y="90" width="170" height="70" rx="10" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="405" y="118" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a8a">Control plane</text>
+  <text x="405" y="138" text-anchor="middle" font-size="12" fill="#1e3a8a">web app, APIs,</text>
+  <text x="405" y="153" text-anchor="middle" font-size="12" fill="#1e3a8a">SCC relay</text>
+  <rect x="510" y="90" width="170" height="70" rx="10" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="595" y="118" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a8a">Serverless</text>
+  <text x="595" y="138" text-anchor="middle" font-size="12" fill="#1e3a8a">compute plane</text>
+  <text x="595" y="153" text-anchor="middle" font-size="12" fill="#1e3a8a">(your region)</text>
+  <text x="500" y="200" text-anchor="middle" font-size="12" fill="#1e3a8a">Control plane to serverless:</text>
+  <text x="500" y="217" text-anchor="middle" font-size="12" fill="#1e3a8a">always on the cloud backbone</text>
+
+  <!-- Your subscription -->
+  <rect x="20" y="280" width="940" height="140" rx="12" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="40" y="306" font-size="14" font-weight="700" fill="#14532d">Your Azure subscription</text>
+  <rect x="40" y="320" width="420" height="85" rx="10" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="250" y="344" text-anchor="middle" font-size="13" font-weight="700" fill="#14532d">Workspace VNet (VNet injection)</text>
+  <text x="250" y="364" text-anchor="middle" font-size="12" fill="#14532d">host subnet + container subnet, no public IPs (SCC)</text>
+  <text x="250" y="382" text-anchor="middle" font-size="12" fill="#14532d">classic clusters; NAT gateway for egress</text>
+  <rect x="560" y="320" width="380" height="85" rx="10" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="750" y="344" text-anchor="middle" font-size="13" font-weight="700" fill="#14532d">ADLS Gen2 and other resources</text>
+  <text x="750" y="364" text-anchor="middle" font-size="12" fill="#14532d">storage firewall / network security perimeter</text>
+  <text x="750" y="382" text-anchor="middle" font-size="12" fill="#14532d">private endpoints</text>
+
+  <!-- arrows and labels -->
+  <g stroke="#0f172a" stroke-width="2" fill="none">
+    <path d="M202 105 L316 115"/><path d="M307 109 L316 115 L307 121"/>
+    <path d="M405 318 L405 164"/><path d="M399 172 L405 164 L411 172"/>
+    <path d="M610 164 L740 316"/><path d="M730 312 L740 316 L738 306"/>
+  </g>
+  <g font-size="12" font-weight="700" fill="#7c2d12">
+    <text x="210" y="178">1. Inbound: front-end Private Link,</text>
+    <text x="210" y="194">IP access lists</text>
+    <text x="250" y="255">2. Classic: outbound relay on 443,</text>
+    <text x="250" y="271">back-end Private Link</text>
+    <text x="700" y="225">3. Serverless: NCC private</text>
+    <text x="700" y="241">endpoints, service endpoints,</text>
+    <text x="700" y="257">AzureDatabricksServerless tag</text>
+  </g>
+</svg>

@@ -494,6 +494,8 @@ https://docs.databricks.com/aws/en/data-governance/unity-catalog/data-lineage (2
   object, or a metastore admin. SQL: `GRANT <privilege> ON <securable-type> <name> TO <principal>`, `REVOKE ... FROM ...`,
   `SHOW GRANTS`; or the Permissions tab in Catalog Explorer. Principals are users, groups and service principals (by
   application ID).
+- **Ownership:** "Databricks generally recommends that you grant table ownership to groups" (upgrade-wizard steps on
+  `.../data-governance/unity-catalog/migrate`, read 2026-10-29).
 - **Inheritance:** a privilege granted on a catalog or schema applies to **current and future** objects inside it (e.g.
   `SELECT` on a schema covers every table and view in it, including ones created later).
 - **Reading a table needs three privileges:** `SELECT` on the table, `USE SCHEMA` on its schema, `USE CATALOG` on its
@@ -658,6 +660,14 @@ PySpark API pages for `DataFrame.join`, `union`, `unionAll`, `unionByName`, `dro
 **Version note:** Databricks Runtime ships its own Spark build and can set its own defaults; the defaults below are
 Apache Spark's, and PrepBench says so wherever it quotes one.
 
+- **Execution terms** (https://spark.apache.org/docs/latest/cluster-overview.html and `.../rdd-programming-guide.html`,
+  Spark 4.2.0, read 2026-10-29): an application is a **driver program** plus **executors** (processes on worker nodes
+  that run tasks and keep data in memory or on disk). A **job** is "a parallel computation consisting of multiple tasks
+  that gets spawned in response to a Spark action (e.g. `save`, `collect`)"; each job is divided into **stages** that
+  depend on each other; a **task** is "a unit of work that will be sent to one executor". "All transformations in Spark
+  are lazy": they run only when an **action** needs a result. The **shuffle** is "Spark's mechanism for re-distributing
+  data so that it's grouped differently across partitions", and "an expensive operation since it involves disk I/O,
+  data serialization, and network I/O".
 - **Joins:** `df.join(other, on, how)`; `how` defaults to **`inner`** and may be `inner`, `cross`, `outer`/`full`,
   `left`, `right`, `semi`/`left_semi`, `anti`/`left_anti`. `on` can be a list of columns for **multiple keys**.
 - **Unions:** `union()` and `unionAll()` both keep duplicates ("no automatic deduplication") and match columns **by
@@ -718,8 +728,10 @@ Sources: https://docs.databricks.com/aws/en/ldp/ (updated 2026-10-22) ; `.../ldp
     may need a manual full refresh.
   - **View** — evaluated on demand, not persisted, usable only inside the pipeline (intermediate steps, checks).
 - **Flows** read a source, transform, write a target: append, update, **AUTO CDC**, and materialized view flows.
-  **Sinks** stream to Delta tables, Kafka, Event Hubs, custom Python sources. **Standalone** streaming tables and
-  materialized views can be created in Databricks SQL; Databricks then manages a pipeline (type `MV/ST`) for them.
+  **Sinks** stream to Delta tables, Kafka, Event Hubs, custom Python sources. A streaming table "can have one or more
+  streaming flows (Append, AUTO CDC) written into it"; a materialized view one or more materialized view flows; a sink
+  one or more Append or Update flows (`.../ldp/concepts`). **Standalone** streaming tables and materialized views can be
+  created in Databricks SQL; Databricks then manages a pipeline (type `MV/ST`) for them.
 - **Expectations** (data quality): a named SQL boolean constraint on a dataset, e.g. `CONSTRAINT valid_age EXPECT (age
   BETWEEN 0 AND 120)` / `@dp.expect("valid_age", "age BETWEEN 0 AND 120")`. Actions: **warn** (default; invalid rows are
   written, counted), **drop** (`ON VIOLATION DROP ROW`, `expect_or_drop`; dropped rows counted), **fail** (`ON VIOLATION
@@ -764,7 +776,9 @@ Sources: https://docs.databricks.com/aws/en/jobs/ (updated 2026-10-09) ; `.../jo
   (skipped).
 - **If/else condition task** branches on a boolean expression (e.g. run transformations only if ingestion added rows).
   **For each** runs one nested task per element of an input array (JSON array, task values or job parameters; `{{input}}`
-  in the nested task), with a **Concurrency** setting (default 1); a For each can't nest another For each.
+  in the nested task), with a **Concurrency** setting (default 1); a For each can't nest another For each. A task sets a
+  **task value** with `dbutils.jobs.taskValues.set(key = ..., value = ...)`, and later tasks reference it as
+  `{{tasks.<task_name>.values.<task_value_name>}}` (`.../jobs/for-each`).
 - **Retries and timeouts:** for most configurations the default is **no retry**; add a retry policy per task (count and
   interval). Serverless jobs auto-optimize retries by default (can be disallowed). Continuous jobs use exponential
   backoff. A task's **Timeout** sets its maximum run time: exceed it and the status is **"Timed Out"**; the **Warning**
@@ -888,7 +902,10 @@ Sources: https://docs.databricks.com/aws/en/admin/system-tables/ (updated 2026-1
   instance pools); `system.lakeflow.jobs`, `job_tasks`, `job_run_timeline`, `job_task_run_timeline`, `pipelines`,
   `pipeline_update_timeline`; `system.query.history`; `system.alert.*`. Databricks "highly discourages" exporting system
   table data outside the platform. Joining `system.billing.usage` with the pricing and compute tables attributes DBU
-  spend to jobs and warehouses (the Professional guide's sample question 5).
+  spend to jobs and warehouses (the Professional guide's sample question 5). Columns used in the billing page's examples:
+  `usage_date`, `sku_name`, `usage_quantity`, `usage_metadata.job_id`, `usage_start_time`, `usage_end_time`. The event
+  log's examples filter `event_type` (`create_update`, `update_progress`) and read `details:flow_progress.status` and
+  `details:flow_progress.metrics.num_output_rows` (`.../ldp/monitor-event-logs`).
 - **Jobs UI:** run history and the matrix view (§11), task run details, duration thresholds and notifications.
 - **Pipelines:** the pipeline UI's data quality tab and the **event log** (§10).
 - **Spark UI:** jobs, stages, tasks, executors, the Streaming tab (input rate, processing time: a batch should finish
@@ -1286,7 +1303,9 @@ https://docs.databricks.com/aws/en/query/formats/parquet (2026-08-26) ; `.../tab
   protocol"; workloads shouldn't rely on that directory layout for Delta tables. Databricks recommends **liquid
   clustering** for all managed tables; most tables **under 100 TB don't need partitioning**; **don't partition below
   1 TB**; each partition should hold **at least 1 GB**; partitioning suits low-cardinality columns (dates, locations),
-  not timestamps or IDs. Unpartitioned Delta tables get **ingestion time clustering** automatically.
+  not timestamps or IDs. Unpartitioned Delta tables get **ingestion time clustering** automatically. "Transactions
+  are not defined by partition boundaries": Delta's log gives atomicity, so a batch needn't be isolated in its own
+  partition as with Hive-style tables.
 - **Small files:** many small files are the cost of over-partitioning ("fixed partition boundaries and small-file
   issues common with static partitioning"); `OPTIMIZE` compacts them (§2.4) and liquid clustering avoids the cause.
   Converting a Parquet lake to Delta keeps its old partitioning (§21.2).
@@ -1422,7 +1441,10 @@ https://learn.microsoft.com/en-us/azure/databricks/security/keys/ ; `.../admin/d
 ### 23.13 Testing
 
 - Unit test functions with pytest (Python), and SQL UDFs for SQL; Databricks recommends keeping Python functions and
-  their tests **outside notebooks** (files in a Git folder), with functions that return one predictable result.
+  their tests **outside notebooks** (files in a Git folder), with functions that return one predictable result. Files
+  that aren't notebooks create a session with `SparkSession.builder.appName(...).getOrCreate()`; a notebook in the same
+  folder runs `%pip install pytest`, then `sys.dont_write_bytecode = True` and `pytest.main([".", "-v", "-p",
+  "no:cacheprovider"])`, asserting the return code is 0.
 
 ## 24. Error catalogue
 
