@@ -148,7 +148,7 @@ miss, but only a demonstration completes a topic; readiness for the exam comes o
 
 ## 7. Decisions I need from you
 
-1. **Which certification?** My recommendation is the **Data Engineer Associate** now, the Professional later (or never).
+1. **Which certification?** My recommendation is the **Data Engineer Associate** now, the Professional later (or never). (Both are now built: the Associate bank, 300 questions, and the Professional bank, `dbdep`, 182 questions from the 9 October 2026 guide, 2026-10-30.)
 2. **Does the certification become its own preparation?** I recommend **yes**, as CCDAK is separate from the Kafka skill:
    a "Databricks Data Engineer Associate" certification preparation (45 questions, 90 minutes, no pass mark set) that
    holds the question bank and mock exams, while the **Databricks skill** keeps the study guide, scenarios, lab and

@@ -1,0 +1,1158 @@
+{
+  "section": 1,
+  "domain": "Developing Code for Data Processing using Python and SQL",
+  "questions": [
+    {
+      "id": "P101",
+      "topic": "User-defined functions",
+      "difficulty": "easy",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A team writes a Python UDF to upper-case a column in a nightly ETL job over billions of rows. What does Databricks recommend instead?",
+      "options": [
+        {
+          "t": "Use the built-in function, because built-in Spark functions are optimized for distributed processing",
+          "ok": true
+        },
+        {
+          "t": "Move it to a Scala UDF, which Databricks recommends for every regular ETL workload",
+          "why": "Scala UDFs are faster than Python ones, but a built-in function needs no UDF at all."
+        },
+        {
+          "t": "Wrap it in a pandas UDF and leave everything else as it is, since UDFs suit large ETL",
+          "why": "Databricks recommends UDFs for ad hoc and small-to-medium work, and Spark methods for large regular ETL."
+        },
+        {
+          "t": "Rewrite it as a session-scoped Python UDF registered once at the start of each job run, so it is compiled only once",
+          "why": "Still a Python UDF: data still leaves the JVM row by row."
+        }
+      ],
+      "explain": "Databricks recommends UDFs for logic that's hard to express with built-in functions, and built-in Spark functions for large datasets and workloads that run regularly, because they are optimized for distributed processing."
+    },
+    {
+      "id": "P102",
+      "topic": "User-defined functions",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "Why are pandas UDFs typically much faster than row-at-a-time Python UDFs?",
+      "options": [
+        {
+          "t": "They are compiled to Scala bytecode when the job starts",
+          "why": "Nothing is compiled to Scala; they run in Python with pandas."
+        },
+        {
+          "t": "They use Apache Arrow to move data in batches, reducing serialization costs",
+          "ok": true
+        },
+        {
+          "t": "They skip the shuffle entirely, whatever the query does",
+          "why": "A UDF doesn't change the query's shuffles."
+        },
+        {
+          "t": "They run inside the JVM next to the executors, so no data ever has to be handed to a Python process",
+          "why": "pandas UDFs still run in Python; Arrow makes the transfer cheap."
+        }
+      ],
+      "explain": "The UDF page: pandas UDFs are up to 100x faster than Python UDFs because they use Apache Arrow to reduce serialization costs, working on batches with vectorized pandas operations."
+    },
+    {
+      "id": "P103",
+      "topic": "User-defined functions",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A pandas UDF must load a machine-learning model file once and apply it to every batch of rows. Which pandas UDF type fits?",
+      "options": [
+        {
+          "t": "Series to Series, loading the model inside the function body for each batch",
+          "why": "That would reload the model for every batch."
+        },
+        {
+          "t": "A row-at-a-time Python UDF that caches the model in a global variable on the driver",
+          "why": "A driver global doesn't reach the Python workers that run the UDF, and row-at-a-time UDFs are the slow kind."
+        },
+        {
+          "t": "Iterator of Series to Iterator of Series",
+          "ok": true
+        },
+        {
+          "t": "Series to scalar, used through groupBy().agg()",
+          "why": "That aggregates a group to one value; it doesn't keep state across batches."
+        }
+      ],
+      "explain": "The iterator variant receives an iterator of batches, so state such as a loaded model is initialised once and applied to every input batch: the pandas UDF page's own example."
+    },
+    {
+      "id": "P104",
+      "topic": "User-defined functions",
+      "difficulty": "hard",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A Series to scalar pandas UDF is used in groupBy().agg() over a few very large groups, and executors run out of memory. What explains it?",
+      "options": [
+        {
+          "t": "Arrow batches are capped at 10,000 rows, so each large group is split across several executors and reassembled",
+          "why": "The batch size controls transfer, not how groups are aggregated."
+        },
+        {
+          "t": "The UDF's type hint is wrong, so Spark falls back to row-at-a-time processing",
+          "why": "A wrong hint gives an error or another UDF type, not this memory behaviour."
+        },
+        {
+          "t": "Series to scalar UDFs always run on the driver, never on executors",
+          "why": "They run on executors like other UDFs."
+        },
+        {
+          "t": "This UDF type doesn't support partial aggregation, so all of a group's data is loaded into memory",
+          "ok": true
+        }
+      ],
+      "explain": "The pandas UDF page says Series to scalar UDFs do not support partial aggregation: all data for each group is loaded into memory, so very large groups can exhaust it."
+    },
+    {
+      "id": "P105",
+      "topic": "Unity Catalog functions",
+      "difficulty": "easy",
+      "sources": [
+        "notes §25",
+        "notes §6"
+      ],
+      "q": "An analyst can see the function `finance.tools.mask_iban` in Catalog Explorer but gets a permission error when calling it. Which privilege on the function is missing?",
+      "options": [
+        {
+          "t": "EXECUTE",
+          "ok": true
+        },
+        {
+          "t": "SELECT",
+          "why": "SELECT applies to tables and views."
+        },
+        {
+          "t": "MODIFY on the function",
+          "why": "MODIFY is for changing table data."
+        },
+        {
+          "t": "BROWSE",
+          "why": "BROWSE lets people see that objects exist, which they already can."
+        }
+      ],
+      "explain": "Running a Unity Catalog function needs EXECUTE on it, with the usage privileges on its schema and catalog: `GRANT EXECUTE ON FUNCTION finance.tools.mask_iban TO ...`."
+    },
+    {
+      "id": "P106",
+      "topic": "Unity Catalog functions",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "How is a Python function registered in Unity Catalog so other teams can call it from SQL?",
+      "options": [
+        {
+          "t": "`spark.udf.register('fn', f)` in a notebook, which persists it to the current schema",
+          "why": "That registers a session-scoped UDF that exists only in the SparkSession."
+        },
+        {
+          "t": "`CREATE FUNCTION cat.sch.fn(...) RETURNS ... LANGUAGE PYTHON AS $$ ... $$`",
+          "ok": true
+        },
+        {
+          "t": "Uploading the .py file to a volume, which publishes every function in it",
+          "why": "A volume stores files; it doesn't register functions."
+        },
+        {
+          "t": "`ALTER SCHEMA cat.sch ADD FUNCTION fn` followed by a cluster restart",
+          "why": "There is no such statement."
+        }
+      ],
+      "explain": "Unity Catalog functions are created with CREATE FUNCTION named catalog.schema.function; Python bodies sit between $$ delimiters. They are governed, discoverable and reusable across sessions."
+    },
+    {
+      "id": "P107",
+      "topic": "Unity Catalog functions",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A view calls a Unity Catalog Python function. On which compute does querying the view fail?",
+      "options": [
+        {
+          "t": "A serverless SQL warehouse, because serverless can't run Python",
+          "why": "Serverless and pro SQL warehouses support Python in UC functions."
+        },
+        {
+          "t": "A pro SQL warehouse, because it runs only SQL functions",
+          "why": "Pro SQL warehouses are listed as supported."
+        },
+        {
+          "t": "A classic SQL warehouse",
+          "ok": true
+        },
+        {
+          "t": "A cluster on Databricks Runtime 13.3 LTS in standard access mode",
+          "why": "DBR 13.3 LTS and above is supported."
+        }
+      ],
+      "explain": "The UC functions page: Python code in UC functions needs a serverless or pro SQL warehouse or DBR 13.3 LTS+, and a view that includes a UC Python UDF fails on classic SQL warehouses."
+    },
+    {
+      "id": "P108",
+      "topic": "User-defined functions",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "Which statement about session-scoped and Unity Catalog governed UDFs is correct?",
+      "options": [
+        {
+          "t": "A session-scoped UDF is shared with every notebook attached to the same cluster for as long as the cluster runs",
+          "why": "It is scoped to the current SparkSession only."
+        },
+        {
+          "t": "Governed UDFs exist only for SQL; Python logic can only ever be session-scoped",
+          "why": "Governed UDFs can be written in SQL, Python, Scala and Java."
+        },
+        {
+          "t": "Both kinds are listed in Catalog Explorer, but only governed ones accept arguments",
+          "why": "Session-scoped UDFs aren't governed or discoverable there."
+        },
+        {
+          "t": "A session-scoped UDF exists only in the current SparkSession; a governed one is persisted and reusable",
+          "ok": true
+        }
+      ],
+      "explain": "Governed UDFs are persisted in Unity Catalog, controlled by its permissions and discoverable in Catalog Explorer; session-scoped ones exist only for the current session."
+    },
+    {
+      "id": "P109",
+      "topic": "Window functions",
+      "difficulty": "easy",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "Salaries in a department are 21000, 23000, 23000 and 29000, ordered ascending. What does RANK() give them?",
+      "options": [
+        {
+          "t": "1, 2, 2, 4",
+          "ok": true
+        },
+        {
+          "t": "1, 2, 3, 4",
+          "why": "That ignores the tie."
+        },
+        {
+          "t": "1, 2, 2, 3",
+          "why": "That is DENSE_RANK."
+        },
+        {
+          "t": "1, 1, 2, 3",
+          "why": "Only the two 23000 salaries tie."
+        }
+      ],
+      "explain": "RANK gives tied rows the same rank and leaves a gap after them (1, 2, 2, 4); DENSE_RANK leaves no gap (1, 2, 2, 3). Both appear in the window functions page's examples."
+    },
+    {
+      "id": "P110",
+      "topic": "Window functions",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A query uses `ROW_NUMBER() OVER (ORDER BY ts ROWS BETWEEN 1 PRECEDING AND CURRENT ROW)`. Why is it rejected?",
+      "options": [
+        {
+          "t": "ROW_NUMBER needs a PARTITION BY clause in every window, and this one has none",
+          "why": "Without PARTITION BY the partition is simply all rows."
+        },
+        {
+          "t": "A ranking function's window must have ORDER BY and no frame clause",
+          "ok": true
+        },
+        {
+          "t": "Frames are allowed only with RANGE, never with ROWS",
+          "why": "Both ROWS and RANGE frames exist."
+        },
+        {
+          "t": "ORDER BY isn't allowed in an OVER clause, only in the outer query",
+          "why": "ORDER BY orders rows within the window."
+        }
+      ],
+      "explain": "The window functions page: for a ranking function, the window specification must include an ORDER BY clause, but not a window frame clause."
+    },
+    {
+      "id": "P111",
+      "topic": "Window functions",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25",
+        "notes §9"
+      ],
+      "q": "Each customer's events are in a table. You need, on every row, the previous event's timestamp for the same customer. Which expression fits?",
+      "options": [
+        {
+          "t": "`MAX(ts) OVER (ORDER BY customer_id)` over the whole table without partitions",
+          "why": "That is a running maximum across customers, not the previous event."
+        },
+        {
+          "t": "`ROW_NUMBER() OVER (PARTITION BY customer_id) - 1` joined back to the table on the result",
+          "why": "That numbers rows; it isn't a timestamp, and without ORDER BY it is rejected."
+        },
+        {
+          "t": "`LAG(ts) OVER (PARTITION BY customer_id ORDER BY ts)`",
+          "ok": true
+        },
+        {
+          "t": "`LEAD(ts) OVER (PARTITION BY customer_id ORDER BY ts)`",
+          "why": "LEAD returns the next row's value."
+        }
+      ],
+      "explain": "LAG and LEAD are analytic window functions: LAG reads the previous row in the window's order, LEAD the next. PARTITION BY restarts the window for each customer."
+    },
+    {
+      "id": "P112",
+      "topic": "Window functions",
+      "difficulty": "hard",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A window has no PARTITION BY clause. What does each row's window cover?",
+      "options": [
+        {
+          "t": "An error is raised, because PARTITION BY is required",
+          "why": "PARTITION BY is optional."
+        },
+        {
+          "t": "Only the current row, so the function returns the row's own value",
+          "why": "Without partitions the window isn't limited to one row."
+        },
+        {
+          "t": "The rows of the current task's partition on the executor, so results depend on how the data was split",
+          "why": "SQL partitions aren't the same as Spark task partitions."
+        },
+        {
+          "t": "All rows of the query result, ordered by the ORDER BY clause if one is given",
+          "ok": true
+        }
+      ],
+      "explain": "The page: if no PARTITION clause is specified, the partition is comprised of all rows."
+    },
+    {
+      "id": "P113",
+      "topic": "VARIANT",
+      "difficulty": "easy",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "JSON payloads arrive as strings and their structure changes often. What does Databricks recommend storing them as?",
+      "options": [
+        {
+          "t": "VARIANT, created with parse_json",
+          "ok": true
+        },
+        {
+          "t": "STRING, parsed with from_json in every query",
+          "why": "Databricks recommends VARIANT over JSON strings."
+        },
+        {
+          "t": "BINARY, so nothing is lost",
+          "why": "BINARY can't be queried by path."
+        },
+        {
+          "t": "A STRUCT inferred from the first file and never changed",
+          "why": "A fixed struct breaks when the structure changes."
+        }
+      ],
+      "explain": "The VARIANT page: Databricks recommends VARIANT over JSON strings for semi-structured data; create values with parse_json."
+    },
+    {
+      "id": "P114",
+      "topic": "VARIANT",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "`variant_get(raw, '$.price', 'int')` runs on a row where price is the string \"cheap\". What happens?",
+      "options": [
+        {
+          "t": "It returns 0, the default for INT",
+          "why": "There is no default value."
+        },
+        {
+          "t": "It fails with INVALID_VARIANT_CAST; try_variant_get would return NULL instead",
+          "ok": true
+        },
+        {
+          "t": "It returns the string unchanged, because a VARIANT always keeps each value's original type",
+          "why": "The requested type is INT, so the value is cast or fails."
+        },
+        {
+          "t": "It returns NULL, as it does for a missing path",
+          "why": "NULL is returned for a missing path; a failed cast is an error."
+        }
+      ],
+      "explain": "variant_get returns NULL when the path is missing and raises INVALID_VARIANT_CAST when the value can't be cast to the type; try_variant_get returns NULL instead of the error."
+    },
+    {
+      "id": "P115",
+      "topic": "VARIANT",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A table has a VARIANT column `raw`. Which statement is allowed?",
+      "options": [
+        {
+          "t": "`SELECT * FROM t ORDER BY raw`",
+          "why": "VARIANT can't be used for ordering."
+        },
+        {
+          "t": "`ALTER TABLE t CLUSTER BY (raw)`",
+          "why": "VARIANT columns can't be clustering keys."
+        },
+        {
+          "t": "`SELECT raw:customer.id::STRING FROM t`",
+          "ok": true
+        },
+        {
+          "t": "`SELECT raw, count(*) FROM t GROUP BY raw`",
+          "why": "VARIANT can't be used for grouping."
+        }
+      ],
+      "explain": "Use `:` for a top-level field, `.` for nested ones and `::` to cast. VARIANT can't be a clustering, partition or Z-order key, and can't be used for comparisons, grouping, ordering or set operations."
+    },
+    {
+      "id": "P116",
+      "topic": "VARIANT",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A payload has a top-level field `Owner`. A query reads `raw:owner`. What does it return?",
+      "options": [
+        {
+          "t": "The Owner value, because VARIANT paths ignore the case of field names",
+          "why": "Field names are always case sensitive."
+        },
+        {
+          "t": "An error, because a field must be read with variant_get",
+          "why": "The `:` path syntax is valid."
+        },
+        {
+          "t": "The whole payload, because the path didn't match",
+          "why": "A missing path gives NULL."
+        },
+        {
+          "t": "NULL, because field names in VARIANT paths are case sensitive",
+          "ok": true
+        }
+      ],
+      "explain": "VARIANT field names are always case sensitive, and a path that isn't found returns NULL."
+    },
+    {
+      "id": "P117",
+      "topic": "AI functions",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A team wants to call `ai_query` from Databricks SQL. Which compute can't run it?",
+      "options": [
+        {
+          "t": "A classic SQL warehouse",
+          "ok": true
+        },
+        {
+          "t": "A serverless SQL warehouse",
+          "why": "Serverless SQL warehouses can run AI Functions."
+        },
+        {
+          "t": "A pro SQL warehouse",
+          "why": "Only classic SQL warehouses are excluded."
+        },
+        {
+          "t": "A notebook on a cluster with Databricks Runtime 15.4 LTS",
+          "why": "DBR 15.4 LTS or above is required, which this meets."
+        }
+      ],
+      "explain": "AI Functions, ai_query included, are not available on classic SQL warehouses, and need DBR 15.4 LTS or above on clusters."
+    },
+    {
+      "id": "P118",
+      "topic": "AI functions",
+      "difficulty": "hard",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A batch job runs ai_query over 2 million rows. Some rows produce bad responses, and the team wants those rows flagged rather than failing the query. What do they set?",
+      "options": [
+        {
+          "t": "Split the table into 1,000-row slices and run ai_query on each slice in a loop, retrying the failures",
+          "why": "Databricks advises one query over the full dataset rather than manual batches."
+        },
+        {
+          "t": "`failOnError => false`, so ai_query returns a struct with the response and an error message",
+          "ok": true
+        },
+        {
+          "t": "`returnType => 'STRING'`, which converts errors to empty strings",
+          "why": "returnType sets the type of the parsed response."
+        },
+        {
+          "t": "`modelParameters => named_struct('temperature', 0.0)`",
+          "why": "Temperature changes the model's output, not error handling."
+        }
+      ],
+      "explain": "failOnError defaults to true. Set to false, ai_query returns a struct with the parsed response and an error message per row. Databricks also advises submitting the full dataset in a single query."
+    },
+    {
+      "id": "P119",
+      "topic": "AI functions",
+      "difficulty": "easy",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "What does `ai_query` do?",
+      "options": [
+        {
+          "t": "Rewrites a SQL query in natural language for documentation",
+          "why": "It sends a request to a model endpoint."
+        },
+        {
+          "t": "Searches the workspace's notebooks for an answer to a question",
+          "why": "It queries a serving endpoint."
+        },
+        {
+          "t": "Calls an existing Databricks Model Serving endpoint and parses its response",
+          "ok": true
+        },
+        {
+          "t": "Trains a new model on the query's result and registers it in Unity Catalog for later use",
+          "why": "It invokes an endpoint; it doesn't train."
+        }
+      ],
+      "explain": "ai_query invokes an existing Model Serving endpoint (Foundation Model, external or custom) and is billed for that endpoint; task-specific functions such as ai_classify or ai_summarize cover common tasks."
+    },
+    {
+      "id": "P120",
+      "topic": "Structured Streaming",
+      "difficulty": "medium",
+      "sources": [
+        "notes §8"
+      ],
+      "q": "A streaming job is scheduled every hour to process everything that arrived since the last run, then stop. Which trigger fits?",
+      "options": [
+        {
+          "t": "`.trigger(continuous='1 second')`",
+          "why": "Continuous processing isn't supported on Databricks."
+        },
+        {
+          "t": "`.trigger(once=True)`, which Databricks recommends for new code",
+          "why": "Trigger.Once is deprecated since DBR 11.3 LTS; availableNow replaces it."
+        },
+        {
+          "t": "`.trigger(processingTime='1 hour')` in a continuous job that never stops",
+          "why": "That keeps the query running between batches."
+        },
+        {
+          "t": "`.trigger(availableNow=True)`",
+          "ok": true
+        }
+      ],
+      "explain": "availableNow processes everything available and stops: incremental batch for scheduled jobs. It is also what serverless notebooks and jobs support."
+    },
+    {
+      "id": "P121",
+      "topic": "Structured Streaming",
+      "difficulty": "medium",
+      "sources": [
+        "notes §8"
+      ],
+      "q": "Two streaming queries are given the same checkpointLocation. What is the rule?",
+      "options": [
+        {
+          "t": "Each query needs its own checkpoint location; never share one",
+          "ok": true
+        },
+        {
+          "t": "The second query automatically gets a sub-folder of the first's checkpoint",
+          "why": "Nothing is created automatically."
+        },
+        {
+          "t": "It works if they read different topics",
+          "why": "Each query needs its own checkpoint, whatever it reads."
+        },
+        {
+          "t": "It is recommended to save storage",
+          "why": "Never share a checkpoint."
+        }
+      ],
+      "explain": "A checkpoint stores one query's offsets, commits, state and query ID. Each query needs its own location; sharing one fails (DELTA_CONCURRENT_TRANSACTION, §24)."
+    },
+    {
+      "id": "P122",
+      "topic": "Structured Streaming",
+      "difficulty": "hard",
+      "sources": [
+        "notes §8"
+      ],
+      "q": "A running aggregation needs a new stateful operation added. What does the checkpoint guidance say?",
+      "options": [
+        {
+          "t": "It is always safe across restarts, like adding a filter or changing the trigger interval",
+          "why": "Changing stateful operations generally needs a new checkpoint."
+        },
+        {
+          "t": "Changing the stateful operations generally needs a new checkpoint",
+          "ok": true
+        },
+        {
+          "t": "The checkpoint is upgraded automatically on restart",
+          "why": "Nothing upgrades it automatically."
+        },
+        {
+          "t": "Only the trigger interval must change to match",
+          "why": "Trigger intervals are safe to change, but that isn't the issue here."
+        }
+      ],
+      "explain": "Changes to sources, stateful operation types, state schema or sink type generally need a new checkpoint; filters, rate limits and trigger intervals are generally safe."
+    },
+    {
+      "id": "P123",
+      "topic": "Structured Streaming",
+      "difficulty": "medium",
+      "sources": [
+        "notes §8"
+      ],
+      "q": "A windowed count uses `withWatermark('event_time', '10 minutes')`. What does the watermark do?",
+      "options": [
+        {
+          "t": "It delays every result by exactly 10 minutes of wall-clock time, whatever the event times are",
+          "why": "It bounds lateness by event time; it isn't a delay."
+        },
+        {
+          "t": "Drops records whose processing takes more than 10 minutes",
+          "why": "It concerns event time, not processing time."
+        },
+        {
+          "t": "Bounds the state kept: state older than the threshold is dropped, and later records may be ignored",
+          "ok": true
+        },
+        {
+          "t": "Guarantees records up to 10 hours late are included",
+          "why": "Only lateness within the threshold is guaranteed."
+        }
+      ],
+      "explain": "The engine tracks the latest event time and drops state older than the threshold. Records within the threshold are always processed; later ones might not be."
+    },
+    {
+      "id": "P124",
+      "topic": "Structured Streaming",
+      "difficulty": "medium",
+      "sources": [
+        "notes §8"
+      ],
+      "q": "A stream must MERGE each micro-batch into a Delta table. Which API is used?",
+      "options": [
+        {
+          "t": "`writeStream.format('delta').option('merge', 'true')`, keyed on the table's primary key",
+          "why": "There is no merge option on the Delta sink."
+        },
+        {
+          "t": "`writeStream.outputMode('update')` alone, which merges by key",
+          "why": "Update mode emits changed rows; it doesn't MERGE."
+        },
+        {
+          "t": "`writeStream.foreach(fn)` with one MERGE per row",
+          "why": "Per-row MERGE isn't the documented pattern; foreachBatch is."
+        },
+        {
+          "t": "`writeStream.foreachBatch(fn)`, with fn running the MERGE on each batch",
+          "ok": true
+        }
+      ],
+      "explain": "foreachBatch runs batch code on each micro-batch and is required for Delta MERGE from a stream. It gives at-least-once writes, so use batch_id to make them idempotent."
+    },
+    {
+      "id": "P125",
+      "topic": "Structured Streaming",
+      "difficulty": "hard",
+      "sources": [
+        "notes §8"
+      ],
+      "q": "A foreachBatch function appends each batch to an external table. After a restart, one batch is written twice. Why?",
+      "options": [
+        {
+          "t": "foreachBatch gives at-least-once writes; use batch_id to make them idempotent",
+          "ok": true
+        },
+        {
+          "t": "The checkpoint was in the default location, which is cleared each time the job restarts",
+          "why": "Every query must set a checkpoint; that isn't the cause."
+        },
+        {
+          "t": "Appends are not allowed in foreachBatch",
+          "why": "Any batch write is allowed."
+        },
+        {
+          "t": "foreachBatch is exactly-once, so this must be a bug in the sink",
+          "why": "foreachBatch gives at-least-once."
+        }
+      ],
+      "explain": "A batch can run again after a failure, so foreachBatch writes are at-least-once. Recording batch_id with the output (or MERGE on a key) makes a repeat harmless."
+    },
+    {
+      "id": "P126",
+      "topic": "Structured Streaming",
+      "difficulty": "medium",
+      "sources": [
+        "notes §8"
+      ],
+      "q": "A streaming aggregation without a watermark uses output mode `complete`. What is the documented drawback?",
+      "options": [
+        {
+          "t": "It drops old state as soon as the watermark passes, so late updates are lost",
+          "why": "Complete mode never drops state."
+        },
+        {
+          "t": "It rewrites the whole result each trigger and scales poorly",
+          "ok": true
+        },
+        {
+          "t": "It emits only rows that will never change",
+          "why": "That is append mode."
+        },
+        {
+          "t": "It can't be used with aggregations",
+          "why": "Complete mode is for aggregations only."
+        }
+      ],
+      "explain": "Complete mode rewrites the whole result every trigger and never drops state; Databricks suggests materialized views instead for that need."
+    },
+    {
+      "id": "P127",
+      "topic": "Structured Streaming",
+      "difficulty": "medium",
+      "sources": [
+        "notes §8",
+        "notes §12"
+      ],
+      "q": "A serverless job runs a stream with `.trigger(processingTime='30 seconds')`. What happens?",
+      "options": [
+        {
+          "t": "It runs once and then waits for the next schedule",
+          "why": "Processing-time triggers aren't supported there."
+        },
+        {
+          "t": "It runs as configured, starting a new micro-batch every 30 seconds until the job is stopped",
+          "why": "Serverless jobs support only AvailableNow and Once."
+        },
+        {
+          "t": "It isn't supported: serverless notebooks and jobs support only AvailableNow (and Once)",
+          "ok": true
+        },
+        {
+          "t": "It is silently converted to continuous processing",
+          "why": "Continuous isn't supported on Databricks."
+        }
+      ],
+      "explain": "Serverless notebooks and jobs support only AvailableNow and Once triggers; time-based trigger intervals need classic compute."
+    },
+    {
+      "id": "P128",
+      "topic": "Declarative pipelines",
+      "difficulty": "medium",
+      "sources": [
+        "notes §10"
+      ],
+      "q": "When does Databricks' guidance favour a declarative pipeline over hand-written Structured Streaming plus jobs?",
+      "options": [
+        {
+          "t": "Only when the source is a Kafka topic",
+          "why": "Pipelines handle many sources."
+        },
+        {
+          "t": "Never: pipelines are for batch only",
+          "why": "Pipelines handle batch and streaming."
+        },
+        {
+          "t": "When you need low-level control of every micro-batch and every sink API the job writes to",
+          "why": "That is what hand-written Structured Streaming is for."
+        },
+        {
+          "t": "When you want orchestration, retries, data quality and incremental refresh handled for you",
+          "ok": true
+        }
+      ],
+      "explain": "Lakeflow pipelines run flows in dependency order, retry transient failures, check expectations and refresh incrementally; Structured Streaming is the most customisable layer underneath."
+    },
+    {
+      "id": "P129",
+      "topic": "Declarative pipelines",
+      "difficulty": "hard",
+      "sources": [
+        "notes §10"
+      ],
+      "q": "A CDC feed of customer changes, possibly out of order, must keep the full history of each customer's address. Which pipeline construct fits?",
+      "options": [
+        {
+          "t": "AUTO CDC with KEYS, SEQUENCE BY and STORED AS SCD TYPE 2",
+          "ok": true
+        },
+        {
+          "t": "AUTO CDC STORED AS SCD TYPE 1, which keeps history by default",
+          "why": "SCD type 1 overwrites; type 2 keeps history."
+        },
+        {
+          "t": "A materialized view over the change feed with GROUP BY customer",
+          "why": "That gives one row per customer, not history."
+        },
+        {
+          "t": "A streaming table with an append flow, deduplicated later",
+          "why": "Append doesn't apply changes or keep SCD history."
+        }
+      ],
+      "explain": "AUTO CDC applies a change feed with keys and a sequencing column, handling out-of-order events, as SCD type 1 (overwrite) or type 2 (history)."
+    },
+    {
+      "id": "P130",
+      "topic": "Declarative pipelines",
+      "difficulty": "medium",
+      "sources": [
+        "notes §10"
+      ],
+      "q": "An expectation must stop the pipeline update when any row has a negative amount. Which action?",
+      "options": [
+        {
+          "t": "`EXPECT (amount >= 0) ON VIOLATION DROP ROW`",
+          "why": "Drop removes the rows but the update continues."
+        },
+        {
+          "t": "`EXPECT (amount >= 0) ON VIOLATION FAIL UPDATE`",
+          "ok": true
+        },
+        {
+          "t": "`EXPECT (amount >= 0) ON VIOLATION QUARANTINE`",
+          "why": "Quarantine is a pattern built on top, not an action keyword."
+        },
+        {
+          "t": "`EXPECT (amount >= 0)`, the default warn action",
+          "why": "Warn writes the invalid rows and counts them."
+        }
+      ],
+      "explain": "Expectation actions: warn (default), drop (ON VIOLATION DROP ROW) and fail (ON VIOLATION FAIL UPDATE)."
+    },
+    {
+      "id": "P131",
+      "topic": "Declarative pipelines",
+      "difficulty": "medium",
+      "sources": [
+        "notes §10"
+      ],
+      "q": "In a pipeline, which dataset recomputes results to match the source's current state, including updates and deletes in the source?",
+      "options": [
+        {
+          "t": "A view, which is persisted between updates",
+          "why": "Views aren't persisted."
+        },
+        {
+          "t": "A sink",
+          "why": "Sinks write out; they don't recompute."
+        },
+        {
+          "t": "A materialized view",
+          "ok": true
+        },
+        {
+          "t": "A streaming table",
+          "why": "A streaming table processes each appended row once and doesn't recompute."
+        }
+      ],
+      "explain": "A materialized view is recomputed as needed, incrementally when possible, so it stays correct when the source updates or deletes; a streaming table assumes an append-only source."
+    },
+    {
+      "id": "P132",
+      "topic": "Lakeflow Jobs control flow",
+      "difficulty": "easy",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "A job must run its transformation task only if the ingestion task loaded new rows. Which task type branches on that?",
+      "options": [
+        {
+          "t": "A For each task over the ingestion task's output",
+          "why": "For each runs a task per element."
+        },
+        {
+          "t": "A Run Job task",
+          "why": "That runs another job."
+        },
+        {
+          "t": "A dashboard task",
+          "why": "That refreshes a dashboard."
+        },
+        {
+          "t": "An If/else condition task",
+          "ok": true
+        }
+      ],
+      "explain": "An If/else condition task branches on a boolean expression, for example running transformations only if ingestion added rows."
+    },
+    {
+      "id": "P133",
+      "topic": "Lakeflow Jobs control flow",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "A task sets `dbutils.jobs.taskValues.set(key='rows', value=n)`. How does a later task read it as a parameter?",
+      "options": [
+        {
+          "t": "`{{tasks.<task_name>.values.rows}}`",
+          "ok": true
+        },
+        {
+          "t": "`{{task.rows}}`",
+          "why": "That isn't a reference."
+        },
+        {
+          "t": "`dbutils.widgets.get('rows')` without any configuration",
+          "why": "A widget reads a parameter the task was given; the task value must be passed in by reference."
+        },
+        {
+          "t": "`{{job.parameters.rows}}`",
+          "why": "That reads a job parameter, not a task value."
+        }
+      ],
+      "explain": "Task values are referenced as {{tasks.<task_name>.values.<key>}} in a later task's parameters."
+    },
+    {
+      "id": "P134",
+      "topic": "Lakeflow Jobs control flow",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "A For each task runs a notebook for 40 regions. By default, how many iterations run at once?",
+      "options": [
+        {
+          "t": "All 40, in parallel",
+          "why": "Concurrency defaults to 1."
+        },
+        {
+          "t": "One: the Concurrency setting defaults to 1",
+          "ok": true
+        },
+        {
+          "t": "As many as the cluster has cores, up to the job's limit",
+          "why": "It is a setting of the task, default 1."
+        },
+        {
+          "t": "Ten, the workspace limit for nested tasks",
+          "why": "There is no such default."
+        }
+      ],
+      "explain": "For each runs one nested task per input element, with a Concurrency setting that defaults to 1; a For each can't nest another For each."
+    },
+    {
+      "id": "P135",
+      "topic": "Testing",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "Where does Databricks recommend keeping Python functions and their unit tests?",
+      "options": [
+        {
+          "t": "Inside the notebooks that use them, in a cell at the bottom",
+          "why": "Databricks recommends keeping them outside notebooks."
+        },
+        {
+          "t": "In a cluster init script, so they are installed on every node",
+          "why": "Init scripts aren't for code under test."
+        },
+        {
+          "t": "In files (not notebooks) in a Git folder, tested with pytest",
+          "ok": true
+        },
+        {
+          "t": "In a DBFS folder writable by all users",
+          "why": "DBFS libraries are discouraged."
+        }
+      ],
+      "explain": "The testing page: keep functions and their tests outside notebooks, in files in a Git folder, with functions that return one predictable result, and run pytest."
+    },
+    {
+      "id": "P136",
+      "topic": "Testing",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A unit test must check that a transformation's output DataFrame matches an expected DataFrame. Which PySpark utility is meant for this?",
+      "options": [
+        {
+          "t": "`df.explain()` compared with the expected plan",
+          "why": "That compares plans, not data."
+        },
+        {
+          "t": "`spark.catalog.compare`",
+          "why": "There is no such method."
+        },
+        {
+          "t": "`df.show()` compared with a printed string",
+          "why": "Comparing printed output is fragile."
+        },
+        {
+          "t": "`pyspark.testing.assertDataFrameEqual`",
+          "ok": true
+        }
+      ],
+      "explain": "PySpark's testing module provides assertDataFrameEqual for data and assertSchemaEqual for schemas."
+    },
+    {
+      "id": "P137",
+      "topic": "Bundles",
+      "difficulty": "medium",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "What does a Declarative Automation Bundle deploy?",
+      "options": [
+        {
+          "t": "Resource definitions (jobs, pipelines and others) together with their source files, to a target",
+          "ok": true
+        },
+        {
+          "t": "Only the job definitions; the notebooks and files they run must be copied to the workspace separately",
+          "why": "A bundle deploys resources with their source files."
+        },
+        {
+          "t": "A cluster image with the project's libraries baked in",
+          "why": "Bundles describe resources and files."
+        },
+        {
+          "t": "A database migration script for Unity Catalog",
+          "why": "That isn't what bundles are."
+        }
+      ],
+      "explain": "A bundle is YAML (databricks.yml plus resource files) describing jobs, pipelines, dashboards and more, deployed with its source files to a target environment."
+    },
+    {
+      "id": "P138",
+      "topic": "Bundles",
+      "difficulty": "hard",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "A bundle's dev target uses `mode: development`. What does that mode do to a job's schedule?",
+      "options": [
+        {
+          "t": "Runs it twice as often for faster feedback",
+          "why": "Development mode pauses schedules."
+        },
+        {
+          "t": "Pauses schedules and triggers",
+          "ok": true
+        },
+        {
+          "t": "Deletes the schedule from the bundle",
+          "why": "It pauses, not deletes."
+        },
+        {
+          "t": "Nothing; schedules are unaffected by modes",
+          "why": "Development mode pauses them."
+        }
+      ],
+      "explain": "mode: development prefixes resources with [dev <name>], pauses schedules and triggers, allows concurrent runs and disables the deployment lock."
+    },
+    {
+      "id": "P139",
+      "topic": "Serverless environments",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A serverless notebook needs an extra Python library. Serverless supports neither init scripts nor compute policies. How is it added?",
+      "options": [
+        {
+          "t": "Through a compute policy's required libraries",
+          "why": "Serverless doesn't support compute policies."
+        },
+        {
+          "t": "By installing PySpark first, then the library",
+          "why": "Never install PySpark on serverless; it stops the session."
+        },
+        {
+          "t": "In the notebook's Environment side panel, as a dependency",
+          "ok": true
+        },
+        {
+          "t": "With a cluster-scoped init script stored in a Unity Catalog volume",
+          "why": "Serverless doesn't support init scripts."
+        }
+      ],
+      "explain": "Serverless dependencies go in the Environment side panel, in requirements.txt syntax, with wheels from workspace files or volumes; installing PySpark there breaks the session."
+    },
+    {
+      "id": "P140",
+      "topic": "Window functions",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25",
+        "notes §9"
+      ],
+      "q": "For each customer, keep only the latest order. Which approach is deterministic?",
+      "options": [
+        {
+          "t": "`DISTINCT customer_id, order_id`",
+          "why": "That keeps every distinct order."
+        },
+        {
+          "t": "`dropDuplicates(['customer_id'])`, which keeps the row with the newest order for each customer",
+          "why": "Nothing in it picks the newest row."
+        },
+        {
+          "t": "`GROUP BY customer_id` with `first(order_id)` and no ordering",
+          "why": "first() without ordering isn't the latest."
+        },
+        {
+          "t": "`ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY order_ts DESC)` and keep row 1",
+          "ok": true
+        }
+      ],
+      "explain": "A ranking window ordered by time per key picks the latest row deterministically; dropDuplicates keeps one row per key without choosing which."
+    },
+    {
+      "id": "P141",
+      "topic": "User-defined functions",
+      "difficulty": "hard",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A Unity Catalog Python UDF returns the same output for the same input. How do you tell Databricks so?",
+      "options": [
+        {
+          "t": "Add `DETERMINISTIC` to the function definition",
+          "ok": true
+        },
+        {
+          "t": "Grant EXECUTE to `account users`",
+          "why": "That is a permission, not a property of the function."
+        },
+        {
+          "t": "Set `spark.sql.udf.cache=true` on the warehouse",
+          "why": "No such setting is documented."
+        },
+        {
+          "t": "Mark it `STRICT ISOLATION`",
+          "why": "That isolates a UDF's environment; it doesn't declare determinism."
+        }
+      ],
+      "explain": "The UC functions page: add DETERMINISTIC to the definition if the function produces the same outputs for the same inputs."
+    }
+  ]
+}

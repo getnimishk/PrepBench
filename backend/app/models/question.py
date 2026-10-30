@@ -17,6 +17,10 @@ class QuestionType(str, enum.Enum):
     IMAGE = "image"
     CODE = "code"
     DRAG_AND_DROP = "drag_and_drop"
+    # Put the options in order (an exam's "build list" item): the options' stored order is the answer.
+    ORDERING = "ordering"
+    # Pair each option with its match_target. See services/answer_grading.py for both.
+    MATCHING = "matching"
 
 class QuestionDifficulty(str, enum.Enum):
     EASY = "easy"

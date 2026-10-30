@@ -16,6 +16,7 @@ const store: WireLearningAttempt[] = [];
 const refuse = (detail: string, status = 400) => Promise.reject({ isAxiosError: true, response: { status, data: { detail } } });
 const owner = (a: WireLearningAttempt) => a.subject_id ?? null;
 vi.mock('../../services/api', () => ({
+  saveInterviewQuestionFromSource: vi.fn(async () => ({ created: true })),
   getLakehousePack: vi.fn(async () => ({ id: 'semiconductor-v1', version: 1, pipeline })),
   getLearningAttempts: vi.fn(async (p?: { subject_id?: number }) =>
     store.filter((a) => p?.subject_id === undefined || a.subject_id === p.subject_id).map((a) => ({ ...a }))),
@@ -267,6 +268,40 @@ describe('all five experiments, every fault mode', () => {
     // And the finished run leads on: back to its roadmap topics' demonstrations and the chapters.
     const next = screen.getByRole('region', { name: 'What next' });
     expect(within(next).getByRole('link', { name: 'Re-read: Loading only new data' })).toHaveAttribute('href', '/learn/guides/adf/incremental');
+  }, 60_000);
+
+  it('offers a finished run as an interview question, with talking points only from what the run recorded', async () => {
+    const row = (stage: string, extra: Partial<WireLearningAttempt> = {}) => ({
+      attempt_uid: `ab:6:watermark:r1:${stage}`, challenge_id: `adf.lab.watermark.${stage}`, concept_id: 'adf.lab.watermark',
+      scenario_fingerprint: 'adf-lab=watermark;run=1;model=semiconductor-v1', mode: 'guided', started_at: '', hint_count: 0,
+      subject_id: 6, prediction: 'x', committed_at: '2026-10-07T09:01:00', completed_at: '2026-10-07T09:02:00', correct: true,
+      ...extra,
+    } as WireLearningAttempt);
+    store.push(
+      row('predict', {
+        explanation_text: 'Store the watermark only on success.',
+        manipulation: { retries: { from: 0, to: 1 } },
+        observed: { missed: { label: 'Rows missed', before: 120, after: 0, unit: 'rows' } } as unknown as WireLearningAttempt['observed'],
+      }),
+      row('reason'), row('apply'), row('retrieve', { prediction: '0' }),
+    );
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={['/lab/adf/watermark']}>
+        <Routes><Route path="/lab/adf/:slug" element={<AdfExperimentPage />} /></Routes>
+      </MemoryRouter>,
+    );
+    const panel = (await screen.findByRole('heading', { level: 2, name: 'Save as interview question' })).closest('section')!;
+    expect(within(panel).getByLabelText('Key talking points (one per line)')).toHaveValue(
+      'I changed retries from 0 to 1.\nRows missed: 120 rows in the scenario, 0 rows in my run.');
+    expect(within(panel).getByLabelText('Prepared answer (optional)')).toHaveValue('Store the watermark only on success.');
+    const api = await import('../../services/api');
+    await user.click(within(panel).getByRole('button', { name: 'Save as interview question' }));
+    expect(vi.mocked(api.saveInterviewQuestionFromSource)).toHaveBeenCalledWith(expect.objectContaining({
+      source_ref: 'lab/adf/experiment/watermark', subject_id: 6, round_type: 'technical', category: 'ADF Behaviour Lab',
+      key_talking_points: ['I changed retries from 0 to 1.', 'Rows missed: 120 rows in the scenario, 0 rows in my run.'],
+    }));
+    expect(await within(panel).findByRole('status')).toHaveTextContent('Added to your interview question library');
   }, 60_000);
 
   it('never offers a timeout lever anywhere in the lab', () => {

@@ -1,0 +1,623 @@
+{
+  "section": 3,
+  "domain": "Data Manipulation",
+  "questions": [
+    {
+      "id": "P301",
+      "topic": "MERGE",
+      "difficulty": "medium",
+      "sources": [
+        "notes §4"
+      ],
+      "q": "A MERGE fails because two source rows match one target row. What is the fix?",
+      "options": [
+        {
+          "t": "Switch the target to an external table",
+          "why": "Table type doesn't change the rule."
+        },
+        {
+          "t": "Add `WHEN NOT MATCHED BY SOURCE THEN DELETE` so the extra row is removed",
+          "why": "That acts on target rows the source lacks."
+        },
+        {
+          "t": "Run the MERGE twice, once per duplicate",
+          "why": "Each run would still have both rows."
+        },
+        {
+          "t": "Deduplicate the source so each key appears once",
+          "ok": true
+        }
+      ],
+      "explain": "Only one source row may match a given target row; several matches fail the merge, so deduplicate the source first."
+    },
+    {
+      "id": "P302",
+      "topic": "MERGE",
+      "difficulty": "medium",
+      "sources": [
+        "notes §4"
+      ],
+      "q": "A replayed batch must not add rows the table already has. Which MERGE does that?",
+      "options": [
+        {
+          "t": "`WHEN NOT MATCHED THEN INSERT *` on a unique key, with no matched clause",
+          "ok": true
+        },
+        {
+          "t": "`WHEN MATCHED THEN UPDATE SET *` with no insert clause at all, so existing rows are refreshed",
+          "why": "That never adds the new rows."
+        },
+        {
+          "t": "`WHEN NOT MATCHED BY SOURCE THEN DELETE`, run after the append",
+          "why": "That deletes target rows."
+        },
+        {
+          "t": "`WHEN MATCHED THEN DELETE` followed by an INSERT INTO",
+          "why": "That removes rows already loaded."
+        }
+      ],
+      "explain": "An insert-only MERGE on a unique key appends only records not already present: the documented way to avoid duplicates when a batch is replayed."
+    },
+    {
+      "id": "P303",
+      "topic": "MERGE",
+      "difficulty": "hard",
+      "sources": [
+        "notes §4"
+      ],
+      "q": "A MERGE has `WHEN NOT MATCHED BY SOURCE THEN DELETE` with no condition over a 5 TB target. What does the merge page advise?",
+      "options": [
+        {
+          "t": "Nothing; the clause only reads source rows",
+          "why": "It acts on target rows and can't read source columns."
+        },
+        {
+          "t": "Add a condition, to avoid rewriting the whole target",
+          "ok": true
+        },
+        {
+          "t": "Replace it with a separate TRUNCATE of the target before every MERGE",
+          "why": "That deletes everything."
+        },
+        {
+          "t": "Move it before the WHEN MATCHED clause",
+          "why": "Order isn't the problem."
+        }
+      ],
+      "explain": "WHEN NOT MATCHED BY SOURCE updates or deletes target rows the source lacks; it can't read source columns, and Databricks recommends a condition so the whole target isn't rewritten."
+    },
+    {
+      "id": "P304",
+      "topic": "MERGE",
+      "difficulty": "medium",
+      "sources": [
+        "notes §4",
+        "notes §3"
+      ],
+      "q": "A MERGE uses `UPDATE SET *` and `INSERT *`, and the source has a new column. Without schema evolution, what happens to it?",
+      "options": [
+        {
+          "t": "The column is added to the target",
+          "why": "Only with schema evolution."
+        },
+        {
+          "t": "The MERGE fails",
+          "why": "Extra source columns are ignored."
+        },
+        {
+          "t": "It is ignored",
+          "ok": true
+        },
+        {
+          "t": "It is written to a rescued data column",
+          "why": "That is Auto Loader."
+        }
+      ],
+      "explain": "With INSERT * / UPDATE SET *, the source must have every target column, and extra source columns are ignored unless schema evolution is on (MERGE WITH SCHEMA EVOLUTION)."
+    },
+    {
+      "id": "P305",
+      "topic": "Change data feed",
+      "difficulty": "medium",
+      "sources": [
+        "notes §5"
+      ],
+      "q": "Which `_change_type` values does change data feed record for an UPDATE?",
+      "options": [
+        {
+          "t": "`merge`",
+          "why": "There is no merge change type."
+        },
+        {
+          "t": "`update` only, carrying the row's new values",
+          "why": "Both images are recorded."
+        },
+        {
+          "t": "`delete` then `insert`",
+          "why": "Updates have their own types."
+        },
+        {
+          "t": "`update_preimage` and `update_postimage`",
+          "ok": true
+        }
+      ],
+      "explain": "Change records carry `_change_type` (insert, update_preimage, update_postimage, delete), `_commit_version` and `_commit_timestamp`."
+    },
+    {
+      "id": "P306",
+      "topic": "Change data feed",
+      "difficulty": "medium",
+      "sources": [
+        "notes §5"
+      ],
+      "q": "Legacy change data feed was turned on at version 40. A job asks for changes from version 10. Why can't it get them?",
+      "options": [
+        {
+          "t": "CDF only records changes after it was enabled",
+          "ok": true
+        },
+        {
+          "t": "CDF keeps changes for only 10 versions, whatever the table's retention",
+          "why": "It follows the table's retention."
+        },
+        {
+          "t": "Version numbers restart when CDF is enabled",
+          "why": "They don't."
+        },
+        {
+          "t": "Batch reads of CDF need a streaming query",
+          "why": "table_changes reads in batch."
+        }
+      ],
+      "explain": "CDF records changes only after it is enabled; it is not a permanent record, and its files follow the table's retention."
+    },
+    {
+      "id": "P307",
+      "topic": "Change data feed",
+      "difficulty": "medium",
+      "sources": [
+        "notes §5"
+      ],
+      "q": "How does Databricks recommend processing a table's change feed incrementally?",
+      "options": [
+        {
+          "t": "A scheduled `table_changes` query with versions tracked by hand",
+          "why": "Possible, but streaming tracks versions for you."
+        },
+        {
+          "t": "Structured Streaming with `readChangeFeed`",
+          "ok": true
+        },
+        {
+          "t": "A daily full table comparison",
+          "why": "That isn't the change feed."
+        },
+        {
+          "t": "DESCRIBE HISTORY parsed in a notebook",
+          "why": "History isn't the row-level feed."
+        }
+      ],
+      "explain": "Read in batch with table_changes, or incrementally with readStream.option('readChangeFeed', 'true'); Databricks recommends Structured Streaming, which tracks versions."
+    },
+    {
+      "id": "P308",
+      "topic": "Schema evolution",
+      "difficulty": "medium",
+      "sources": [
+        "notes §3"
+      ],
+      "q": "An INSERT writes an INT value into a BIGINT column of a Delta table. What happens?",
+      "options": [
+        {
+          "t": "It fails: types must match exactly",
+          "why": "A safe cast is tried first."
+        },
+        {
+          "t": "The column becomes INT",
+          "why": "The table's schema doesn't change."
+        },
+        {
+          "t": "It succeeds by a safe cast",
+          "ok": true
+        },
+        {
+          "t": "The value is stored as NULL",
+          "why": "It is cast, not nulled."
+        }
+      ],
+      "explain": "Schema enforcement first tries a safe cast; an INT into a BIGINT column succeeds. An unknown column fails with UNRESOLVED_COLUMN.WITH_SUGGESTION."
+    },
+    {
+      "id": "P309",
+      "topic": "Schema evolution",
+      "difficulty": "hard",
+      "sources": [
+        "notes §3"
+      ],
+      "q": "A column must be renamed without rewriting data files. What does the table need?",
+      "options": [
+        {
+          "t": "Liquid clustering",
+          "why": "Unrelated to renames."
+        },
+        {
+          "t": "Change data feed",
+          "why": "Unrelated to renames."
+        },
+        {
+          "t": "Deletion vectors",
+          "why": "Those speed up DML."
+        },
+        {
+          "t": "Column mapping",
+          "ok": true
+        }
+      ],
+      "explain": "Rename and drop without rewriting need column mapping; a dropped column's data stays in the files until REORG TABLE and VACUUM."
+    },
+    {
+      "id": "P310",
+      "topic": "Schema evolution",
+      "difficulty": "medium",
+      "sources": [
+        "notes §3"
+      ],
+      "q": "Which is the recommended way to let one write add new columns?",
+      "options": [
+        {
+          "t": "Per-write evolution, such as `.option('mergeSchema', 'true')` or `MERGE WITH SCHEMA EVOLUTION`",
+          "ok": true
+        },
+        {
+          "t": "Set `spark.databricks.delta.schema.autoMerge.enabled` for the session",
+          "why": "Legacy; per-write evolution is recommended."
+        },
+        {
+          "t": "`ALTER TABLE ... REPLACE COLUMNS` before every write",
+          "why": "That replaces the schema explicitly."
+        },
+        {
+          "t": "`overwriteSchema` on an append, which adds the new columns without rewriting data",
+          "why": "overwriteSchema is for overwrites that change the schema."
+        }
+      ],
+      "explain": "The session setting is legacy; Databricks recommends per-write evolution, which takes precedence. New columns are added at the end."
+    },
+    {
+      "id": "P311",
+      "topic": "Joins and unions",
+      "difficulty": "medium",
+      "sources": [
+        "notes §9"
+      ],
+      "q": "Two DataFrames have the same columns in different orders. Which union matches columns by name?",
+      "options": [
+        {
+          "t": "`unionAll()`",
+          "why": "Also by position."
+        },
+        {
+          "t": "`unionByName()`",
+          "ok": true
+        },
+        {
+          "t": "SQL `UNION` in a temp view",
+          "why": "UNION removes duplicates, matching by position."
+        },
+        {
+          "t": "`union()`",
+          "why": "union matches by position."
+        }
+      ],
+      "explain": "union() and unionAll() keep duplicates and match by position; unionByName() matches by name, and allowMissingColumns=True fills missing columns with null."
+    },
+    {
+      "id": "P312",
+      "topic": "Joins and unions",
+      "difficulty": "medium",
+      "sources": [
+        "notes §9"
+      ],
+      "q": "DataFrame `union()` behaves like which SQL operator?",
+      "options": [
+        {
+          "t": "INTERSECT: only common rows remain",
+          "why": "No."
+        },
+        {
+          "t": "EXCEPT: rows of the second are removed",
+          "why": "No."
+        },
+        {
+          "t": "UNION ALL: duplicates are kept",
+          "ok": true
+        },
+        {
+          "t": "UNION: duplicates are removed",
+          "why": "DataFrame union keeps duplicates."
+        }
+      ],
+      "explain": "DataFrame union() keeps duplicates, like SQL UNION ALL; add .distinct() to deduplicate."
+    },
+    {
+      "id": "P313",
+      "topic": "Joins and unions",
+      "difficulty": "medium",
+      "sources": [
+        "notes §9"
+      ],
+      "q": "Rows from `orders` must be kept only when no matching customer exists. Which join type?",
+      "options": [
+        {
+          "t": "`left_semi`",
+          "why": "Semi keeps rows that do match."
+        },
+        {
+          "t": "`left` join",
+          "why": "A left join keeps all rows, with nulls for no match."
+        },
+        {
+          "t": "`inner`",
+          "why": "Inner keeps only matches."
+        },
+        {
+          "t": "`left_anti`",
+          "ok": true
+        }
+      ],
+      "explain": "how may be inner, cross, outer/full, left, right, semi/left_semi or anti/left_anti; anti keeps the rows with no match."
+    },
+    {
+      "id": "P314",
+      "topic": "Deduplication",
+      "difficulty": "medium",
+      "sources": [
+        "notes §9"
+      ],
+      "q": "A stream uses `dropDuplicates(['event_id'])`. What bounds the state it keeps?",
+      "options": [
+        {
+          "t": "A watermark set with withWatermark()",
+          "ok": true
+        },
+        {
+          "t": "The trigger interval of the query",
+          "why": "Triggers don't bound state."
+        },
+        {
+          "t": "spark.sql.shuffle.partitions",
+          "why": "That sets partitions, not retention."
+        },
+        {
+          "t": "Nothing; it is stateless",
+          "why": "Dropping duplicates on a stream keeps state."
+        }
+      ],
+      "explain": "On a stream, dropDuplicates keeps state across triggers, bounded by withWatermark()."
+    },
+    {
+      "id": "P315",
+      "topic": "Aggregations",
+      "difficulty": "easy",
+      "sources": [
+        "notes §9"
+      ],
+      "q": "A dashboard needs a fast, approximate distinct count of users. Which function fits?",
+      "options": [
+        {
+          "t": "`count_distinct`",
+          "why": "Exact, and more expensive."
+        },
+        {
+          "t": "`approx_count_distinct`",
+          "ok": true
+        },
+        {
+          "t": "`countDistinct` over a window",
+          "why": "Still exact."
+        },
+        {
+          "t": "`summary()`",
+          "why": "summary gives count, mean and others, not distinct counts."
+        }
+      ],
+      "explain": "approx_count_distinct estimates a distinct count (relative standard deviation 0.05 by default)."
+    },
+    {
+      "id": "P316",
+      "topic": "Window functions",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A running total per customer, ordered by date, is needed on every row. Which frame fits SUM() OVER (PARTITION BY customer ORDER BY d ...)?",
+      "options": [
+        {
+          "t": "No ORDER BY and no frame",
+          "why": "That sums the whole partition on every row."
+        },
+        {
+          "t": "`ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING`",
+          "why": "That is a three-row moving sum."
+        },
+        {
+          "t": "`ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`",
+          "ok": true
+        },
+        {
+          "t": "`ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING`",
+          "why": "That sums the rest of the rows."
+        }
+      ],
+      "explain": "Aggregate functions can be window functions; a frame from unbounded preceding to the current row gives a running total, as in the window page's examples."
+    },
+    {
+      "id": "P317",
+      "topic": "VARIANT",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "Which function returns NULL instead of an error when a VARIANT value can't be cast to the requested type?",
+      "options": [
+        {
+          "t": "`schema_of_variant`",
+          "why": "That describes the schema."
+        },
+        {
+          "t": "`variant_get`",
+          "why": "It raises INVALID_VARIANT_CAST."
+        },
+        {
+          "t": "`parse_json`",
+          "why": "That creates VARIANT values."
+        },
+        {
+          "t": "`try_variant_get`",
+          "ok": true
+        }
+      ],
+      "explain": "variant_get raises INVALID_VARIANT_CAST on a failed cast; try_variant_get returns NULL instead."
+    },
+    {
+      "id": "P318",
+      "topic": "Data quality",
+      "difficulty": "medium",
+      "sources": [
+        "notes §10"
+      ],
+      "q": "Invalid rows must be kept for inspection instead of written to silver or dropped silently. What does the pipelines page call this pattern?",
+      "options": [
+        {
+          "t": "Quarantining invalid rows, built on top of expectations",
+          "ok": true
+        },
+        {
+          "t": "The default warn action, which writes invalid rows aside",
+          "why": "Warn writes invalid rows to the target."
+        },
+        {
+          "t": "`ON VIOLATION FAIL UPDATE`",
+          "why": "Fail stops the update."
+        },
+        {
+          "t": "A full refresh",
+          "why": "That rebuilds tables."
+        }
+      ],
+      "explain": "Expectations warn, drop or fail; quarantining invalid rows is an advanced pattern built on top."
+    },
+    {
+      "id": "P319",
+      "topic": "RESTORE and time travel",
+      "difficulty": "medium",
+      "sources": [
+        "notes §2"
+      ],
+      "q": "Bad updates were applied to some rows. Which fixes them from an earlier version without restoring the whole table?",
+      "options": [
+        {
+          "t": "`VACUUM` the bad version",
+          "why": "VACUUM removes old files."
+        },
+        {
+          "t": "`MERGE INTO t USING t TIMESTAMP AS OF <before>` on the affected keys",
+          "ok": true
+        },
+        {
+          "t": "`OPTIMIZE t`",
+          "why": "OPTIMIZE changes layout, not data."
+        },
+        {
+          "t": "`DESCRIBE HISTORY t`, then UPDATE each affected row by hand from the old values",
+          "why": "That lists versions."
+        }
+      ],
+      "explain": "The history page lists MERGE ... USING t TIMESTAMP AS OF for bad updates and INSERT ... SELECT ... TIMESTAMP AS OF for deleted rows."
+    },
+    {
+      "id": "P320",
+      "topic": "Deletion vectors",
+      "difficulty": "hard",
+      "sources": [
+        "notes §2"
+      ],
+      "q": "A table has deletion vectors. A DELETE removes a customer's rows. What does the data file holding them look like afterwards?",
+      "options": [
+        {
+          "t": "Deleted, with the other rows copied to a new file",
+          "why": "That is what deletion vectors avoid."
+        },
+        {
+          "t": "Rewritten at once without the deleted rows, then committed",
+          "why": "With deletion vectors the file isn't rewritten."
+        },
+        {
+          "t": "Unchanged, with the rows marked deleted in metadata",
+          "ok": true
+        },
+        {
+          "t": "Moved to `_change_data`",
+          "why": "That is change data feed's folder."
+        }
+      ],
+      "explain": "Deletion vectors mark rows in metadata and readers apply the mark at query time; OPTIMIZE, REORG ... APPLY (PURGE) or auto compaction apply them physically."
+    },
+    {
+      "id": "P321",
+      "topic": "Explode",
+      "difficulty": "easy",
+      "sources": [
+        "notes §9"
+      ],
+      "q": "A column holds an array of items. Which function returns one row per element?",
+      "options": [
+        {
+          "t": "`flatten`",
+          "why": "It does not return a row per element; explode does."
+        },
+        {
+          "t": "`collect_list`",
+          "why": "That builds arrays."
+        },
+        {
+          "t": "`split`",
+          "why": "split makes an array from a string."
+        },
+        {
+          "t": "`explode`",
+          "ok": true
+        }
+      ],
+      "explain": "explode(col) returns one row per array element (or map entry)."
+    },
+    {
+      "id": "P322",
+      "topic": "Null handling",
+      "difficulty": "medium",
+      "sources": [
+        "notes §9"
+      ],
+      "q": "Which call keeps only rows with at least two non-null values?",
+      "options": [
+        {
+          "t": "`dropna(thresh=2)`",
+          "ok": true
+        },
+        {
+          "t": "`dropna(how='all')`",
+          "why": "That drops only rows where every value is null."
+        },
+        {
+          "t": "`dropna(how='any')`",
+          "why": "That drops a row with any null."
+        },
+        {
+          "t": "`fillna(2)`",
+          "why": "That replaces nulls with 2."
+        }
+      ],
+      "explain": "dropna(thresh=n) keeps rows with at least n non-null values and overrides how."
+    }
+  ]
+}

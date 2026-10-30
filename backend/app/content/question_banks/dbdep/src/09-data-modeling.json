@@ -1,0 +1,286 @@
+{
+  "section": 9,
+  "domain": "Data Modeling",
+  "questions": [
+    {
+      "id": "P901",
+      "topic": "Medallion",
+      "difficulty": "easy",
+      "sources": [
+        "notes §13"
+      ],
+      "q": "What does Databricks say about the medallion architecture?",
+      "options": [
+        {
+          "t": "It is a recommended best practice but not a requirement",
+          "ok": true
+        },
+        {
+          "t": "It is deprecated in favour of metric views",
+          "why": "No."
+        },
+        {
+          "t": "It applies only to streaming data",
+          "why": "It applies to batch too."
+        },
+        {
+          "t": "It is required for every Databricks table that dashboards read",
+          "why": "Databricks calls it recommended, not required."
+        }
+      ],
+      "explain": "Bronze, silver and gold layers improve quality step by step: a recommended best practice but not a requirement."
+    },
+    {
+      "id": "P902",
+      "topic": "Medallion",
+      "difficulty": "medium",
+      "sources": [
+        "notes §13"
+      ],
+      "q": "How does Databricks suggest storing fields in bronze?",
+      "options": [
+        {
+          "t": "As strongly typed columns, cast on arrival so that bad data is rejected early",
+          "why": "Bronze keeps raw data."
+        },
+        {
+          "t": "Mostly as string, VARIANT or binary, so schema surprises don't drop data",
+          "ok": true
+        },
+        {
+          "t": "Only the fields gold needs",
+          "why": "Bronze keeps the source's raw state."
+        },
+        {
+          "t": "As aggregates per hour",
+          "why": "That is gold."
+        }
+      ],
+      "explain": "Bronze keeps the raw state with minimal validation: most fields as string, VARIANT or binary, plus provenance such as _metadata.file_name."
+    },
+    {
+      "id": "P903",
+      "topic": "Medallion",
+      "difficulty": "medium",
+      "sources": [
+        "notes §13"
+      ],
+      "q": "Where should silver be built from?",
+      "options": [
+        {
+          "t": "From the source system each time",
+          "why": "Bronze is the base for reprocessing."
+        },
+        {
+          "t": "Straight from ingestion, skipping bronze to save storage and time",
+          "why": "Build silver from bronze."
+        },
+        {
+          "t": "From bronze, mostly with streaming reads of append-only bronze",
+          "ok": true
+        },
+        {
+          "t": "From gold, to reuse aggregates",
+          "why": "Gold is built from silver."
+        }
+      ],
+      "explain": "Build silver from bronze, not straight from ingestion, mostly with streaming reads; batch reads suit small dimension tables."
+    },
+    {
+      "id": "P904",
+      "topic": "Metric views",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "What does a metric view separate that a standard view doesn't?",
+      "options": [
+        {
+          "t": "Bronze tables from silver tables, so each layer has its own view",
+          "why": "That is the medallion pattern."
+        },
+        {
+          "t": "Hot data from cold data",
+          "why": "Not what metric views do."
+        },
+        {
+          "t": "Rows from columns",
+          "why": "No."
+        },
+        {
+          "t": "Measures from the dimensions they are grouped and filtered by",
+          "ok": true
+        }
+      ],
+      "explain": "Metric views separate measure definitions from the dimensions used to group, filter and aggregate them; standard views lock their aggregations in at creation."
+    },
+    {
+      "id": "P905",
+      "topic": "Metric views",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "How is a measure read from a metric view?",
+      "options": [
+        {
+          "t": "`SELECT dim, MEASURE(revenue) FROM mv GROUP BY ALL`",
+          "ok": true
+        },
+        {
+          "t": "`SELECT dim, SUM(revenue) FROM mv JOIN other ON ...`",
+          "why": "Metric views can't be joined directly at query time."
+        },
+        {
+          "t": "`DESCRIBE mv`",
+          "why": "That describes it."
+        },
+        {
+          "t": "`SELECT * FROM mv`",
+          "why": "SELECT * isn't allowed; name columns."
+        }
+      ],
+      "explain": "Every measure in a query must use the MEASURE aggregate; columns must be named; join other data through a CTE, not directly."
+    },
+    {
+      "id": "P906",
+      "topic": "Metric views",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "How is a metric view created in SQL?",
+      "options": [
+        {
+          "t": "`CREATE MATERIALIZED VIEW mv AS SELECT ... FROM src GROUP BY ALL`",
+          "why": "That creates a materialized view."
+        },
+        {
+          "t": "`CREATE VIEW ... WITH METRICS LANGUAGE YAML AS $$ ... $$`",
+          "ok": true
+        },
+        {
+          "t": "`CREATE TABLE ... USING METRICS`",
+          "why": "No such syntax."
+        },
+        {
+          "t": "`CREATE FUNCTION ... RETURNS METRICS`",
+          "why": "No."
+        }
+      ],
+      "explain": "The YAML definition (version, source, dimensions, measures, optional filter and joins) goes in CREATE VIEW ... WITH METRICS LANGUAGE YAML."
+    },
+    {
+      "id": "P907",
+      "topic": "Slowly changing dimensions",
+      "difficulty": "medium",
+      "sources": [
+        "notes §10"
+      ],
+      "q": "A customer dimension must keep the history of each address change. Which SCD type?",
+      "options": [
+        {
+          "t": "Neither; history needs a separate audit table",
+          "why": "SCD type 2 keeps it."
+        },
+        {
+          "t": "Type 1",
+          "why": "Type 1 overwrites."
+        },
+        {
+          "t": "Type 2",
+          "ok": true
+        },
+        {
+          "t": "Type 0",
+          "why": "Not offered by AUTO CDC."
+        }
+      ],
+      "explain": "AUTO CDC stores SCD type 1 (overwrite, no history) or type 2 (history, for all or chosen columns)."
+    },
+    {
+      "id": "P908",
+      "topic": "Datasets",
+      "difficulty": "medium",
+      "sources": [
+        "notes §10"
+      ],
+      "q": "A gold aggregate joins orders to a product dimension that changes. Which dataset keeps it correct?",
+      "options": [
+        {
+          "t": "A streaming table",
+          "why": "Its joins don't recompute when a dimension changes."
+        },
+        {
+          "t": "A temporary view",
+          "why": "Not persisted."
+        },
+        {
+          "t": "An external table",
+          "why": "Not a pipeline dataset type."
+        },
+        {
+          "t": "A materialized view",
+          "ok": true
+        }
+      ],
+      "explain": "Materialized views stay correct when sources update; streaming tables' joins don't recompute when a dimension changes."
+    },
+    {
+      "id": "P909",
+      "topic": "Liquid clustering",
+      "difficulty": "medium",
+      "sources": [
+        "notes §2"
+      ],
+      "q": "How should clustering keys be chosen?",
+      "options": [
+        {
+          "t": "The columns most used in filters, up to four; one of two correlated columns is enough",
+          "ok": true
+        },
+        {
+          "t": "The lowest-cardinality columns",
+          "why": "Liquid clustering suits high cardinality."
+        },
+        {
+          "t": "A generated date column rather than its timestamp",
+          "why": "Cluster on the original column."
+        },
+        {
+          "t": "Every column used anywhere in queries, so all filters can skip data",
+          "why": "Up to four keys."
+        }
+      ],
+      "explain": "Up to four keys, chosen from the columns most used in filters; of two highly correlated columns one is enough; for a generated date, cluster on the original column."
+    },
+    {
+      "id": "P910",
+      "topic": "Gold layer",
+      "difficulty": "easy",
+      "sources": [
+        "notes §13"
+      ],
+      "q": "What does the gold layer hold?",
+      "options": [
+        {
+          "t": "Validated, non-aggregated records",
+          "why": "That is silver."
+        },
+        {
+          "t": "Dimensional models and aggregates aligned to business needs",
+          "ok": true
+        },
+        {
+          "t": "Checkpoint files",
+          "why": "Not a layer."
+        },
+        {
+          "t": "Raw source records, kept exactly as they arrived from each system, for audit",
+          "why": "That is bronze."
+        }
+      ],
+      "explain": "Gold holds dimensional models and aggregates for business needs, optimised for dashboards; some organisations keep several gold layers per domain."
+    }
+  ]
+}

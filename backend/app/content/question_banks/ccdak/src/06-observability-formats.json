@@ -1,0 +1,52 @@
+{
+  "section": 6,
+  "domain": "Application Observability",
+  "questions": [
+    {
+      "id": "O43",
+      "topic": "Client metrics",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §15"
+      ],
+      "type": "matching",
+      "q": "Match each client metric to what it measures.",
+      "pairs": [
+        [
+          "records-lag-max",
+          "The largest lag in records for any partition, from the consumer's current position"
+        ],
+        [
+          "record-error-rate",
+          "Producer sends that resulted in errors"
+        ],
+        [
+          "bufferpool-wait-ratio",
+          "The fraction of time the producer waits for buffer space"
+        ],
+        [
+          "poll-idle-ratio-avg",
+          "The fraction of time poll is idle rather than waiting for user code"
+        ]
+      ],
+      "explain": "records-lag-max is a consumer fetch metric based on the current offset, not the committed one. record-error-rate and bufferpool-wait-ratio are producer metrics; poll-idle-ratio-avg is a consumer metric. Every rate metric also has a cumulative -total partner."
+    },
+    {
+      "id": "O44",
+      "topic": "Streams metrics",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §16"
+      ],
+      "type": "ordering",
+      "q": "Kafka Streams reports its own metrics in four layers. Put them in order, from the broadest to the narrowest.",
+      "items": [
+        "Client (the whole Streams instance)",
+        "Thread",
+        "Task",
+        "Processor node, state store and cache"
+      ],
+      "explain": "A Streams instance has all the producer and consumer metrics plus its own, in four layers: client, thread, task, and processor node / state store / cache. metrics.recording.level (default info) chooses how many are recorded."
+    }
+  ]
+}

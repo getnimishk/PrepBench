@@ -239,6 +239,16 @@ def apply_lightweight_migrations():
             _log_migration_failure("exam_answers.reviewed_at", exc)
 
         try:
+            # question_options.match_target: a matching question's right-hand side (added 2026-10-30).
+            result = conn.execute(text("PRAGMA table_info(question_options)")).fetchall()
+            columns = [row[1] for row in result]
+            if "match_target" not in columns and len(columns) > 0:
+                conn.execute(text("ALTER TABLE question_options ADD COLUMN match_target TEXT"))
+                conn.commit()
+        except Exception as exc:
+            _log_migration_failure("question_options.match_target", exc)
+
+        try:
             # Check questions columns
             result = conn.execute(text("PRAGMA table_info(questions)")).fetchall()
             columns = [row[1] for row in result]

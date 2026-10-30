@@ -32,7 +32,7 @@ from app.core.database import get_db
 from app.core.exceptions import ResourceNotFoundException
 from app.models.exam_answer import ConfidenceLevel, ExamAnswer
 from app.models.exam_session import ExamSession, ExamStatus
-from app.models.question import Question
+from app.models.question import Question, QuestionType
 from app.models.review_check import ReviewCheck
 from app.repositories.subject_repository import LEARNER, MOCK, SubjectRepository, session_belongs_to
 from app.repositories.settings_repository import SettingsRepository
@@ -63,6 +63,10 @@ class ReviewOption(BaseModel):
     # the difference between "you picked B, the answer is C" and knowing what
     # made B attractive.
     why_incorrect: Optional[str] = None
+    # For ordering and matching questions (services/answer_grading.py): the stored order is the answer,
+    # and match_target is a matching item's pair. Carried for every option so the client can draw them.
+    order_index: int = 0
+    match_target: Optional[str] = None
 
 
 class CheckQuestion(BaseModel):
@@ -77,6 +81,7 @@ class CheckQuestion(BaseModel):
     question_id: int
     question_text: str
     is_multiple: bool
+    question_type: QuestionType = QuestionType.SINGLE_CHOICE
     options: List[ReviewOption]
 
 
@@ -88,6 +93,7 @@ class ReviewItem(BaseModel):
     taken_at: Optional[datetime] = None
     domain: str
     question_text: str
+    question_type: QuestionType = QuestionType.SINGLE_CHOICE
     options: List[ReviewOption]
     selected_option_ids: List[int]
     explanation: Optional[str] = None
@@ -253,6 +259,7 @@ def review_queue(
                 taken_at=a.session.end_time or a.session.start_time,
                 domain=q.domain,
                 question_text=q.text,
+                question_type=q.question_type,
                 options=[_option(o) for o in _ordered(q.options)],
                 selected_option_ids=list(a.selected_option_ids or []),
                 explanation=q.explanation,
@@ -261,6 +268,7 @@ def review_queue(
                         question_id=check_q.id,
                         question_text=check_q.text,
                         is_multiple=check_q.question_type.value == "multiple_choice",
+                        question_type=check_q.question_type,
                         # The check's options carry `is_correct` like every
                         # other option in this file, and the client must not
                         # render it before the answer is submitted. Sending it
@@ -318,6 +326,8 @@ def _option(o) -> ReviewOption:
         text=o.option_text,
         is_correct=bool(o.is_correct),
         why_incorrect=o.explanation_why_incorrect,
+        order_index=o.order_index or 0,
+        match_target=o.match_target,
     )
 
 

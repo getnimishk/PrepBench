@@ -1545,3 +1545,146 @@ nothing here is guessed.
 - `403 Forbidden` from serverless to a firewalled storage account: §20.5.
 - `429 Too Many Requests` above 2,000 concurrent task runs: §11.
 - Runs **skipped** at maximum concurrent runs: §11, §23.4.
+
+## 25. Topics of the Professional exam beyond the Associate
+
+Sources (all read 2026-10-30, page text, dates as shown on each page): https://docs.databricks.com/aws/en/udf/ (updated
+2026-09-22) ; `.../udf/pandas` (2026-09-11) ; `.../udf/unity-catalog` (2026-10-01) ;
+`.../sql/language-manual/sql-ref-window-functions` (2026-10-05) ; `.../semi-structured/variant` (2026-09-11) ;
+`.../sql/language-manual/functions/variant_get` (2026-09-11) ; `.../large-language-models/ai-functions` (2026-10-27) ;
+`.../sql/language-manual/functions/ai_query` (2026-10-06) ; `.../uc-semantics/metric-views/` and its `create`, `query`
+and `yaml-reference` pages (2026-09-11 to 2026-10-28) ; `.../connect/streaming/kafka` (2026-09-11) ; `.../delta-sharing/`
+(2026-10-27) ; `.../clean-rooms/` (2026-10-08) ; `.../query-federation/` (2026-09-29) ; `.../iceberg/` (2026-10-27) ;
+`.../ingestion/lakeflow-connect/sql-server-overview` (2026-09-16) ; `.../jobs/job-parameters` (2026-10-09) ;
+`.../jobs/dynamic-value-references` (2026-10-12) ; `.../jobs/run-serverless-jobs` (2026-10-09) ;
+`.../compute/serverless/dependencies` (2026-10-22) ; `.../database-objects/tags` (2026-10-26) ;
+`.../security/privacy/gdpr-delta` (2026-10-09) ; `.../dev-tools/sdk-python` (2026-09-11). Where a page didn't state
+something, these notes leave it out.
+
+### 25.1 User-defined functions
+
+- **When to use one:** "Use UDFs for logic that is difficult to express with built-in Apache Spark functions. Built-in
+  Apache Spark functions are optimized for distributed processing and offer better performance at scale." Databricks
+  recommends Spark methods, not UDFs, for large datasets and regular workloads (ETL, streaming).
+- **Kinds:** scalar (one row in, one value out; Unity Catalog governed or session-scoped); batch scalar (batches, 1:1
+  rows); non-scalar (`pandas_udf`, `mapInPandas`, `mapInArrow`, `applyInPandas`; session-scoped); UDAF (many rows to one
+  result; session-scoped only); UDTF (each input row to several rows; governed or session-scoped).
+- **Performance:** "Built-in functions and SQL UDFs are the most efficient options." "Scala UDFs are generally faster than
+  Python UDFs." Python and pandas UDFs "must serialize data and move it out of the JVM to the Python interpreter".
+  "Pandas UDFs are up to 100x faster than Python UDFs because they use Apache Arrow to reduce serialization costs."
+- **pandas UDFs** ("vectorized UDFs"): defined with `pandas_udf` and Python type hints. Series to Series (same length out
+  as in; with `select`, `withColumn`); Iterator of Series to Iterator of Series (useful when the UDF must initialise
+  state once, such as loading a model, for every batch); Iterator of multiple Series; **Series to scalar** (like an
+  aggregate; with `groupBy.agg` and windows; "does not support partial aggregation and all data for each group is loaded
+  into memory"). Arrow batches default to 10,000 records (`spark.sql.execution.arrow.maxRecordsPerBatch`).
+- **Unity Catalog functions:** named `catalog.schema.function_name`; `CREATE FUNCTION ... RETURNS ... LANGUAGE SQL
+  RETURN ...` or `LANGUAGE PYTHON AS $$ ... $$`. To create one, the page says, "users need USAGE and CREATE permission on
+  the schema and USAGE permission on the catalog"; **running one needs `EXECUTE`** on it (`GRANT EXECUTE ON FUNCTION ...`). They are
+  governed, discoverable and reusable across sessions; session-scoped UDFs exist only in the current SparkSession. Python
+  code in UC functions needs a serverless or pro SQL warehouse or DBR 13.3 LTS+; a view using one fails on classic SQL
+  warehouses. Python UDFs run isolated, without file-system access, and must handle NULLs themselves. `DETERMINISTIC`
+  declares same-input-same-output; `STRICT ISOLATION` gives a UDF its own isolated environment (for UDFs that run
+  input as code, write local files or change globals or environment variables).
+- **Testing DataFrames:** PySpark ships `pyspark.testing.assertDataFrameEqual` and `assertSchemaEqual` (Spark 4.2.0 API
+  reference). Their parameter defaults weren't readable on the pages, so the material doesn't quote them.
+
+### 25.2 SQL: window functions, VARIANT, AI functions
+
+- **Window functions** "operate on a group of rows, referred to as a window, and calculate a return value for each row
+  based on the group of rows": `function OVER (PARTITION BY ... ORDER BY ... [frame])`; the function is a ranking,
+  analytic or aggregate function. A ranking function's window must have ORDER BY and no frame. Without PARTITION BY the
+  partition is all rows. In the page's examples, on tied values `RANK` gives 1, 2, 2, 4 and `DENSE_RANK` 1, 2, 2, 3; `LAG`
+  and `LEAD` are analytic functions; frames such as `ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`.
+- **VARIANT** (DBR 15.4+) holds semi-structured data; "Databricks recommends using VARIANT over JSON strings". Create with
+  `parse_json`. Paths: `:` for top-level fields (`raw:owner`), `.` or `[key]` for nested ones, `[index]` (0-based) for
+  arrays; field names are case sensitive; cast with `::`. `variant_get(v, path, type)` returns NULL for a missing path
+  and raises `INVALID_VARIANT_CAST` when the value can't be cast; `try_variant_get` returns NULL instead. VARIANT columns
+  can't be clustering, partition or Z-order keys, and can't be used for comparisons, grouping, ordering or set operations.
+- **AI functions:** built-in functions that apply LLMs to data. `ai_query(endpoint, request[, returnType, failOnError])`
+  calls a Model Serving endpoint (Foundation Model, external or custom); `failOnError` defaults to true (false returns
+  a struct with the response and an error). Task-specific functions include `ai_classify`, `ai_extract`, `ai_summarize`,
+  `ai_translate`, `ai_mask`, `ai_analyze_sentiment`, `ai_similarity`, `ai_gen`, `ai_forecast`. **Not available on
+  classic SQL warehouses**; DBR 15.4 LTS+. For batch inference, "submit your full dataset in a single query rather than
+  manually splitting it into small batches". `ai_query` is billed for the endpoint it calls.
+
+### 25.3 Ingestion beyond files
+
+- **Kafka with Structured Streaming:** `format("kafka")`; `kafka.bootstrap.servers` is required, plus one of `subscribe`
+  (topic list), `subscribePattern` (regex) or `assign` (specific partitions). Rows have `key` and `value` as **binary**,
+  `topic`, `partition`, `offset`, `timestamp`, `timestampType`; decode with `cast("string")`, `from_json`, `from_avro` or
+  `from_protobuf`. Writing takes a `value` column (and optional `key`, `topic`, `partition`, `headers`); the `topic` option
+  overrides a topic column. SQL: `read_kafka` (DBR 13.3 LTS+), streaming only in pipelines or streaming tables. "For
+  incremental batch loading, Databricks recommends using Kafka with `Trigger.AvailableNow`." DBR 13.3 LTS+ kafka-clients
+  make idempotent writes the default.
+- **Lakeflow Connect SQL Server** has two architectures: **standard CDC** (an ingestion gateway that runs continuously
+  and manages a staging volume, plus an ingestion pipeline that references it) and **integrated CDC** (one pipeline
+  that references a Unity Catalog connection and extracts in each update). Up to 250 tables per pipeline. New and deleted
+  columns are supported; column renames need a full refresh.
+- **Lakehouse Federation** gives "governed, read-only access to external data through Unity Catalog foreign catalogs":
+  **query federation** pushes queries down over JDBC to databases (MySQL, PostgreSQL, SQL Server, Oracle, Snowflake,
+  Redshift, BigQuery and others) via a connection and a foreign catalog; **catalog federation** reads tables of external
+  catalogs (Hive metastore, AWS Glue, Snowflake ...) directly in object storage on Databricks compute, "more cost-effective
+  and performance-optimized than query federation". Both are read-only. Where a source has both, Databricks recommends
+  Lakeflow Connect for higher volumes and lower latency.
+- **Iceberg:** Databricks reads and writes Iceberg tables (Parquet, spec versions 1-3). **Managed Iceberg tables** are
+  created in Unity Catalog (DBR 16.4 LTS+, serverless, predictive optimization for maintenance); **foreign Iceberg
+  tables** belong to another catalog and are **read-only**. External engines use the **Iceberg REST Catalog API**, with
+  credential vending.
+
+### 25.4 Sharing and clean rooms
+
+- **OpenSharing** (formerly Delta Sharing, §0) shares data and AI assets outside the organisation. A **share** is a
+  read-only collection; a **recipient** is a Unity Catalog securable for the receiving organisation; a **provider** shares.
+  **Databricks-to-Databricks** sharing (recipient on a Unity Catalog workspace of another metastore, no token needed)
+  also shares notebooks, volumes, models and metric views; **Databricks-to-Open** sharing reaches any platform (bearer
+  token or OIDC federation). Recipients read shared assets **read-only**; Unity Catalog is not required to share or
+  receive, though it has advantages. Within a region there is no egress cost. Tables shared must be Delta or managed
+  Iceberg; tables with row filters or column masks can't be shared (share a dynamic view instead).
+- **Clean Rooms** use OpenSharing and serverless compute so several parties work on sensitive data "without direct access
+  to each other's data": collaborators see column names and types, not rows, and run **notebooks every collaborator has
+  approved** in a central, Databricks-managed clean room. Requirements: serverless, Unity Catalog, OpenSharing enabled.
+  Up to ten collaborators.
+
+### 25.5 Jobs: parameters, dynamic values, serverless
+
+- **Job parameters** are key-value pairs with static or dynamic defaults, overridable when triggering a run ("Run now
+  with different parameters") or when repairing a run. Key-value tasks receive job parameters automatically, and a job
+  parameter beats a task parameter with the same key; JSON-array tasks reference them as `{{job.parameters.<name>}}`.
+- **Dynamic value references** (`{{ }}`) are replaced by a string at run time: `{{job.id}}`, `{{job.run_id}}`,
+  `{{job.start_time.iso_date}}` (UTC), `{{job.trigger.type}}`, `{{task.name}}`, `{{task.execution_count}}` (includes retries
+  and repairs), `{{tasks.<task>.values.<key>}}`, `{{tasks.<task>.result_state}}`, `{{workspace.url}}`. Contents aren't
+  evaluated as expressions; an unknown reference is left as a literal string. Old forms such as `{{run_id}}` and
+  `{{task_retry_count}}` are deprecated.
+- **Serverless jobs** need Unity Catalog and standard access mode; notebook, Python script, dbt, Python wheel and JAR
+  tasks run on them, Photon and autoscaling on. **Performance optimized** starts and runs faster for time-sensitive work;
+  turned off, **standard performance mode** uses less compute and tolerates startup latency of 4 to 6 minutes; both bill
+  the same SKU, standard consuming fewer DBUs. Serverless usage (budget) policies tag usage for billing.
+- **Serverless environments:** serverless supports neither compute policies nor init scripts, so dependencies go in the
+  **Environment** side panel (requirements.txt syntax, wheels from workspace files or volumes); never install PySpark
+  there. A base environment sets the environment version and libraries; job tasks run in a job environment.
+
+### 25.6 Governance, privacy and automation
+
+- **Tags:** key-value attributes on Unity Catalog securables (catalogs, schemas, tables, columns, volumes, views,
+  functions ...). `ALTER ... SET TAGS ('k' = 'v')` (DBR 13.3+) or `SET TAG ON ...` (DBR 16.1+). Adding one needs ownership
+  or `APPLY TAG` plus USE SCHEMA and USE CATALOG; a **governed tag** (account-level, with allowed values) also needs
+  `ASSIGN` on it. Tags inherit down the hierarchy for ABAC, but not to columns. Up to 50 tags per object; keys case
+  sensitive, up to 256 characters. Tags are plain text and may be replicated: never put secrets in them.
+- **GDPR and CCPA deletion:** delete in bronze first, driven by a scheduled job over a **control table of deletion
+  requests** (`MERGE ... WHEN MATCHED THEN DELETE`), then propagate to silver and gold; delete upstream copies too (Kafka,
+  files, databases). Run `VACUUM` (or let predictive optimization) to remove old files; with deletion vectors, also
+  `REORG TABLE ... APPLY (PURGE)`. Materialized views handle source deletes on refresh; **streaming tables break** on
+  deletes in their source, so delete in source and target and read with `skipChangeCommits`, or full refresh. The page
+  calls complete erasure "the safest option" compared with obfuscation such as pseudonymization or masking; a
+  non-natural key (`user_id`) lets PII be deleted while non-PII stays.
+- **Databricks SDK for Python** (`pip install databricks-sdk`, Beta, "okay to use in production") implements Databricks
+  **unified authentication**: configure once and reuse across tools. `WorkspaceClient()` for workspace APIs (e.g.
+  `w.clusters.list()`), `AccountClient()` for account APIs. Databricks recommends bundles for jobs as source code.
+
+### 25.7 Metric views
+
+- **Metric views** are Unity Catalog's semantic layer: they separate **measures** (aggregate expressions) from the
+  **dimensions** they are grouped and filtered by, while a standard view locks its aggregation in at creation. Defined in
+  YAML (`version`, `source`, `dimensions`/`fields`, `measures`, optional `filter` and star or snowflake `joins`) with
+  `CREATE VIEW ... WITH METRICS LANGUAGE YAML AS $$ ... $$`. Queried with the **`MEASURE()`** aggregate for every measure
+  (no `SELECT *`); a metric view can't be joined directly with other tables at query time.

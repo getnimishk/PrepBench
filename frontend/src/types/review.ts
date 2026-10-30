@@ -2,6 +2,8 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
+import type { QuestionType } from './question';
+
 /**
  * One wrong answer, with everything needed to understand it.
  *
@@ -13,6 +15,9 @@ export interface ReviewOption {
   text: string;
   is_correct: boolean;
   why_incorrect?: string | null;
+  /** Ordering: the stored order is the answer. Matching: match_target is the item's pair. */
+  order_index?: number;
+  match_target?: string | null;
 }
 
 /**
@@ -31,6 +36,7 @@ export interface CheckQuestion {
   question_id: number;
   question_text: string;
   is_multiple: boolean;
+  question_type?: QuestionType;
   options: ReviewOption[];
 }
 
@@ -55,6 +61,7 @@ export interface ReviewItem {
   taken_at?: string | null;
   domain: string;
   question_text: string;
+  question_type?: QuestionType;
   options: ReviewOption[];
   selected_option_ids: number[];
   explanation?: string | null;

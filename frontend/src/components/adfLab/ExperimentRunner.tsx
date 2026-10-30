@@ -15,6 +15,7 @@ import { LoopSteps } from '../lakehouse/LoopSteps';
 import { IntegrationNotice, SimulationNotice } from './AdfLabGate';
 import { LabPictureView } from './LabPictureView';
 import { useLinkedTopics } from '../../hooks/useLinkedTopics';
+import { LabRunInterviewQuestion } from './LabRunInterviewQuestion';
 import { ActivityNext } from '../curriculum/ActivityNext';
 import { apiErrorMessage } from '../../services/apiError';
 import {
@@ -473,6 +474,12 @@ export const ExperimentRunner = <C,>({ lab, prep, def, experiment, modeSwitch, t
             <Button variant="outlined" onClick={startAgain}>Start a new run</Button>
           </Actions>
         </Panel>
+      )}
+      {stage === COMPLETE && predictRow && (
+        <LabRunInterviewQuestion
+          lab={lab} experiment={experiment} track={def.track} modeTitle={titleSuffix}
+          subjectId={prep.id} run={predictRow} idPrefix={p}
+        />
       )}
       {stage === COMPLETE && (
         <ActivityNext
