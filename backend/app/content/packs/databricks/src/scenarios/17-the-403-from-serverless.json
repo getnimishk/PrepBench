@@ -1,0 +1,232 @@
+{
+  "id": "17",
+  "number": 17,
+  "title": "The 403 from serverless",
+  "outcome": "Classic clusters could read the firewalled storage account and serverless couldn't; the old way of allowing serverless had stopped working.",
+  "sources": "§12, §17, §20, §24",
+  "chapter": "networking",
+  "content": {
+    "bookmark": "Serverless compute runs in Databricks' account, not your VNet. To reach a firewalled storage account, allow the AzureDatabricksServerless service tag through a network security perimeter, or add a private endpoint in an NCC.",
+    "check": [
+      {
+        "prompt": "Where does serverless compute run in Azure Databricks?",
+        "options": [
+          "In the workspace's injected VNet, next to the classic clusters in your subscription",
+          "In a serverless compute plane in the Azure Databricks account, in the workspace's region",
+          "In the control plane's web application"
+        ],
+        "answer": 1,
+        "why": "Classic compute runs in your subscription's VNet; serverless runs in a serverless compute plane in the Azure Databricks account, in the workspace's region."
+      },
+      {
+        "prompt": "What is a network connectivity configuration (NCC)?",
+        "options": [
+          "An account-level, regional construct that manages private endpoints for serverless compute",
+          "A per-cluster setting for classic compute",
+          "A storage account firewall rule"
+        ],
+        "answer": 0,
+        "why": "An NCC is created by account admins, is regional, can be attached to up to 50 workspaces in the region, and manages serverless private endpoints."
+      },
+      {
+        "prompt": "A private endpoint is added in an NCC for a storage account. What has to happen before it works?",
+        "options": [
+          "Nothing: it is active at once",
+          "Databricks support approves it after a review of the storage account",
+          "The storage account's owner accepts the request"
+        ],
+        "answer": 2,
+        "why": "Adding a private endpoint creates a request the resource owner must accept."
+      },
+      {
+        "prompt": "Does allowing serverless through a storage firewall also allow classic compute?",
+        "options": [
+          "No: classic compute must be allowed separately",
+          "Yes, both use the same rule",
+          "Only when secure cluster connectivity is enabled on the workspace"
+        ],
+        "answer": 0,
+        "why": "A storage firewall affects classic compute too, and classic compute must be allowed separately."
+      }
+    ],
+    "caseStudy": {
+      "setting": "An energy company (fictional) has a VNet-injected Azure Databricks workspace. Its ADLS Gen2 account has a firewall that allows the workspace's subnets, and a rule added last year that allow-listed serverless subnet IDs. Unity Catalog reaches the account through an Access Connector's managed identity.",
+      "events": [
+        {
+          "when": "Monday",
+          "what": "Analysts move their dashboards to a serverless SQL warehouse. Queries on tables in the firewalled account fail with 403 Forbidden."
+        },
+        {
+          "when": "Monday afternoon",
+          "what": "The same queries work from a classic cluster. The storage team says nothing changed on their side."
+        },
+        {
+          "when": "Tuesday",
+          "what": "The platform team finds that storage accounts that allow-listed serverless subnet IDs can no longer connect, and has to choose a supported approach."
+        }
+      ],
+      "pipeline": [
+        "Serverless SQL warehouse · runs in the serverless compute plane",
+        "Classic clusters · in the workspace's injected VNet",
+        "ADLS Gen2 · firewall allows workspace subnets and old serverless subnet IDs",
+        "Unity Catalog · storage credential from an Access Connector"
+      ],
+      "tasks": [
+        "Why did classic work and serverless fail?",
+        "Which approach would you choose to allow serverless?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why classic worked and serverless didn't",
+        "text": [
+          "Classic compute runs in the workspace's own VNet, whose subnets the firewall allows. Serverless runs in Databricks' account, outside that VNet, so the subnet rule doesn't cover it.",
+          "The rule meant for serverless allow-listed serverless subnet IDs, and the docs say such storage accounts can no longer connect. Without a supported rule, serverless gets 403 Forbidden."
+        ]
+      },
+      {
+        "title": "Supported options",
+        "text": [
+          "Network security perimeter: put the storage account in a perimeter and allow the AzureDatabricksServerless service tag, which can be scoped to a region.",
+          "Private endpoint: an account admin creates an NCC in the region, adds a private endpoint rule for the storage account, the storage owner accepts it, and the NCC is attached to the workspace. It needs the Premium plan.",
+          "Either way, keep the classic subnets allowed separately: a storage firewall applies to both kinds of compute."
+        ]
+      },
+      {
+        "title": "Choosing",
+        "text": [
+          "A private endpoint keeps the traffic private but adds limits to plan for (NCCs per region, endpoints per region) and a networking charge for serverless traffic to customer resources. The service tag is simpler to run.",
+          "Make the choice part of the platform's network design, so the next serverless workload doesn't rediscover the problem."
+        ]
+      }
+    ],
+    "takeaway": [
+      "Serverless isn't in your VNet: firewall rules for your subnets don't cover it.",
+      "Allowing serverless subnet IDs no longer works; use a network security perimeter or an NCC private endpoint.",
+      "Allow classic and serverless compute separately."
+    ],
+    "honesty": "If you haven't configured Azure Databricks networking, say so, and explain where classic and serverless compute run and how serverless reaches firewalled storage. If you have, describe the design you chose.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What should have been checked before moving dashboards to serverless?",
+          "How would you plan the next move to serverless?"
+        ],
+        "debrief": [
+          {
+            "title": "Before moving",
+            "text": [
+              "Whether serverless can reach every storage account the dashboards read."
+            ]
+          },
+          {
+            "title": "Next move",
+            "text": [
+              "A connectivity check per data source as part of the migration plan."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you plan a platform change that users will notice if it goes wrong?",
+          "points": [
+            "List what the change depends on, including network and security.",
+            "Test with real data sources before switching users.",
+            "Have a way back.",
+            "Tell users what changes and when.",
+            "Check results after the switch."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What do you tell the analysts?",
+          "What decision do you need from whom?"
+        ],
+        "debrief": [
+          {
+            "title": "Analysts",
+            "text": [
+              "Use the classic warehouse or cluster for now; serverless will work once the storage access rule is replaced, by a stated date."
+            ]
+          },
+          {
+            "title": "Decision",
+            "text": [
+              "Security and networking choose between a network security perimeter and a private endpoint; the platform team implements."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "A migration is blocked by a security rule. How do you move it forward?",
+          "points": [
+            "Find the exact rule and why it blocks.",
+            "Bring the right owners together quickly.",
+            "Present supported options with their trade-offs.",
+            "Keep users working on the old path meanwhile.",
+            "Record the decision for future migrations."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "Who needs to be involved?",
+          "How do you sequence the change?"
+        ],
+        "debrief": [
+          {
+            "title": "People",
+            "text": [
+              "An account admin (NCC), the storage owner (accepting the endpoint or the perimeter rule), and security."
+            ]
+          },
+          {
+            "title": "Sequence",
+            "text": [
+              "Agree the approach, configure it in a test workspace, apply to production, then remove the old subnet-ID rule."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you coordinate a change that needs several teams' approvals?",
+          "points": [
+            "Name every team and the approval each gives.",
+            "Agree the plan once, together.",
+            "Test the change before production.",
+            "Track approvals to avoid waiting.",
+            "Remove obsolete configuration afterwards."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "How would you set up the private endpoint option?",
+          "How would you verify it?"
+        ],
+        "debrief": [
+          {
+            "title": "Private endpoint",
+            "text": [
+              "In the account console, create an NCC in the workspace's region, add a private endpoint rule for the storage account, have the storage owner approve it, and attach the NCC to the workspace."
+            ]
+          },
+          {
+            "title": "Verifying",
+            "text": [
+              "A query from the serverless warehouse reads the table; the classic cluster still works; the old subnet-ID rule is removed."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Explain how Azure Databricks compute reaches a firewalled storage account.",
+          "points": [
+            "Classic compute runs in your VNet; allow its subnets (service or private endpoints).",
+            "Serverless runs in Databricks' account, in the workspace's region.",
+            "For serverless: a network security perimeter allowing AzureDatabricksServerless, or a private endpoint in an NCC.",
+            "The storage owner accepts NCC private endpoints.",
+            "Allow-listing serverless subnet IDs no longer works."
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,237 @@
+{
+  "id": "1",
+  "number": 1,
+  "title": "The column that arrived on Tuesday",
+  "outcome": "A supplier added a field, Auto Loader stopped exactly as designed, and nothing restarted it, so bronze sat still for a night.",
+  "sources": "§7, §11, §13, §23, §24",
+  "chapter": "auto-loader",
+  "content": {
+    "bookmark": "In its default mode, Auto Loader stops on a new column after recording it, and picks it up on restart. Run it as a job that restarts, or the stop becomes an outage.",
+    "check": [
+      {
+        "prompt": "Auto Loader infers the schema (no schema given). A file arrives with a new column. What happens by default?",
+        "options": [
+          "The new column is dropped and the stream carries on",
+          "The stream fails with an unknown-field error after recording the column, and uses it on restart",
+          "The stream keeps running, writes the new column as null, and waits for someone to approve the schema change by hand"
+        ],
+        "answer": 1,
+        "why": "The default mode without a given schema is addNewColumns: the stream records the new column, fails with UnknownFieldException, and resumes with the new schema when it restarts."
+      },
+      {
+        "prompt": "Which schema evolution mode never fails the stream and never adds columns?",
+        "options": [
+          "failOnNewColumns",
+          "addNewColumns",
+          "rescue"
+        ],
+        "answer": 2,
+        "why": "In rescue mode the schema never evolves and the stream never fails: values for new columns go to the rescued data column."
+      },
+      {
+        "prompt": "JSON files, no schema hints, cloudFiles.inferColumnTypes not set. What type does inference give each column?",
+        "options": [
+          "string",
+          "The narrowest type that fits the sampled values",
+          "The type of the matching column in the target table"
+        ],
+        "answer": 0,
+        "why": "For JSON, CSV and XML, every column is inferred as string unless cloudFiles.inferColumnTypes is true."
+      },
+      {
+        "prompt": "Where does Auto Loader keep the schema it inferred?",
+        "options": [
+          "In the target table's properties, updated each time a micro-batch commits",
+          "In a _schemas directory under cloudFiles.schemaLocation",
+          "In the job's parameters, which the stream rewrites when the schema changes"
+        ],
+        "answer": 1,
+        "why": "The inferred schema and its changes are stored in a _schemas directory at the schema location, which can be the checkpoint path."
+      }
+    ],
+    "caseStudy": {
+      "setting": "A home-goods retailer (fictional) receives order files as JSON from its suppliers into a Unity Catalog volume. An Auto Loader stream in a notebook loads them into a bronze table. The notebook runs as a single-task job every night, with no retry policy and nothing set to restart it.",
+      "events": [
+        {
+          "when": "Tuesday 22:00",
+          "what": "One supplier starts sending a new field, discount_code. The nightly run fails with UnknownFieldException a few minutes in."
+        },
+        {
+          "when": "Wednesday 08:00",
+          "what": "The sales dashboard shows no orders since Tuesday. An engineer reruns the job by hand; it succeeds, and the new column appears in bronze."
+        },
+        {
+          "when": "Wednesday 11:00",
+          "what": "In the review, someone proposes switching to rescue mode \"so it never fails again\". Someone else asks why a rerun fixed it without any code change."
+        }
+      ],
+      "pipeline": [
+        "Supplier JSON files · landing in /Volumes/retail/raw/orders",
+        "Auto Loader (cloudFiles) · schema inferred, schemaLocation set, default evolution mode",
+        "Bronze table · orders_raw, appended incrementally",
+        "Lakeflow job · one notebook task, nightly schedule, no retries"
+      ],
+      "tasks": [
+        "Why did the stream fail, and why did a rerun fix it?",
+        "Should the team switch to rescue mode?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why it stopped, and why the rerun worked",
+        "text": [
+          "Nothing broke. With no schema given, Auto Loader's default mode is addNewColumns: it records the new column at the schema location, then fails the stream with UnknownFieldException.",
+          "On restart it resumes with the new schema. The manual rerun was simply that restart, which is why no code change was needed."
+        ]
+      },
+      {
+        "title": "Why it stayed down all night",
+        "text": [
+          "The design assumes something restarts the stream. Databricks recommends running Auto Loader as a Lakeflow job that restarts automatically for exactly this reason.",
+          "Here the job had no retry policy, so the expected stop became a ten-hour gap. A retry policy set explicitly on the task would have restarted it after the retry interval, not the next morning."
+        ]
+      },
+      {
+        "title": "Choosing the mode",
+        "text": [
+          "rescue never fails, but new fields land in the _rescued_data column, not in a column of their own. That suits a bronze table that must never stop, if someone checks the rescued column.",
+          "addNewColumns keeps the schema growing with the source, with a restart each time. failOnNewColumns suits a strict contract: the stream stops until the schema or the file is fixed.",
+          "Databricks' medallion guidance adds a third option for bronze: keep most fields as strings or VARIANT, so schema surprises don't drop data."
+        ]
+      }
+    ],
+    "takeaway": [
+      "addNewColumns stops on a new column by design; a restart picks it up.",
+      "Run Auto Loader as a job that restarts automatically.",
+      "Pick the evolution mode as a decision about who notices new fields."
+    ],
+    "honesty": "If you haven't run Auto Loader in production, say so, and explain the evolution modes and why the stream needs to restart. If you have seen a schema change stop a pipeline, start with that.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What would you ask the team about the source?",
+          "What should the definition of done for a new source include?"
+        ],
+        "debrief": [
+          {
+            "title": "Questions",
+            "text": [
+              "\"Do suppliers tell us before they change their files, and who hears about it?\"",
+              "\"If a new field arrives, do we want it in the data straight away, or reviewed first?\""
+            ]
+          },
+          {
+            "title": "Definition of done",
+            "text": [
+              "The ingestion job restarts on its own after a failure.",
+              "The chosen schema evolution mode, and who is told when the schema changes, are written down."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "A data feed you depend on changes its format without warning. How do you make the product resilient to that?",
+          "points": [
+            "Assume sources will change and design for it.",
+            "Decide whether new fields flow through automatically or wait for review.",
+            "Make sure the pipeline recovers on its own from an expected stop.",
+            "Have someone notified when the shape of the data changes.",
+            "Agree change notice with the source's owners where possible."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What do you tell the sales team on Wednesday morning?",
+          "What should change so this costs minutes, not a night?"
+        ],
+        "debrief": [
+          {
+            "title": "Wednesday morning",
+            "text": [
+              "Orders since Tuesday night are missing from the dashboard; the load has been rerun and the numbers are now complete. Nothing was lost."
+            ]
+          },
+          {
+            "title": "Minutes, not a night",
+            "text": [
+              "An automatic restart on the job, and a failure notification to someone who can act. The review should be about the missing restart, not the supplier."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "A nightly data load failed and nobody noticed until morning. How do you handle it?",
+          "points": [
+            "Restore the data first and tell users what was affected.",
+            "Find why it failed and why nobody knew.",
+            "Add automatic recovery for failures that are expected.",
+            "Route failure alerts to someone who can act.",
+            "Review blamelessly and track the fixes."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "What actions come out of the review?",
+          "How do you settle the rescue-mode debate?"
+        ],
+        "debrief": [
+          {
+            "title": "Actions",
+            "text": [
+              "Add a retry policy to the ingestion task and a failure notification, with an owner and a date.",
+              "Check every other Auto Loader job for the same gap."
+            ]
+          },
+          {
+            "title": "The debate",
+            "text": [
+              "Frame it as a choice of who notices new fields: the stream restarts with them (addNewColumns), or they wait in _rescued_data for review (rescue). Let the data owner choose."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you make sure a fix from an incident review is applied everywhere, not just on the job that failed?",
+          "points": [
+            "Turn the finding into a standard, such as every ingestion job restarts automatically.",
+            "Find every job the standard applies to.",
+            "Give each fix an owner and a date.",
+            "Check it in deployment or review, not by memory.",
+            "Close the action only when it is verified."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "What would you change in the job and the stream?",
+          "How would you test the change?"
+        ],
+        "debrief": [
+          {
+            "title": "Changes",
+            "text": [
+              "Set a retry policy on the task (count and interval) so the stream restarts after UnknownFieldException.",
+              "Keep addNewColumns if new fields should flow through; add schema hints for fields whose types matter, or set cloudFiles.inferColumnTypes."
+            ]
+          },
+          {
+            "title": "Testing",
+            "text": [
+              "Drop a file with an extra field into a test volume and confirm the job fails once, restarts, and the column appears.",
+              "Check that _rescued_data stays empty for well-formed files."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Explain how Auto Loader handles schema inference and evolution.",
+          "points": [
+            "The schema is inferred from a sample and stored under cloudFiles.schemaLocation.",
+            "JSON, CSV and XML columns are strings unless inferColumnTypes is true; schema hints override types.",
+            "addNewColumns (the default without a schema) records the column, fails, and resumes on restart.",
+            "rescue never fails and puts unexpected values in _rescued_data; failOnNewColumns stops until fixed.",
+            "Run it as a job that restarts automatically."
+          ]
+        }
+      }
+    }
+  }
+}

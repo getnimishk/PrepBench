@@ -1,0 +1,230 @@
+{
+  "id": "11",
+  "number": 11,
+  "title": "Dropped the table, the files stayed",
+  "outcome": "A storage clean-up dropped external tables and saved nothing, while a managed table dropped by mistake was nearly given up for lost.",
+  "sources": "§6, §17, §23",
+  "chapter": "tables-storage",
+  "content": {
+    "bookmark": "Dropping an external table removes only its metadata; the files stay. Dropping a managed table deletes its files after a recovery period, and UNDROP TABLE brings it back within it.",
+    "check": [
+      {
+        "prompt": "What does DROP TABLE do to an external table?",
+        "options": [
+          "Removes the metadata and leaves the files",
+          "Removes the metadata and the files",
+          "Moves the files into the schema's managed storage, so they are deleted later"
+        ],
+        "answer": 0,
+        "why": "Unity Catalog manages only an external table's metadata. Dropping it removes the metadata; the files stay at their path."
+      },
+      {
+        "prompt": "A managed table was dropped by mistake yesterday. How do you get it back?",
+        "options": [
+          "Only from a storage backup",
+          "RESTORE TABLE to the version before the drop, which brings back its files and grants",
+          "UNDROP TABLE, within the recovery period (7 days by default)"
+        ],
+        "answer": 2,
+        "why": "Managed tables' files are deleted automatically after the recovery period ends; UNDROP TABLE recovers the table within it."
+      },
+      {
+        "prompt": "Are Unity Catalog privileges enforced when another tool reads an external table's files directly from storage?",
+        "options": [
+          "Yes, always: the external location enforces the same privileges on every read",
+          "No: direct file access bypasses them",
+          "Only for SELECT"
+        ],
+        "answer": 1,
+        "why": "Unity Catalog privileges are not enforced on direct access to an external table's files."
+      },
+      {
+        "prompt": "Which converts an external Delta table to managed, keeping its name, permissions and history?",
+        "options": [
+          "CREATE TABLE ... AS SELECT into a new table",
+          "ALTER TABLE t SET MANAGED",
+          "MSCK REPAIR TABLE t SYNC METADATA"
+        ],
+        "answer": 1,
+        "why": "ALTER TABLE ... SET MANAGED keeps the name, settings, permissions, views and history, and can be rolled back within 14 days. CTAS works too but loses these."
+      }
+    ],
+    "caseStudy": {
+      "setting": "A media company (fictional) moved to Unity Catalog last year. Early tables were created as external tables over ADLS paths; newer ones are managed. Finance asks the data team to cut storage costs.",
+      "events": [
+        {
+          "when": "Week 1",
+          "what": "An engineer drops forty old external tables that nobody queries. The tables disappear from Catalog Explorer."
+        },
+        {
+          "when": "Week 3",
+          "what": "The storage bill hasn't moved. The files are all still in the ADLS containers."
+        },
+        {
+          "when": "Week 3, same day",
+          "what": "While tidying up, someone drops content.engagement, a managed table still in use, by mistake. The team starts planning to rebuild it from source over several days."
+        }
+      ],
+      "pipeline": [
+        "ADLS Gen2 containers · external locations registered in Unity Catalog",
+        "Old external tables · metadata in Unity Catalog, files in ADLS",
+        "content.engagement · managed table in the schema's managed storage"
+      ],
+      "tasks": [
+        "Why didn't dropping the tables reduce the bill?",
+        "How do they get content.engagement back, and what should change?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why the bill didn't move",
+        "text": [
+          "Unity Catalog manages an external table's metadata, not its files. Dropping the forty tables removed their entries; the data stayed in ADLS, and so did the cost.",
+          "To reclaim the space, the files must be deleted at their paths by someone with rights on the storage, once the owners agree the data isn't needed."
+        ]
+      },
+      {
+        "title": "Getting the managed table back",
+        "text": [
+          "Dropping a managed table deletes its files only after the recovery period, 7 days by default. Within it, UNDROP TABLE content.engagement brings the table back. No rebuild is needed.",
+          "The period can be set per catalog or schema, to 0 or 7-30 days, with RETAIN DROPPED. Check it before relying on it."
+        ]
+      },
+      {
+        "title": "What should change",
+        "text": [
+          "Prefer managed tables: they are Databricks' recommended type, cost less to store and query, get predictive optimization, and clean up after a drop.",
+          "Convert the remaining external Delta tables with ALTER TABLE ... SET MANAGED where nothing outside Databricks reads their files. External tables still fit data other tools read directly, but remember Unity Catalog privileges don't apply to that direct access."
+        ]
+      }
+    ],
+    "takeaway": [
+      "Dropping an external table leaves its files.",
+      "UNDROP TABLE recovers a dropped managed table within the recovery period.",
+      "Prefer managed tables; convert external ones with SET MANAGED where you can."
+    ],
+    "honesty": "If you haven't managed table storage in Unity Catalog, say so, and explain the difference between managed and external tables on drop. If you have, describe a clean-up you ran.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What should a clean-up request specify?",
+          "What would you ask before dropping a table that might be used?"
+        ],
+        "debrief": [
+          {
+            "title": "Clean-up request",
+            "text": [
+              "The saving expected and how it will be measured, so a clean-up that saves nothing is noticed at once."
+            ]
+          },
+          {
+            "title": "Before dropping",
+            "text": [
+              "\"Who reads it? Lineage and query history can tell us.\""
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you run a cost-reduction exercise on a data platform?",
+          "points": [
+            "Measure where the cost is before acting.",
+            "State the expected saving for each action.",
+            "Check usage before removing anything.",
+            "Measure the saving afterwards.",
+            "Fix the cause so cost doesn't grow back."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What do you tell finance?",
+          "How do you handle the dropped table?"
+        ],
+        "debrief": [
+          {
+            "title": "Finance",
+            "text": [
+              "The first clean-up removed catalog entries, not data. The real saving needs the files deleted, planned with the data owners."
+            ]
+          },
+          {
+            "title": "The dropped table",
+            "text": [
+              "Recover it with UNDROP today and tell its users there will be no rebuild."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "An initiative delivered no result. How do you report it?",
+          "points": [
+            "Report it honestly and promptly.",
+            "Explain why in plain terms.",
+            "Say what will deliver the result and when.",
+            "Share what was learned.",
+            "Adjust how results are measured."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you organise the real clean-up?",
+          "What standard should new tables follow?"
+        ],
+        "debrief": [
+          {
+            "title": "Clean-up",
+            "text": [
+              "List paths of dropped external tables, confirm with owners, delete the files, and measure storage afterwards."
+            ]
+          },
+          {
+            "title": "Standard",
+            "text": [
+              "New tables are managed unless there is a stated reason for external."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you set standards for a data platform that teams actually follow?",
+          "points": [
+            "Base the standard on a real problem.",
+            "Make the default the right choice.",
+            "Document exceptions and their reasons.",
+            "Check compliance in reviews or automation.",
+            "Revisit the standard when the platform changes."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "What would you run for the dropped table?",
+          "How would you convert the external tables?"
+        ],
+        "debrief": [
+          {
+            "title": "The dropped table",
+            "text": [
+              "UNDROP TABLE content.engagement, then check its row count and permissions."
+            ]
+          },
+          {
+            "title": "Conversion",
+            "text": [
+              "ALTER TABLE ... SET MANAGED (Delta, a recent runtime or serverless, run by the owner). It can be rolled back within 14 days with UNSET MANAGED."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Compare managed and external tables in Unity Catalog.",
+          "points": [
+            "Managed: Unity Catalog manages files, layout and optimization; recommended and cheaper.",
+            "External: files at a path in an external location; Unity Catalog manages only metadata.",
+            "Dropping external leaves files; dropping managed deletes them after a recovery period.",
+            "UNDROP TABLE recovers a managed table within the period.",
+            "SET MANAGED converts external Delta tables, keeping name, permissions and history."
+          ]
+        }
+      }
+    }
+  }
+}

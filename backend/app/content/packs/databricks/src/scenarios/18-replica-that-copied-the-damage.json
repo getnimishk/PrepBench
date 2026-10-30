@@ -1,0 +1,230 @@
+{
+  "id": "18",
+  "number": 18,
+  "title": "The replica that copied the damage",
+  "outcome": "The disaster recovery plan replicated storage to another region, so when a bad job corrupted a table, the replica was corrupted too.",
+  "sources": "§2, §12, §23",
+  "chapter": "production",
+  "content": {
+    "bookmark": "Disaster recovery protects against losing a region, not against bad data: corruption replicates. Recover bad data with time travel or backups; replicate managed tables with Deep Clone.",
+    "check": [
+      {
+        "prompt": "Does a disaster recovery solution protect against data corruption?",
+        "options": [
+          "Yes: the secondary region always keeps a clean copy from before the error",
+          "No: corrupted data replicates; use time travel or backups",
+          "Only with an active-active design"
+        ],
+        "answer": 1,
+        "why": "Databricks' guidance: a DR solution does not mitigate data corruption, because corrupted data replicates. Use time travel or backups for that."
+      },
+      {
+        "prompt": "How does Databricks recommend replicating managed table data to a DR region?",
+        "options": [
+          "Rely on geo-redundant storage of the workspace's root storage",
+          "Copy only the _delta_log directory",
+          "Deep Clone"
+        ],
+        "answer": 2,
+        "why": "Replicate managed table data with Deep Clone, not by relying on geo-redundant storage of the workspace root storage."
+      },
+      {
+        "prompt": "What does RPO measure?",
+        "options": [
+          "How much data loss is tolerated",
+          "How long restoring service may take",
+          "How many regions are in use"
+        ],
+        "answer": 0,
+        "why": "RPO is the data loss tolerated; RTO is the time to restore. Both are business decisions."
+      },
+      {
+        "prompt": "What is high availability within one region?",
+        "options": [
+          "A secondary workspace in another region",
+          "Zone redundancy inside the region",
+          "Nightly backups to another subscription"
+        ],
+        "answer": 1,
+        "why": "HA is zone redundancy inside a region; DR is a secondary workspace in another region."
+      }
+    ],
+    "caseStudy": {
+      "setting": "An insurer (fictional) runs its claims platform on Azure Databricks. The DR plan, written early, says \"storage is geo-redundant, so data is safe in the paired region\". No one has tested a restore.",
+      "events": [
+        {
+          "when": "Month 6, Tuesday",
+          "what": "A faulty release of a nightly job overwrites claim statuses in a core managed table with wrong values."
+        },
+        {
+          "when": "Tuesday 09:00",
+          "what": "Someone suggests failing over to the DR region. The replica has the same wrong statuses: the corruption replicated overnight."
+        },
+        {
+          "when": "Tuesday 10:00",
+          "what": "The table is recovered with RESTORE from Monday's version, which is within the retention period. The board asks whether the DR plan protects anything at all."
+        }
+      ],
+      "pipeline": [
+        "Primary workspace · claims tables, nightly jobs",
+        "Storage · geo-redundant replication to the paired region",
+        "DR plan · no secondary workspace, no tested restore"
+      ],
+      "tasks": [
+        "Why didn't the DR plan help?",
+        "What should the plan cover?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why DR didn't help",
+        "text": [
+          "Replication copies whatever is written, including bad writes. Databricks says it plainly: a DR solution does not mitigate data corruption.",
+          "What saved the day was time travel: RESTORE to Monday's version worked because the files were still within the retention period."
+        ]
+      },
+      {
+        "title": "Two different protections",
+        "text": [
+          "For bad data: time travel and RESTORE within retention, with retention set long enough for how quickly the business notices errors, and backups for longer needs.",
+          "For losing a region: a secondary workspace in another region with replicated data and configuration. Databricks recommends its managed disaster recovery, and replicating managed tables with Deep Clone rather than relying on geo-redundant root storage. Active-passive is the common pattern."
+        ]
+      },
+      {
+        "title": "What the plan needs",
+        "text": [
+          "RPO and RTO agreed with the business per system, not assumed by engineers.",
+          "A tested failover and a tested restore, done on a schedule. A restore also needs its downstream effects handled, since RESTORE is a data change that streams reading the table can see as new data."
+        ]
+      }
+    ],
+    "takeaway": [
+      "DR covers losing a region; it doesn't undo bad data.",
+      "Time travel and backups recover corruption; set retention to match.",
+      "Agree RPO and RTO with the business, and test both recoveries."
+    ],
+    "honesty": "If you haven't designed disaster recovery for a data platform, say so, and explain the difference between DR and recovering from corruption. If you have, describe what you tested.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What should the business decide in the DR plan?",
+          "How do you know the plan works?"
+        ],
+        "debrief": [
+          {
+            "title": "Business decisions",
+            "text": [
+              "How much data loss (RPO) and downtime (RTO) each system can tolerate, and what that is worth paying for."
+            ]
+          },
+          {
+            "title": "Knowing it works",
+            "text": [
+              "Scheduled tests of failover and of restoring a corrupted table, with results reported."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you set the recovery requirements for a business-critical data platform?",
+          "points": [
+            "Separate losing a region from bad data.",
+            "Have the business set RPO and RTO per system.",
+            "Weigh the cost of each level of protection.",
+            "Require regular recovery tests.",
+            "Review requirements as the business changes."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "How do you answer the board?",
+          "What do you put on the roadmap?"
+        ],
+        "debrief": [
+          {
+            "title": "The board",
+            "text": [
+              "The plan protects against losing a region's storage, not against bad data. Time travel recovered this incident. We will separate the two protections and test both."
+            ]
+          },
+          {
+            "title": "Roadmap",
+            "text": [
+              "Agreed RPO and RTO, retention settings per critical table, a secondary-region design, and a test schedule."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Leadership asks whether your platform could survive a disaster. How do you answer?",
+          "points": [
+            "Distinguish the scenarios: region loss, corruption, human error.",
+            "State what is protected today and what isn't.",
+            "Say when recovery was last tested.",
+            "Propose the gaps to close with costs.",
+            "Commit to regular tests."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you organise DR testing?",
+          "Who owns the plan?"
+        ],
+        "debrief": [
+          {
+            "title": "Testing",
+            "text": [
+              "A schedule of exercises: restoring a table from history, and failing over to the secondary workspace; findings tracked as actions."
+            ]
+          },
+          {
+            "title": "Ownership",
+            "text": [
+              "The platform lead owns the plan; the business owns RPO and RTO; each team owns its runbooks."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you make sure recovery plans actually work?",
+          "points": [
+            "Test them on a schedule, not only on paper.",
+            "Test the realistic scenarios, including bad data.",
+            "Time the tests against RTO.",
+            "Fix what the tests reveal.",
+            "Keep the plan current as the platform changes."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "What would you build for corruption recovery?",
+          "What would you build for region loss?"
+        ],
+        "debrief": [
+          {
+            "title": "Corruption",
+            "text": [
+              "Retention on critical tables long enough for errors to be found; a tested RESTORE runbook; snapshots for long-term needs."
+            ]
+          },
+          {
+            "title": "Region loss",
+            "text": [
+              "A secondary workspace in another region, configuration deployed to both from code, managed tables replicated with Deep Clone or Databricks' managed disaster recovery."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Explain high availability and disaster recovery for Databricks.",
+          "points": [
+            "HA is zone redundancy within a region.",
+            "DR is a secondary workspace in another region with replicated data and configuration.",
+            "RPO and RTO are business decisions.",
+            "Replicate managed tables with Deep Clone; Databricks offers managed disaster recovery.",
+            "DR doesn't fix corruption: use time travel and backups."
+          ]
+        }
+      }
+    }
+  }
+}

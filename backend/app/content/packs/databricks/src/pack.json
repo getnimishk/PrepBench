@@ -1,9 +1,31 @@
 {
   "pack_id": "databricks",
-  "version": 1,
+  "version": 2,
   "title": "Databricks on Azure",
   "summary": "Delta Lake tables governed by Unity Catalog, loaded and transformed with Spark, pipelines and jobs, and run in production on Azure",
   "docs_url": "https://learn.microsoft.com/en-us/azure/databricks/",
   "source_notes": "docs/research/databricks-documentation-notes.md",
+  "scenario_levels": [
+    {
+      "name": "Getting data in",
+      "about": "Loading files, streams and change feeds so each record arrives once, with the schema you expect.",
+      "scenarios": [1, 2, 3, 4]
+    },
+    {
+      "name": "Tables you can trust",
+      "about": "History, recovery, deletion and layout: what Delta Lake keeps, what it removes, and what that means for audits and speed.",
+      "scenarios": [5, 6, 7, 8, 9]
+    },
+    {
+      "name": "Governing and running",
+      "about": "Who can read what, what dropping a table really does, and the job behaviours that quietly duplicate or skip work.",
+      "scenarios": [10, 11, 12, 13, 14]
+    },
+    {
+      "name": "Platform at scale",
+      "about": "Cost, performance and the Azure network: the decisions a platform lead is asked to defend.",
+      "scenarios": [15, 16, 17, 18]
+    }
+  ],
   "diagnostic_questions": []
 }

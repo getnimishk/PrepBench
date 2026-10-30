@@ -563,6 +563,18 @@ describe('Lakehouse Lab P1-1: interview capability from saved lab questions', ()
     expect(caps.interview).toBe(true);
   });
 
+  it('unlocks interview for Databricks when its attached pack has written scenarios, whose Say-it questions it saves', () => {
+    const withScenarios = [{ pack_id: 'databricks', pack_version: 2, chapter_count: 24, written_scenario_count: 18 }];
+    const guideOnly = [{ pack_id: 'databricks', pack_version: 1, chapter_count: 24, written_scenario_count: 0 }];
+    const caps = getSubjectCapabilities(seeded(2, { content_packs: withScenarios as unknown as Subject['content_packs'] }));
+    expect(caps.interview).toBe(true);
+    expect(caps.scenarios).toBe(true);
+    expect(caps.lakehouseLab).toBe(true);
+    const v1 = getSubjectCapabilities(seeded(2, { content_packs: guideOnly as unknown as Subject['content_packs'] }));
+    expect(v1.interview).toBe(false);
+    expect(v1.scenarios).toBe(false);
+  });
+
   it('unlocks interview for any non-Databricks preparation that owns a lab question without special casing the slug', () => {
     const custom = seeded(99, { slug: 'custom-spark-pipeline', lab_interview_question_count: 1 });
     expect(getSubjectCapabilities(custom).interview).toBe(true);
