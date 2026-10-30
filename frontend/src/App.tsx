@@ -52,6 +52,7 @@ import { WorkspacePage } from './pages/WorkspacePage';
 import { EvidencePage } from './pages/EvidencePage';
 import { AdfExperimentPage } from './pages/AdfExperimentPage';
 import { KafkaExperimentPage, KafkaLabPage } from './pages/KafkaLabPage';
+import { DatabricksExperimentPage, DatabricksLabPage } from './pages/DatabricksLabPage';
 import { ScenarioPage } from './pages/ScenarioPage';
 import { RoleDiagnosticPage } from './pages/RoleDiagnosticPage';
 import { RolePreparationNewPage } from './pages/RolePreparationNewPage';
@@ -251,6 +252,8 @@ const App: React.FC = () => {
             <Route path="/lab/adf/:slug" element={<AppLayout><AdfExperimentPage /></AppLayout>} />
             <Route path="/lab/kafka" element={<AppLayout><KafkaLabPage /></AppLayout>} />
             <Route path="/lab/kafka/:slug" element={<AppLayout><KafkaExperimentPage /></AppLayout>} />
+            <Route path="/lab/databricks" element={<AppLayout><DatabricksLabPage /></AppLayout>} />
+            <Route path="/lab/databricks/:slug" element={<AppLayout><DatabricksExperimentPage /></AppLayout>} />
             <Route path="/chart-sandbox" element={<AppLayout><ChartSandboxPage /></AppLayout>} />
             <Route path="/databricks-sandbox" element={<AppLayout><DatabricksSandboxPage /></AppLayout>} />
             <Route path="/scenarios" element={<AppLayout><ScenarioSandboxPage /></AppLayout>} />

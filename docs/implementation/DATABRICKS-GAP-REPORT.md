@@ -159,7 +159,7 @@ miss, but only a demonstration completes a topic; readiness for the exam comes o
    3. Question bank, part 1 (the heaviest sections: Ingestion, Transformation, Governance — 174 questions) (built 2026-10-29: bank `dbdea`)
    4. Scenarios (pack v2) with Say-it questions (built 2026-10-30: 18 scenarios, 72 Say-it questions)
    5. Question bank, part 2 (Platform, Jobs, CI/CD, Troubleshooting — 126, with a delta file) (built 2026-10-30)
-   6. Lab experiments
+   6. Lab experiments (built 2026-10-30: the Databricks Lab, `DATABRICKS-LAB-CONTRACT.md`)
 4. **Roadmap 3** ("Storage FileSystems to Cloud Mastery") stays on the Databricks skill unless you choose to unlink it.
    That's your action on the Roadmaps screen; I won't change it from code.
 

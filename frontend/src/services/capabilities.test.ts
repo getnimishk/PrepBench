@@ -373,6 +373,20 @@ describe('Capabilities read from the preparation itself', () => {
     expect(getSubjectCapabilities(without).learningLabStatus).toBe('UNAVAILABLE');
   });
 
+  it("gives a learner's skill with the Databricks pack the Databricks Lab", () => {
+    const withPack = record({
+      kind: 'skill', slug: 'my-databricks', question_count: 0,
+      content_packs: [{ pack_id: 'databricks', pack_version: 2, chapter_count: 24, written_scenario_count: 18 }] as unknown as Subject['content_packs'],
+    });
+    expect(getSubjectCapabilities(withPack)).toMatchObject({ learningLab: true, lab: true, learningLabStatus: 'AVAILABLE', lakehouseLab: false });
+  });
+
+  it('gives a seeded preparation with no lab of its own the Databricks Lab when the Databricks pack is attached', () => {
+    const packs = [{ pack_id: 'databricks', pack_version: 2, chapter_count: 24, written_scenario_count: 18 }] as unknown as Subject['content_packs'];
+    const withPack = getSubjectCapabilities(record({ kind: 'skill', slug: 'system-design', question_count: 0, content_packs: packs }));
+    expect(withPack).toMatchObject({ learningLab: true, lab: true, learningLabStatus: 'AVAILABLE' });
+  });
+
   it('gives a seeded preparation with no lab of its own the Kafka Lab when the Kafka pack is attached', () => {
     const packs = [{ pack_id: 'kafka', pack_version: 2, chapter_count: 21, written_scenario_count: 18 }] as unknown as Subject['content_packs'];
     const plain = record({ kind: 'skill', slug: 'system-design', question_count: 0, content_packs: [] });
