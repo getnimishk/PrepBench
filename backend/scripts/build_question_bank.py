@@ -26,8 +26,11 @@ Source format:
   is wrong) and `explain` (why the right answer is right). One right option makes
   a single-choice question; more make a multiple-choice question, whose text gets
   "(Choose N.)" so the learner knows how many to pick.
-- `parts` in `src/bank.json` (optional): name -> section numbers; each is also written as
-  `<bank>_question_bank_<name>.json`, holding only those sections.
+  A question with `"type": "ordering"` (an exam's "build list" item) has `items`, listed in the right
+  order, instead of `options`; one with `"type": "matching"` has `pairs`, each `[item, what it matches]`.
+  The learner sees both shuffled (backend/app/services/answer_grading.py has the rule).
+- `parts` in `src/bank.json` (optional): name -> section numbers, or `{"types": [...]}` for only the
+  questions of those types; each is also written as `<bank>_question_bank_<name>.json`.
 
 The explanation stored is `explain`, then each wrong option's `why`, then the
 sources by name. The question's reference link is the page of the first cited
@@ -74,8 +77,42 @@ def _citation(source: str, notes: Dict[str, Dict[str, Dict[str, str]]]):
     return notes[prefix][number]
 
 
-def build(bank: str, banks_dir: Path = BANKS_DIR, sections: Optional[List[int]] = None) -> List[dict]:
-    """The bank's questions, or only those of the given exam sections."""
+def _structured(q: dict, section: dict, meta: dict, bank: str, cited: List[dict]) -> dict:
+    """An ordering or matching question: every item is part of the answer; the stored order is the answer."""
+    kind = q["type"]
+    if kind == "ordering":
+        rows = [(t, None) for t in q["items"]]
+        key = "**The right order:**\n" + "\n".join(f"{i}. {t}" for i, (t, _) in enumerate(rows, start=1))
+    elif kind == "matching":
+        rows = [(a, b) for a, b in q["pairs"]]
+        key = "**The pairs:**\n" + "\n".join(f"- **{a}**: {b}" for a, b in rows)
+    else:
+        raise ValueError(f"{q['id']}: unknown type {kind!r}")
+    if len(rows) < 3:
+        raise ValueError(f"{q['id']}: an {kind} question needs at least 3 items")
+    names = "; ".join(f"{s} ({c['title']})" for s, c in zip(q["sources"], cited))
+    return {
+        "text": q["q"],
+        "question_type": kind,
+        "difficulty": q["difficulty"],
+        "domain": section["domain"],
+        "topic": q["topic"],
+        "certification": meta["certification"],
+        "source": meta["source"],
+        "tags": [bank, q["id"]],
+        "explanation": f"{q['explain']}\n\n{key}\n\nSources: {names}.",
+        "reference_url": next((c["url"] for c in cited if c["url"]), None),
+        "options": [
+            {"option_text": t, "is_correct": True, "explanation_why_incorrect": None, "order_index": i,
+             **({"match_target": m} if kind == "matching" else {})}
+            for i, (t, m) in enumerate(rows)
+        ],
+    }
+
+
+def build(bank: str, banks_dir: Path = BANKS_DIR, sections: Optional[List[int]] = None,
+          types: Optional[List[str]] = None) -> List[dict]:
+    """The bank's questions, or only those of the given exam sections, or of the given question types."""
     src = banks_dir / bank / "src"
     meta = json.loads((src / "bank.json").read_text(encoding="utf-8"))
     notes = {prefix: research_sections(ROOT / rel) for prefix, rel in meta["notes"].items()}
@@ -85,6 +122,11 @@ def build(bank: str, banks_dir: Path = BANKS_DIR, sections: Optional[List[int]] 
         if sections is not None and section["section"] not in sections:
             continue
         for q in section["questions"]:
+            if types is not None and q.get("type", "choice") not in types:
+                continue
+            if "type" in q:
+                out.append(_structured(q, section, meta, bank, [_citation(s, notes) for s in q["sources"]]))
+                continue
             right = [o for o in q["options"] if o.get("ok")]
             wrong = [o for o in q["options"] if not o.get("ok")]
             if not right:
@@ -123,7 +165,7 @@ def output_path(bank: str, banks_dir: Path = BANKS_DIR) -> Path:
     return banks_dir / bank / f"{bank}_question_bank.json"
 
 
-def part_paths(bank: str, banks_dir: Path = BANKS_DIR) -> Dict[Path, List[int]]:
+def part_paths(bank: str, banks_dir: Path = BANKS_DIR) -> Dict[Path, object]:
     """The bank's partial files, from bank.json's `parts` (a name -> section numbers).
 
     A part holds only some sections, so a learner who imported an earlier version can import just
@@ -131,6 +173,14 @@ def part_paths(bank: str, banks_dir: Path = BANKS_DIR) -> Dict[Path, List[int]]:
     """
     meta = json.loads((banks_dir / bank / "src" / "bank.json").read_text(encoding="utf-8"))
     return {banks_dir / bank / f"{bank}_question_bank_{name}.json": nums for name, nums in meta.get("parts", {}).items()}
+
+
+def build_part(bank: str, spec, banks_dir: Path = BANKS_DIR) -> List[dict]:
+    """A part's questions: a list of section numbers (their choice questions, as first published), or
+    {"types": [...]} for only the questions of those types (the ordering and matching added later)."""
+    if isinstance(spec, dict):
+        return build(bank, banks_dir, types=spec["types"])
+    return build(bank, banks_dir, sections=spec, types=["choice"])
 
 
 def render(questions: List[dict]) -> str:
@@ -143,6 +193,6 @@ if __name__ == "__main__":
     output_path(name).write_text(render(built), encoding="utf-8", newline="\n")
     print(f"{name}: {len(built)} questions -> {output_path(name).relative_to(ROOT)}")
     for path, nums in part_paths(name).items():
-        part = build(name, sections=nums)
+        part = build_part(name, nums)
         path.write_text(render(part), encoding="utf-8", newline="\n")
         print(f"  sections {nums}: {len(part)} questions -> {path.relative_to(ROOT)}")

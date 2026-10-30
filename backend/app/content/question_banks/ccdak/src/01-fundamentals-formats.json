@@ -1,0 +1,48 @@
+{
+  "section": 1,
+  "domain": "Apache Kafka Fundamentals",
+  "questions": [
+    {
+      "id": "F70",
+      "topic": "Producer acknowledgements",
+      "difficulty": "easy",
+      "sources": [
+        "notes §1"
+      ],
+      "type": "matching",
+      "q": "Match each producer `acks` setting to what the leader does before the send counts as complete.",
+      "pairs": [
+        [
+          "acks=0",
+          "Nothing: the record counts as sent once it is in the socket buffer"
+        ],
+        [
+          "acks=1",
+          "It writes the record to its own log and answers without waiting for followers"
+        ],
+        [
+          "acks=all",
+          "It waits for the full set of in-sync replicas"
+        ]
+      ],
+      "explain": "`acks` sets how many acknowledgements the leader must have before a request is complete. With 0 the producer doesn't wait at all (retries have no effect); with 1 the leader answers after its own write, so the record is lost if it fails before followers copy it; with all (= -1) the leader waits for the in-sync replicas, the default and what idempotence requires."
+    },
+    {
+      "id": "F71",
+      "topic": "Delivery semantics",
+      "difficulty": "medium",
+      "sources": [
+        "notes §5"
+      ],
+      "type": "ordering",
+      "q": "Put the steps of an at-least-once consumer loop in order, first to last.",
+      "items": [
+        "Fetch records from the partition, starting at the consumer's position",
+        "Process the records",
+        "Save (commit) the new position",
+        "Fetch the next records, from the saved position"
+      ],
+      "explain": "Processing before saving the position is at-least-once: a crash after processing but before the save means the records are fetched and processed again, never lost. Saving the position first and then processing is at-most-once instead."
+    }
+  ]
+}

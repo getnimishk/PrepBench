@@ -28,14 +28,16 @@ import build_question_bank  # noqa: E402
 BANK = build_question_bank.output_path("ccdak")
 SECTIONS = {
     # Confluent's April 2025 exam guide, sections 1-6 and their weights; the bank's planned size
-    # for each (300 in all, in proportion). A section is checked once its questions exist.
-    "Apache Kafka Fundamentals": 69,          # 23%
-    "Apache Kafka Application Development": 84,  # 28%
-    "Apache Kafka Streams": 36,               # 12%
-    "Kafka Connect": 45,                      # 15%
-    "Application Testing": 24,                # 8%
-    "Application Observability": 42,          # 13%
+    # for each (300 in all, in proportion), plus one matching and one build-list (ordering) question
+    # per section, the guide's two other item formats (2026-10-30). 312 in all.
+    "Apache Kafka Fundamentals": 69 + 2,          # 23%
+    "Apache Kafka Application Development": 84 + 2,  # 28%
+    "Apache Kafka Streams": 36 + 2,               # 12%
+    "Kafka Connect": 45 + 2,                      # 15%
+    "Application Testing": 24 + 2,                # 8%
+    "Application Observability": 42 + 2,          # 13%
 }
+STRUCTURED = ("ordering", "matching")
 # The guide's "Out of scope" list. ZooKeeper is no exam topic either: 4.x removed it.
 OUT_OF_SCOPE = re.compile(r"ksqlDB|\bRBAC\b|Confluent for Kubernetes|\bCFK\b|ZooKeeper", re.IGNORECASE)
 
@@ -59,13 +61,19 @@ def test_each_part_file_holds_exactly_its_sections_of_the_bank():
     parts = build_question_bank.part_paths("ccdak")
     assert parts, "the bank declares its parts in src/bank.json"
     whole = _bank()
-    for path, sections in parts.items():
+    for path, spec in parts.items():
         assert path.read_text(encoding="utf-8") == build_question_bank.render(
-            build_question_bank.build("ccdak", sections=sections)), f"{path.name} is out of date"
-        names = {q["domain"] for q in json.loads(path.read_text(encoding="utf-8"))}
-        assert names == {d for i, d in enumerate(SECTIONS, start=1) if i in sections}
+            build_question_bank.build_part("ccdak", spec)), f"{path.name} is out of date"
         part = json.loads(path.read_text(encoding="utf-8"))
         assert all(q in whole for q in part)
+        if isinstance(spec, dict):
+            # The formats part: exactly the matching and ordering questions, one of each per section.
+            assert {q["question_type"] for q in part} == set(spec["types"])
+            assert Counter(q["domain"] for q in part) == {d: 2 for d in SECTIONS}
+        else:
+            # A section part is its sections' choice questions, as first published.
+            assert {q["domain"] for q in part} == {d for i, d in enumerate(SECTIONS, start=1) if i in spec}
+            assert all(q["question_type"] not in STRUCTURED for q in part)
 
 
 def test_every_question_belongs_to_the_ccdak_certification_and_an_exam_section():
@@ -100,6 +108,15 @@ def test_the_import_validator_finds_nothing_wrong():
 
 def test_questions_have_the_exam_guides_shape():
     for q in _bank():
+        if q["question_type"] in STRUCTURED:
+            # Matching and build list: every item is part of the answer, at least three of them.
+            assert len(q["options"]) >= 3 and all(o["is_correct"] for o in q["options"]), q["tags"]
+            assert [o["order_index"] for o in q["options"]] == list(range(len(q["options"]))), q["tags"]
+            if q["question_type"] == "matching":
+                targets = [o["match_target"] for o in q["options"]]
+                assert all(targets) and len(set(targets)) == len(targets), q["tags"]
+            assert q["explanation"].strip() and q["reference_url"].startswith("https://"), q["tags"]
+            continue
         right = _right(q)
         assert len(q["options"]) >= 4, q["tags"]  # "four (4) or more response options"
         if q["question_type"] == "single_choice":
@@ -143,6 +160,13 @@ def test_the_right_answer_is_not_usually_the_longest_option():
     for domain in {q["domain"] for q in singles}:
         share = longest_share([q for q in singles if q["domain"] == domain])
         assert share <= 0.40, (domain, round(share, 2))
+
+
+def test_the_guides_four_item_formats_are_all_there():
+    """Multiple-choice, multiple-response, matching and build list (ccdak §1)."""
+    types = Counter(q["question_type"] for q in _bank())
+    assert set(types) == {"single_choice", "multiple_choice", "matching", "ordering"}
+    assert types["matching"] == types["ordering"] == 6
 
 
 def test_nothing_out_of_scope_is_asked_or_taught_as_right():

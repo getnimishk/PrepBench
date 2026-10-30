@@ -254,6 +254,7 @@ class ImportService:
                 "is_correct": opt.is_correct,
                 "explanation_why_incorrect": opt.explanation_why_incorrect,
                 "order_index": opt.order_index if opt.order_index is not None else opt_idx,
+                "match_target": opt.match_target,
             }
             for question_id, q in zip(ids, chunk)
             for opt_idx, opt in enumerate(q.options or [])

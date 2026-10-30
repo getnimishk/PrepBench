@@ -1,0 +1,503 @@
+[
+  {
+    "text": "Match each producer `acks` setting to what the leader does before the send counts as complete.",
+    "question_type": "matching",
+    "difficulty": "easy",
+    "domain": "Apache Kafka Fundamentals",
+    "topic": "Producer acknowledgements",
+    "certification": "CCDAK",
+    "source": "PrepBench CCDAK bank: Apache Kafka 4.3 docs and Confluent's April 2025 exam guide",
+    "tags": [
+      "ccdak",
+      "F70"
+    ],
+    "explanation": "`acks` sets how many acknowledgements the leader must have before a request is complete. With 0 the producer doesn't wait at all (retries have no effect); with 1 the leader answers after its own write, so the record is lost if it fails before followers copy it; with all (= -1) the leader waits for the in-sync replicas, the default and what idempotence requires.\n\n**The pairs:**\n- **acks=0**: Nothing: the record counts as sent once it is in the socket buffer\n- **acks=1**: It writes the record to its own log and answers without waiting for followers\n- **acks=all**: It waits for the full set of in-sync replicas\n\nSources: notes §1 (Producer configuration (4.3 defaults)).",
+    "reference_url": "https://kafka.apache.org/43/configuration/producer-configs/",
+    "options": [
+      {
+        "option_text": "acks=0",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 0,
+        "match_target": "Nothing: the record counts as sent once it is in the socket buffer"
+      },
+      {
+        "option_text": "acks=1",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 1,
+        "match_target": "It writes the record to its own log and answers without waiting for followers"
+      },
+      {
+        "option_text": "acks=all",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 2,
+        "match_target": "It waits for the full set of in-sync replicas"
+      }
+    ]
+  },
+  {
+    "text": "Put the steps of an at-least-once consumer loop in order, first to last.",
+    "question_type": "ordering",
+    "difficulty": "medium",
+    "domain": "Apache Kafka Fundamentals",
+    "topic": "Delivery semantics",
+    "certification": "CCDAK",
+    "source": "PrepBench CCDAK bank: Apache Kafka 4.3 docs and Confluent's April 2025 exam guide",
+    "tags": [
+      "ccdak",
+      "F71"
+    ],
+    "explanation": "Processing before saving the position is at-least-once: a crash after processing but before the save means the records are fetched and processed again, never lost. Saving the position first and then processing is at-most-once instead.\n\n**The right order:**\n1. Fetch records from the partition, starting at the consumer's position\n2. Process the records\n3. Save (commit) the new position\n4. Fetch the next records, from the saved position\n\nSources: notes §5 (Design: producer, consumer, delivery semantics, transactions).",
+    "reference_url": "https://kafka.apache.org/43/design/design/",
+    "options": [
+      {
+        "option_text": "Fetch records from the partition, starting at the consumer's position",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 0
+      },
+      {
+        "option_text": "Process the records",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 1
+      },
+      {
+        "option_text": "Save (commit) the new position",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 2
+      },
+      {
+        "option_text": "Fetch the next records, from the saved position",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 3
+      }
+    ]
+  },
+  {
+    "text": "Match each delivery guarantee to how a consumer that writes its results to Kafka achieves it.",
+    "question_type": "matching",
+    "difficulty": "medium",
+    "domain": "Apache Kafka Application Development",
+    "topic": "Delivery semantics",
+    "certification": "CCDAK",
+    "source": "PrepBench CCDAK bank: Apache Kafka 4.3 docs and Confluent's April 2025 exam guide",
+    "tags": [
+      "ccdak",
+      "D85"
+    ],
+    "explanation": "The design docs split the semantics by when the position is saved. Saving it first loses records on a crash (at most once); saving it after processing may process them again (at least once, the default). Kafka-to-Kafka exactly once stores the consumer's position as a message in an internal topic and commits it in the same transaction as the output.\n\n**The pairs:**\n- **At most once**: Save the position, then process the records\n- **At least once**: Process the records, then save the position\n- **Exactly once**: Write the output and the offsets in one transaction\n\nSources: notes §5 (Design: producer, consumer, delivery semantics, transactions).",
+    "reference_url": "https://kafka.apache.org/43/design/design/",
+    "options": [
+      {
+        "option_text": "At most once",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 0,
+        "match_target": "Save the position, then process the records"
+      },
+      {
+        "option_text": "At least once",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 1,
+        "match_target": "Process the records, then save the position"
+      },
+      {
+        "option_text": "Exactly once",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 2,
+        "match_target": "Write the output and the offsets in one transaction"
+      }
+    ]
+  },
+  {
+    "text": "A consume-transform-produce application's transaction is aborted. Put what happens next in order, first to last.",
+    "question_type": "ordering",
+    "difficulty": "hard",
+    "domain": "Apache Kafka Application Development",
+    "topic": "Transactions",
+    "certification": "CCDAK",
+    "source": "PrepBench CCDAK bank: Apache Kafka 4.3 docs and Confluent's April 2025 exam guide",
+    "tags": [
+      "ccdak",
+      "D86"
+    ],
+    "explanation": "On an abort the stored position reverts, but the consumer doesn't rewind by itself: the docs say the application must reset its consumer position. The simplest recovery is to recreate producer and consumer, which rewinds to the last committed offset.\n\n**The right order:**\n1. The producer aborts the transaction\n2. The offsets written in that transaction are discarded, so the stored position reverts\n3. The application resets its consumer to the last committed position\n4. The records are processed again, in a new transaction\n\nSources: notes §5 (Design: producer, consumer, delivery semantics, transactions).",
+    "reference_url": "https://kafka.apache.org/43/design/design/",
+    "options": [
+      {
+        "option_text": "The producer aborts the transaction",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 0
+      },
+      {
+        "option_text": "The offsets written in that transaction are discarded, so the stored position reverts",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 1
+      },
+      {
+        "option_text": "The application resets its consumer to the last committed position",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 2
+      },
+      {
+        "option_text": "The records are processed again, in a new transaction",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 3
+      }
+    ]
+  },
+  {
+    "text": "Match each Kafka Streams abstraction to how it treats the records of its topic.",
+    "question_type": "matching",
+    "difficulty": "medium",
+    "domain": "Apache Kafka Streams",
+    "topic": "KStream, KTable, GlobalKTable",
+    "certification": "CCDAK",
+    "source": "PrepBench CCDAK bank: Apache Kafka 4.3 docs and Confluent's April 2025 exam guide",
+    "tags": [
+      "ccdak",
+      "S37"
+    ],
+    "explanation": "A KStream is a record stream; a KTable is a changelog stream (upserts per key, null deletes); a GlobalKTable is filled from all partitions on every instance, so joins against it need no co-partitioning, at the cost of local storage and broker load.\n\n**The pairs:**\n- **KStream**: Each record is an insert: a repeated key adds another record\n- **KTable**: Each record is an update for its key, and a null value is a delete\n- **GlobalKTable**: Every instance holds the data of all the topic's partitions\n\nSources: ccdak §9 (Kafka Streams: the DSL).",
+    "reference_url": "https://kafka.apache.org/43/streams/developer-guide/dsl-api/",
+    "options": [
+      {
+        "option_text": "KStream",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 0,
+        "match_target": "Each record is an insert: a repeated key adds another record"
+      },
+      {
+        "option_text": "KTable",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 1,
+        "match_target": "Each record is an update for its key, and a null value is a delete"
+      },
+      {
+        "option_text": "GlobalKTable",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 2,
+        "match_target": "Every instance holds the data of all the topic's partitions"
+      }
+    ]
+  },
+  {
+    "text": "An instance running a stateful task fails, and the task moves to another instance with no standby replica. Put what happens in order, first to last.",
+    "question_type": "ordering",
+    "difficulty": "medium",
+    "domain": "Apache Kafka Streams",
+    "topic": "State stores and fault tolerance",
+    "certification": "CCDAK",
+    "source": "PrepBench CCDAK bank: Apache Kafka 4.3 docs and Confluent's April 2025 exam guide",
+    "tags": [
+      "ccdak",
+      "S38"
+    ],
+    "explanation": "Each state store has a changelog topic. A task restarted on another machine restores its store by replaying the changelog before it processes; standby replicas keep copies elsewhere to cut that restore time.\n\n**The right order:**\n1. The instance running the task fails\n2. The task is assigned to another instance\n3. The task restores its state store by replaying the store's changelog topic\n4. The task starts processing records again\n\nSources: ccdak §10 (Kafka Streams: configuration and runtime).",
+    "reference_url": "https://kafka.apache.org/43/streams/developer-guide/config-streams/",
+    "options": [
+      {
+        "option_text": "The instance running the task fails",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 0
+      },
+      {
+        "option_text": "The task is assigned to another instance",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 1
+      },
+      {
+        "option_text": "The task restores its state store by replaying the store's changelog topic",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 2
+      },
+      {
+        "option_text": "The task starts processing records again",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 3
+      }
+    ]
+  },
+  {
+    "text": "Match each part of Kafka Connect to its job.",
+    "question_type": "matching",
+    "difficulty": "medium",
+    "domain": "Kafka Connect",
+    "topic": "Connectors, tasks, converters, transforms",
+    "certification": "CCDAK",
+    "source": "PrepBench CCDAK bank: Apache Kafka 4.3 docs and Confluent's April 2025 exam guide",
+    "tags": [
+      "ccdak",
+      "C46"
+    ],
+    "explanation": "A connector does no copying itself: it splits the job into source or sink tasks that workers run. Converters, set on the worker and optionally per connector, turn Connect's data into bytes and back, so any connector works with any format. Single message transformations change records in flight, and can be applied conditionally with predicates.\n\n**The pairs:**\n- **Connector**: Describes the data and splits the job into tasks\n- **Task**: Copies the data, run by a worker\n- **Converter**: Converts between Connect's data format and the bytes written to Kafka\n- **Transformation (SMT)**: Changes single messages, or drops them with Filter and a predicate\n\nSources: ccdak §13 (Kafka Connect: workers, connectors, tasks, converters, transforms).",
+    "reference_url": "https://kafka.apache.org/43/kafka-connect/user-guide/",
+    "options": [
+      {
+        "option_text": "Connector",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 0,
+        "match_target": "Describes the data and splits the job into tasks"
+      },
+      {
+        "option_text": "Task",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 1,
+        "match_target": "Copies the data, run by a worker"
+      },
+      {
+        "option_text": "Converter",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 2,
+        "match_target": "Converts between Connect's data format and the bytes written to Kafka"
+      },
+      {
+        "option_text": "Transformation (SMT)",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 3,
+        "match_target": "Changes single messages, or drops them with Filter and a predicate"
+      }
+    ]
+  },
+  {
+    "text": "A sink connector's task has failed. Put the steps to bring it back in order, first to last.",
+    "question_type": "ordering",
+    "difficulty": "medium",
+    "domain": "Kafka Connect",
+    "topic": "Connect REST API",
+    "certification": "CCDAK",
+    "source": "PrepBench CCDAK bank: Apache Kafka 4.3 docs and Confluent's April 2025 exam guide",
+    "tags": [
+      "ccdak",
+      "C47"
+    ],
+    "explanation": "Connect does not restart failed tasks automatically; restart them through the REST API. The status endpoint reports each connector's and task's state, worker and errors, so it is where you start and where you confirm the fix.\n\n**The right order:**\n1. Read GET /connectors/{name}/status to find the failed task and its error\n2. Fix the cause of the error\n3. Restart the task with POST /connectors/{name}/tasks/{id}/restart\n4. Check GET /connectors/{name}/status again until the task is RUNNING\n\nSources: ccdak §13 (Kafka Connect: workers, connectors, tasks, converters, transforms); ccdak §14 (Kafka Connect: the REST API and states).",
+    "reference_url": "https://kafka.apache.org/43/kafka-connect/user-guide/",
+    "options": [
+      {
+        "option_text": "Read GET /connectors/{name}/status to find the failed task and its error",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 0
+      },
+      {
+        "option_text": "Fix the cause of the error",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 1
+      },
+      {
+        "option_text": "Restart the task with POST /connectors/{name}/tasks/{id}/restart",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 2
+      },
+      {
+        "option_text": "Check GET /connectors/{name}/status again until the task is RUNNING",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 3
+      }
+    ]
+  },
+  {
+    "text": "Match each testing tool to what it is for.",
+    "question_type": "matching",
+    "difficulty": "easy",
+    "domain": "Application Testing",
+    "topic": "Testing tools",
+    "certification": "CCDAK",
+    "source": "PrepBench CCDAK bank: Apache Kafka 4.3 docs and Confluent's April 2025 exam guide",
+    "tags": [
+      "ccdak",
+      "T25"
+    ],
+    "explanation": "TopologyTestDriver (in kafka-streams-test-utils) pipes records through a topology with no broker. MockProducer can complete sends one at a time or with an error (completeNext, errorNext); MockConsumer takes records with addRecord and failures with setPollException. The application reset tool resets input offsets and deletes internal topics, but not output topics or local state.\n\n**The pairs:**\n- **TopologyTestDriver**: Running a Streams topology without a broker\n- **MockProducer**: Testing code that sends records, including failed sends\n- **MockConsumer**: Testing code that polls, with records and exceptions the test adds\n- **kafka-streams-application-reset**: Rewinding a Streams application's input topics and deleting its internal topics\n\nSources: ccdak §11 (Testing Kafka Streams applications and tools); ccdak §12 (Testing client applications: MockProducer and MockConsumer).",
+    "reference_url": "https://kafka.apache.org/43/streams/developer-guide/testing/",
+    "options": [
+      {
+        "option_text": "TopologyTestDriver",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 0,
+        "match_target": "Running a Streams topology without a broker"
+      },
+      {
+        "option_text": "MockProducer",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 1,
+        "match_target": "Testing code that sends records, including failed sends"
+      },
+      {
+        "option_text": "MockConsumer",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 2,
+        "match_target": "Testing code that polls, with records and exceptions the test adds"
+      },
+      {
+        "option_text": "kafka-streams-application-reset",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 3,
+        "match_target": "Rewinding a Streams application's input topics and deleting its internal topics"
+      }
+    ]
+  },
+  {
+    "text": "Put the steps of a TopologyTestDriver test in order, first to last.",
+    "question_type": "ordering",
+    "difficulty": "medium",
+    "domain": "Application Testing",
+    "topic": "Testing Streams",
+    "certification": "CCDAK",
+    "source": "PrepBench CCDAK bank: Apache Kafka 4.3 docs and Confluent's April 2025 exam guide",
+    "tags": [
+      "ccdak",
+      "T26"
+    ],
+    "explanation": "The driver simulates the runtime: createInputTopic gives a TestInputTopic for pipeInput, createOutputTopic a TestOutputTopic for readKeyValue or isEmpty. The docs say to call close() after each test.\n\n**The right order:**\n1. Build the Topology and create a TopologyTestDriver for it\n2. Create a TestInputTopic and a TestOutputTopic with their serializers and deserializers\n3. Pipe input records into the TestInputTopic\n4. Read the output and assert on it\n5. Close the driver\n\nSources: ccdak §11 (Testing Kafka Streams applications and tools).",
+    "reference_url": "https://kafka.apache.org/43/streams/developer-guide/testing/",
+    "options": [
+      {
+        "option_text": "Build the Topology and create a TopologyTestDriver for it",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 0
+      },
+      {
+        "option_text": "Create a TestInputTopic and a TestOutputTopic with their serializers and deserializers",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 1
+      },
+      {
+        "option_text": "Pipe input records into the TestInputTopic",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 2
+      },
+      {
+        "option_text": "Read the output and assert on it",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 3
+      },
+      {
+        "option_text": "Close the driver",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 4
+      }
+    ]
+  },
+  {
+    "text": "Match each client metric to what it measures.",
+    "question_type": "matching",
+    "difficulty": "medium",
+    "domain": "Application Observability",
+    "topic": "Client metrics",
+    "certification": "CCDAK",
+    "source": "PrepBench CCDAK bank: Apache Kafka 4.3 docs and Confluent's April 2025 exam guide",
+    "tags": [
+      "ccdak",
+      "O43"
+    ],
+    "explanation": "records-lag-max is a consumer fetch metric based on the current offset, not the committed one. record-error-rate and bufferpool-wait-ratio are producer metrics; poll-idle-ratio-avg is a consumer metric. Every rate metric also has a cumulative -total partner.\n\n**The pairs:**\n- **records-lag-max**: The largest lag in records for any partition, from the consumer's current position\n- **record-error-rate**: Producer sends that resulted in errors\n- **bufferpool-wait-ratio**: The fraction of time the producer waits for buffer space\n- **poll-idle-ratio-avg**: The fraction of time poll is idle rather than waiting for user code\n\nSources: ccdak §15 (Client metrics).",
+    "reference_url": "https://kafka.apache.org/43/operations/monitoring/",
+    "options": [
+      {
+        "option_text": "records-lag-max",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 0,
+        "match_target": "The largest lag in records for any partition, from the consumer's current position"
+      },
+      {
+        "option_text": "record-error-rate",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 1,
+        "match_target": "Producer sends that resulted in errors"
+      },
+      {
+        "option_text": "bufferpool-wait-ratio",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 2,
+        "match_target": "The fraction of time the producer waits for buffer space"
+      },
+      {
+        "option_text": "poll-idle-ratio-avg",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 3,
+        "match_target": "The fraction of time poll is idle rather than waiting for user code"
+      }
+    ]
+  },
+  {
+    "text": "Kafka Streams reports its own metrics in four layers. Put them in order, from the broadest to the narrowest.",
+    "question_type": "ordering",
+    "difficulty": "medium",
+    "domain": "Application Observability",
+    "topic": "Streams metrics",
+    "certification": "CCDAK",
+    "source": "PrepBench CCDAK bank: Apache Kafka 4.3 docs and Confluent's April 2025 exam guide",
+    "tags": [
+      "ccdak",
+      "O44"
+    ],
+    "explanation": "A Streams instance has all the producer and consumer metrics plus its own, in four layers: client, thread, task, and processor node / state store / cache. metrics.recording.level (default info) chooses how many are recorded.\n\n**The right order:**\n1. Client (the whole Streams instance)\n2. Thread\n3. Task\n4. Processor node, state store and cache\n\nSources: ccdak §16 (Streams and Connect metrics).",
+    "reference_url": "https://kafka.apache.org/43/operations/monitoring/",
+    "options": [
+      {
+        "option_text": "Client (the whole Streams instance)",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 0
+      },
+      {
+        "option_text": "Thread",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 1
+      },
+      {
+        "option_text": "Task",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 2
+      },
+      {
+        "option_text": "Processor node, state store and cache",
+        "is_correct": true,
+        "explanation_why_incorrect": null,
+        "order_index": 3
+      }
+    ]
+  }
+]

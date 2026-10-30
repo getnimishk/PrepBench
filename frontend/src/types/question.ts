@@ -10,7 +10,11 @@ export type QuestionType =
   | 'case_study'
   | 'image'
   | 'code'
-  | 'drag_and_drop';
+  | 'drag_and_drop'
+  /** Put the options in order: their stored order (order_index) is the answer. */
+  | 'ordering'
+  /** Pair each option with its match_target. */
+  | 'matching';
 
 export type QuestionDifficulty = 'easy' | 'medium' | 'hard';
 
@@ -45,6 +49,8 @@ export interface QuestionOption {
   is_correct: boolean;
   explanation_why_incorrect?: string | null;
   order_index?: number;
+  /** A matching question's right-hand side; absent for every other type. */
+  match_target?: string | null;
 }
 
 export interface Question {

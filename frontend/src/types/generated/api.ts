@@ -3374,6 +3374,8 @@ export interface components {
             question_id: number;
             /** Question Text */
             question_text: string;
+            /** @default single_choice */
+            question_type: components["schemas"]["QuestionType"];
         };
         /** CheckRequest */
         CheckRequest: {
@@ -5754,6 +5756,8 @@ export interface components {
              * @default false
              */
             is_correct: boolean;
+            /** Match Target */
+            match_target?: string | null;
             /** Option Text */
             option_text: string;
             /**
@@ -5773,6 +5777,8 @@ export interface components {
              * @default false
              */
             is_correct: boolean;
+            /** Match Target */
+            match_target?: string | null;
             /** Option Text */
             option_text: string;
             /**
@@ -5887,7 +5893,7 @@ export interface components {
          * QuestionType
          * @enum {string}
          */
-        QuestionType: "single_choice" | "multiple_choice" | "true_false" | "scenario" | "case_study" | "image" | "code" | "drag_and_drop";
+        QuestionType: "single_choice" | "multiple_choice" | "true_false" | "scenario" | "case_study" | "image" | "code" | "drag_and_drop" | "ordering" | "matching";
         /** QuestionUpdate */
         QuestionUpdate: {
             /** Case Study Text */
@@ -6217,6 +6223,8 @@ export interface components {
             question_id: number;
             /** Question Text */
             question_text: string;
+            /** @default single_choice */
+            question_type: components["schemas"]["QuestionType"];
             /** Selected Option Ids */
             selected_option_ids: number[];
             /** Session Id */
@@ -6232,6 +6240,13 @@ export interface components {
             id: number;
             /** Is Correct */
             is_correct: boolean;
+            /** Match Target */
+            match_target?: string | null;
+            /**
+             * Order Index
+             * @default 0
+             */
+            order_index: number;
             /** Text */
             text: string;
             /** Why Incorrect */

@@ -12,6 +12,8 @@ class QuestionOptionBase(BaseModel):
     is_correct: bool = Field(default=False, validation_alias=AliasChoices('is_correct', 'isCorrect'))
     explanation_why_incorrect: Optional[str] = None
     order_index: int = 0
+    # Matching questions only: what this option is paired with (services/answer_grading.py).
+    match_target: Optional[str] = None
 
 class QuestionOptionCreate(QuestionOptionBase):
     pass
