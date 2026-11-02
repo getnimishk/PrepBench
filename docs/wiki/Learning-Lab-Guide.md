@@ -23,11 +23,16 @@ Labs save your work under the preparation chosen in the header picker at the top
 |---|---|---|
 | **Agile Metrics** | Any, or none | It works on its own |
 | **ADF Behaviour Lab** | A *skill* preparation with the **ADF study guide** attached | The experiments are part of that guide |
+| **Kafka Lab** | A *skill* preparation with the **Apache Kafka study guide** attached | The experiments are part of that guide |
+| **Databricks Lab** | A *skill* preparation with the **Databricks on Azure study guide** attached | The experiments are part of that guide |
 | **Lakehouse Lab** | The **Databricks** preparation | The lab keeps its work there |
 
-To attach the ADF study guide:
+To attach a study guide:
 1. Go to **Preparations** and open your skill preparation's **Edit** page.
 2. Choose **Attach** next to the guide.
+
+Certification preparations can't have a guide attached, so these labs aren't available while one is chosen. Pick the skill
+preparation.
 
 Without a Databricks preparation, the Lakehouse Lab still runs, but it can't save interview questions; it tells you so.
 
@@ -113,6 +118,38 @@ A finished run stays as it is. To practise again, press **Start a new run**: you
 | **Fault Tolerance** | Two modes: failing dependencies, and bad rows | Error handling around the copy · What goes wrong · Retries · When a row can't be written · Data consistency verification |
 
 **Tip:** in Concurrency Budget, change one lever at a time and watch **connections at peak** against the source's limit. Every other result follows from that number.
+
+## Kafka Lab (`/lab/kafka`)
+
+**What you are doing:** six experiments for someone who has never seen Kafka run, each on a small simulated cluster drawn on
+screen. It is a teaching simulation, not a broker. The eight stages are the same as in the ADF Behaviour Lab.
+
+| Experiment | It is about | Levers you can change |
+|---|---|---|
+| **The log, not a queue** | Records stay after they are read; where a new consumer group starts | auto.offset.reset · The group id · Topic retention |
+| **Keys, partitions and order** | Same key, same partition; order within a partition; hot keys | The key · Partitions · The big customer's share |
+| **Consumer groups and parallelism** | One consumer per partition per group; where lag comes from | Consumers · Partitions · Per-consumer rate · A second group |
+| **Commits and crashes** | When you commit decides lost or repeated work after a crash | When the consumer commits · Whether the email step checks first |
+| **Copies, acks and min ISR** | Who must hold a write before it is acknowledged | acks · min.insync.replicas · Followers in sync |
+| **When things go wrong** | Two modes: a record that can't be read, and a service that is down | How a bad record is handled · Where retries happen · How many layers retry · Circuit breaker |
+
+## Databricks Lab (`/lab/databricks`)
+
+**What you are doing:** six experiments on the Databricks topics the Lakehouse Lab's stations don't cover. Each draws what
+happened and says it is a teaching simulation, not a Databricks workspace. The eight stages are the same as in the ADF
+Behaviour Lab.
+
+| Experiment | It is about | Levers you can change |
+|---|---|---|
+| **Versions, retention and VACUUM** | Time travel needs a version's log entry and its data files | Version asked for · delta.deletedFileRetentionDuration · delta.logRetentionDuration |
+| **Auto Loader, schema changes and the checkpoint** | A new column, the evolution modes, and what the checkpoint remembers | cloudFiles.schemaEvolutionMode · Task retry · The checkpoint |
+| **Streaming tables and materialized views** | What a dimension or query change does to rows already written | Dataset type · What changes · Refresh or full refresh |
+| **Retries, repair and duplicates** | Why a rerun of an appending task duplicates data | Retries · Append or MERGE · Repair |
+| **Shuffle, skew and AQE** | One hot key, one slow task; what AQE fixes and what salting fixes | Operation (join or groupBy) · AQE · Salting |
+| **Privileges and dropped tables** | Two modes: who can read a table, and what a drop does to its files | Where SELECT is granted · USE SCHEMA · USE CATALOG · Table type · Days since the drop · Recovery period |
+
+**After any lab run:** a finished run can be saved as a **Technical interview question**, with talking points taken only from
+what your run recorded. Rehearse it under **Interview**.
 
 ---
 

@@ -19,7 +19,7 @@ PrepBench is a local-first study platform built around one question: **would you
 - argue architecture decisions against a graded rubric;
 - get feedback on written system design answers and spoken interview responses;
 - work through study guides and incident scenarios;
-- learn by prediction in simulation labs (agile metrics, Azure Data Factory, and a Hadoop-to-Databricks migration);
+- learn by prediction in simulation labs (agile metrics, Azure Data Factory, Apache Kafka, Databricks, and a Hadoop-to-Databricks migration);
 - track any syllabus as a visual roadmap.
 
 All of it runs from a single SQLite file on your laptop.
@@ -57,12 +57,12 @@ There is no account, no telemetry, and no subscription. A network connection is 
 | **Design Review** | Two defensible architectures for one requirement. Pick one and say why — or refuse to pick and say what you would ask first. What is graded is whether your reasoning found the axis the decision turns on, not which option you chose |
 | **System design practice** | Write answers to real prompts and get graded across a six-category rubric — scores, strengths, and specific improvements, calibrated to your target role. Drafts save as you type, so you can leave and come back |
 | **Interview practice (audio)** | Record spoken answers across five rounds: HR screening, hiring manager, system design, behavioral and technical. Practise one question at a time, or run a full **interview session**, with thinking time and a target answer length, in a focus mode with nothing else on screen. Every round opens with an introduction question, as a real interview does. Scored on **what you said** (content) and **how you said it** (pacing, filler words, clarity). Write a prepared answer and key talking points for a question beforehand, and your take is graded against your own plan — a plan alignment score, which points were covered, missed, or only partly hit, and what to do differently on the next take |
-| **Learning Lab** | Simulation sandboxes that teach by prediction, not lecture: predict, change a lever, observe, explain. There are three:<br>• **Agile Metrics:** 27 views over one executable delivery model.<br>• **ADF Behaviour Lab:** five experiments on how Azure Data Factory pipelines behave.<br>• **Lakehouse Lab:** a fictional Hadoop-to-Databricks migration across six stations, two of them on a real Delta engine (an optional install).<br>Every simulation says it is one, and every fact links to its source |
-| **Study Library and scenarios** | Built-in study guides (Azure Data Factory, 21 chapters; ADLS, 11 chapters) and 18 written incident scenarios, linked to the roadmap topics they cover |
+| **Learning Lab** | Simulation sandboxes that teach by prediction, not lecture: predict, change a lever, observe, explain. There are five:<br>• **Agile Metrics:** 27 views over one executable delivery model.<br>• **ADF Behaviour Lab:** five experiments on how Azure Data Factory pipelines behave.<br>• **Kafka Lab:** six beginner experiments, from what a log is to why an acknowledged write can be lost.<br>• **Databricks Lab:** six experiments on table history and VACUUM, Auto Loader, pipeline datasets, job repair, skew and Unity Catalog privileges.<br>• **Lakehouse Lab:** a fictional Hadoop-to-Databricks migration across six stations, two of them on a real Delta engine (an optional install).<br>Every simulation says it is one, and every fact links to its source. A finished lab run can be saved as an interview question |
+| **Study Library and scenarios** | Built-in study guides (Azure Data Factory, 23 chapters; ADLS, 11; Apache Kafka, 21; Databricks on Azure, 24) and 54 written incident scenarios (18 each for ADF, Kafka and Databricks), linked to the roadmap topics they cover |
 | **Workspace and Evidence** | Workspace collects your own work in a preparation: lab runs, case notes, prepared answers, recordings, notes. Evidence says what that work *demonstrates*: activity, completed, demonstrated, or evidenced. It never claims readiness |
 | **Learning roadmaps** | Import any syllabus (`.xlsx` / `.json` / `.md` / `.csv`) and track it in three views: a table for editing, a journey map for orientation, and a Gantt schedule that projects your finish date. A topic is complete only when you **demonstrate** it, and it links to the study-guide chapters, scenarios and lab experiments that cover it |
 | **Analytics** | A tab per practice mode — score trends with rolling averages, domain mastery, per-category breakdowns, and your weakest area called out by name |
-| **Question bank** | Full CRUD editor, bulk import from JSON/CSV/Excel/Markdown, advanced search, and a pre-import audit that validates a batch before it touches your database |
+| **Question bank** | Full CRUD editor, bulk import from JSON/CSV/Excel/Markdown, advanced search, and a pre-import audit that validates a batch before it touches your database. Single choice, multiple choice, matching and build-list (ordering) questions. Bundled banks to import: CCDAK (312), Databricks Data Engineer Associate (300) and Professional (182) |
 | **Reports** | Export any exam session as a formatted PDF or a multi-sheet Excel workbook |
 
 > [!IMPORTANT]
@@ -170,9 +170,11 @@ A home for simulation sandboxes, each teaching through the same loop: predict, m
 |---|---|---|
 | **Agile Metrics** | `/chart-sandbox` | Delivery metrics, from one executable model (below) |
 | **ADF Behaviour Lab** | `/lab/adf` | Five Azure Data Factory experiments: watermarks, triggers, concurrency, copy performance, fault tolerance. Open to any preparation with the ADF study guide attached |
+| **Kafka Lab** | `/lab/kafka` | Six beginner experiments on a small simulated cluster: the log, keys and order, consumer groups, commits and crashes, replication and acks, and failures (poison records and retry storms). Open to any preparation with the Apache Kafka study guide attached |
+| **Databricks Lab** | `/lab/databricks` | Six experiments on the exam topics the Lakehouse Lab doesn't cover: versions, retention and VACUUM; Auto Loader and its checkpoint; streaming tables and materialized views; job retries and repair; shuffle, skew and AQE; privileges and dropped tables. Open to any preparation with the Databricks study guide attached |
 | **Lakehouse Lab** | `/databricks-sandbox` | A fictional Hadoop-to-Databricks migration, at programme level (migration waves; identity and governance) and pipeline level (ADF and Lakeflow, ADLS, Delta Lake, a reconciliation hunt for planted defects) |
 
-A few rules apply to all three:
+A few rules apply to all of them:
 - **Your prediction is write-once**, and the model grades it, never AI.
 - **Your explanations are never scored.**
 - **Simulations are labelled.** Teaching constants are labelled as such.
@@ -327,7 +329,9 @@ option_1, option_1_correct, option_2, option_2_correct, ...
 
 </details>
 
-Pre-seeded packs cover **PSM I**, **PSPO I**, **AWS Solutions Architect**, **Kafka**, and **System Design** — but PrepBench is certification-agnostic. Import your own and prepare for anything.
+Matching and build-list (ordering) questions use `"question_type": "matching"` (each option has a `match_target`, its pair) or `"ordering"` (options listed in the right order; learners see them shuffled). See [Importing Content](https://github.com/getnimishk/PrepBench/wiki/Importing-Content).
+
+Bundled banks, ready to import, live in `backend/app/content/question_banks/`: **CCDAK** (312 questions), **Databricks Data Engineer Associate** (300) and **Databricks Data Engineer Professional** (182). Each joins the preparation whose certification name matches exactly. Pre-seeded packs cover **PSM I**, **PSPO I**, **AWS Solutions Architect**, **Kafka**, and **System Design** — but PrepBench is certification-agnostic. Import your own and prepare for anything.
 
 ---
 
@@ -395,7 +399,8 @@ PrepBench/
 │   │   ├── schemas/         # Pydantic request/response models
 │   │   ├── services/        # Business logic
 │   │   ├── llm/             # AI provider adapters and per-task routing
-│   │   ├── content/packs/   # Built-in study guides and scenarios (ADF, ADLS)
+│   │   ├── content/packs/   # Built-in study guides and scenarios (ADF, ADLS, Kafka, Databricks)
+│   │   ├── content/question_banks/  # Bundled question banks to import (CCDAK, Databricks Associate and Professional)
 │   │   ├── data/lab_packs/  # Lakehouse Lab scenario packs
 │   │   └── utils/           # PDF/Excel generators, seed data
 │   └── tests/
@@ -478,7 +483,7 @@ The [wiki](https://github.com/getnimishk/PrepBench/wiki) holds what would bloat 
 | [Readiness](https://github.com/getnimishk/PrepBench/wiki/Readiness) | Subjects, why a drill never counts as a mock, the five states and their thresholds |
 | [Design Review](https://github.com/getnimishk/PrepBench/wiki/Design-Review) | The deciding axis, the grading contract, and how to write a review |
 | [How to use the Learning Lab](https://github.com/getnimishk/PrepBench/wiki/Learning-Lab-Guide) | A learner's guide to every lab and station: what you do, the controls, how to read results |
-| [Learning Lab](https://github.com/getnimishk/PrepBench/wiki/Learning-Lab) | The three sandboxes, the rules they share, the Lakehouse stations, and where Station I's facts come from |
+| [Learning Lab](https://github.com/getnimishk/PrepBench/wiki/Learning-Lab) | The five sandboxes, the rules they share, the Lakehouse stations, and where Station I's facts come from |
 | [Chart Sandbox](https://github.com/getnimishk/PrepBench/wiki/Chart-Sandbox) | The executable delivery model, the coupling ledger, the guided track |
 | [AI Providers](https://github.com/getnimishk/PrepBench/wiki/AI-Providers) | Task-level routing, local model setup, how keys are stored |
 | [Importing Content](https://github.com/getnimishk/PrepBench/wiki/Importing-Content) | Question formats, roadmap column detection, the pre-import audit |

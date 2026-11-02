@@ -73,7 +73,9 @@ Optional, and off by default. `validate_content=True` runs the batch through `co
 
 This is one of the AI-backed tasks (`content_validation`; the full list is on [AI Providers](AI-Providers)), so it needs a provider configured. Without one it is simply unavailable — see [AI Providers](AI-Providers).
 
-## Bundled banks: CCDAK
+## Bundled banks
+
+### CCDAK
 
 `backend/app/content/question_banks/ccdak/ccdak_question_bank.json` is a CCDAK (Confluent Certified Developer for Apache
 Kafka) bank, ready to import as JSON. Its questions carry `certification: "CCDAK"`, so they join the preparation whose
@@ -87,6 +89,46 @@ edit the sources and rebuild, never the JSON (`tests/test_ccdak_question_bank.py
 only warned about, not blocked. If you imported the first version (Fundamentals and Application Development, 153
 questions), import `ccdak_question_bank_sections-3-6.json` instead of the full file: it holds only the four sections added
 since (Streams, Connect, Testing, Observability; 147 questions).
+
+Since 2026-10-30 it also has the exam guide's two other formats: one **matching** and one **build-list (ordering)** question
+per section, 312 questions in all. If you imported the 300, import `ccdak_question_bank_formats.json`: it holds only those 12.
+
+### Databricks Data Engineer Associate and Professional
+
+`backend/app/content/question_banks/dbdea/dbdea_question_bank.json` (300 questions,
+`certification: "Databricks Certified Data Engineer Associate"`) follows the seven sections of the August 2026 exam guide by
+weight. `backend/app/content/question_banks/dbdep/dbdep_question_bank.json` (182 questions,
+`certification: "Databricks Certified Data Engineer Professional"`) follows the nine sections of the 9 October 2026 guide,
+at about three times the exam's 60 questions. Every question cites sections of `docs/research/databricks-documentation-notes.md`.
+
+Databricks publishes no pass mark for either exam, and the banks state none. Creating a certification preparation asks for
+one, so enter your own target. If you imported the Associate's first part (sections 2, 3 and 7), import
+`dbdea_question_bank_sections-1-4-5-6.json` for the rest.
+
+## Matching and build-list questions
+
+Two question types answer with an arrangement rather than a pick:
+
+- **`ordering`** (a build list): list the options in the right order. Learners see them shuffled and move them with
+  buttons. Every option has `"is_correct": true`; `order_index` (or the list order) is the answer.
+- **`matching`**: each option has a `match_target`, the text it pairs with. Learners pair each item from a shuffled list
+  of the targets.
+
+Both need at least three items, and a matching question's targets must all be different. An answer that isn't complete
+yet (an item not placed or not paired) is never marked wrong.
+
+```json
+{
+  "text": "Match each producer acks setting to what the leader does before the send counts as complete.",
+  "question_type": "matching",
+  "certification": "CCDAK",
+  "options": [
+    { "option_text": "acks=0", "match_target": "Nothing: the record counts as sent once it is in the socket buffer", "is_correct": true },
+    { "option_text": "acks=1", "match_target": "It writes the record to its own log and answers without waiting", "is_correct": true },
+    { "option_text": "acks=all", "match_target": "It waits for the full set of in-sync replicas", "is_correct": true }
+  ]
+}
+```
 
 ---
 
