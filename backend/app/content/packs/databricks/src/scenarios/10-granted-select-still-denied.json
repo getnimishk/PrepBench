@@ -1,0 +1,231 @@
+{
+  "id": "10",
+  "number": 10,
+  "title": "Granted SELECT, still denied",
+  "outcome": "A table owner granted SELECT and the analysts still couldn't read it; then someone asked for a DENY that Unity Catalog SQL doesn't have.",
+  "sources": "§6, §24",
+  "chapter": "access",
+  "content": {
+    "bookmark": "Reading a table needs SELECT on it, USE SCHEMA on its schema and USE CATALOG on its catalog. Unity Catalog SQL has no DENY statement: access is what you grant.",
+    "check": [
+      {
+        "prompt": "Which privileges does a user need to read a table in Unity Catalog?",
+        "options": [
+          "SELECT on the table, USE SCHEMA on its schema and USE CATALOG on its catalog",
+          "SELECT on the table only",
+          "USE CATALOG on the catalog only"
+        ],
+        "answer": 0,
+        "why": "Reading needs all three. USE CATALOG and USE SCHEMA grant no data themselves; they are boundaries the owners control."
+      },
+      {
+        "prompt": "SELECT is granted on a schema. Which tables does it cover?",
+        "options": [
+          "Only the tables that exist at the moment the grant is made; later tables need their own grants",
+          "None, until each table is granted separately",
+          "Current and future tables and views in the schema"
+        ],
+        "answer": 2,
+        "why": "Privileges on a catalog or schema are inherited by current and future objects inside it."
+      },
+      {
+        "prompt": "How do you stop a group reading a table in Unity Catalog?",
+        "options": [
+          "Run a DENY SELECT statement on the table for that group, which overrides any grant",
+          "Don't grant access, or REVOKE the grant that gives it",
+          "Grant the group only USE CATALOG, which overrides the SELECT granted on the table"
+        ],
+        "answer": 1,
+        "why": "Unity Catalog SQL has no DENY statement (DENY belongs to legacy Hive metastore table access control). Access comes only from grants, so remove the grant that gives it."
+      },
+      {
+        "prompt": "Which privilege lets users see that objects exist and request access, without reading data?",
+        "options": [
+          "MODIFY",
+          "BROWSE",
+          "USE SCHEMA"
+        ],
+        "answer": 1,
+        "why": "BROWSE, granted on a catalog, shows what exists without giving data; Databricks recommends granting it to all account users."
+      }
+    ],
+    "caseStudy": {
+      "setting": "A bank's analytics team (fictional) needs a new table, risk.scores.daily, owned by the risk engineering group. The table's owner runs GRANT SELECT ON TABLE risk.scores.daily TO `analysts`.",
+      "events": [
+        {
+          "when": "Monday",
+          "what": "Analysts query the table and get INSUFFICIENT_PERMISSIONS. The owner checks SHOW GRANTS: SELECT is there."
+        },
+        {
+          "when": "Tuesday",
+          "what": "To \"just make it work\", someone proposes granting the analysts ALL PRIVILEGES on the whole risk catalog."
+        },
+        {
+          "when": "Wednesday",
+          "what": "Security asks that contractors in the analysts group be blocked from one sensitive table, and suggests a DENY statement \"as in our old warehouse\"."
+        }
+      ],
+      "pipeline": [
+        "Catalog risk · owned by the risk engineering group",
+        "Schema risk.scores · no grants to analysts",
+        "Table risk.scores.daily · SELECT granted to analysts"
+      ],
+      "tasks": [
+        "Why can't the analysts read the table?",
+        "What should the team grant, and how should they handle the contractors?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why SELECT wasn't enough",
+        "text": [
+          "Reading a table needs three privileges: SELECT on the table, USE SCHEMA on risk.scores and USE CATALOG on risk. The analysts had only the first.",
+          "The usage privileges grant no data. They let the catalog and schema owners control who can reach anything inside, which is why the table owner's grant alone can't open it."
+        ]
+      },
+      {
+        "title": "What to grant",
+        "text": [
+          "Grant USE CATALOG on risk and USE SCHEMA on risk.scores to analysts, keeping SELECT on the one table. ALL PRIVILEGES on the catalog would give far more than reading, including on every future object.",
+          "Remember inheritance: SELECT on the schema would cover every current and future table in it. Grant at schema level only if that is the intent.",
+          "Grant BROWSE on the catalog to all account users so people can find tables and request access."
+        ]
+      },
+      {
+        "title": "Blocking the contractors",
+        "text": [
+          "There is no DENY statement in Unity Catalog SQL; DENY statements belong to the legacy Hive metastore's table access control. Unity Catalog's only denial is an ABAC DENY policy, in Beta and limited to the MANAGE ACCESS CONTROL privilege.",
+          "So structure the groups: put contractors in their own group and grant the sensitive table only to a group without them. To hide some rows or columns rather than the whole table, use a row filter or column mask."
+        ]
+      }
+    ],
+    "takeaway": [
+      "Reading needs SELECT plus USE SCHEMA plus USE CATALOG.",
+      "Grants on a schema or catalog cover future objects too.",
+      "Unity Catalog SQL has no DENY: control access through grants and groups."
+    ],
+    "honesty": "If you haven't administered Unity Catalog, say so, and explain the three privileges reading needs and why there is no DENY statement. If you have, describe how you structured groups.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What should an access request for a new table include?",
+          "How would you handle the security request?"
+        ],
+        "debrief": [
+          {
+            "title": "Access requests",
+            "text": [
+              "Who needs it, what they need to do (read or change), and for how long."
+            ]
+          },
+          {
+            "title": "Security request",
+            "text": [
+              "Agree the rule (\"contractors don't see risk scores\") and let the platform team implement it with groups, not a statement copied from another system."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you make sure people get the data access they need, and no more?",
+          "points": [
+            "Grant to groups, not individuals.",
+            "Grant the least privilege that does the job.",
+            "Make data discoverable so people can request access.",
+            "Review access regularly with data owners.",
+            "Express restrictions as rules the platform can enforce."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "How do you respond to the \"just grant everything\" proposal?",
+          "What would cut the delay next time?"
+        ],
+        "debrief": [
+          {
+            "title": "The proposal",
+            "text": [
+              "The actual fix is two small grants. Granting everything trades a day's delay for a lasting security gap."
+            ]
+          },
+          {
+            "title": "Less delay",
+            "text": [
+              "A documented request path for table access, listing the three privileges, owned by the platform team."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "A team asks to bypass a control to meet a deadline. How do you respond?",
+          "points": [
+            "Find the real blocker first; it is often small.",
+            "Fix that rather than removing the control.",
+            "Make the cost of the bypass clear.",
+            "Improve the process so the next request is quick.",
+            "Escalate only if the deadline truly can't move."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you organise access management for many tables?",
+          "Who decides who sees sensitive data?"
+        ],
+        "debrief": [
+          {
+            "title": "Organising access",
+            "text": [
+              "Groups per role, grants at schema level where every table should be readable, table-level grants for sensitive tables."
+            ]
+          },
+          {
+            "title": "Deciding",
+            "text": [
+              "The data owner decides; the platform team implements; security reviews."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you set up data access governance on a new data platform?",
+          "points": [
+            "Name owners for catalogs, schemas and sensitive tables.",
+            "Use groups that map to roles.",
+            "Grant least privilege and use inheritance deliberately.",
+            "Use row filters and column masks for partial access.",
+            "Review access and audit logs regularly."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "Which statements would you run?",
+          "How would you handle the contractors technically?"
+        ],
+        "debrief": [
+          {
+            "title": "Statements",
+            "text": [
+              "GRANT USE CATALOG ON CATALOG risk TO `analysts`; GRANT USE SCHEMA ON SCHEMA risk.scores TO `analysts`; keep GRANT SELECT ON TABLE risk.scores.daily TO `analysts`."
+            ]
+          },
+          {
+            "title": "Contractors",
+            "text": [
+              "Split the group: `analysts-staff` gets the sensitive table, `analysts-contractors` doesn't. Or a row filter or column mask using is_account_group_member()."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Explain how privileges work in Unity Catalog.",
+          "points": [
+            "Users start with no access; owners and users with MANAGE grant privileges.",
+            "Reading needs SELECT, USE SCHEMA and USE CATALOG.",
+            "Grants on catalogs and schemas are inherited by current and future objects.",
+            "There is no DENY statement in Unity Catalog SQL; ABAC DENY policies are Beta and narrow.",
+            "Row filters, column masks and ABAC policies give finer control."
+          ]
+        }
+      }
+    }
+  }
+}

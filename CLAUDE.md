@@ -71,7 +71,7 @@ published and never changes** (pinned by fingerprint); the learner upgrades to v
 **The CCDAK question bank (2026-10-29)** is `backend/app/content/question_banks/ccdak/`: a JSON file the learner imports on
 the Question Bank screen (`certification: "CCDAK"`, matched exactly), built from one source file per exam section by
 `backend/scripts/build_question_bank.py`; edit the sources and rebuild, never the JSON. It follows Confluent's April 2025
-exam guide: six sections by weight, 300 questions (69 / 84 / 36 / 45 / 24 / 42): Fundamentals and Application Development
+exam guide: six sections by weight, 300 choice questions (69 / 84 / 36 / 45 / 24 / 42), plus 12 matching and ordering (below): Fundamentals and Application Development
 in #113, Streams, Connect, Testing and Observability in the second PR, with `ccdak_question_bank_sections-3-6.json` (a
 `parts` entry in `src/bank.json`) for a learner who imported the first 153, since the import warns about duplicates but
 adds them. Every question cites `docs/research/ccdak-exam-research.md` (sections 9-16, Streams to metrics, were read from the
@@ -80,11 +80,23 @@ adds them. Every question cites `docs/research/ccdak-exam-research.md` (sections
 sources, the section counts, the part files, an even spread of right-answer positions, the right answer the longest option
 in at most 30% overall and 40% of any section, and no out-of-scope topic (ksqlDB, RBAC, CFK, ZooKeeper). Confluent
 publishes no question count or pass mark; the bank never claims one. Importing it is the learner's action; nothing is loaded from code.
-**Known gap (open, a product decision):** the exam guide names four item formats (multiple-choice, multiple-response,
-matching, build list), but PrepBench presents every question as options to pick (`QuestionType` lists `drag_and_drop`,
-yet nothing renders or grades a match or an order), so the bank tests matching and ordering skills as multiple-response
-questions. Supporting the real formats means a new question type in the exam
-runner, review and import; until then, never claim the bank reproduces the exam's formats.
+**Matching and build-list questions (2026-10-30):** the exam guide names four item formats, and PrepBench now has all four.
+`QuestionType` gains `ordering` (build list) and `matching`, and `question_options` gains `match_target`, a matching
+item's pair (an idempotent ALTER step). An answer is still `selected_option_ids`:
+- **ordering:** every option id, in the learner's order; right in the stored order (`order_index`).
+- **matching:** one entry per option in the stored order, each the id of the option whose target was paired with it, 0
+  while unpaired.
+
+One rule grades both, `services/answer_grading.py`, used by the exam engine and the review check (and mirrored in
+`frontend/src/services/questionFormats.ts`). An incomplete answer is ungraded, never wrong. The screen shuffles the
+items and targets the same way every time, and never into the answer; moving is by buttons, not dragging, so a keyboard
+can do everything (`components/exam/StructuredAnswer.tsx`, in the exam runner, practice reveal, exam review, the
+Review check, the Question Bank's detail and editor). The bank builder takes `"type": "ordering"` with `items` or
+`"type": "matching"` with `pairs`.
+
+The CCDAK bank adds one matching and one ordering question per section: 312 in all (71 / 86 / 38 / 47 / 26 / 44), with
+`ccdak_question_bank_formats.json` (a `{"types": [...]}` part) for a learner who imported the 300. Section parts hold
+only the choice questions, so they stay as published. The Databricks exams are multiple-choice only (notes §1.2, §1.3).
 **The Kafka Lab (2026-10-28)** is `docs/implementation/KAFKA-LAB-CONTRACT.md`: six beginner experiments at `/lab/kafka`
 (log, keys, groups, commits, replication, failures with modes poison and retries) on the ADF lab's runner, made
 lab-neutral by a `LabSpec` (`services/adfLab/lab.ts`; Kafka's in `services/kafkaLab/lab.ts`). Its attempts are `kb:` /
@@ -94,7 +106,7 @@ their own runs, and draw a picture of the cluster (`LabPicture`); every `fact` c
 Retrieve quote is checked word for word against the pack. Evidence and Workspace show its runs as lab runs with
 `ref.lab = "kafka"`; ADF items are unchanged. Scope is six; changing it is a product decision.
 
-**Databricks (research only, 2026-10-29).** `docs/research/databricks-documentation-notes.md` is the source of fact for
+**Databricks (2026-10-29).** `docs/research/databricks-documentation-notes.md` is the source of fact for
 all Databricks material, as the Kafka notes are for Kafka: docs.databricks.com, Azure Databricks on Microsoft Learn, the
 Delta protocol and Apache Spark 4.2 pages, read as page text (not summaries), plus both exam guides read in full (Data
 Engineer Associate, guide of 6 Aug 2026; Professional, guide of 9 Oct 2026). Neither exam publishes a pass mark; never
@@ -106,9 +118,66 @@ condition names and SQLSTATEs). The draft roadmap is `docs/research/Databricks_D
 (108 topics, 13 phases, plus an Error Catalogue sheet); `docs/implementation/DATABRICKS-ROADMAP-COMPARISON.md` compares it
 with the learner's two earlier Databricks roadmaps. Importer limit worth knowing: an extra reference sheet must have 2-4
 columns or the import drops it.
-`docs/implementation/DATABRICKS-GAP-REPORT.md` is the proposal (roadmap, guide, scenarios, a 300-question Associate
-bank, six lab experiments, interview material). **Nothing is built until the learner approves it**: which certification,
-whether it becomes its own preparation, and the build order are their decisions.
+`docs/implementation/DATABRICKS-GAP-REPORT.md` is the plan (roadmap, guide, scenarios, a 300-question Associate bank, six
+lab experiments, interview material); the learner approved the roadmap and asked for the guide next. **The study guide is
+pack `databricks` v1** (24 chapters, 4 figures in `frontend/public/assets/content/packs/databricks/`):
+written as Markdown in `backend/app/content/packs/databricks/src/` and built into `v1.json` by `build_content_pack.py`
+(edit the sources, never the JSON). Each chapter opens with its roadmap alignment (every one of the 108 topics, with the
+roadmap's own success criterion as learning evidence), cites notes sections, has Free Edition hands-on steps where Free
+Edition can run them ("read, not run" otherwise) and ends with a design trade-off and an interview takeaway.
+`tests/test_databricks_pack.py` reads the topic list from the workbook and fails on a missing or misnamed topic, an
+uncited section, a former product name taught as current, a `DENY` taught as Unity Catalog SQL, or a stated pass mark.
+Packs attach only to skills (D1): the guide is for the existing Databricks skill; attaching it is the learner's action.
+**The Databricks Data Engineer Associate question bank (2026-10-29/30)** is
+`backend/app/content/question_banks/dbdea/` (`certification: "Databricks Certified Data Engineer Associate"`, matched
+exactly on import), built from one source file per exam section by `build_question_bank.py`: **300 questions** sized by
+the August 2026 guide's weights: Platform 18, Ingestion and Loading 63, Transformation and Modeling 66, Lakeflow Jobs 48,
+CI/CD 30, Troubleshooting, Monitoring and Optimization 30, Governance and Security 45. Part 1 (sections 2, 3, 7; 174) was
+PR #117; part 2 adds the other four, with `dbdea_question_bank_sections-1-4-5-6.json` (a `parts` entry) for a learner who
+imported part 1, since the import warns about duplicates but adds them. `tests/test_dbdea_question_bank.py`
+holds it to the import validator, four or more options, its notes citations, the section counts, the part file, answer positions (18-32%
+each), the right answer the longest option in at most 30% overall and 40% per section, no `DENY` taught as Unity Catalog
+SQL and no stated pass mark. **Pass mark (decided 2026-10-30):** creating a certification preparation requires a pass mark,
+and Databricks publishes none, so the learner chose **85% as their own target** for the preparation they create (45
+questions, 90 minutes, the exam's format). It is the learner's target, not Databricks': the bank, guide and any text
+written from code never present 85% (or any number) as the exam's pass mark, and nothing sets it from code; the learner
+enters it when creating the preparation.
+**The Databricks Data Engineer Professional question bank (2026-10-30)** is `backend/app/content/question_banks/dbdep/`
+(`certification: "Databricks Certified Data Engineer Professional"`), built the same way. It has **182 questions**, about
+three times the exam's 60, sized by the 9 October 2026 guide's nine sections (41 / 22 / 22 / 18 / 27 / 14 / 10 / 18 / 10,
+at least ten per section). The exam page still shows the older ten-section outline (notes §1.3, §19). The topics the
+Associate doesn't cover come from notes **§25**, read from 23 official pages on 2026-10-30:
+- UDFs and Unity Catalog functions;
+- window functions, VARIANT and AI functions;
+- Kafka, Lakeflow Connect SQL Server, Lakehouse Federation and Iceberg;
+- OpenSharing and Clean Rooms;
+- job parameters, dynamic values and serverless jobs;
+- tags, GDPR deletion and the SDK;
+- metric views.
+
+`tests/test_dbdep_question_bank.py` holds it to the same rules as the Associate bank. No pass mark is stated and none
+is set from code; creating the preparation and importing the bank are the learner's actions.
+**The scenarios are pack `databricks` v2 (2026-10-30)**: 18 written
+scenarios in four levels (Getting data in; Tables you can trust; Governing and running; Platform at scale), in the
+Kafka/ADF format, one JSON file each under `src/scenarios/`, every fact traced to the notes sections the scenario
+cites; chapters' practice links are built from them. **v1 (the guide alone, PR #116) is published and never changes**
+(pinned by fingerprint); attaching or upgrading to v2 is the learner's action. `tests/test_databricks_pack.py` also
+holds the scenarios to the page's shape, real notes sections and chapters, answer positions (none over half), the right
+answer the longest option in at most 40% of checks, current product names, no `DENY` taught as Unity Catalog SQL and no
+pass mark. A seeded preparation (the Databricks skill) now also gets `interview` from an attached pack with written
+scenarios, as a derived one does, so their Say-it questions have an Interview hub.
+Every lab on the shared runner (ADF, Kafka, Databricks) offers a finished run as a Technical interview question,
+talking points only from what the run recorded (`components/adfLab/LabRunInterviewQuestion.tsx`; source
+`lab/<pack>/experiment/<track>`, one per experiment and mode). Home and the Lakehouse Lab link to the Databricks Lab.
+**The Databricks Lab (2026-10-30)** is `docs/implementation/DATABRICKS-LAB-CONTRACT.md`. It has six beginner experiments at
+`/lab/databricks`: retention, auto-loader, datasets, jobs, skew, and governance with modes `grants` and `drop`. They run on the
+shared runner like the Kafka Lab and cover the exam topics the Lakehouse Lab's stations don't. The Lakehouse Lab
+(`/databricks-sandbox`) is a separate sandbox and is unchanged. Its attempts are `dbl:` / `databricks.lab.` /
+`databricks-lab=`; Evidence and Workspace show them with `ref.lab = "databricks"`. Any preparation with the `databricks`
+pack gets `learningLab` from the registry's status; the seeded Databricks skill already has the Lakehouse Lab, so its
+flags don't change. Models are pure, graded only from their own runs, and draw a picture. Every `fact` coupling names its
+guide chapter, and every Retrieve quote is checked word for word against the pack (`databricksLab/lab.test.ts`). The
+retry default is never stated, because the notes record a conflict (§19). Scope is six; changing it is a product decision.
 
 **Settled decisions, don't reopen these:**
 - The header Settings button stays, even though it isn't in the prototype — kept for
@@ -134,7 +203,7 @@ whether it becomes its own preparation, and the build order are their decisions.
     six-subject table when the record's slug matches an entry **exactly** -- never by id, so a recreated
     System Design at id 33 keeps its rounds and another preparation holding id 3 gets nothing of System
     Design's (a bare numeric id still reads the table: avoid passing one); a derived profile gets
-    `interview` from the ADF pack or any attached pack with written scenarios (their Say-it questions; Kafka v2, 2026-10-28) or from `lab_interview_question_count > 0`
+    `interview` from the ADF pack or any attached pack with written scenarios (their Say-it questions; Kafka v2, 2026-10-28; a seeded one too since Databricks v2, 2026-10-30) or from `lab_interview_question_count > 0`
     (P1-1, PR #86 -- never a hand-set flag); question counts always come from the record (so Kafka
     unlocks the moment a bank is really imported); a preparation the table does not describe (every
     learner-created one) gets a profile derived from its own `kind`, `question_count` and
@@ -571,7 +640,7 @@ docs/
   any app import — this is the mechanism, not a suggestion; new tests that open their own
   `SessionLocal()` bypass it and have caused real leaks before.
 - **The Learning Lab** (`/lab`) is a hub for simulation sandboxes (predict → manipulate →
-  observe → explain). Four are live: Agile Metrics, the ADF Behaviour Lab, the Kafka Lab and the Lakehouse Lab
+  observe → explain). Five are live: Agile Metrics, the ADF Behaviour Lab, the Kafka Lab, the Databricks Lab and the Lakehouse Lab
   (see `docs/wiki/Learning-Lab.md`; the learner's guide is `docs/wiki/Learning-Lab-Guide.md`).
   Adding a new one means: a card in
   `LearningLabPage.tsx`, a `NavEntry` in `navigation.ts`, a route in `App.tsx`, and the

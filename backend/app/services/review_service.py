@@ -43,6 +43,7 @@ from app.models.exam_answer import ConfidenceLevel, ExamAnswer
 from app.models.question import Question
 from app.models.review_check import ReviewCheck
 from app.models.spaced_repetition import SpacedRepetition
+from app.services.answer_grading import grade
 from app.services.sm2_service import SM2Service
 
 
@@ -192,8 +193,7 @@ class ReviewService:
         selected_option_ids: List[int],
         confidence: ConfidenceLevel = ConfidenceLevel.NOT_SET,
     ) -> ReviewCheck:
-        correct_ids = {o.id for o in question.options if o.is_correct}
-        passed = bool(selected_option_ids) and set(selected_option_ids) == correct_ids
+        passed = grade(question, selected_option_ids) is True
 
         check = ReviewCheck(
             answer_id=answer.id,

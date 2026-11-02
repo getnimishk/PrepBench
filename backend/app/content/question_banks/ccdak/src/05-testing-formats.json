@@ -1,0 +1,54 @@
+{
+  "section": 5,
+  "domain": "Application Testing",
+  "questions": [
+    {
+      "id": "T25",
+      "topic": "Testing tools",
+      "difficulty": "easy",
+      "sources": [
+        "ccdak §11",
+        "ccdak §12"
+      ],
+      "type": "matching",
+      "q": "Match each testing tool to what it is for.",
+      "pairs": [
+        [
+          "TopologyTestDriver",
+          "Running a Streams topology without a broker"
+        ],
+        [
+          "MockProducer",
+          "Testing code that sends records, including failed sends"
+        ],
+        [
+          "MockConsumer",
+          "Testing code that polls, with records and exceptions the test adds"
+        ],
+        [
+          "kafka-streams-application-reset",
+          "Rewinding a Streams application's input topics and deleting its internal topics"
+        ]
+      ],
+      "explain": "TopologyTestDriver (in kafka-streams-test-utils) pipes records through a topology with no broker. MockProducer can complete sends one at a time or with an error (completeNext, errorNext); MockConsumer takes records with addRecord and failures with setPollException. The application reset tool resets input offsets and deletes internal topics, but not output topics or local state."
+    },
+    {
+      "id": "T26",
+      "topic": "Testing Streams",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §11"
+      ],
+      "type": "ordering",
+      "q": "Put the steps of a TopologyTestDriver test in order, first to last.",
+      "items": [
+        "Build the Topology and create a TopologyTestDriver for it",
+        "Create a TestInputTopic and a TestOutputTopic with their serializers and deserializers",
+        "Pipe input records into the TestInputTopic",
+        "Read the output and assert on it",
+        "Close the driver"
+      ],
+      "explain": "The driver simulates the runtime: createInputTopic gives a TestInputTopic for pipeInput, createOutputTopic a TestOutputTopic for readKeyValue or isEmpty. The docs say to call close() after each test."
+    }
+  ]
+}

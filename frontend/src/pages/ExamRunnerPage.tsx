@@ -25,6 +25,10 @@ import {
 } from '../services/examOutbox';
 import { LoadingState, SaveStatus } from '../components/common/States';
 import { Detail, PageHead, Panel } from '../components/ui/primitives';
+import { isAnswered, isStructured } from '../services/questionFormats';
+
+/** Has the learner given an answer the server will grade? For ordering and matching, a complete one. */
+const hasAnswer = (q: Question, ids: number[]): boolean => (isStructured(q) ? isAnswered(q, ids) : ids.length > 0);
 
 /** How long after an option is picked it is saved without navigating. Short
  *  enough that a reload a moment later keeps it, long enough that changing your
@@ -368,11 +372,11 @@ export const ExamRunnerPage: React.FC = () => {
   const handleNext = async () => {
     if (!currentQuestion) return;
     cancelAutosave();
-    const staysForExplanation = isPracticeMode && selectedOptionIds.length > 0;
+    const staysForExplanation = isPracticeMode && hasAnswer(currentQuestion, selectedOptionIds);
     const lastIdx = (examDetail?.questions.length ?? 1) - 1;
     const destination = staysForExplanation ? currentIdx : Math.min(currentIdx + 1, lastIdx);
     await persistAnswer(currentQuestion.id, selectedOptionIds, undefined, undefined, undefined, destination);
-    if (isPracticeMode && selectedOptionIds.length > 0) {
+    if (isPracticeMode && hasAnswer(currentQuestion, selectedOptionIds)) {
       setShowExplanation(true);
       return;
     }
@@ -409,6 +413,8 @@ export const ExamRunnerPage: React.FC = () => {
       shortcut: EXAM_SHORTCUTS.chooseAnswer,
       run: (key) => {
         if (!currentQuestion || (isPracticeMode && showExplanation)) return;
+        // Ordering and matching are answered with their own controls, not a number key.
+        if (isStructured(currentQuestion)) return;
         const option = currentQuestion.options[Number(key) - 1];
         if (!option || option.id === undefined) return;
         if (currentQuestion.question_type === 'multiple_choice') {
@@ -433,7 +439,7 @@ export const ExamRunnerPage: React.FC = () => {
           return;
         }
         if (currentIdx >= last) return;
-        if (selectedOptionIds.length === 0 && !isPracticeMode) return;
+        if (!hasAnswer(currentQuestion!, selectedOptionIds) && !isPracticeMode) return;
         handleNext();
       },
     },
@@ -610,7 +616,14 @@ export const ExamRunnerPage: React.FC = () => {
   }
 
   const totalQ = examDetail.questions.length;
-  const answeredCount = answeredMap.size;
+  const questionById = new Map(examDetail.questions.map((q) => [q.id, q]));
+  // Answered means complete: a matching question with an item not yet paired is still to do.
+  const isDone = (qid: number) => {
+    const q = questionById.get(qid);
+    const ids = answeredMap.get(qid);
+    return Boolean(q && ids && hasAnswer(q, ids));
+  };
+  const answeredCount = [...answeredMap.keys()].filter(isDone).length;
   const flaggedCount = flaggedSet.size;
   const isLast = currentIdx === totalQ - 1;
   const flagged = !!currentQuestion && flaggedSet.has(currentQuestion.id);
@@ -626,7 +639,7 @@ export const ExamRunnerPage: React.FC = () => {
       ? isLast
         ? { label: 'Finish', onClick: openFinishConfirm }
         : { label: 'Next', onClick: nextAfterExplanation }
-      : selectedOptionIds.length > 0
+      : currentQuestion && hasAnswer(currentQuestion, selectedOptionIds)
         ? { label: 'Check answer', onClick: handleNext }
         : isLast
           ? { label: 'Finish', onClick: openFinishConfirm }
@@ -689,7 +702,7 @@ export const ExamRunnerPage: React.FC = () => {
                 key={`${qid}-${i}`}
                 sx={{
                   flex: '0 1 52px', minWidth: 8, height: 5, borderRadius: '8px',
-                  bgcolor: answeredMap.has(qid) ? 'primary.main' : 'pb.track',
+                  bgcolor: isDone(qid) ? 'primary.main' : 'pb.track',
                 }}
               />
             ))}

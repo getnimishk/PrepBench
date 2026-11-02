@@ -1,0 +1,229 @@
+{
+  "id": "4",
+  "number": 4,
+  "title": "The customer who moved twice",
+  "outcome": "Two address changes in one batch broke a MERGE, and the quick fix sometimes kept the older address.",
+  "sources": "§4, §7, §9, §10, §24",
+  "chapter": "merge-cdf",
+  "content": {
+    "bookmark": "MERGE allows one source row per target row. Deduplicate the source by its sequence, newest last, or let AUTO CDC apply changes in order for you.",
+    "check": [
+      {
+        "prompt": "In a Delta MERGE, how many source rows may match one target row?",
+        "options": [
+          "One; several matches fail the merge",
+          "Any number; the last one wins",
+          "Two: one to update and one to delete"
+        ],
+        "answer": 0,
+        "why": "Only one source row may match a given target row. Several matches fail with DELTA_MULTIPLE_SOURCE_ROW_MATCHING_TARGET_ROW_IN_MERGE, so deduplicate the source first."
+      },
+      {
+        "prompt": "When change events arrive out of order, what does AUTO CDC use to apply them in the right order?",
+        "options": [
+          "The order rows appear in the batch",
+          "The time each file arrived",
+          "The SEQUENCE BY column"
+        ],
+        "answer": 2,
+        "why": "AUTO CDC takes keys and a sequencing column (SEQUENCE BY) and uses it to handle out-of-order events."
+      },
+      {
+        "prompt": "Which slowly changing dimension type keeps the history of every change?",
+        "options": [
+          "Type 1",
+          "Type 2",
+          "Neither: AUTO CDC keeps only current values"
+        ],
+        "answer": 1,
+        "why": "SCD type 1 overwrites with no history; SCD type 2 keeps history, for all columns or chosen ones."
+      },
+      {
+        "prompt": "In MERGE ... WHEN NOT MATCHED THEN INSERT, what value do target columns the insert doesn't set get?",
+        "options": [
+          "The value from the matching row in an earlier batch",
+          "NULL",
+          "The column's value in the previous target row"
+        ],
+        "answer": 1,
+        "why": "WHEN NOT MATCHED inserts the row; unspecified target columns get NULL."
+      }
+    ],
+    "caseStudy": {
+      "setting": "An insurer (fictional) receives change events from its policy system every hour: one row per change to a customer, with an event_time. A job MERGEs each hour's batch into silver.customers on customer_id, updating the address when matched and inserting when not.",
+      "events": [
+        {
+          "when": "Day 1, 14:00",
+          "what": "A customer changes address twice within the hour. The MERGE fails with DELTA_MULTIPLE_SOURCE_ROW_MATCHING_TARGET_ROW_IN_MERGE."
+        },
+        {
+          "when": "Day 1, 15:00",
+          "what": "An engineer adds dropDuplicates([\"customer_id\"]) to the source before the MERGE. The job succeeds."
+        },
+        {
+          "when": "Day 9",
+          "what": "Customer service finds letters going to old addresses. Some customers in silver have the earlier of two same-hour addresses, and one event that arrived late overwrote a newer address."
+        }
+      ],
+      "pipeline": [
+        "Policy system · change events with customer_id, address, event_time",
+        "Hourly batch · one file of events, possibly several per customer",
+        "MERGE INTO silver.customers ON customer_id · WHEN MATCHED UPDATE, WHEN NOT MATCHED INSERT"
+      ],
+      "tasks": [
+        "Why did the first fix keep old addresses?",
+        "How should the changes be applied?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why the MERGE failed",
+        "text": [
+          "Two source rows matched the same target row. MERGE can't know which update to apply, so it refuses rather than guess. That refusal is the protection."
+        ]
+      },
+      {
+        "title": "Why the quick fix was wrong",
+        "text": [
+          "dropDuplicates on customer_id keeps one row per customer, but nothing in it chooses the newest event. Sometimes it kept the earlier address.",
+          "It also did nothing about events arriving late: a late, older event in a later batch matched the customer and overwrote the newer address, because the MERGE never compared event times."
+        ]
+      },
+      {
+        "title": "Applying changes in order",
+        "text": [
+          "By hand: keep the latest event per customer by event_time before the MERGE, and update only when the incoming event_time is newer than the stored one (a condition on WHEN MATCHED).",
+          "With declarative pipelines: AUTO CDC takes the key and SEQUENCE BY event_time and handles out-of-order events, as SCD type 1 (current address only) or type 2 (address history). It needs serverless pipelines or the Pro or Advanced edition."
+        ]
+      }
+    ],
+    "takeaway": [
+      "MERGE needs one source row per target row: deduplicate by sequence, not arbitrarily.",
+      "Compare event times so a late event can't overwrite a newer one.",
+      "AUTO CDC with SEQUENCE BY handles ordering, and SCD type 2 keeps history."
+    ],
+    "honesty": "If you haven't applied a change feed, say so, and explain why a MERGE needs one source row per key and how sequencing works. If you have fixed out-of-order updates, explain how you found them.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What does the business need from customer history?",
+          "What acceptance test would have caught the problem?"
+        ],
+        "debrief": [
+          {
+            "title": "History",
+            "text": [
+              "\"Do we only need the current address, or also where a customer lived when a policy was issued?\" The answer picks SCD type 1 or type 2."
+            ]
+          },
+          {
+            "title": "Acceptance test",
+            "text": [
+              "Two changes in one batch, and a late older change: the newest address must win in both cases."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you specify the requirements for keeping customer data up to date from another system?",
+          "points": [
+            "State whether history is needed or only current values.",
+            "Define what counts as the newest change.",
+            "Include late and duplicate changes in the acceptance tests.",
+            "Agree how quickly changes must appear.",
+            "Name an owner for the data's correctness."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What do you do about the letters already sent?",
+          "How do you communicate the fix?"
+        ],
+        "debrief": [
+          {
+            "title": "Letters sent",
+            "text": [
+              "Work with customer service to identify affected customers from the event data and correct their records and correspondence."
+            ]
+          },
+          {
+            "title": "Communication",
+            "text": [
+              "Explain that some address updates were applied in the wrong order, which customers were affected, and when the corrected data will be in place."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "A data error reached customers. How do you manage it?",
+          "points": [
+            "Find and help affected customers first.",
+            "Fix the cause before repairing data.",
+            "Tell stakeholders clearly what happened.",
+            "Check whether compliance or legal need to know.",
+            "Add tests for the cases that were missed."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you plan the correction?",
+          "How do you decide between fixing the MERGE and moving to AUTO CDC?"
+        ],
+        "debrief": [
+          {
+            "title": "Correction",
+            "text": [
+              "Fix the load, then rebuild silver.customers from the retained change events so every customer ends with the newest address."
+            ]
+          },
+          {
+            "title": "MERGE or AUTO CDC",
+            "text": [
+              "Weigh the team's pipeline skills, the edition or serverless requirement, and whether history (SCD type 2) is needed soon."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you decide between patching a custom solution and moving to a managed feature?",
+          "points": [
+            "Compare the effort to make the custom code correct with the effort to migrate.",
+            "Check licences, editions and skills.",
+            "Consider what the business will need next.",
+            "Fix the immediate risk either way.",
+            "Decide with the people who will run it."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "How would you write the hand-built version correctly?",
+          "What would the AUTO CDC version look like?"
+        ],
+        "debrief": [
+          {
+            "title": "Hand-built",
+            "text": [
+              "Keep the latest row per customer_id by event_time (a window with row_number, for example), then MERGE with WHEN MATCHED AND s.event_time > t.event_time THEN UPDATE and WHEN NOT MATCHED THEN INSERT."
+            ]
+          },
+          {
+            "title": "AUTO CDC",
+            "text": [
+              "A streaming table fed by AUTO CDC ... INTO silver.customers with KEYS (customer_id) and SEQUENCE BY event_time, STORED AS SCD TYPE 1 or 2."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you apply a change data feed to a Delta table correctly?",
+          "points": [
+            "MERGE needs one source row per target row; duplicates fail the merge.",
+            "Deduplicate by a sequence column, keeping the newest.",
+            "Compare sequence values so late events don't overwrite newer data.",
+            "AUTO CDC handles keys, SEQUENCE BY and out-of-order events.",
+            "Choose SCD type 1 for current values, type 2 for history."
+          ]
+        }
+      }
+    }
+  }
+}

@@ -97,7 +97,7 @@ const ROUTES = (prepId: number, roadmapId: number, roleId: number, topicId: numb
   '/', '/preparations', '/preparations/new', `/preparations/${prepId}/edit`,
   '/preparations/roles/new', `/preparations/roles/${roleId}`, `/preparations/roles/${roleId}/diagnostic`, '/practice', '/practice?tab=spaced', '/practice?tab=custom', '/learn',
   '/certification', '/interview', '/lab/adf', '/lab/adf/watermark', '/lab/adf/triggers', '/lab/adf/concurrency', '/lab/adf/copy-perf',
-  '/lab/adf/fault-tolerance', '/lab/adf/fault-tolerance?mode=bad-rows', '/lab/kafka', '/lab/kafka/log', '/lab/kafka/failures?mode=retries',
+  '/lab/adf/fault-tolerance', '/lab/adf/fault-tolerance?mode=bad-rows', '/lab/kafka', '/lab/kafka/log', '/lab/kafka/failures?mode=retries', '/lab/databricks', '/lab/databricks/retention', '/lab/databricks/governance?mode=drop',
   '/learn/guides/adf', '/learn/guides/adf/pitfalls', '/scenarios', '/scenarios/adf/1',
   '/review', '/exam-setup', '/question-bank', '/analytics', '/workspace', '/evidence', `/analytics/area?subject=${prepId}&domain=Accessible%20Area`,
   '/roadmaps', `/roadmaps/${roadmapId}/edit`,

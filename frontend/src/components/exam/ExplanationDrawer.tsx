@@ -7,6 +7,7 @@ import { Box, Link } from '@mui/material';
 import { Question } from '../../types/question';
 import { Detail, Eyebrow, Good } from '../ui/primitives';
 import { Explanation } from '../common/Explanation';
+import { gradeSelection } from '../../services/questionFormats';
 
 interface Props {
   question: Question;
@@ -19,13 +20,10 @@ interface Props {
  * green, a wrong pick red -- so this does not list them all a second time.
  */
 export const ExplanationDrawer: React.FC<Props> = ({ question, selectedOptionIds }) => {
-  if (selectedOptionIds.length === 0) return null;
-
-  const correctOptionIds = question.options.filter((o) => o.is_correct && o.id !== undefined).map((o) => o.id as number);
-  const isCorrect =
-    correctOptionIds.length === selectedOptionIds.length &&
-    new Set(selectedOptionIds).size === selectedOptionIds.length &&
-    correctOptionIds.every((id) => selectedOptionIds.includes(id));
+  // One rule for every type (services/questionFormats.ts): nothing to explain until there is an answer.
+  const graded = gradeSelection(question, selectedOptionIds);
+  if (graded === null) return null;
+  const isCorrect = graded;
 
   const whyWrong = question.options
     .map((opt, idx) => ({ opt, letter: String.fromCharCode(65 + idx) }))

@@ -7,6 +7,7 @@ import type { EvidenceItem } from '../types/portfolio';
 import type { MappedGuideChapter } from '../types/roadmap';
 import { ADF_LAB } from './adfLab/lab';
 import { KAFKA_LAB } from './kafkaLab/lab';
+import { DATABRICKS_LAB } from './databricksLab/lab';
 
 /**
  * A roadmap topic's links into the rest of the curriculum (Phase 7, WP 7.7), derived --
@@ -49,7 +50,7 @@ export function topicLinks(mapped: MappedGuideChapter[] | undefined, pack: Conte
     : [];
 
   // A lab's experiments are its pack's: the ADF lab's link only to the ADF pack's topics, the Kafka Lab's to the Kafka pack's.
-  const lab = [ADF_LAB, KAFKA_LAB].find((l) => l.packId === packId) ?? null;
+  const lab = [ADF_LAB, KAFKA_LAB, DATABRICKS_LAB].find((l) => l.packId === packId) ?? null;
   const experiments = lab
     ? lab.experiments
       .filter((e) => e.ready && e.topics.some((t) => topicNumbers.includes(t.number)))

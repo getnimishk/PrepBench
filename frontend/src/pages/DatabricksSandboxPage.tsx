@@ -3,7 +3,7 @@
 // Commercial use requires a separate licence from the copyright holder.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import { Box, Button, MenuItem, TextField } from '@mui/material';
 import {
   deleteLakehouseJournalEntry, getLakehouseEngine, getLakehouseJournal, getLakehouseJournalMarkdown, getLakehousePack,
@@ -214,6 +214,11 @@ export const DatabricksSandboxPage: React.FC = () => {
               {engine.available
                 ? <><Pill tone="success">{`Real engine${engine.version ? ` · deltalake ${engine.version}` : ''}`}</Pill><Detail>Operations run for real on this computer.</Detail></>
                 : <><Pill tone="warning">Real engine not installed</Pill><Detail>Nothing runs, and nothing stands in for it.</Detail></>}
+            </Actions>
+            {/* The Databricks Lab is the sibling for exam topics no station covers; it checks the preparation's pack itself. */}
+            <Actions>
+              <Detail>Table history, Auto Loader, jobs, skew and privileges, topic by topic:</Detail>
+              <Button size="small" variant="outlined" component={RouterLink} to="/lab/databricks">Databricks Lab</Button>
             </Actions>
           </Panel>
 

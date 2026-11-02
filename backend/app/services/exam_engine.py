@@ -18,6 +18,7 @@ from app.models.question import Question
 from app.models.spaced_repetition import SpacedRepetition
 from app.schemas.exam import ExamCreateRequest, SaveAnswerRequest, ExamDetailResponse, ExamSessionResponse
 from app.schemas.question import QuestionResponse
+from app.services.answer_grading import grade
 from app.services.sm2_service import SM2Service
 from app.core.exceptions import ConflictException, ResourceNotFoundException, InvalidExamStateException
 
@@ -544,8 +545,6 @@ class ExamEngine:
         if not question:
             raise ResourceNotFoundException("Question", req.question_id)
 
-        correct_option_ids = set([opt.id for opt in question.options if opt.is_correct])
-        selected_ids = set(req.selected_option_ids)
         # None (not False) when nothing is selected: the frontend calls this on
         # every navigation/flag/bookmark toggle, including for questions the user
         # hasn't actually answered yet. Recording those as `is_correct=False`
@@ -553,7 +552,8 @@ class ExamEngine:
         # get_overall_stats all filter on `is_correct != None` to mean
         # "attempted"), silently dragging down every topic's accuracy with
         # skipped-not-wrong questions and corrupting the weak-topics list.
-        is_correct = (correct_option_ids == selected_ids) if selected_ids else None
+        # One rule for every question type, shared with the review check (services/answer_grading.py).
+        is_correct = grade(question, req.selected_option_ids)
 
         answer_obj = ExamAnswer(
             session_id=session_id,
@@ -587,7 +587,8 @@ class ExamEngine:
         # same COMPLETED sessions that every other evidence surface counts.
 
         answers = session.answers
-        session.answered_questions = len([a for a in answers if a.selected_option_ids])
+        # Answered means graded: a matching question with an option not yet paired isn't answered yet.
+        session.answered_questions = len([a for a in answers if a.is_correct is not None])
         if (
             req.current_question_index is not None
             and req.current_question_index < len(session.question_ids_order or [])
@@ -652,7 +653,7 @@ class ExamEngine:
         # idempotence check at the top of this method, so a retried submit does
         # not schedule the same sitting twice.
         for a in answers:
-            if a.selected_option_ids:
+            if a.is_correct is not None:
                 SM2Service.update_item(
                     self.db, a.question_id, bool(a.is_correct), a.confidence_level
                 )

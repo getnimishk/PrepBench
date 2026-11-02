@@ -105,12 +105,12 @@ def test_an_unrecognised_difficulty_is_reported_not_silently_replaced():
 
 
 def test_an_unrecognised_question_type_is_reported_not_silently_replaced():
-    report = _validate(HEADER + _row(_unique("Bad type"), question_type="matching"))
+    report = _validate(HEADER + _row(_unique("Bad type"), question_type="hotspot"))
 
     item = report["items"][0]
     type_issues = [i for i in item["issues"] if i["field"] == "question_type"]
     assert len(type_issues) == 1
-    assert "'matching'" in type_issues[0]["message"]
+    assert "'hotspot'" in type_issues[0]["message"]
     assert "single_choice" in type_issues[0]["action"]
 
 
@@ -128,7 +128,7 @@ def test_every_issue_says_what_to_do():
     """`message` says what is wrong; `action` says how to fix it."""
     csv_text = (
         HEADER
-        + _row(_unique("Bad everything"), question_type="matching", difficulty="expert", explanation="")
+        + _row(_unique("Bad everything"), question_type="hotspot", difficulty="expert", explanation="")
         + ',single_choice,medium,Scrum,Events,Import Test Cert,"x",Right,true,Wrong,false\n'
     )
 

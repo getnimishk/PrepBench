@@ -89,7 +89,7 @@ test('every screen opens with no console errors, and no link on any of them lead
     '/', '/preparations', '/preparations/new', `/preparations/${prep.id}/edit`, `/subjects/${prep.id}`,
     '/practice', '/practice?tab=weak', '/practice?tab=spaced', '/practice?tab=custom', '/practice?tab=mock', '/practice/spaced',
     '/certification', '/interview', '/lab/adf', '/lab/adf/watermark', '/lab/adf/triggers', '/lab/adf/concurrency', '/lab/adf/copy-perf',
-    '/lab/adf/fault-tolerance', '/lab/adf/fault-tolerance?mode=bad-rows', '/lab/kafka', '/lab/kafka/log', '/lab/kafka/failures?mode=retries',
+    '/lab/adf/fault-tolerance', '/lab/adf/fault-tolerance?mode=bad-rows', '/lab/kafka', '/lab/kafka/log', '/lab/kafka/failures?mode=retries', '/lab/databricks', '/lab/databricks/retention', '/lab/databricks/governance?mode=drop',
     '/learn', '/learn/guides/adf', '/learn/guides/adf/pitfalls', '/review', '/exam-setup', '/exam-setup?kind=drill', `/exam-review/${mock}`,
     '/question-bank', '/analytics', '/workspace', '/evidence', `/analytics/area?subject=${prep.id}&domain=${encodeURIComponent(area)}`,
     '/roadmaps', `/roadmaps/${roadmap.id}`,

@@ -1,0 +1,779 @@
+{
+  "section": 5,
+  "domain": "Cost & Performance Optimization",
+  "questions": [
+    {
+      "id": "P501",
+      "topic": "Skew",
+      "difficulty": "medium",
+      "sources": [
+        "notes §9"
+      ],
+      "q": "In a stage's Summary Metrics, what signals skew?",
+      "options": [
+        {
+          "t": "More tasks than shuffle partitions",
+          "why": "Not the signal."
+        },
+        {
+          "t": "A minimum task duration of zero seconds",
+          "why": "Not the signal."
+        },
+        {
+          "t": "Spill reported on every task in the stage, whatever the durations",
+          "why": "That is memory pressure."
+        },
+        {
+          "t": "A max task duration 50% or more above the 75th percentile",
+          "ok": true
+        }
+      ],
+      "explain": "Databricks' guide: skew shows as a max task duration 50% or more above the 75th percentile."
+    },
+    {
+      "id": "P502",
+      "topic": "Skew",
+      "difficulty": "hard",
+      "sources": [
+        "notes §9"
+      ],
+      "q": "A groupBy on seller is skewed by one seller. AQE is on. Why does the stage stay slow?",
+      "options": [
+        {
+          "t": "AQE splits skewed partitions in joins, not in aggregations",
+          "ok": true
+        },
+        {
+          "t": "AQE never touches stages with more than 200 partitions",
+          "why": "No such rule."
+        },
+        {
+          "t": "AQE only coalesces small partitions; it never splits large ones in any operation",
+          "why": "It does split skewed join partitions."
+        },
+        {
+          "t": "AQE is off by default and must be enabled",
+          "why": "AQE is on by default."
+        }
+      ],
+      "explain": "AQE splits skewed partitions in sort-merge and shuffle-hash joins; a skewed aggregation needs salting and a two-stage aggregation."
+    },
+    {
+      "id": "P503",
+      "topic": "Skew",
+      "difficulty": "medium",
+      "sources": [
+        "notes §9"
+      ],
+      "q": "Which fix spreads a skewed aggregation's hot key over many tasks?",
+      "options": [
+        {
+          "t": "Add more workers so the hot key's task gets more memory",
+          "why": "The hot key still goes to one task."
+        },
+        {
+          "t": "Salt the hot key and aggregate in two stages",
+          "ok": true
+        },
+        {
+          "t": "Cache the DataFrame before grouping",
+          "why": "Caching doesn't spread the key."
+        },
+        {
+          "t": "Raise spark.sql.autoBroadcastJoinThreshold",
+          "why": "That affects joins."
+        }
+      ],
+      "explain": "Salting the hot key and aggregating in two stages spreads it; other fixes from the guide include liquid clustering for skewed stored tables and the REBALANCE hint for skewed output."
+    },
+    {
+      "id": "P504",
+      "topic": "Spill",
+      "difficulty": "medium",
+      "sources": [
+        "notes §9"
+      ],
+      "q": "A stage spills heavily during a shuffle. Which change does Databricks' guide suggest first?",
+      "options": [
+        {
+          "t": "Increase the trigger interval so each batch has more time",
+          "why": "Only for streams, and not the first step."
+        },
+        {
+          "t": "Disable AQE",
+          "why": "AQE helps; disabling it doesn't fix spill."
+        },
+        {
+          "t": "`spark.sql.shuffle.partitions=auto`",
+          "ok": true
+        },
+        {
+          "t": "Turn off Photon",
+          "why": "Not a spill fix."
+        }
+      ],
+      "explain": "For spill the guide suggests shuffle.partitions=auto, fewer rows or columns, more executor memory, fewer larger workers for complex joins, and smaller streaming batches."
+    },
+    {
+      "id": "P505",
+      "topic": "AQE",
+      "difficulty": "medium",
+      "sources": [
+        "notes §9"
+      ],
+      "q": "Which of these does AQE do at run time? (Choose two.)",
+      "options": [
+        {
+          "t": "Switch a sort-merge join to a broadcast hash join when one side turns out small",
+          "ok": true
+        },
+        {
+          "t": "Coalesce small post-shuffle partitions",
+          "ok": true
+        },
+        {
+          "t": "Rewrite a streaming query's plan between micro-batches",
+          "why": "AQE doesn't apply to streaming queries."
+        },
+        {
+          "t": "Split skewed partitions in a groupBy aggregation",
+          "why": "Its skew handling is for joins."
+        },
+        {
+          "t": "Add Z-order to the source table",
+          "why": "AQE doesn't change table layout."
+        }
+      ],
+      "explain": "At each shuffle or broadcast exchange AQE uses real statistics to switch joins to broadcast, coalesce small partitions, split skewed join partitions and propagate empty relations."
+    },
+    {
+      "id": "P506",
+      "topic": "Broadcast joins",
+      "difficulty": "medium",
+      "sources": [
+        "notes §9"
+      ],
+      "q": "What is the Apache Spark default for spark.sql.autoBroadcastJoinThreshold?",
+      "options": [
+        {
+          "t": "1 MB",
+          "why": "It is 10 MB."
+        },
+        {
+          "t": "100 MB",
+          "why": "It is 10 MB."
+        },
+        {
+          "t": "-1, so broadcasting is off by default",
+          "why": "-1 disables it; the default is 10 MB."
+        },
+        {
+          "t": "10 MB",
+          "ok": true
+        }
+      ],
+      "explain": "The largest table broadcast to every worker for a join, 10 MB by default in Apache Spark; -1 disables broadcasting. Databricks Runtime can set its own defaults."
+    },
+    {
+      "id": "P507",
+      "topic": "Liquid clustering",
+      "difficulty": "medium",
+      "sources": [
+        "notes §2"
+      ],
+      "q": "What does Databricks recommend for the layout of all new tables?",
+      "options": [
+        {
+          "t": "Liquid clustering",
+          "ok": true
+        },
+        {
+          "t": "No layout at all; predictive optimization picks partitions",
+          "why": "Predictive optimization doesn't create partitions."
+        },
+        {
+          "t": "Bucketing by the join key",
+          "why": "Not the recommendation."
+        },
+        {
+          "t": "Partitioning by date, plus Z-order on the filter column",
+          "why": "Liquid clustering replaces both."
+        }
+      ],
+      "explain": "Liquid clustering replaces partitioning and ZORDER, its keys can change without rewriting data, and Databricks recommends it for all new tables."
+    },
+    {
+      "id": "P508",
+      "topic": "Liquid clustering",
+      "difficulty": "hard",
+      "sources": [
+        "notes §2"
+      ],
+      "q": "`CLUSTER BY AUTO` is set on a table. What does it need?",
+      "options": [
+        {
+          "t": "Z-order on the same columns",
+          "why": "Not compatible with ZORDER."
+        },
+        {
+          "t": "A Unity Catalog managed table with predictive optimization",
+          "ok": true
+        },
+        {
+          "t": "An external Delta table on Databricks Runtime 13.3 LTS or above",
+          "why": "Automatic clustering is for managed tables."
+        },
+        {
+          "t": "A partitioned table",
+          "why": "Liquid clustering isn't compatible with partitioning."
+        }
+      ],
+      "explain": "Automatic liquid clustering needs predictive optimization on a UC managed table; Databricks picks keys from query history, and may pick none."
+    },
+    {
+      "id": "P509",
+      "topic": "Liquid clustering",
+      "difficulty": "medium",
+      "sources": [
+        "notes §2"
+      ],
+      "q": "Clustering keys must change. What happens to existing data?",
+      "options": [
+        {
+          "t": "Old files are deleted",
+          "why": "Nothing is deleted."
+        },
+        {
+          "t": "It is rewritten immediately with the new keys, which can take hours on a large table",
+          "why": "Changing keys doesn't rewrite old data."
+        },
+        {
+          "t": "Nothing at once; OPTIMIZE clusters new data, and OPTIMIZE FULL reclusters everything",
+          "ok": true
+        },
+        {
+          "t": "The table must be recreated",
+          "why": "ALTER TABLE CLUSTER BY changes keys."
+        }
+      ],
+      "explain": "Clustering is incremental; changing keys doesn't rewrite existing data; OPTIMIZE t FULL reclusters all of it."
+    },
+    {
+      "id": "P510",
+      "topic": "Predictive optimization",
+      "difficulty": "medium",
+      "sources": [
+        "notes §2"
+      ],
+      "q": "What does predictive optimization run, and on which tables?",
+      "options": [
+        {
+          "t": "OPTIMIZE with ZORDER BY on the most-queried columns, on every table in the metastore",
+          "why": "It never runs ZORDER."
+        },
+        {
+          "t": "VACUUM only, on external tables",
+          "why": "It works on managed tables, and runs more than VACUUM."
+        },
+        {
+          "t": "Schema evolution, on streaming tables",
+          "why": "Not its job."
+        },
+        {
+          "t": "OPTIMIZE, VACUUM and ANALYZE, on Unity Catalog managed tables",
+          "ok": true
+        }
+      ],
+      "explain": "Predictive optimization runs OPTIMIZE, VACUUM and ANALYZE on UC managed tables only, on serverless jobs compute; its OPTIMIZE never runs ZORDER."
+    },
+    {
+      "id": "P511",
+      "topic": "Predictive optimization",
+      "difficulty": "hard",
+      "sources": [
+        "notes §2"
+      ],
+      "q": "deletedFileRetentionDuration is 2 days on a table maintained by predictive optimization. How long are removed files kept?",
+      "options": [
+        {
+          "t": "At least 7 days",
+          "ok": true
+        },
+        {
+          "t": "2 days",
+          "why": "It keeps at least 7."
+        },
+        {
+          "t": "30 days",
+          "why": "That is the log retention."
+        },
+        {
+          "t": "Until someone runs VACUUM by hand",
+          "why": "It runs VACUUM itself."
+        }
+      ],
+      "explain": "Its VACUUM honours the property but keeps at least 7 days even if the property is lower."
+    },
+    {
+      "id": "P512",
+      "topic": "Deletion vectors",
+      "difficulty": "medium",
+      "sources": [
+        "notes §2"
+      ],
+      "q": "Why enable deletion vectors on a table with frequent small UPDATEs?",
+      "options": [
+        {
+          "t": "They make reads faster by deleting old files at once",
+          "why": "They mark rows; readers apply the marks."
+        },
+        {
+          "t": "DML marks changed rows instead of rewriting whole files",
+          "ok": true
+        },
+        {
+          "t": "They let the table be read by any Delta client, including older ones",
+          "why": "Enabling them upgrades the protocol, which some clients can't read."
+        },
+        {
+          "t": "They replace VACUUM",
+          "why": "VACUUM still removes old files."
+        }
+      ],
+      "explain": "Deletion vectors speed up DELETE, UPDATE and MERGE by marking rows in metadata; enabling them upgrades the protocol."
+    },
+    {
+      "id": "P513",
+      "topic": "Disk cache",
+      "difficulty": "medium",
+      "sources": [
+        "notes §9"
+      ],
+      "q": "What is the disk cache?",
+      "options": [
+        {
+          "t": "A SQL warehouse result cache",
+          "why": "That is the query result cache."
+        },
+        {
+          "t": "A Delta Lake feature that caches the transaction log",
+          "why": "It is a Databricks feature for Parquet files."
+        },
+        {
+          "t": "Workers' local copies of Parquet files read from cloud storage, so repeated reads are faster",
+          "ok": true
+        },
+        {
+          "t": "The Spark cache under another name, filled by calling df.cache() on each DataFrame",
+          "why": "Databricks recommends it over the Spark cache."
+        }
+      ],
+      "explain": "The disk cache (formerly the Delta cache) keeps local copies of Parquet files on workers; it is automatic on supported worker types."
+    },
+    {
+      "id": "P514",
+      "topic": "Serverless jobs",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A nightly serverless job can start a few minutes late without harm. Which performance setting saves cost?",
+      "options": [
+        {
+          "t": "A classic all-purpose cluster kept running",
+          "why": "That costs more."
+        },
+        {
+          "t": "Autoscaling turned off on the serverless task",
+          "why": "Serverless manages scaling."
+        },
+        {
+          "t": "Performance optimized, which uses a cheaper SKU because it finishes sooner",
+          "why": "Both modes use the same SKU."
+        },
+        {
+          "t": "Standard performance mode (Performance optimized off), which uses fewer DBUs",
+          "ok": true
+        }
+      ],
+      "explain": "Standard performance mode uses less compute, tolerating startup latency of 4 to 6 minutes; both modes bill the same SKU, standard consuming fewer DBUs."
+    },
+    {
+      "id": "P515",
+      "topic": "Serverless jobs",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "What does Databricks recommend for the compute of job tasks?",
+      "options": [
+        {
+          "t": "Serverless compute",
+          "ok": true
+        },
+        {
+          "t": "SQL warehouses for Python tasks",
+          "why": "Python tasks don't run on SQL warehouses."
+        },
+        {
+          "t": "All-purpose clusters, shared by every job",
+          "why": "Not recommended for production jobs."
+        },
+        {
+          "t": "A dedicated classic cluster per task",
+          "why": "Not the recommendation."
+        }
+      ],
+      "explain": "The serverless jobs page: Databricks recommends using serverless compute for all job tasks."
+    },
+    {
+      "id": "P516",
+      "topic": "Compute cost",
+      "difficulty": "medium",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "On Azure, what counts as Jobs Compute for billing?",
+      "options": [
+        {
+          "t": "Any notebook run by a service principal",
+          "why": "Not the definition."
+        },
+        {
+          "t": "A job that both starts and terminates the cluster it runs on",
+          "ok": true
+        },
+        {
+          "t": "Any job at all, on any cluster, including all-purpose clusters it shares",
+          "why": "Jobs on all-purpose clusters are all-purpose workloads."
+        },
+        {
+          "t": "Any cluster with auto termination",
+          "why": "Not the definition."
+        }
+      ],
+      "explain": "The pricing page defines Jobs Compute as a job that both starts and terminates its cluster, billed at a different rate from all-purpose compute."
+    },
+    {
+      "id": "P517",
+      "topic": "Compute cost",
+      "difficulty": "medium",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "Which statements about pools are correct? (Choose two.)",
+      "options": [
+        {
+          "t": "They keep idle instances ready to cut start-up and autoscaling time",
+          "ok": true
+        },
+        {
+          "t": "No DBUs are charged for idle pool instances, though the cloud bills the VMs",
+          "ok": true
+        },
+        {
+          "t": "Databricks recommends pools over serverless",
+          "why": "It recommends serverless where possible."
+        },
+        {
+          "t": "Idle pool instances are free of all charges",
+          "why": "The cloud provider still bills the VMs."
+        },
+        {
+          "t": "Pools are only for SQL warehouses",
+          "why": "Pools serve classic compute."
+        }
+      ],
+      "explain": "Pools keep idle instances to cut start-up and autoscaling time; idle pool instances incur no DBUs, but the VMs are billed by the cloud; Databricks recommends serverless where possible."
+    },
+    {
+      "id": "P518",
+      "topic": "Compute cost",
+      "difficulty": "medium",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "Which levers lower cost for classic compute? (Choose two.)",
+      "options": [
+        {
+          "t": "Automatic termination after idle minutes",
+          "ok": true
+        },
+        {
+          "t": "Spot instances for workers where latency allows",
+          "ok": true
+        },
+        {
+          "t": "Running scheduled jobs on all-purpose clusters",
+          "why": "Job compute is billed differently and recommended for automated work."
+        },
+        {
+          "t": "Spot instances for the driver",
+          "why": "The driver stays on-demand."
+        },
+        {
+          "t": "Turning Photon off for every workload",
+          "why": "Not a documented cost lever."
+        }
+      ],
+      "explain": "Cost levers include auto termination, spot workers, smaller instances for simple ETL, job compute for automated work, serverless or pools, and policies."
+    },
+    {
+      "id": "P519",
+      "topic": "Photon",
+      "difficulty": "easy",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "What is Photon?",
+      "options": [
+        {
+          "t": "A file format replacing Parquet",
+          "why": "Delta keeps Parquet."
+        },
+        {
+          "t": "A cache for query results",
+          "why": "That is the result cache."
+        },
+        {
+          "t": "A native vectorized engine that speeds up SQL, DataFrames and Delta writes without code changes",
+          "ok": true
+        },
+        {
+          "t": "A streaming trigger for sub-second latency on operational workloads",
+          "why": "That is real-time mode."
+        }
+      ],
+      "explain": "Photon is a native C++ vectorized engine, enabled by default from DBR 9.1 LTS, that speeds up SQL, DataFrames, ETL and Delta writes."
+    },
+    {
+      "id": "P520",
+      "topic": "SQL warehouses",
+      "difficulty": "medium",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "Many analysts run ad hoc SQL at unpredictable times. Which warehouse type does Databricks favour?",
+      "options": [
+        {
+          "t": "An all-purpose cluster with a SQL endpoint",
+          "why": "Not a warehouse type."
+        },
+        {
+          "t": "Classic, for the lowest unit price",
+          "why": "Classic has only Photon."
+        },
+        {
+          "t": "Pro, because it runs in your cloud account",
+          "why": "Pro is for when serverless isn't available or custom networking is needed."
+        },
+        {
+          "t": "Serverless",
+          "ok": true
+        }
+      ],
+      "explain": "Serverless SQL warehouses start in seconds and scale fast with Intelligent Workload Management: Databricks' choice for many concurrent BI and ad hoc users."
+    },
+    {
+      "id": "P521",
+      "topic": "OPTIMIZE",
+      "difficulty": "medium",
+      "sources": [
+        "notes §2"
+      ],
+      "q": "Which statements about OPTIMIZE (bin-packing) are correct? (Choose two.)",
+      "options": [
+        {
+          "t": "It makes no data change, so readers and streams are unaffected",
+          "ok": true
+        },
+        {
+          "t": "A second run on the same data does nothing: it is idempotent",
+          "ok": true
+        },
+        {
+          "t": "It deletes the old files immediately",
+          "why": "VACUUM removes old files later."
+        },
+        {
+          "t": "It balances files by row count",
+          "why": "Bin-packing balances by size; Z-order by row count."
+        },
+        {
+          "t": "It requires ZORDER BY",
+          "why": "ZORDER is optional, and not for liquid-clustered tables."
+        }
+      ],
+      "explain": "OPTIMIZE rewrites small files into larger ones with no data change; bin-packing is idempotent and balances by size."
+    },
+    {
+      "id": "P522",
+      "topic": "Data skipping",
+      "difficulty": "medium",
+      "sources": [
+        "notes §2"
+      ],
+      "q": "On which columns does Delta collect data-skipping statistics by default?",
+      "options": [
+        {
+          "t": "The first 32 columns",
+          "ok": true
+        },
+        {
+          "t": "None until ANALYZE runs",
+          "why": "They are collected on write."
+        },
+        {
+          "t": "All columns",
+          "why": "The first 32 by default."
+        },
+        {
+          "t": "Only clustering keys",
+          "why": "Statistics are collected more widely."
+        }
+      ],
+      "explain": "Statistics (min, max, null count, record count per file) are collected on write for the first 32 columns by default (delta.dataSkippingNumIndexedCols)."
+    },
+    {
+      "id": "P523",
+      "topic": "Stateful streaming",
+      "difficulty": "hard",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "A stateful streaming query's spark.sql.shuffle.partitions is raised after it started. What happens?",
+      "options": [
+        {
+          "t": "New partitions take effect at the next micro-batch, and state is spread across them",
+          "why": "Shuffle partitions are fixed when the checkpoint is created."
+        },
+        {
+          "t": "No effect on that query: the count is fixed when the checkpoint is created",
+          "ok": true
+        },
+        {
+          "t": "The query fails at once",
+          "why": "It doesn't fail; the setting is ignored for it."
+        },
+        {
+          "t": "State is redistributed automatically on DBR 11.3",
+          "why": "Not the documented behaviour."
+        }
+      ],
+      "explain": "Shuffle partitions are fixed when a stateful query's checkpoint is created; DBR 18 LTS+ can repartition stateful queries on demand."
+    },
+    {
+      "id": "P524",
+      "topic": "Stateful streaming",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "Which state store does Databricks recommend for stateful streaming?",
+      "options": [
+        {
+          "t": "Redis on the driver",
+          "why": "Not a Databricks state store."
+        },
+        {
+          "t": "The in-memory HDFS-backed store",
+          "why": "RocksDB is recommended."
+        },
+        {
+          "t": "RocksDB with changelog checkpointing",
+          "ok": true
+        },
+        {
+          "t": "A Delta table updated in foreachBatch",
+          "why": "That isn't a state store."
+        }
+      ],
+      "explain": "RocksDB is the default from DBR 17.3; Databricks recommends it with changelog checkpointing. The state store type can't change between restarts without a new checkpoint."
+    },
+    {
+      "id": "P525",
+      "topic": "Streaming in production",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "Which advice applies to Structured Streaming jobs in production?",
+      "options": [
+        {
+          "t": "Turn on autoscaling so the cluster follows the input rate",
+          "why": "Databricks advises against autoscaling for streaming jobs."
+        },
+        {
+          "t": "Keep display() calls for debugging",
+          "why": "Remove display and count."
+        },
+        {
+          "t": "Call awaitTermination() so the job waits",
+          "why": "Not in jobs: it blocks tracking."
+        },
+        {
+          "t": "Run them on jobs compute, scheduled in Continuous mode",
+          "ok": true
+        }
+      ],
+      "explain": "Run production streams as jobs or pipelines on jobs compute, scheduled in Continuous mode; don't autoscale; remove display and count; don't call awaitTermination() in jobs."
+    },
+    {
+      "id": "P526",
+      "topic": "System tables",
+      "difficulty": "medium",
+      "sources": [
+        "notes §15",
+        "notes §12"
+      ],
+      "q": "Finance wants DBU spend per team. Which combination gives it?",
+      "options": [
+        {
+          "t": "Compute tags, which flow to usage records, with system.billing.usage",
+          "ok": true
+        },
+        {
+          "t": "The Spark UI's executor page",
+          "why": "No cost data."
+        },
+        {
+          "t": "DESCRIBE HISTORY on every table",
+          "why": "Not cost."
+        },
+        {
+          "t": "Query history's duration column, multiplied by each warehouse's size",
+          "why": "Duration isn't cost per team."
+        }
+      ],
+      "explain": "Tags on compute flow to usage logs for attribution; system.billing.usage holds usage, joined with list prices for cost."
+    },
+    {
+      "id": "P527",
+      "topic": "VACUUM",
+      "difficulty": "medium",
+      "sources": [
+        "notes §2"
+      ],
+      "q": "VACUUM is slow on a large table. What does the VACUUM page say about sizing?",
+      "options": [
+        {
+          "t": "Size doesn't matter; it is metadata-only",
+          "why": "It lists and deletes files."
+        },
+        {
+          "t": "Listing uses the workers; deleting is driver-only",
+          "ok": true
+        },
+        {
+          "t": "Everything runs on the driver, so adding workers can't help at all",
+          "why": "Listing uses workers."
+        },
+        {
+          "t": "It runs only on serverless",
+          "why": "Classic compute can run it."
+        }
+      ],
+      "explain": "Listing uses the workers and deleting is driver-only; the page suggests autoscaling 1-4 workers of 8 cores and a driver of 8-32 cores. LITE mode uses the log instead of listing."
+    }
+  ]
+}

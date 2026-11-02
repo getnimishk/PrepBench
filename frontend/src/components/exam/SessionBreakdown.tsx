@@ -2,6 +2,7 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
+import { answerGiven } from '../../services/questionFormats';
 import React, { useMemo } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Box, Button } from '@mui/material';
@@ -96,7 +97,8 @@ export const SessionBreakdown: React.FC<{ exam: ExamDetail }> = ({ exam }) => {
     let skipped = 0;
     exam.questions.forEach((q) => {
       const a = answers.get(q.id);
-      if (!a || (a.selected_option_ids?.length ?? 0) === 0) {
+      // An incomplete ordering or matching answer is as unanswered as a blank one (services/questionFormats.ts).
+      if (!a || !answerGiven(q, a)) {
         skipped += 1;
         return;
       }

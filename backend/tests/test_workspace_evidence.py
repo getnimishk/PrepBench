@@ -206,6 +206,31 @@ def test_a_kafka_lab_run_is_named_as_the_kafka_labs_and_never_as_the_adf_labs():
     assert {i["ref"]["stage"]: i["level"] for i in evidence} == {"predict": "evidenced", "reason": "demonstrated"}
 
 
+def test_a_databricks_lab_run_is_named_as_the_databricks_labs_and_never_as_another_labs():
+    """The Databricks Lab writes the same four stage rows under its own ids (dbl:, databricks.lab.)."""
+    sid = _preparation("Databricks lab", pack="databricks")["id"]
+    fp = "databricks-lab=governance.drop;run=1;model=databricksLab.governance.drop"
+    _attempt(sid, f"dbl:{sid}:governance.drop:r1:predict", "databricks.lab.governance.drop.predict",
+             "databricks.lab.governance", fp, prediction="files-remain",
+             manipulation={"type": {"from": "external", "to": "managed"}},
+             observed={"result": {"before": "files-remain", "after": "undroppable"}, "source": "simulation"},
+             completed=True, correct=True, explanation_text="An external table's files are mine; a drop never deletes them.")
+    _attempt(sid, f"dbl:{sid}:governance.drop:r1:reason", "databricks.lab.governance.drop.reason",
+             "databricks.lab.governance", fp, prediction="external-metadata-only", completed=True, correct=True)
+
+    items = _workspace(sid)["items"]
+    assert [i["kind"] for i in items] == ["lab_run"]
+    run = items[0]
+    assert run["ref"] == {"track": "governance.drop", "run": "1", "lab": "databricks"}
+    assert run["id"] == f"lab_run:{sid}:databricks:governance.drop:1"
+    assert run["href"] == "/lab/databricks/governance?mode=drop"
+
+    evidence = _evidence(sid)["items"]
+    assert {i["kind"] for i in evidence} == {"lab_stage"}
+    assert all(i["ref"]["lab"] == "databricks" and i["href"] == "/lab/databricks/governance?mode=drop" for i in evidence)
+    assert {i["ref"]["stage"]: i["level"] for i in evidence} == {"predict": "evidenced", "reason": "demonstrated"}
+
+
 def test_an_adf_lab_run_is_one_workspace_notebook_and_four_graded_stages():
     sid = _preparation("ADF lab", pack="adf")["id"]
     _adf_run(sid)

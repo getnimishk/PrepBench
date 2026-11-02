@@ -1,0 +1,230 @@
+{
+  "id": "9",
+  "number": 9,
+  "title": "Ten thousand tiny files",
+  "outcome": "A table partitioned by a high-cardinality column and fed every minute became thousands of small files, and every query paid for it.",
+  "sources": "§2, §12",
+  "chapter": "layout",
+  "content": {
+    "bookmark": "Small files and the wrong partition key slow every read. Check DESCRIBE DETAIL, compact with OPTIMIZE, and prefer liquid clustering to partitioning.",
+    "check": [
+      {
+        "prompt": "Which command shows how many files a Delta table has?",
+        "options": [
+          "DESCRIBE HISTORY",
+          "SHOW GRANTS",
+          "DESCRIBE DETAIL (numFiles)"
+        ],
+        "answer": 2,
+        "why": "DESCRIBE DETAIL returns one row of metadata, including numFiles and sizeInBytes: how to see the file count before and after OPTIMIZE."
+      },
+      {
+        "prompt": "Does OPTIMIZE change query results or disturb a stream reading the table?",
+        "options": [
+          "No: it makes no data change",
+          "Yes: results change until the next VACUUM",
+          "It stops streams until they are restarted"
+        ],
+        "answer": 0,
+        "why": "OPTIMIZE rewrites files with no data change: readers get the same results, and a stream reading the table isn't affected."
+      },
+      {
+        "prompt": "What does Databricks recommend for new tables, instead of partitioning or Z-order?",
+        "options": [
+          "Partitioning by more columns",
+          "Liquid clustering",
+          "Running VACUUM more often"
+        ],
+        "answer": 1,
+        "why": "Databricks recommends liquid clustering for all new tables; it replaces partitioning and ZORDER, and its keys can change without rewriting data."
+      },
+      {
+        "prompt": "How many clustering keys can a liquid-clustered table have?",
+        "options": [
+          "One",
+          "Up to four",
+          "Up to 32"
+        ],
+        "answer": 1,
+        "why": "Up to four keys, chosen from the columns most used in filters."
+      }
+    ],
+    "caseStudy": {
+      "setting": "An ad-tech company (fictional) writes click events to a Delta table every minute from a stream. When the table was created, someone partitioned it by advertiser_id, which has tens of thousands of values, \"so each advertiser's queries are fast\".",
+      "events": [
+        {
+          "when": "Month 1",
+          "what": "Queries are fine. The table is small."
+        },
+        {
+          "when": "Month 4",
+          "what": "Dashboards that filter by date across all advertisers take minutes. DESCRIBE DETAIL shows a very large numFiles and a small average file size."
+        },
+        {
+          "when": "Month 4, later",
+          "what": "Someone proposes a bigger SQL warehouse. Someone else asks whether the table's layout is the real problem."
+        }
+      ],
+      "pipeline": [
+        "Click stream · micro-batches every minute",
+        "events.clicks · Delta table, PARTITIONED BY (advertiser_id)",
+        "Dashboards · filter mostly by event date, sometimes by advertiser"
+      ],
+      "tasks": [
+        "Why did reads get slow?",
+        "What would you change, and in what order?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why reads got slow",
+        "text": [
+          "Each micro-batch wrote small files into many advertiser partitions, so the file count grew by thousands a day. Every query had to list and open far more files than the data needed.",
+          "The partition key matched only some queries. Most dashboards filter by date, which the partitioning doesn't help at all. Too many partitions is one of the cases where Databricks recommends liquid clustering."
+        ]
+      },
+      {
+        "title": "Fixing the layout",
+        "text": [
+          "Compact first: OPTIMIZE rewrites small files into larger ones, with no data change, so it can run while the stream writes. Compare numFiles in DESCRIBE DETAIL before and after.",
+          "Then fix the design: move from partitioning to liquid clustering on the columns queries filter by, such as event_time and advertiser_id (cluster on the timestamp itself, not a date column derived from it). On recent runtimes, ALTER TABLE ... REPLACE PARTITIONED BY WITH CLUSTER BY converts a partitioned table, followed by OPTIMIZE."
+        ]
+      },
+      {
+        "title": "Keeping it healthy",
+        "text": [
+          "On a Unity Catalog managed table, predictive optimization runs OPTIMIZE for you; otherwise schedule it (every one or two hours for heavily updated tables). Auto compaction also compacts small files.",
+          "A bigger warehouse would have spent more money opening the same small files. Fix the layout before buying compute."
+        ]
+      }
+    ],
+    "takeaway": [
+      "Check numFiles in DESCRIBE DETAIL when reads slow down.",
+      "OPTIMIZE compacts small files without changing data.",
+      "Prefer liquid clustering on filter columns to high-cardinality partitions."
+    ],
+    "honesty": "If you haven't tuned a table's layout, say so, and explain the small-file problem and what OPTIMIZE and liquid clustering do. If you have, describe the before-and-after numbers.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What would you ask before approving a bigger warehouse?",
+          "How would you know the fix worked?"
+        ],
+        "debrief": [
+          {
+            "title": "Before spending",
+            "text": [
+              "\"Is the cost in compute, or in how the data is laid out? What does the table look like?\""
+            ]
+          },
+          {
+            "title": "Knowing it worked",
+            "text": [
+              "Dashboard query times before and after, and the table's file count."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "A data product has become slow. How do you decide what to do?",
+          "points": [
+            "Measure what is slow and since when.",
+            "Ask for the cause before approving more spend.",
+            "Prefer fixing the design over buying capacity.",
+            "Agree a target and measure against it.",
+            "Keep the fix from regressing with routine maintenance."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What do you tell dashboard users?",
+          "How do you schedule the work?"
+        ],
+        "debrief": [
+          {
+            "title": "Users",
+            "text": [
+              "Dashboards are slow because of how the table is stored; a quick improvement this week and a lasting fix after."
+            ]
+          },
+          {
+            "title": "Scheduling",
+            "text": [
+              "OPTIMIZE now for relief; the conversion to liquid clustering as a planned change with a measured result."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you balance a quick fix with the proper fix?",
+          "points": [
+            "Give users relief quickly if it's safe.",
+            "Plan the proper fix with a date.",
+            "Make sure the quick fix doesn't hide the problem.",
+            "Measure both.",
+            "Close the issue only after the proper fix."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you find other tables with the same problem?",
+          "Who should own table maintenance?"
+        ],
+        "debrief": [
+          {
+            "title": "Other tables",
+            "text": [
+              "Check DESCRIBE DETAIL across the busiest tables for high file counts and small average sizes."
+            ]
+          },
+          {
+            "title": "Ownership",
+            "text": [
+              "The platform team, through predictive optimization where tables are managed, and scheduled maintenance where they aren't."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you make routine maintenance happen reliably?",
+          "points": [
+            "Automate it where the platform can.",
+            "Schedule what can't be automated, with an owner.",
+            "Monitor the signals that show it's needed.",
+            "Review it when usage changes.",
+            "Make it part of the definition of done for new tables."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "What commands would you run?",
+          "How would you choose the clustering keys?"
+        ],
+        "debrief": [
+          {
+            "title": "Commands",
+            "text": [
+              "DESCRIBE DETAIL events.clicks; OPTIMIZE events.clicks; then ALTER TABLE events.clicks REPLACE PARTITIONED BY WITH CLUSTER BY (event_time, advertiser_id) and OPTIMIZE."
+            ]
+          },
+          {
+            "title": "Keys",
+            "text": [
+              "The columns most used in filters, up to four; of two highly correlated columns, one is enough. Or CLUSTER BY AUTO on a managed table with predictive optimization."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Explain how you would optimise the layout of a large Delta table.",
+          "points": [
+            "Check numFiles and size with DESCRIBE DETAIL.",
+            "OPTIMIZE compacts small files with no data change.",
+            "Liquid clustering on filter columns, up to four keys, replaces partitioning and Z-order.",
+            "Data skipping uses per-file statistics on the first 32 columns by default.",
+            "Predictive optimization runs maintenance on managed tables."
+          ]
+        }
+      }
+    }
+  }
+}

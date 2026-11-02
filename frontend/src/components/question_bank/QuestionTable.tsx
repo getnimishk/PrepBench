@@ -33,6 +33,8 @@ const TYPE_LABEL: Partial<Record<QuestionType, string>> = {
   image: 'Image',
   code: 'Code',
   drag_and_drop: 'Drag and drop',
+  ordering: 'Ordering',
+  matching: 'Matching',
 };
 
 const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);

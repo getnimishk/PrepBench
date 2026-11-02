@@ -1,0 +1,404 @@
+{
+  "section": 6,
+  "domain": "Ensuring Data Security and Compliance",
+  "questions": [
+    {
+      "id": "P601",
+      "topic": "GDPR deletion",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "Where does Databricks recommend starting GDPR and CCPA deletions in a medallion lakehouse?",
+      "options": [
+        {
+          "t": "By dropping and recreating every table each month",
+          "why": "Not the documented pattern."
+        },
+        {
+          "t": "In gold, because that is what users query",
+          "why": "Start in bronze and propagate."
+        },
+        {
+          "t": "In bronze, driven by a scheduled job over a table of deletion requests, then propagated",
+          "ok": true
+        },
+        {
+          "t": "In silver only, because bronze is raw data and exempt from deletion requests",
+          "why": "Raw data holds PII too."
+        }
+      ],
+      "explain": "The GDPR page recommends deleting in bronze first, from a scheduled job that queries a control table of deletion requests, then propagating to silver and gold."
+    },
+    {
+      "id": "P602",
+      "topic": "GDPR deletion",
+      "difficulty": "hard",
+      "sources": [
+        "notes §25",
+        "notes §2"
+      ],
+      "q": "A table has deletion vectors. After a DELETE of one user's rows, what else is needed to remove the data permanently?",
+      "options": [
+        {
+          "t": "`RESTORE` to the version before the DELETE",
+          "why": "That brings the data back."
+        },
+        {
+          "t": "Nothing; DELETE removes it",
+          "why": "Deletion vectors only mark rows."
+        },
+        {
+          "t": "`OPTIMIZE ZORDER BY (user_id)`, which rewrites the files without the deleted rows",
+          "why": "Z-order doesn't purge."
+        },
+        {
+          "t": "`REORG TABLE ... APPLY (PURGE)`, then VACUUM after the retention period",
+          "ok": true
+        }
+      ],
+      "explain": "For tables with deletion vectors, run REORG TABLE ... APPLY (PURGE) after deleting, then VACUUM to remove the old files."
+    },
+    {
+      "id": "P603",
+      "topic": "GDPR deletion",
+      "difficulty": "hard",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A streaming table reads a bronze Delta table, and rows are deleted from bronze for a GDPR request. What does Databricks recommend?",
+      "options": [
+        {
+          "t": "Delete in the source and the streaming table with DML, then read the source with skipChangeCommits",
+          "ok": true
+        },
+        {
+          "t": "Convert the streaming table to an external table",
+          "why": "Unrelated."
+        },
+        {
+          "t": "Delete the stream's checkpoint",
+          "why": "That reprocesses everything and doesn't delete."
+        },
+        {
+          "t": "Nothing: streaming tables apply deletes in their source automatically at the next update",
+          "why": "Deletes in a streaming source break the stream."
+        }
+      ],
+      "explain": "Streaming tables process append-only data; an update or delete in the source breaks the stream. Delete in source and target, then use skipChangeCommits, or full refresh where history is cheap to reprocess."
+    },
+    {
+      "id": "P604",
+      "topic": "GDPR deletion",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A materialized view reads a table from which a user's rows were deleted. What makes the deletion complete there?",
+      "options": [
+        {
+          "t": "A DELETE statement run on the materialized view itself, with the same predicate",
+          "why": "Materialized views handle source deletes on refresh."
+        },
+        {
+          "t": "Refreshing the materialized view and running maintenance",
+          "ok": true
+        },
+        {
+          "t": "Nothing at all; it was never stored",
+          "why": "It is persisted until refreshed."
+        },
+        {
+          "t": "Dropping and recreating the view's catalog",
+          "why": "Not needed."
+        }
+      ],
+      "explain": "Materialized views handle deletions in their sources automatically, but you must refresh them and run maintenance for the deletions to be fully processed."
+    },
+    {
+      "id": "P605",
+      "topic": "GDPR deletion",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "Which approach does the GDPR page call the safest?",
+      "options": [
+        {
+          "t": "Pseudonymizing identifiers in silver",
+          "why": "The page calls complete erasure safest."
+        },
+        {
+          "t": "Masking PII columns for most users",
+          "why": "Masking hides; it doesn't erase."
+        },
+        {
+          "t": "Complete erasure of the PII",
+          "ok": true
+        },
+        {
+          "t": "Encrypting the table with a customer-managed key",
+          "why": "Encryption doesn't erase."
+        }
+      ],
+      "explain": "The page: obfuscation can use pseudonymization or masking, but the safest option is complete erasure, because eliminating re-identification risk often requires deleting the PII."
+    },
+    {
+      "id": "P606",
+      "topic": "Column masks",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "Only the HR group may see full social security numbers. Which column mask expression fits?",
+      "options": [
+        {
+          "t": "`DENY SELECT (ssn) TO non_hr`",
+          "why": "Unity Catalog SQL has no DENY statement."
+        },
+        {
+          "t": "`REVOKE SELECT (ssn) FROM all`",
+          "why": "Column-level REVOKE isn't how masks work."
+        },
+        {
+          "t": "`CASE WHEN current_user() = 'hr' THEN ssn ELSE '***-**-****' END`",
+          "why": "A group check, not a user name, is the documented pattern."
+        },
+        {
+          "t": "`CASE WHEN is_account_group_member('HR') THEN ssn ELSE '***-**-****' END`",
+          "ok": true
+        }
+      ],
+      "explain": "A column mask is a SQL UDF returning the value or a masked one, often with is_account_group_member(); set with ALTER TABLE ... ALTER COLUMN ... SET MASK."
+    },
+    {
+      "id": "P607",
+      "topic": "Row filters",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "A row filter function returns FALSE for a row. What does a reader see?",
+      "options": [
+        {
+          "t": "Nothing: the row is hidden",
+          "ok": true
+        },
+        {
+          "t": "The row with every column masked",
+          "why": "Masks are separate."
+        },
+        {
+          "t": "An error",
+          "why": "No error is raised."
+        },
+        {
+          "t": "The row, flagged as filtered",
+          "why": "It isn't shown."
+        }
+      ],
+      "explain": "A row filter is a SQL UDF evaluated per row at query time; rows where it returns FALSE are hidden."
+    },
+    {
+      "id": "P608",
+      "topic": "ABAC",
+      "difficulty": "hard",
+      "sources": [
+        "notes §6",
+        "notes §25"
+      ],
+      "q": "PII columns appear in hundreds of tables, including new ones each week. What does Databricks recommend for masking them consistently?",
+      "options": [
+        {
+          "t": "A column mask set by each table's owner when the table is created",
+          "why": "That is per table and easily missed."
+        },
+        {
+          "t": "An ABAC policy that matches a governed tag such as PII",
+          "ok": true
+        },
+        {
+          "t": "A dynamic view over every table",
+          "why": "Views must be built and kept per table."
+        },
+        {
+          "t": "Granting SELECT only on views",
+          "why": "Doesn't mask columns."
+        }
+      ],
+      "explain": "ABAC policies use governed tags so new tagged columns are covered automatically, and table owners can't override them."
+    },
+    {
+      "id": "P609",
+      "topic": "Secrets",
+      "difficulty": "medium",
+      "sources": [
+        "notes §14"
+      ],
+      "q": "Which statements about Databricks secrets are correct? (Choose two.)",
+      "options": [
+        {
+          "t": "Secret values are redacted in notebook output where possible",
+          "ok": true
+        },
+        {
+          "t": "Anyone allowed to read a secret can still expose it, so grant carefully",
+          "ok": true
+        },
+        {
+          "t": "Secret scopes should be created per person",
+          "why": "Databricks recommends per role or application."
+        },
+        {
+          "t": "An Azure Key Vault-backed scope lets you write secrets from Databricks",
+          "why": "It is read-only."
+        },
+        {
+          "t": "Secrets can be stored safely in tag values",
+          "why": "Tags are plain text."
+        }
+      ],
+      "explain": "Secret scopes hold encrypted secrets with per-scope permissions; output is redacted where possible, but a reader can expose them. Key Vault-backed scopes are read-only."
+    },
+    {
+      "id": "P610",
+      "topic": "Tags",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "Why must tags never hold credentials or sensitive values?",
+      "options": [
+        {
+          "t": "Tag values are hashed",
+          "why": "They are plain text."
+        },
+        {
+          "t": "Tags are deleted after 30 days, so any credential in them is lost",
+          "why": "No such limit."
+        },
+        {
+          "t": "Tags are stored as plain text and may be replicated globally",
+          "ok": true
+        },
+        {
+          "t": "Tags are visible only to admins",
+          "why": "That isn't why."
+        }
+      ],
+      "explain": "The tags page warns that tag data is stored as plain text and may be replicated globally."
+    },
+    {
+      "id": "P611",
+      "topic": "Clean Rooms",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "In a clean room, what can a collaborator see of another party's tables?",
+      "options": [
+        {
+          "t": "Nothing at all, not even the schema",
+          "why": "Column names and types are visible."
+        },
+        {
+          "t": "All rows of the shared tables, read-only, but no notebooks",
+          "why": "They can't see the data."
+        },
+        {
+          "t": "A 10% sample",
+          "why": "No sample is shared."
+        },
+        {
+          "t": "Column names and types, and the results of approved notebooks",
+          "ok": true
+        }
+      ],
+      "explain": "Collaborators can't see each other's data but can see column names and types and run notebook code every collaborator has approved, in a central clean room."
+    },
+    {
+      "id": "P612",
+      "topic": "Clean Rooms",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "What do Clean Rooms require of each collaborator's workspace?",
+      "options": [
+        {
+          "t": "Serverless, Unity Catalog and OpenSharing enabled",
+          "ok": true
+        },
+        {
+          "t": "Classic compute, the Hive metastore and a VPN between the parties",
+          "why": "They need serverless and Unity Catalog."
+        },
+        {
+          "t": "Only a personal access token",
+          "why": "Not the requirement."
+        },
+        {
+          "t": "A VPN to every other collaborator",
+          "why": "Not required."
+        }
+      ],
+      "explain": "Requirements: a workspace with serverless compute and Unity Catalog, and OpenSharing enabled for the metastore. Up to ten collaborators."
+    },
+    {
+      "id": "P613",
+      "topic": "Access control",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "A user can read a table's files directly from ADLS because it is an external table. Do its Unity Catalog row filters apply?",
+      "options": [
+        {
+          "t": "Yes, always",
+          "why": "Direct file access bypasses Unity Catalog."
+        },
+        {
+          "t": "No: Unity Catalog privileges aren't enforced on direct file access",
+          "ok": true
+        },
+        {
+          "t": "Only if the storage account sits behind a firewall that allows Databricks",
+          "why": "A firewall isn't Unity Catalog."
+        },
+        {
+          "t": "Only for Parquet files",
+          "why": "Format doesn't matter."
+        }
+      ],
+      "explain": "Unity Catalog privileges are not enforced on direct file access to external tables' files."
+    },
+    {
+      "id": "P614",
+      "topic": "Encryption",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "On Azure, what is encrypted by default between worker nodes?",
+      "options": [
+        {
+          "t": "Only notebook results",
+          "why": "Not the subject here."
+        },
+        {
+          "t": "Everything, always, with a customer-managed key that Databricks rotates",
+          "why": "Customer-managed keys are optional (Premium)."
+        },
+        {
+          "t": "Traffic between workers isn't encrypted by default; it can be turned on (Premium)",
+          "ok": true
+        },
+        {
+          "t": "Only shuffle files on disk",
+          "why": "Not what the page says."
+        }
+      ],
+      "explain": "On Premium, encrypting traffic between worker nodes is available; it is not encrypted by default."
+    }
+  ]
+}

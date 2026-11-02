@@ -1,0 +1,231 @@
+{
+  "id": "7",
+  "number": 7,
+  "title": "Deleted, but still in the files",
+  "outcome": "A customer's erasure request was answered with a DELETE, but deletion vectors, history and the change feed still held the data on storage.",
+  "sources": "§2, §3, §5",
+  "chapter": "delta-log",
+  "content": {
+    "bookmark": "DELETE hides rows from the current version. To remove them from storage: REORG TABLE ... APPLY (PURGE), then VACUUM once the retention has passed.",
+    "check": [
+      {
+        "prompt": "A table has deletion vectors enabled. What does DELETE do to the Parquet file holding the row?",
+        "options": [
+          "Rewrites the Parquet file straight away, without the deleted row",
+          "Leaves the file and marks the row as deleted in metadata",
+          "Deletes the whole Parquet file and copies the other rows to a new one"
+        ],
+        "answer": 1,
+        "why": "With deletion vectors, the row is marked in metadata and readers apply the mark at query time; the file isn't rewritten."
+      },
+      {
+        "prompt": "Which sequence physically removes deleted rows from storage?",
+        "options": [
+          "OPTIMIZE, then DESCRIBE HISTORY",
+          "VACUUM alone, straight after the DELETE",
+          "REORG TABLE ... APPLY (PURGE), then VACUUM once the retention has passed"
+        ],
+        "answer": 2,
+        "why": "REORG ... APPLY (PURGE) rewrites the files without the marked rows; VACUUM then deletes the old files once they are past the retention threshold."
+      },
+      {
+        "prompt": "Straight after the DELETE, can a reader still see the row?",
+        "options": [
+          "Yes, by time travel to an earlier version, until its files are vacuumed",
+          "No, never",
+          "Only the table's owner can, because time travel needs ownership"
+        ],
+        "answer": 0,
+        "why": "Earlier versions keep their files until VACUUM removes them after the retention period, so time travel still returns the row."
+      },
+      {
+        "prompt": "Where are legacy change data feed files kept, and what removes them?",
+        "options": [
+          "In _delta_log, removed by OPTIMIZE",
+          "In _change_data, removed by VACUUM",
+          "Nowhere: changes are only computed at read time"
+        ],
+        "answer": 1,
+        "why": "Legacy change data feed records changes on write in _change_data, which follows the table's retention and is removed by VACUUM."
+      }
+    ],
+    "caseStudy": {
+      "setting": "A fitness app (fictional) stores member profiles in a Delta table with deletion vectors enabled and legacy change data feed turned on, so a downstream system can pick up changes. A member asks for their personal data to be erased.",
+      "events": [
+        {
+          "when": "Monday",
+          "what": "An engineer runs DELETE FROM members WHERE member_id = 4172 and confirms that a SELECT returns nothing. The request is marked complete."
+        },
+        {
+          "when": "Wednesday",
+          "what": "The privacy officer asks whether the data is gone from storage, not just from queries. An engineer shows that SELECT ... VERSION AS OF the previous version still returns the member."
+        },
+        {
+          "when": "Wednesday afternoon",
+          "what": "The team realises the change feed recorded the delete with the row's values, and that the table also had a column dropped last month under column mapping."
+        }
+      ],
+      "pipeline": [
+        "members · Delta table, deletion vectors on, legacy change data feed on",
+        "DELETE · marks the row in a deletion vector",
+        "Downstream sync · reads the change feed"
+      ],
+      "tasks": [
+        "Where does the member's data still exist?",
+        "What steps actually remove it?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Where the data still is",
+        "text": [
+          "In the current data files: with deletion vectors, the DELETE only marked the row; the Parquet file still contains it.",
+          "In older versions: earlier versions point to files holding the row, readable by time travel until VACUUM removes them.",
+          "In the change feed: legacy change data feed wrote change files under _change_data, which stay until VACUUM removes them."
+        ]
+      },
+      {
+        "title": "Removing it",
+        "text": [
+          "Run REORG TABLE members APPLY (PURGE) to rewrite the files without the marked rows. Then, once the retention threshold has passed, VACUUM removes the old files and the change files.",
+          "The dropped column is a soft delete too: under column mapping its data stays in the files until REORG TABLE and VACUUM."
+        ]
+      },
+      {
+        "title": "Making it routine",
+        "text": [
+          "The erasure procedure should state that it ends with REORG and VACUUM, and when the request counts as done: after the retention period, not after the DELETE.",
+          "Don't shorten retention below 7 days to speed this up: Databricks strongly recommends at least 7 days, because shorter retention can delete files that long-running jobs still need."
+        ]
+      }
+    ],
+    "takeaway": [
+      "DELETE hides rows; with deletion vectors the files still hold them.",
+      "REORG ... APPLY (PURGE), then VACUUM after the retention period, removes them.",
+      "History and change feed files hold the data until VACUUM."
+    ],
+    "honesty": "If you haven't handled an erasure request on a lakehouse, say so, and explain the difference between a logical and a physical delete in Delta. If you have, describe how you proved the data was gone.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "When should the request have counted as done?",
+          "What would you put in the erasure procedure's acceptance criteria?"
+        ],
+        "debrief": [
+          {
+            "title": "Done",
+            "text": [
+              "When the data is gone from storage, which is after REORG and VACUUM, not when a query stops returning it."
+            ]
+          },
+          {
+            "title": "Acceptance criteria",
+            "text": [
+              "No version of the table and no change file holds the member's data after the procedure completes."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you define \"done\" for a data deletion request?",
+          "points": [
+            "Agree with privacy what deletion must mean: hidden or physically removed.",
+            "Include every copy: history, change feeds, downstream systems.",
+            "Know how long physical removal takes and say so.",
+            "Make the procedure repeatable and recorded.",
+            "Verify before reporting the request complete."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What do you tell the privacy officer?",
+          "What timeline can you commit to?"
+        ],
+        "debrief": [
+          {
+            "title": "Privacy officer",
+            "text": [
+              "The record was hidden on Monday but still on storage. We are running the steps that remove it, and will confirm when the retention period has passed."
+            ]
+          },
+          {
+            "title": "Timeline",
+            "text": [
+              "REORG today; removal from storage when VACUUM runs after the retention threshold (7 days by default). Check the downstream sync separately."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "You discover a compliance request was closed too early. What do you do?",
+          "points": [
+            "Tell the compliance owner straight away.",
+            "Finish the work properly and give a date.",
+            "Check other requests closed the same way.",
+            "Fix the procedure so it can't recur.",
+            "Keep a record of what was done and when."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you check earlier requests?",
+          "Who owns the procedure?"
+        ],
+        "debrief": [
+          {
+            "title": "Earlier requests",
+            "text": [
+              "List erasure requests handled with DELETE alone and rerun the full procedure on the affected tables."
+            ]
+          },
+          {
+            "title": "Ownership",
+            "text": [
+              "The data platform team owns the steps; the privacy officer owns the definition of done."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you organise compliance work that spans several teams?",
+          "points": [
+            "Name an owner for the outcome and for each step.",
+            "Write the procedure and its definition of done.",
+            "Track each request to completion with evidence.",
+            "Review the procedure when the platform changes.",
+            "Report status to the compliance owner."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "What commands complete the erasure?",
+          "How do you verify it?"
+        ],
+        "debrief": [
+          {
+            "title": "Commands",
+            "text": [
+              "DELETE the rows; REORG TABLE members APPLY (PURGE); after the retention threshold, VACUUM members."
+            ]
+          },
+          {
+            "title": "Verifying",
+            "text": [
+              "After VACUUM, time travel to versions before the DELETE fails for lack of files, and VACUUM ... DRY RUN beforehand lists what will be removed."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you physically delete personal data from a Delta table?",
+          "points": [
+            "DELETE removes rows from the current version only.",
+            "With deletion vectors, rows are marked, not rewritten.",
+            "REORG TABLE ... APPLY (PURGE) rewrites files without them.",
+            "VACUUM then deletes old files, including change feed files, after the retention period.",
+            "Dropped columns under column mapping need the same REORG and VACUUM."
+          ]
+        }
+      }
+    }
+  }
+}

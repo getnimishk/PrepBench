@@ -1,0 +1,231 @@
+{
+  "id": "3",
+  "number": 3,
+  "title": "Two streams, one checkpoint",
+  "outcome": "A copied notebook kept its checkpoint path, two queries fought over one table, and the proposed fix would have thrown away the record of what was processed.",
+  "sources": "§2, §7, §8, §10, §24",
+  "chapter": "streaming",
+  "content": {
+    "bookmark": "A checkpoint is one query's memory: what it read and what it committed. Never share one, and never delete one to make an error go away.",
+    "check": [
+      {
+        "prompt": "What does a Structured Streaming checkpoint store?",
+        "options": [
+          "A full copy of the source data read so far, so it can be replayed",
+          "Offsets, commits, state and the query ID",
+          "Only the last row written"
+        ],
+        "answer": 1,
+        "why": "The checkpoint holds offsets (what each micro-batch read), commits (which batches reached the sink), state for stateful operations, and the query ID."
+      },
+      {
+        "prompt": "Two streams write one Delta table using the same checkpoint. Which error condition describes it?",
+        "options": [
+          "DELTA_FILE_NOT_FOUND_DETAILED",
+          "TABLE_OR_VIEW_NOT_FOUND",
+          "DELTA_CONCURRENT_TRANSACTION"
+        ],
+        "answer": 2,
+        "why": "DELTA_CONCURRENT_TRANSACTION says several streams are using the same checkpoint to write the table. The fix is one checkpoint per query."
+      },
+      {
+        "prompt": "Which change to a streaming query generally needs a new checkpoint?",
+        "options": [
+          "Changing the sink type",
+          "Changing the trigger interval",
+          "Adding a filter"
+        ],
+        "answer": 0,
+        "why": "Changing sources, stateful operations, the state schema or the sink type generally needs a new checkpoint; filters, rate limits and trigger intervals are generally safe."
+      },
+      {
+        "prompt": "How does the Delta sink avoid committing the same micro-batch twice after a restart?",
+        "options": [
+          "It locks the table while writing",
+          "It compares every incoming row with the rows already in the table before it writes",
+          "It records each batch as a transaction identifier and skips one already committed"
+        ],
+        "answer": 2,
+        "why": "Transaction identifiers (an appId and version committed with the data) let the sink check whether a batch is already recorded and skip it: the mechanism behind exactly-once writes into Delta."
+      }
+    ],
+    "caseStudy": {
+      "setting": "A logistics company (fictional) streams parcel scans from a bronze Delta table into silver with a notebook job. To add a second feed of scans from a partner, an engineer copied the notebook, changed the source table, and left everything else, including the checkpointLocation, as it was.",
+      "events": [
+        {
+          "when": "Monday 10:00",
+          "what": "Both jobs start. Within minutes one of them fails with DELTA_CONCURRENT_TRANSACTION; it retries and fails again."
+        },
+        {
+          "when": "Monday 11:00",
+          "what": "A colleague suggests deleting the checkpoint folder \"to clear the conflict\" and starting both jobs again."
+        },
+        {
+          "when": "Monday 11:15",
+          "what": "The team lead stops the change and asks what the checkpoint is for before anyone deletes it."
+        }
+      ],
+      "pipeline": [
+        "bronze.scans and bronze.partner_scans · Delta tables, append-only",
+        "Two notebook jobs · same checkpointLocation /Volumes/ops/chk/scans_silver",
+        "silver.scans · Delta table, the shared target"
+      ],
+      "tasks": [
+        "What went wrong, and why would deleting the checkpoint make it worse?",
+        "How should the second feed be added?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "One checkpoint, two queries",
+        "text": [
+          "A checkpoint belongs to exactly one query. It records which offsets that query read and which batches reached the sink. Two queries can't share that record, and Delta refuses the write with DELTA_CONCURRENT_TRANSACTION.",
+          "The copied notebook also changed its source. Changing the number or type of sources generally needs a new checkpoint anyway."
+        ]
+      },
+      {
+        "title": "Why not delete it",
+        "text": [
+          "Deleting a checkpoint makes the next run start fresh: the record of what the original query had read and committed is gone, and with it the exactly-once guarantee for that history.",
+          "The error was the system protecting the data. The fix is to give the new query its own checkpoint, not to erase the old one's memory."
+        ]
+      },
+      {
+        "title": "Adding the feed properly",
+        "text": [
+          "Give the partner stream its own checkpoint path. In a declarative pipeline, the same design is two append flows into one streaming table, with checkpoint locations managed for you.",
+          "Keep checkpoints out of the table directories, or in a folder starting with an underscore, which VACUUM leaves alone."
+        ]
+      }
+    ],
+    "takeaway": [
+      "Each streaming query needs its own checkpoint; never share one.",
+      "Deleting a checkpoint resets what the query knows it has done.",
+      "DELTA_CONCURRENT_TRANSACTION points at a shared checkpoint."
+    ],
+    "honesty": "If you haven't run Structured Streaming jobs, say so, and explain what a checkpoint holds and why it must not be shared. If you have recovered a stream, describe what you kept and what you reset.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What question would you ask before approving the colleague's fix?",
+          "What would you add to the team's checklist?"
+        ],
+        "debrief": [
+          {
+            "title": "Before approving",
+            "text": [
+              "\"What do we lose if we delete it, and could we get duplicated or missing scans?\""
+            ]
+          },
+          {
+            "title": "Checklist",
+            "text": [
+              "Every new stream gets its own checkpoint path, reviewed with the code."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "An engineer proposes a quick fix that deletes system state to clear an error. How do you decide?",
+          "points": [
+            "Ask what the state is for before removing it.",
+            "Ask what could be duplicated or lost.",
+            "Prefer the fix that removes the cause.",
+            "Agree who decides on irreversible changes.",
+            "Record the decision and the reason."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What is the impact on the partner launch?",
+          "How do you stop this happening on other copied notebooks?"
+        ],
+        "debrief": [
+          {
+            "title": "Impact",
+            "text": [
+              "The partner feed starts a day later with its own checkpoint; existing scans are unaffected because the original stream's checkpoint was kept."
+            ]
+          },
+          {
+            "title": "Copied notebooks",
+            "text": [
+              "Ask the team to make checkpoint paths a parameter derived from the job, so a copy can't silently reuse one."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "A risky shortcut was nearly taken under time pressure. What do you do afterwards?",
+          "points": [
+            "Thank the person who stopped it.",
+            "Understand why the shortcut looked attractive.",
+            "Make the safe path the easy path.",
+            "Share the lesson with other teams.",
+            "Adjust the plan rather than the safeguards."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you recover today?",
+          "What prevents it next time?"
+        ],
+        "debrief": [
+          {
+            "title": "Today",
+            "text": [
+              "Stop the copied job, give it a new checkpoint path, restart it, and confirm the original stream still progresses from where it was."
+            ]
+          },
+          {
+            "title": "Prevention",
+            "text": [
+              "Review checklists include the checkpoint path; job definitions generate it from the job's name."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you run an incident where a team member's suggested fix could make things worse?",
+          "points": [
+            "Pause and ask what the fix changes and what it costs.",
+            "Keep one person deciding during the incident.",
+            "Choose the fix that removes the cause.",
+            "Verify recovery before closing.",
+            "Review afterwards without blame."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "What would you change in the code?",
+          "How do you confirm both streams are healthy?"
+        ],
+        "debrief": [
+          {
+            "title": "Code",
+            "text": [
+              "One checkpointLocation per query, built from a parameter (for example /Volumes/ops/chk/<job>), never copied.",
+              "Leave the original stream's checkpoint untouched."
+            ]
+          },
+          {
+            "title": "Health",
+            "text": [
+              "Both queries progress in the Spark UI's Streaming tab, and silver's history shows commits from both."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Explain what a streaming checkpoint is and how exactly-once writes into Delta work.",
+          "points": [
+            "The checkpoint stores offsets, commits, state and the query ID.",
+            "Each query needs its own checkpoint; sharing one fails with DELTA_CONCURRENT_TRANSACTION.",
+            "Deleting a checkpoint makes the query start fresh.",
+            "The Delta sink records each batch as a transaction identifier and skips one already committed.",
+            "Some changes, such as a new source or sink type, need a new checkpoint."
+          ]
+        }
+      }
+    }
+  }
+}

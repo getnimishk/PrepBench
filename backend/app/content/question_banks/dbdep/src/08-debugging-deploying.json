@@ -1,0 +1,521 @@
+{
+  "section": 8,
+  "domain": "Debugging and Deploying",
+  "questions": [
+    {
+      "id": "P801",
+      "topic": "Repair",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "A multi-task run failed. After fixing the code, which tasks does Repair run?",
+      "options": [
+        {
+          "t": "Only the unsuccessful tasks and their dependants, with the current settings",
+          "ok": true
+        },
+        {
+          "t": "Only the failed task, with the settings of the failed run",
+          "why": "Repair uses current settings and reruns dependants."
+        },
+        {
+          "t": "The tasks you pick, in any order",
+          "why": "Repair follows the DAG."
+        },
+        {
+          "t": "Every task in the job again, from the first, with the settings of the failed run",
+          "why": "Only unsuccessful tasks and dependants."
+        }
+      ],
+      "explain": "Repair re-runs only the unsuccessful tasks and their dependants, with the current job and task settings."
+    },
+    {
+      "id": "P802",
+      "topic": "Repair",
+      "difficulty": "hard",
+      "sources": [
+        "notes §11",
+        "notes §23"
+      ],
+      "q": "A task appended half its output before failing. What happens on Repair?",
+      "options": [
+        {
+          "t": "Repair rolls back the partial write first",
+          "why": "Jobs don't make tasks idempotent."
+        },
+        {
+          "t": "The task restarts and appends everything again, duplicating the first half",
+          "ok": true
+        },
+        {
+          "t": "Repair refuses tasks that wrote data",
+          "why": "It doesn't refuse."
+        },
+        {
+          "t": "Repair resumes the task from where it stopped, so nothing is written twice",
+          "why": "It restarts from the beginning."
+        }
+      ],
+      "explain": "A repaired task restarts from the beginning and isn't made idempotent; write with overwrite or MERGE so reruns are harmless."
+    },
+    {
+      "id": "P803",
+      "topic": "Job parameters",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A job parameter `run_date` and a task parameter `run_date` both exist on a key-value task. Which wins?",
+      "options": [
+        {
+          "t": "The run fails with a conflict",
+          "why": "No conflict error."
+        },
+        {
+          "t": "The task parameter",
+          "why": "The job parameter takes precedence."
+        },
+        {
+          "t": "The job parameter",
+          "ok": true
+        },
+        {
+          "t": "The one set most recently in the UI",
+          "why": "Precedence is fixed."
+        }
+      ],
+      "explain": "Job parameters are pushed down to key-value tasks, and when keys clash the job parameter takes precedence."
+    },
+    {
+      "id": "P804",
+      "topic": "Job parameters",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A failed run must be repaired with a different `run_date`. Is that possible?",
+      "options": [
+        {
+          "t": "Only for task values",
+          "why": "Task values are set by tasks."
+        },
+        {
+          "t": "No; parameters are fixed per run",
+          "why": "You can override job parameters when repairing."
+        },
+        {
+          "t": "Only by editing the job's defaults and starting a brand-new run",
+          "why": "Repair accepts overrides."
+        },
+        {
+          "t": "Yes: job parameters can be overridden when repairing a run",
+          "ok": true
+        }
+      ],
+      "explain": "You can override job parameters when running with different parameters, and when repairing a run."
+    },
+    {
+      "id": "P805",
+      "topic": "Dynamic value references",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "Which reference passes the run's start date (UTC) to a task?",
+      "options": [
+        {
+          "t": "`{{job.start_time.iso_date}}`",
+          "ok": true
+        },
+        {
+          "t": "`{{now()}}`, evaluated at run time",
+          "why": "Contents aren't evaluated as expressions."
+        },
+        {
+          "t": "`{{task.start_date}}`",
+          "why": "Not a reference."
+        },
+        {
+          "t": "`{{start_date}}`",
+          "why": "Deprecated; use job.start_time."
+        }
+      ],
+      "explain": "{{job.start_time.<argument>}} gives a value from the run's start time in UTC, such as iso_date; {{start_date}} is deprecated."
+    },
+    {
+      "id": "P806",
+      "topic": "Dynamic value references",
+      "difficulty": "hard",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A parameter contains `{{job.runid}}` (a typo). What happens?",
+      "options": [
+        {
+          "t": "It is replaced by an empty string",
+          "why": "It is left as written."
+        },
+        {
+          "t": "It may be kept as the literal text; only invalid references in a known namespace raise an error",
+          "ok": true
+        },
+        {
+          "t": "The job fails to start until the reference is corrected in the job settings",
+          "why": "Unknown references aren't errors."
+        },
+        {
+          "t": "It resolves to the run ID anyway",
+          "why": "It isn't recognised."
+        }
+      ],
+      "explain": "Syntax errors and non-existent references are silently treated as literal strings; a reference in a known namespace that isn't valid shows an error."
+    },
+    {
+      "id": "P807",
+      "topic": "Dynamic value references",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "Which reference counts the times the current task has run, retries and repairs included?",
+      "options": [
+        {
+          "t": "`{{job.repair_count}}` for the job",
+          "why": "That counts repair attempts of the run."
+        },
+        {
+          "t": "`{{task.run_id}}`",
+          "why": "That identifies the task run."
+        },
+        {
+          "t": "`{{task.execution_count}}`",
+          "ok": true
+        },
+        {
+          "t": "`{{task_retry_count}}`",
+          "why": "Deprecated."
+        }
+      ],
+      "explain": "{{task.execution_count}} is the number of times the current task ran, including retries and repairs."
+    },
+    {
+      "id": "P808",
+      "topic": "Bundles",
+      "difficulty": "medium",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "Which `mode: production` checks does a bundle deployment run? (Choose two.)",
+      "options": [
+        {
+          "t": "The current Git branch matches the target's git.branch",
+          "ok": true
+        },
+        {
+          "t": "run_as and permissions are specified",
+          "ok": true
+        },
+        {
+          "t": "Schedules are paused",
+          "why": "That is development mode."
+        },
+        {
+          "t": "Resources get a [dev name] prefix",
+          "why": "That is development mode."
+        },
+        {
+          "t": "--cluster-id may override clusters",
+          "why": "Only in development mode."
+        }
+      ],
+      "explain": "mode: production checks pipelines aren't in development, the Git branch matches, paths aren't user-specific, and run_as and permissions are set."
+    },
+    {
+      "id": "P809",
+      "topic": "Bundles",
+      "difficulty": "medium",
+      "sources": [
+        "notes §16",
+        "notes §14"
+      ],
+      "q": "A CI pipeline must pass a secret into a bundle variable without writing it in databricks.yml. How?",
+      "options": [
+        {
+          "t": "Store it in a tag on the job, read at deployment",
+          "why": "Tags are plain text."
+        },
+        {
+          "t": "Hard-code it in the notebook",
+          "why": "Not secure."
+        },
+        {
+          "t": "Put it in the target's variables block",
+          "why": "That writes it into the file."
+        },
+        {
+          "t": "Set the environment variable `BUNDLE_VAR_<name>`",
+          "ok": true
+        }
+      ],
+      "explain": "Bundle variables can be given at run time with --var, a BUNDLE_VAR_<name> environment variable, or variable-overrides.json; secrets never go in databricks.yml."
+    },
+    {
+      "id": "P810",
+      "topic": "Databricks SDK",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "In the Databricks SDK for Python, which client lists a workspace's clusters?",
+      "options": [
+        {
+          "t": "`WorkspaceClient().clusters.list()`",
+          "ok": true
+        },
+        {
+          "t": "`SparkSession.clusters()`",
+          "why": "Not an SDK call."
+        },
+        {
+          "t": "`dbutils.clusters.list()`",
+          "why": "dbutils has no clusters group."
+        },
+        {
+          "t": "`AccountClient().clusters.list()` with an account token",
+          "why": "Clusters are a workspace API."
+        }
+      ],
+      "explain": "WorkspaceClient serves workspace APIs (the page's example lists clusters); AccountClient serves account APIs such as groups."
+    },
+    {
+      "id": "P811",
+      "topic": "Databricks SDK",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "What authentication standard does the Databricks SDK for Python implement?",
+      "options": [
+        {
+          "t": "A separate login per API call",
+          "why": "Not how it works."
+        },
+        {
+          "t": "Databricks unified authentication: configure once, reuse across tools",
+          "ok": true
+        },
+        {
+          "t": "Only hard-coded personal access tokens, passed to each client",
+          "why": "Hard-coding is supported but not recommended."
+        },
+        {
+          "t": "Only Kerberos",
+          "why": "Not listed."
+        }
+      ],
+      "explain": "The SDK implements Databricks unified authentication; hard-coding tokens is supported but not recommended."
+    },
+    {
+      "id": "P812",
+      "topic": "Libraries",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "Where does Databricks discourage installing libraries?",
+      "options": [
+        {
+          "t": "A serverless environment",
+          "why": "Environments are the serverless way."
+        },
+        {
+          "t": "Unity Catalog volumes, which only admins can write",
+          "why": "Volumes are the recommended place on DBR 13.3 LTS+."
+        },
+        {
+          "t": "DBFS, which any workspace user can write to",
+          "ok": true
+        },
+        {
+          "t": "A compute policy's library list",
+          "why": "Policies are recommended for libraries."
+        }
+      ],
+      "explain": "Libraries in DBFS are writable by any user and are discouraged; on DBR 13.3 LTS+ with Unity Catalog, install from volumes."
+    },
+    {
+      "id": "P813",
+      "topic": "Init scripts",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "Which advice about init scripts is correct?",
+      "options": [
+        {
+          "t": "Use global scripts for everything",
+          "why": "Cluster-scoped over global."
+        },
+        {
+          "t": "Install every library with them, so all nodes get the same versions",
+          "why": "Never install libraries through init scripts."
+        },
+        {
+          "t": "Serverless supports them",
+          "why": "It doesn't."
+        },
+        {
+          "t": "Prefer platform features such as compute policies, and pin package versions",
+          "ok": true
+        }
+      ],
+      "explain": "Databricks recommends platform features over init scripts, cluster-scoped over global, never installing libraries through them, and pinning OS package versions."
+    },
+    {
+      "id": "P814",
+      "topic": "Errors",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "How should code handle Databricks errors reliably?",
+      "options": [
+        {
+          "t": "By error condition or SQLSTATE",
+          "ok": true
+        },
+        {
+          "t": "By line number in the stack trace",
+          "why": "Not stable."
+        },
+        {
+          "t": "By the time the error happened",
+          "why": "Not meaningful."
+        },
+        {
+          "t": "By matching the error message text",
+          "why": "Messages may change between releases."
+        }
+      ],
+      "explain": "Every error has a condition, a SQLSTATE and a parameterized message; message text may change, so handle errors by condition or SQLSTATE."
+    },
+    {
+      "id": "P815",
+      "topic": "Errors",
+      "difficulty": "medium",
+      "sources": [
+        "notes §24"
+      ],
+      "q": "A query fails with TABLE_OR_VIEW_NOT_FOUND (42P01). Which checks help? (Choose two.)",
+      "options": [
+        {
+          "t": "Check the name and `current_schema()`",
+          "ok": true
+        },
+        {
+          "t": "Qualify the name as catalog.schema.table",
+          "ok": true
+        },
+        {
+          "t": "Restart the cluster",
+          "why": "Not a name problem fix."
+        },
+        {
+          "t": "Grant MODIFY on the table",
+          "why": "MODIFY doesn't make a table visible."
+        },
+        {
+          "t": "Run VACUUM",
+          "why": "Unrelated."
+        }
+      ],
+      "explain": "Check spelling and current_schema(), qualify catalog.schema.table, and check USE CATALOG/USE SCHEMA."
+    },
+    {
+      "id": "P816",
+      "topic": "Compute start-up",
+      "difficulty": "hard",
+      "sources": [
+        "notes §23",
+        "notes §20"
+      ],
+      "q": "A first cluster in a VNet-injected workspace never responds; the event log says the compute plane network is misconfigured. What is the likely cause?",
+      "options": [
+        {
+          "t": "Too few DBUs left in the subscription's quota for the first cluster",
+          "why": "Not a network message."
+        },
+        {
+          "t": "Routing or a firewall stops nodes reaching the control plane",
+          "ok": true
+        },
+        {
+          "t": "The runtime is out of support",
+          "why": "Not this message."
+        },
+        {
+          "t": "Unity Catalog isn't enabled",
+          "why": "Not this message."
+        }
+      ],
+      "explain": "That message means routing or a firewall blocks the nodes: test connectivity from the subnet and check SSL inspection."
+    },
+    {
+      "id": "P817",
+      "topic": "Runtime lifecycle",
+      "difficulty": "easy",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "How long is an LTS Databricks Runtime supported?",
+      "options": [
+        {
+          "t": "Six months",
+          "why": "That is the feature-release period."
+        },
+        {
+          "t": "One year from the first release",
+          "why": "Not the LTS period."
+        },
+        {
+          "t": "Three years from GA",
+          "ok": true
+        },
+        {
+          "t": "Ten years",
+          "why": "No."
+        }
+      ],
+      "explain": "A runtime gets about six months of feature releases; LTS versions get fixes for three years from GA."
+    },
+    {
+      "id": "P818",
+      "topic": "Git folders",
+      "difficulty": "medium",
+      "sources": [
+        "notes §16"
+      ],
+      "q": "A developer can't commit to the default branch of a production repository. What does the Git folders guidance suggest?",
+      "options": [
+        {
+          "t": "Force-push from the workspace",
+          "why": "Not the guidance."
+        },
+        {
+          "t": "Copy the notebook to a production folder by hand and commit it there",
+          "why": "Use the Git flow."
+        },
+        {
+          "t": "Ask an admin to disable branch protection",
+          "why": "Not the guidance."
+        },
+        {
+          "t": "Commit to a branch and open a pull request in the Git provider",
+          "ok": true
+        }
+      ],
+      "explain": "Without permission to commit to the default branch, create a branch and open a pull request in the Git provider; each developer works on their own branch."
+    }
+  ]
+}

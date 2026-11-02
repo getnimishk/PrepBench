@@ -2,6 +2,8 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
+import { isAnswered, isStructured, reviewQuestion } from '../services/questionFormats';
+import { StructuredAnswerKey, StructuredInput } from '../components/exam/StructuredAnswer';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -320,6 +322,9 @@ const ReviewCard: React.FC<{
   onNext: (checkPassed?: boolean) => void;
 }> = ({ item, position, total, onNext }) => {
   const chosen = new Set(item.selected_option_ids);
+  // Ordering and matching misses show the right order or pairs beside the learner's (StructuredAnswer.tsx).
+  const structuredQ = isStructured({ question_type: item.question_type ?? 'single_choice' })
+    ? reviewQuestion(item.question_id, item.question_type, item.options) : null;
   const missed = item.options.filter((o) => o.is_correct && !chosen.has(o.id)).length;
   const wrongly = item.options.filter((o) => !o.is_correct && chosen.has(o.id)).length;
 
@@ -341,12 +346,15 @@ const ReviewCard: React.FC<{
         {item.question_text}
       </Typography>
 
-      {whatWentWrong && (
+      {!structuredQ && whatWentWrong && (
         <Typography variant="body2" sx={{ mt: 2, color: 'error.main' }}>
           {whatWentWrong.charAt(0).toUpperCase() + whatWentWrong.slice(1)}.
         </Typography>
       )}
 
+      {structuredQ ? (
+        <Box sx={{ mt: 2.5 }}><StructuredAnswerKey question={structuredQ} selected={item.selected_option_ids} /></Box>
+      ) : (
       <Stack sx={{ mt: 2.5 }} spacing={1.25}>
         {item.options.map((o) => {
           const picked = chosen.has(o.id);
@@ -392,6 +400,7 @@ const ReviewCard: React.FC<{
           );
         })}
       </Stack>
+      )}
 
       {item.explanation && (
         <Box sx={{ mt: 3.5 }}>
@@ -477,6 +486,9 @@ const Check: React.FC<{
   };
 
   const correct = new Set(result?.correct_option_ids ?? []);
+  const checkQ = isStructured({ question_type: check.question_type ?? 'single_choice' })
+    ? reviewQuestion(check.question_id, check.question_type, check.options) : null;
+  const canSubmit = checkQ ? isAnswered(checkQ, picked) : picked.length > 0;
 
   return (
     <Box sx={{ mt: 4, pt: 3.5, borderTop: 1, borderColor: 'divider' }}>
@@ -495,6 +507,11 @@ const Check: React.FC<{
         )}
       </Typography>
 
+      {checkQ ? (
+        <Box sx={{ mt: 2 }}>
+          <StructuredInput question={checkQ} selected={picked} onChange={(ids) => { if (!result) setPicked(ids); }} revealed={result != null} />
+        </Box>
+      ) : (
       <Stack sx={{ mt: 2 }} spacing={1}>
         {check.options.map((o) => {
           const isPicked = picked.includes(o.id);
@@ -556,6 +573,7 @@ const Check: React.FC<{
           );
         })}
       </Stack>
+      )}
 
       {failed && (
         <Alert severity="warning" sx={{ mt: 2 }}>
@@ -583,7 +601,7 @@ const Check: React.FC<{
 
       <Stack direction="row" sx={{ mt: 3.5, alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
         {result == null ? (
-          <Button variant="contained" disabled={picked.length === 0 || submitting} onClick={submit}>
+          <Button variant="contained" disabled={!canSubmit || submitting} onClick={submit}>
             {submitting ? 'Checking…' : 'Check'}
           </Button>
         ) : (

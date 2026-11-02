@@ -1,0 +1,854 @@
+{
+  "section": 6,
+  "domain": "Troubleshooting, Monitoring, and Optimization",
+  "questions": [
+    {
+      "id": "R01",
+      "topic": "Skew",
+      "difficulty": "medium",
+      "sources": [
+        "notes §9"
+      ],
+      "q": "In a slow stage's task Summary Metrics, which pattern does Databricks describe as a sign of skew?",
+      "options": [
+        {
+          "t": "All task durations are nearly the same",
+          "why": "Even durations mean no skew."
+        },
+        {
+          "t": "Max task duration is 50% or more above the 75th percentile",
+          "ok": true
+        },
+        {
+          "t": "The median task duration is longer than one minute in every stage of the job",
+          "why": "Long tasks alone aren't skew; skew is an uneven distribution."
+        },
+        {
+          "t": "The number of tasks equals the number of cores",
+          "why": "That is about parallelism, not skew."
+        }
+      ],
+      "explain": "In Summary Metrics, compare Max duration to the 75th percentile: 50% or more above it suggests skew."
+    },
+    {
+      "id": "R02",
+      "topic": "Spill",
+      "difficulty": "medium",
+      "sources": [
+        "notes §9"
+      ],
+      "q": "Where does a stage show that it spilled to disk?",
+      "options": [
+        {
+          "t": "In the cluster's event log, as a SPILL event logged for each affected executor",
+          "why": "Spill shows as statistics in the stage details."
+        },
+        {
+          "t": "In DESCRIBE HISTORY of the table being written",
+          "why": "History lists table operations, not spill."
+        },
+        {
+          "t": "In the stage details at the top of the stage page, as spill statistics",
+          "ok": true
+        },
+        {
+          "t": "In system.billing.usage for the job",
+          "why": "Billing usage records consumption, not spill."
+        }
+      ],
+      "explain": "The stage details at the top of the stage page show spill statistics when the stage has spill; none shown means no spill."
+    },
+    {
+      "id": "R03",
+      "topic": "Spill",
+      "difficulty": "medium",
+      "sources": [
+        "notes §9"
+      ],
+      "q": "What is spill?",
+      "options": [
+        {
+          "t": "Rows that fail an expectation and are dropped",
+          "why": "Spill is about memory, not data quality."
+        },
+        {
+          "t": "Data written to disk when execution memory runs out",
+          "ok": true
+        },
+        {
+          "t": "Files that a failed write left behind in the table directory before VACUUM ran",
+          "why": "Those are uncommitted files, removed by VACUUM."
+        },
+        {
+          "t": "A broadcast table too big for the driver",
+          "why": "Spill is execution memory exhausted in tasks."
+        }
+      ],
+      "explain": "Spill happens when Spark runs low on execution memory (used for shuffles, joins, sorts and aggregations) and writes data from memory to disk; it is most common in shuffles."
+    },
+    {
+      "id": "R04",
+      "topic": "Spill",
+      "difficulty": "hard",
+      "sources": [
+        "notes §9"
+      ],
+      "q": "Which remedies does Databricks list for a stage that spills?",
+      "options": [
+        {
+          "t": "Set spark.sql.shuffle.partitions to auto",
+          "ok": true
+        },
+        {
+          "t": "Use instances with more memory",
+          "ok": true
+        },
+        {
+          "t": "Set the broadcast threshold to -1",
+          "why": "That disables broadcasting; it isn't a spill remedy."
+        },
+        {
+          "t": "Disable Photon",
+          "why": "Disabling Photon isn't a documented spill remedy."
+        },
+        {
+          "t": "Add more Run if conditions to the job",
+          "why": "Job conditions don't affect memory use in a stage."
+        }
+      ],
+      "explain": "For spill: shuffle.partitions=auto, process fewer rows or columns, more executor memory, fewer larger workers for complex joins, smaller streaming batches."
+    },
+    {
+      "id": "R05",
+      "topic": "Skew",
+      "difficulty": "hard",
+      "sources": [
+        "notes §9"
+      ],
+      "q": "Which kinds of skew can adaptive query execution split automatically?",
+      "options": [
+        {
+          "t": "Skewed partitions in sort-merge and shuffle-hash joins",
+          "ok": true
+        },
+        {
+          "t": "Skew in any groupBy aggregation, by splitting the hot key's partition in two",
+          "why": "AQE's skew handling applies to joins, not aggregations."
+        },
+        {
+          "t": "Skew in broadcast joins",
+          "why": "Broadcast joins are never skew-optimised."
+        },
+        {
+          "t": "Skewed files in a Delta table on disk",
+          "why": "AQE works at query run time, not on stored files."
+        }
+      ],
+      "explain": "AQE splits skewed partitions in sort-merge and shuffle-hash joins; broadcast joins are never skew-optimised, and aggregations aren't covered."
+    },
+    {
+      "id": "R06",
+      "topic": "Skew",
+      "difficulty": "hard",
+      "sources": [
+        "notes §9",
+        "notes §2"
+      ],
+      "q": "A stored Delta table is skewed on the column most queries filter by. Which documented fix applies to the table itself?",
+      "options": [
+        {
+          "t": "Salting every query's filter on that column",
+          "why": "Salting fixes skewed aggregations at query time; for a stored table, liquid clustering is listed."
+        },
+        {
+          "t": "Raising spark.sql.autoBroadcastJoinThreshold",
+          "why": "That changes join strategy, not the table's layout."
+        },
+        {
+          "t": "Running VACUUM with a shorter retention",
+          "why": "VACUUM removes old files; it doesn't fix skew."
+        },
+        {
+          "t": "Liquid clustering on that column",
+          "ok": true
+        }
+      ],
+      "explain": "Fixes for skew include liquid clustering for a skewed stored table; liquid clustering suits skewed data and high-cardinality filter columns."
+    },
+    {
+      "id": "R07",
+      "topic": "Table optimization",
+      "difficulty": "medium",
+      "sources": [
+        "notes §2"
+      ],
+      "q": "A table receives many small appends and queries have slowed. Which command compacts its small files?",
+      "options": [
+        {
+          "t": "VACUUM",
+          "why": "VACUUM deletes unreferenced old files; OPTIMIZE compacts."
+        },
+        {
+          "t": "OPTIMIZE",
+          "ok": true
+        },
+        {
+          "t": "RESTORE",
+          "why": "RESTORE returns to an earlier version."
+        },
+        {
+          "t": "ANALYZE TABLE",
+          "why": "ANALYZE computes statistics."
+        }
+      ],
+      "explain": "OPTIMIZE rewrites small files into fewer, larger ones (bin-packing); it is idempotent and makes no data change."
+    },
+    {
+      "id": "R08",
+      "topic": "Table optimization",
+      "difficulty": "medium",
+      "sources": [
+        "notes §2"
+      ],
+      "q": "What does predictive optimization do on Unity Catalog managed tables?",
+      "options": [
+        {
+          "t": "Rewrites queries to use better join strategies",
+          "why": "That is AQE; predictive optimization maintains tables."
+        },
+        {
+          "t": "Predicts which jobs will fail and retries them early on larger compute",
+          "why": "It maintains tables, not jobs."
+        },
+        {
+          "t": "Runs OPTIMIZE, VACUUM and ANALYZE automatically where they help",
+          "ok": true
+        },
+        {
+          "t": "Converts external tables to managed tables",
+          "why": "That is ALTER TABLE ... SET MANAGED."
+        }
+      ],
+      "explain": "Predictive optimization automatically runs OPTIMIZE, VACUUM and ANALYZE on Unity Catalog managed tables, deciding which tables benefit."
+    },
+    {
+      "id": "R09",
+      "topic": "Table optimization",
+      "difficulty": "hard",
+      "sources": [
+        "notes §2"
+      ],
+      "q": "Predictive optimization is on, and a team also runs OPTIMIZE ... ZORDER BY on a schedule. What should they know?",
+      "options": [
+        {
+          "t": "Predictive optimization runs Z-order for them on a better schedule, so their own job is redundant",
+          "why": "Predictive optimization never runs ZORDER."
+        },
+        {
+          "t": "Predictive optimization never runs Z-order; Databricks recommends liquid clustering instead",
+          "ok": true
+        },
+        {
+          "t": "Z-order is required for predictive optimization to work",
+          "why": "It isn't; predictive optimization ignores Z-ordered files."
+        },
+        {
+          "t": "The two can't be enabled on the same workspace",
+          "why": "They can; predictive optimization just never runs ZORDER."
+        }
+      ],
+      "explain": "Predictive optimization's OPTIMIZE never runs ZORDER and ignores Z-ordered files; Databricks recommends liquid clustering instead of partitioning or Z-order."
+    },
+    {
+      "id": "R10",
+      "topic": "Table optimization",
+      "difficulty": "medium",
+      "sources": [
+        "notes §2"
+      ],
+      "q": "Queries filter on a column that is the 40th column of a wide table, and data skipping doesn't help. Why?",
+      "options": [
+        {
+          "t": "Data skipping only works on partition columns",
+          "why": "Skipping uses per-file statistics, by default on the first 32 columns."
+        },
+        {
+          "t": "Statistics are collected on the first 32 columns by default",
+          "ok": true
+        },
+        {
+          "t": "Data skipping is switched off on wide tables",
+          "why": "It works; statistics just cover the first 32 columns by default."
+        },
+        {
+          "t": "Only columns listed in ZORDER BY get file statistics, and this one never was",
+          "why": "Statistics are collected on write for the first 32 columns."
+        }
+      ],
+      "explain": "Statistics are collected automatically on the first 32 columns by default (delta.dataSkippingNumIndexedCols, or delta.dataSkippingStatsColumns)."
+    },
+    {
+      "id": "R11",
+      "topic": "Run history",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11",
+        "notes §15"
+      ],
+      "q": "A job ran in 20 minutes for weeks and now takes 70. Where do you compare runs against that baseline?",
+      "options": [
+        {
+          "t": "In the job's run history and matrix view",
+          "ok": true
+        },
+        {
+          "t": "In the table's DESCRIBE DETAIL output",
+          "why": "That describes the table, not run durations."
+        },
+        {
+          "t": "In the cluster's init script logs",
+          "why": "Run durations are in the job's run history."
+        },
+        {
+          "t": "In the notebook's revision history, which records each run's duration",
+          "why": "That tracks code edits, not run durations."
+        }
+      ],
+      "explain": "The Jobs UI gives run history and the matrix view, task run details, duration thresholds and notifications; the system.lakeflow tables record runs across the account."
+    },
+    {
+      "id": "R12",
+      "topic": "Run history",
+      "difficulty": "hard",
+      "sources": [
+        "notes §15"
+      ],
+      "q": "Which system tables record job runs across the whole account?",
+      "options": [
+        {
+          "t": "system.access.audit and system.access.table_lineage, joined on the job ID",
+          "why": "Those hold audit events and lineage."
+        },
+        {
+          "t": "system.billing.list_prices",
+          "why": "That holds prices."
+        },
+        {
+          "t": "system.lakeflow.job_run_timeline and job_task_run_timeline",
+          "ok": true
+        },
+        {
+          "t": "system.compute.warehouses",
+          "why": "That describes warehouses."
+        }
+      ],
+      "explain": "system.lakeflow has jobs, job_tasks, job_run_timeline, job_task_run_timeline, pipelines and pipeline_update_timeline."
+    },
+    {
+      "id": "R13",
+      "topic": "Cost monitoring",
+      "difficulty": "medium",
+      "sources": [
+        "notes §15"
+      ],
+      "q": "Which system table holds all billable usage, in DBUs?",
+      "options": [
+        {
+          "t": "system.billing.usage",
+          "ok": true
+        },
+        {
+          "t": "system.query.history",
+          "why": "That holds query history."
+        },
+        {
+          "t": "system.lakeflow.jobs",
+          "why": "That describes jobs."
+        },
+        {
+          "t": "system.access.audit, joined to job IDs",
+          "why": "That holds audit events."
+        }
+      ],
+      "explain": "system.billing.usage holds all billable usage, in DBUs, with records usually within 12 hours; join with list prices to get cost."
+    },
+    {
+      "id": "R14",
+      "topic": "Cost monitoring",
+      "difficulty": "hard",
+      "sources": [
+        "notes §15"
+      ],
+      "q": "How long does it usually take for usage to appear in system.billing.usage?",
+      "options": [
+        {
+          "t": "Within one second",
+          "why": "Records usually arrive within 12 hours."
+        },
+        {
+          "t": "Within 12 hours",
+          "ok": true
+        },
+        {
+          "t": "At the end of each month",
+          "why": "Records usually arrive within 12 hours."
+        },
+        {
+          "t": "Only after the invoice is paid",
+          "why": "Records usually arrive within 12 hours."
+        }
+      ],
+      "explain": "system.billing.usage records all billable usage, usually within 12 hours."
+    },
+    {
+      "id": "R15",
+      "topic": "Pipeline monitoring",
+      "difficulty": "medium",
+      "sources": [
+        "notes §10"
+      ],
+      "q": "How do you query a declarative pipeline's event log?",
+      "options": [
+        {
+          "t": "DESCRIBE HISTORY on the pipeline's name",
+          "why": "History is for tables; the event log uses event_log()."
+        },
+        {
+          "t": "SELECT * FROM system.billing.usage WHERE pipeline = ...",
+          "why": "Billing usage holds DBUs, not pipeline events."
+        },
+        {
+          "t": "SELECT * FROM event_log(<pipeline id>)",
+          "ok": true
+        },
+        {
+          "t": "By reading the pipeline's checkpoint files",
+          "why": "Use the event_log() function."
+        }
+      ],
+      "explain": "Every pipeline writes an event log (audit, data quality, progress, lineage); query it with SELECT * FROM event_log(<pipelineId>). Don't delete it."
+    },
+    {
+      "id": "R16",
+      "topic": "Query profile",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "A SQL warehouse query is slow. Which tool shows its operators with time, rows and memory each?",
+      "options": [
+        {
+          "t": "The query profile, opened from query history",
+          "ok": true
+        },
+        {
+          "t": "The table's DESCRIBE DETAIL",
+          "why": "That describes the table, not the query's execution."
+        },
+        {
+          "t": "The job's matrix view",
+          "why": "That shows job runs, not query operators."
+        },
+        {
+          "t": "The Git folder's commit log, which records each query's runtime",
+          "why": "That shows code history."
+        }
+      ],
+      "explain": "The query profile shows the operator graph with time, rows and memory per operator, a Top operators panel and performance insights, such as exploding joins or full table scans."
+    },
+    {
+      "id": "R17",
+      "topic": "Query profile",
+      "difficulty": "hard",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "A query's profile says 'Query profile is not available'. What is a likely reason?",
+      "options": [
+        {
+          "t": "The query failed with a syntax error before planning",
+          "why": "The documented case is a result served from the query cache."
+        },
+        {
+          "t": "The results came from the query cache",
+          "ok": true
+        },
+        {
+          "t": "The warehouse is serverless",
+          "why": "Serverless warehouses have query profiles."
+        },
+        {
+          "t": "The table has liquid clustering",
+          "why": "Table layout doesn't remove profiles."
+        }
+      ],
+      "explain": "No profile is available for queries served from the query cache; make a trivial change, such as to the LIMIT, to bypass it."
+    },
+    {
+      "id": "R18",
+      "topic": "Cluster start-up failures",
+      "difficulty": "hard",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "A first cluster in a new VNet-injected workspace never responds, and the event log says the compute plane network is misconfigured. What is the likely cause?",
+      "options": [
+        {
+          "t": "The cluster's runtime version is too old for a workspace created this year",
+          "why": "The message points at routing or a firewall."
+        },
+        {
+          "t": "Routing or a firewall stops nodes reaching the control plane",
+          "ok": true
+        },
+        {
+          "t": "The workspace has no Unity Catalog metastore",
+          "why": "That wouldn't stop nodes bootstrapping."
+        },
+        {
+          "t": "The job's timeout was set too low",
+          "why": "This is a compute bootstrap failure, not a job timeout."
+        }
+      ],
+      "explain": "'The compute plane network is misconfigured ... Node daemon ping timeout' means routing or the firewall is incorrect: test connectivity from a VM in the workspace subnet."
+    },
+    {
+      "id": "R19",
+      "topic": "Cluster start-up failures",
+      "difficulty": "hard",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "A cluster's event log shows METASTORE_DOWN events. What does the troubleshooting guide suggest checking?",
+      "options": [
+        {
+          "t": "Whether a web application firewall or proxy sits in the path",
+          "ok": true
+        },
+        {
+          "t": "Whether the cluster has enough workers",
+          "why": "The guide points to a WAF or proxy in the path."
+        },
+        {
+          "t": "Whether VACUUM ran on the metastore",
+          "why": "The guide points to a WAF or proxy in the path."
+        },
+        {
+          "t": "Whether the job that started the cluster has a retry policy configured",
+          "why": "The guide points to a WAF or proxy in the path."
+        }
+      ],
+      "explain": "For METASTORE_DOWN events, confirm whether a web application firewall such as a Squid proxy is used; compute must reach services that don't work over a WAF."
+    },
+    {
+      "id": "R20",
+      "topic": "Out of memory",
+      "difficulty": "hard",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "A stream failed out of memory on an oversized micro-batch. It restarts and fails again on the same batch. What does the documentation suggest?",
+      "options": [
+        {
+          "t": "Delete the checkpoint so that the oversized micro-batch is skipped",
+          "why": "That reprocesses everything; the guidance is to scale up compute."
+        },
+        {
+          "t": "Lower the watermark to drop the batch",
+          "why": "The planned batch runs again; scale up compute to get past it."
+        },
+        {
+          "t": "Switch the output mode to complete",
+          "why": "That doesn't shrink the planned batch."
+        },
+        {
+          "t": "Scale up the compute to process the micro-batch",
+          "ok": true
+        }
+      ],
+      "explain": "On restart, the micro-batch planned in the previous run is processed again; after an out-of-memory failure you might need to scale up the compute to process it."
+    },
+    {
+      "id": "R21",
+      "topic": "Libraries",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "Where does Databricks recommend installing libraries from, on DBR 13.3 LTS and above with Unity Catalog?",
+      "options": [
+        {
+          "t": "From DBFS, which any workspace user can update",
+          "why": "DBFS libraries are writable by any user and discouraged."
+        },
+        {
+          "t": "From Unity Catalog volumes, on standard-access compute",
+          "ok": true
+        },
+        {
+          "t": "From an init script that runs pip install on each node",
+          "why": "Databricks says not to install libraries through init scripts."
+        },
+        {
+          "t": "From the driver's local disk, copied by hand",
+          "why": "Volumes or package repositories are recommended."
+        }
+      ],
+      "explain": "On DBR 13.3 LTS and above with Unity Catalog, install libraries from Unity Catalog volumes on standard-access compute; libraries in DBFS can be modified by any workspace user."
+    },
+    {
+      "id": "R22",
+      "topic": "Libraries",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "Before adding a library to a cluster, what should you check first to avoid conflicts?",
+      "options": [
+        {
+          "t": "Whether the library is in the table's lineage graph",
+          "why": "Lineage tracks data, not libraries."
+        },
+        {
+          "t": "Whether the runtime already includes it, in the release notes",
+          "ok": true
+        },
+        {
+          "t": "Whether the cluster has deletion vectors enabled",
+          "why": "That is a table feature, not related to libraries."
+        },
+        {
+          "t": "Whether the job has a file arrival trigger",
+          "why": "Triggers don't affect libraries."
+        }
+      ],
+      "explain": "Each runtime comes with many libraries; check its release notes before adding anything, and prefer the versions packaged in the runtime."
+    },
+    {
+      "id": "R23",
+      "topic": "Init scripts",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "What does Databricks recommend instead of init scripts where possible?",
+      "options": [
+        {
+          "t": "Global init scripts, which apply to every cluster",
+          "why": "If you must use them, prefer cluster-scoped ones; better still, use platform features."
+        },
+        {
+          "t": "Built-in features such as compute policies for configuration and libraries",
+          "ok": true
+        },
+        {
+          "t": "A notebook that runs shell commands at the start of every job",
+          "why": "Compute policies are the documented alternative."
+        },
+        {
+          "t": "Installing libraries through the init script with pinned versions",
+          "why": "Databricks says not to install libraries through init scripts."
+        }
+      ],
+      "explain": "Databricks recommends built-in platform features instead of init scripts: compute policies for system properties, environment variables, Spark configuration and libraries."
+    },
+    {
+      "id": "R24",
+      "topic": "Init scripts",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "Which compute doesn't support init scripts?",
+      "options": [
+        {
+          "t": "Classic job compute",
+          "why": "Init scripts are for classic compute."
+        },
+        {
+          "t": "Classic all-purpose compute",
+          "why": "Init scripts are for classic compute."
+        },
+        {
+          "t": "Serverless compute",
+          "ok": true
+        },
+        {
+          "t": "Single-node classic compute",
+          "why": "Single node is classic compute, which supports init scripts."
+        }
+      ],
+      "explain": "Init scripts run on classic compute; serverless compute does not support them."
+    },
+    {
+      "id": "R25",
+      "topic": "Error conditions",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "Code must react to a specific Databricks error. What should it check?",
+      "options": [
+        {
+          "t": "The text of the error message",
+          "why": "Message text may change between releases; use the condition or SQLSTATE."
+        },
+        {
+          "t": "The error condition or SQLSTATE",
+          "ok": true
+        },
+        {
+          "t": "The line number in the stack trace",
+          "why": "Line numbers change with code; use the condition or SQLSTATE."
+        },
+        {
+          "t": "The time the error occurred",
+          "why": "Use the condition or SQLSTATE."
+        }
+      ],
+      "explain": "Message and parameterized message text are not stable across releases; handle errors by error condition, SQLSTATE and message parameters."
+    },
+    {
+      "id": "R26",
+      "topic": "Error conditions",
+      "difficulty": "medium",
+      "sources": [
+        "notes §24"
+      ],
+      "q": "A stream writing a Delta table fails with DELTA_CONCURRENT_TRANSACTION. What does the error point to?",
+      "options": [
+        {
+          "t": "Several streams are using the same checkpoint to write the table",
+          "ok": true
+        },
+        {
+          "t": "The table's schema changed since the stream started",
+          "why": "That gives a schema-change error."
+        },
+        {
+          "t": "A file in the log was deleted by VACUUM",
+          "why": "That gives DELTA_FILE_NOT_FOUND_DETAILED."
+        },
+        {
+          "t": "The source sent duplicate keys to a MERGE",
+          "why": "That gives a multiple-source-row error."
+        }
+      ],
+      "explain": "DELTA_CONCURRENT_TRANSACTION occurs when multiple streaming queries use the same checkpoint to write into the table."
+    },
+    {
+      "id": "R27",
+      "topic": "Error conditions",
+      "difficulty": "hard",
+      "sources": [
+        "notes §24",
+        "notes §2"
+      ],
+      "q": "A lagging stream fails with DELTA_FILE_NOT_FOUND_DETAILED after someone vacuumed its source with a very short retention. What is the fix the error suggests?",
+      "options": [
+        {
+          "t": "Run RESTORE on the source to bring the files back",
+          "why": "RESTORE can't bring back vacuumed files."
+        },
+        {
+          "t": "Increase the stream's trigger interval",
+          "why": "The files are gone; the message suggests a new checkpoint."
+        },
+        {
+          "t": "Restart the query with a new checkpoint location",
+          "ok": true
+        },
+        {
+          "t": "Set the table to append-only",
+          "why": "That doesn't recover the missing files."
+        }
+      ],
+      "explain": "DELTA_FILE_NOT_FOUND_DETAILED: a file referenced in the log can't be found, from manual deletion or a VACUUM with too short a retention; restart with a new checkpoint location."
+    },
+    {
+      "id": "R28",
+      "topic": "Error conditions",
+      "difficulty": "medium",
+      "sources": [
+        "notes §24",
+        "notes §4"
+      ],
+      "q": "A MERGE fails with DELTA_MULTIPLE_SOURCE_ROW_MATCHING_TARGET_ROW_IN_MERGE. What is the fix?",
+      "options": [
+        {
+          "t": "Retry the MERGE until it succeeds",
+          "why": "The source has duplicate keys; retries fail the same way."
+        },
+        {
+          "t": "Switch to Serializable isolation",
+          "why": "Isolation concerns concurrent writers, not duplicate source rows."
+        },
+        {
+          "t": "Enable deletion vectors on the target",
+          "why": "That speeds DML; it doesn't fix duplicate matches."
+        },
+        {
+          "t": "Deduplicate the source so one row matches each target row",
+          "ok": true
+        }
+      ],
+      "explain": "Several source rows matched one target row; preprocess the source to remove duplicates."
+    },
+    {
+      "id": "R29",
+      "topic": "Error conditions",
+      "difficulty": "hard",
+      "sources": [
+        "notes §24"
+      ],
+      "q": "VACUUM ... RETAIN 1 HOURS fails with DELTA_VACUUM_RETENTION_PERIOD_TOO_SHORT. Why does this safety check exist?",
+      "options": [
+        {
+          "t": "Writes still in progress could have their files deleted, corrupting the table",
+          "ok": true
+        },
+        {
+          "t": "VACUUM can only run once a week",
+          "why": "The check protects in-progress writes, not a schedule."
+        },
+        {
+          "t": "One hour is below the log retention",
+          "why": "The check is about the deleted-file retention and in-progress writes."
+        },
+        {
+          "t": "Retention must be a whole number of days",
+          "why": "The check is about safety, not units."
+        }
+      ],
+      "explain": "The retention is too low and may corrupt the table if writes are in progress; Databricks strongly recommends at least 7 days."
+    },
+    {
+      "id": "R30",
+      "topic": "Liquid clustering",
+      "difficulty": "medium",
+      "sources": [
+        "notes §2"
+      ],
+      "q": "Why does Databricks recommend liquid clustering for new tables?",
+      "options": [
+        {
+          "t": "It is the only layout predictive optimization can read",
+          "why": "The reasons are about flexibility and skipping, not readability."
+        },
+        {
+          "t": "Its keys can change without rewriting existing data",
+          "ok": true
+        },
+        {
+          "t": "It removes the need for statistics on any column",
+          "why": "Clustering keys need statistics."
+        },
+        {
+          "t": "It makes tables readable by any older client",
+          "why": "It raises the table protocol, so older clients can't read it."
+        }
+      ],
+      "explain": "Liquid clustering replaces partitioning and ZORDER; clustering keys can be changed without rewriting existing data, and it suits high-cardinality filters, skew and changing access patterns."
+    }
+  ]
+}

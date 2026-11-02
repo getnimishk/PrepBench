@@ -1,0 +1,53 @@
+{
+  "section": 4,
+  "domain": "Kafka Connect",
+  "questions": [
+    {
+      "id": "C46",
+      "topic": "Connectors, tasks, converters, transforms",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §13"
+      ],
+      "type": "matching",
+      "q": "Match each part of Kafka Connect to its job.",
+      "pairs": [
+        [
+          "Connector",
+          "Describes the data and splits the job into tasks"
+        ],
+        [
+          "Task",
+          "Copies the data, run by a worker"
+        ],
+        [
+          "Converter",
+          "Converts between Connect's data format and the bytes written to Kafka"
+        ],
+        [
+          "Transformation (SMT)",
+          "Changes single messages, or drops them with Filter and a predicate"
+        ]
+      ],
+      "explain": "A connector does no copying itself: it splits the job into source or sink tasks that workers run. Converters, set on the worker and optionally per connector, turn Connect's data into bytes and back, so any connector works with any format. Single message transformations change records in flight, and can be applied conditionally with predicates."
+    },
+    {
+      "id": "C47",
+      "topic": "Connect REST API",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §13",
+        "ccdak §14"
+      ],
+      "type": "ordering",
+      "q": "A sink connector's task has failed. Put the steps to bring it back in order, first to last.",
+      "items": [
+        "Read GET /connectors/{name}/status to find the failed task and its error",
+        "Fix the cause of the error",
+        "Restart the task with POST /connectors/{name}/tasks/{id}/restart",
+        "Check GET /connectors/{name}/status again until the task is RUNNING"
+      ],
+      "explain": "Connect does not restart failed tasks automatically; restart them through the REST API. The status endpoint reports each connector's and task's state, worker and errors, so it is where you start and where you confirm the fix."
+    }
+  ]
+}

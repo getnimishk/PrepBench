@@ -1,0 +1,230 @@
+{
+  "id": "8",
+  "number": 8,
+  "title": "The column that stopped the stream",
+  "outcome": "An analyst added a column to a busy silver table at midday; the stream reading it stopped and a concurrent write failed.",
+  "sources": "§2, §3, §23, §24",
+  "chapter": "schemas",
+  "content": {
+    "bookmark": "A schema change ends every stream reading the table and conflicts with concurrent writes. Make schema changes on purpose, at a planned time, with streams set to restart.",
+    "check": [
+      {
+        "prompt": "A stream reads a Delta table. Someone adds a column to that table. What happens to the stream?",
+        "options": [
+          "Nothing: new columns are picked up silently",
+          "It stops and must be restarted",
+          "It switches to reading in batch"
+        ],
+        "answer": 1,
+        "why": "Updating a table's schema terminates any stream reading it; the stream must be restarted."
+      },
+      {
+        "prompt": "An INSERT writes an INT value into a BIGINT column. What happens?",
+        "options": [
+          "It succeeds by a safe cast",
+          "It fails with a type mismatch",
+          "The value becomes NULL"
+        ],
+        "answer": 0,
+        "why": "Schema enforcement first tries a safe cast; an INT into a BIGINT column succeeds."
+      },
+      {
+        "prompt": "A write with mergeSchema adds a new column. Where does it go?",
+        "options": [
+          "At the start of the table",
+          "In alphabetical order",
+          "At the end"
+        ],
+        "answer": 2,
+        "why": "Automatic schema evolution adds new columns at the end (or at the end of their struct), with their case preserved."
+      },
+      {
+        "prompt": "What lets you rename or drop a column without rewriting the data files?",
+        "options": [
+          "OPTIMIZE FULL",
+          "Column mapping",
+          "A new streaming checkpoint"
+        ],
+        "answer": 1,
+        "why": "Renaming and dropping columns without a rewrite need column mapping enabled on the table."
+      }
+    ],
+    "caseStudy": {
+      "setting": "A telecoms company (fictional) keeps call records in silver.calls. A continuous job streams silver.calls into a gold aggregate, and an hourly job MERGEs late corrections into silver.calls.",
+      "events": [
+        {
+          "when": "Tuesday 12:05",
+          "what": "An analyst who owns a report runs ALTER TABLE silver.calls ADD COLUMNS (roaming_flag BOOLEAN) to prepare for a new field."
+        },
+        {
+          "when": "Tuesday 12:06",
+          "what": "The gold stream stops. The hourly MERGE, running at the same moment, fails with DELTA_METADATA_CHANGED."
+        },
+        {
+          "when": "Tuesday 12:20",
+          "what": "The continuous job restarts the stream and it carries on; the MERGE succeeds on its next run. The analyst asks why a harmless column caused two failures."
+        }
+      ],
+      "pipeline": [
+        "silver.calls · Delta table, written by an hourly MERGE",
+        "Continuous job · streams silver.calls into gold",
+        "ALTER TABLE ... ADD COLUMNS · run by hand"
+      ],
+      "tasks": [
+        "Why did adding a column cause two failures?",
+        "How should schema changes be made on this table?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why two failures",
+        "text": [
+          "Adding a column is a metadata change. A schema update terminates any stream reading the table, so the gold stream stopped and needed a restart.",
+          "Metadata changes also conflict with concurrent writes. The MERGE had read the table before the change and failed its commit with DELTA_METADATA_CHANGED instead of writing against an outdated schema."
+        ]
+      },
+      {
+        "title": "Why it recovered",
+        "text": [
+          "The stream ran in a continuous job, which starts a new run after a failure. Designing streams to restart automatically is Databricks' production advice for exactly these stops.",
+          "The MERGE succeeded on its next run because the conflict was a one-off. Retrying is the documented answer to a concurrent-modification error."
+        ]
+      },
+      {
+        "title": "Making schema changes safely",
+        "text": [
+          "Schedule schema and property changes away from writes, and have them made by the table's owners, ideally through the same deployment process as the pipeline code.",
+          "Often no hand-run ALTER is needed: a write with mergeSchema or MERGE WITH SCHEMA EVOLUTION adds the column when data for it first arrives."
+        ]
+      }
+    ],
+    "takeaway": [
+      "A schema change terminates streams reading the table.",
+      "Metadata changes conflict with concurrent writes; retry them.",
+      "Plan schema changes; let streams restart automatically."
+    ],
+    "honesty": "If you haven't changed the schema of a live Delta table, say so, and explain why it stops streams and conflicts with writes. If you have, describe how you scheduled it.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "Who should decide when a shared table's schema changes?",
+          "What would you agree with report owners?"
+        ],
+        "debrief": [
+          {
+            "title": "Who decides",
+            "text": [
+              "The table's owner, as a planned change, not whoever needs the column first."
+            ]
+          },
+          {
+            "title": "Agreement",
+            "text": [
+              "Report owners request schema changes from the table owner, who schedules them with the pipeline."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you manage changes to data that several teams depend on?",
+          "points": [
+            "Give each shared table an owner.",
+            "Route changes through the owner.",
+            "Schedule changes so they don't disrupt running work.",
+            "Tell dependent teams in advance.",
+            "Review incidents to improve the process."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "Was this an incident worth reporting?",
+          "What do you change?"
+        ],
+        "debrief": [
+          {
+            "title": "Reporting",
+            "text": [
+              "Yes, briefly: both failures recovered on their own within minutes, which shows the restart design worked; the cause still needs fixing."
+            ]
+          },
+          {
+            "title": "Change",
+            "text": [
+              "Agree who can change schemas on production tables and when."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "A small change caused a brief outage that fixed itself. How do you follow up?",
+          "points": [
+            "Record it even though it recovered.",
+            "Find why a small change had an effect.",
+            "Note what worked, such as automatic recovery.",
+            "Fix the cause with a process or permission change.",
+            "Share the lesson with other teams."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "What process change would you make?",
+          "How do you put it in place without blocking analysts?"
+        ],
+        "debrief": [
+          {
+            "title": "Process",
+            "text": [
+              "Schema changes on production tables go through the pipeline's deployment, at a planned time."
+            ]
+          },
+          {
+            "title": "Not blocking",
+            "text": [
+              "Give analysts a quick way to request a change, and let schema evolution on writes add columns when data arrives."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you introduce a control without slowing teams down?",
+          "points": [
+            "Explain the problem the control prevents.",
+            "Offer a fast, easy path for legitimate requests.",
+            "Automate where possible.",
+            "Measure whether it slows work.",
+            "Adjust based on feedback."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "How would you make the change next time?",
+          "What should the stream and the MERGE be ready for?"
+        ],
+        "debrief": [
+          {
+            "title": "Next time",
+            "text": [
+              "Use MERGE WITH SCHEMA EVOLUTION in the hourly job, or schedule the ALTER between runs through the deployment process."
+            ]
+          },
+          {
+            "title": "Readiness",
+            "text": [
+              "Streams restart automatically; writers retry on concurrent-modification errors."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Explain schema enforcement and evolution in Delta Lake.",
+          "points": [
+            "Enforcement checks writes against the table's schema, trying safe casts first.",
+            "Evolution adds, reorders, renames and widens columns, explicitly with DDL or with DML options.",
+            "mergeSchema and WITH SCHEMA EVOLUTION add new columns at the end.",
+            "Rename and drop without rewriting need column mapping.",
+            "Schema changes stop streams reading the table and conflict with concurrent writes."
+          ]
+        }
+      }
+    }
+  }
+}

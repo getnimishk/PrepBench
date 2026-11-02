@@ -1,0 +1,230 @@
+{
+  "id": "16",
+  "number": 16,
+  "title": "One task ran for an hour",
+  "outcome": "A daily aggregation stalled on one task for one huge customer; more workers changed nothing, because adaptive query execution doesn't split a skewed groupBy.",
+  "sources": "§9, §15",
+  "chapter": "performance",
+  "content": {
+    "bookmark": "When one task takes far longer than the rest, it's skew. AQE splits skewed partitions in joins, not in aggregations; salt the hot key and aggregate in two stages.",
+    "check": [
+      {
+        "prompt": "In a stage's Summary Metrics, what signals skew?",
+        "options": [
+          "Many tasks of similar length",
+          "The max task duration is 50% or more above the 75th percentile",
+          "Spill on every task in the stage, whatever the task durations"
+        ],
+        "answer": 1,
+        "why": "Databricks' guide: skew shows as a max task duration 50% or more above the 75th percentile."
+      },
+      {
+        "prompt": "Does adaptive query execution split a skewed partition in a groupBy aggregation?",
+        "options": [
+          "No: it splits skewed partitions in sort-merge and shuffle-hash joins",
+          "Yes, automatically",
+          "Only when Photon is enabled on the cluster running the query"
+        ],
+        "answer": 0,
+        "why": "AQE's skew handling applies to sort-merge and shuffle-hash joins. A skewed aggregation needs another fix, such as salting."
+      },
+      {
+        "prompt": "What is salting a key?",
+        "options": [
+          "Encrypting the key before the shuffle",
+          "Caching the hot key's rows on every worker",
+          "Adding a random value to the hot key so its rows spread over many tasks, then aggregating in two stages"
+        ],
+        "answer": 2,
+        "why": "Salting splits one hot key into several, so the first aggregation runs in parallel; a second aggregation combines the partial results."
+      },
+      {
+        "prompt": "What is spill in the Spark UI?",
+        "options": [
+          "Rows dropped because they didn't fit in the executor's memory",
+          "Execution memory ran out, so data was written to disk",
+          "Network traffic between executors"
+        ],
+        "answer": 1,
+        "why": "Spill means execution memory was exhausted and data was written to disk; it is most common in shuffles."
+      }
+    ],
+    "caseStudy": {
+      "setting": "A marketplace (fictional) computes daily sales per seller with a groupBy on seller_id over billions of order lines. One seller, a large retailer that joined last month, accounts for a large share of all orders.",
+      "events": [
+        {
+          "when": "Week 1",
+          "what": "The daily job goes from 10 minutes to over an hour. In the Spark UI, one stage has hundreds of tasks finishing in seconds and one task running for most of the hour."
+        },
+        {
+          "when": "Week 1, next day",
+          "what": "The team doubles the number of workers. The job takes just as long."
+        },
+        {
+          "when": "Week 2",
+          "what": "Someone points out that AQE is on by default and asks why it isn't fixing this."
+        }
+      ],
+      "pipeline": [
+        "silver.order_lines · billions of rows",
+        "groupBy(\"seller_id\").agg(sum(\"amount\"))",
+        "gold.daily_seller_sales"
+      ],
+      "tasks": [
+        "Why didn't more workers help?",
+        "How would you fix it?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why more workers didn't help",
+        "text": [
+          "A groupBy shuffles so that all rows for one seller end up in one partition, processed by one task. The big seller's rows all went to that one task.",
+          "Adding workers adds tasks running in parallel, but that one task still had to process all the big seller's rows alone. The Summary Metrics showed it: a max task duration far above the 75th percentile."
+        ]
+      },
+      {
+        "title": "Why AQE didn't fix it",
+        "text": [
+          "AQE is on by default and does split skewed partitions, but in sort-merge and shuffle-hash joins. This was an aggregation, which its skew handling doesn't cover.",
+          "Databricks' guide lists salting for this case: add a salt to the hot key and aggregate in two stages."
+        ]
+      },
+      {
+        "title": "The fix",
+        "text": [
+          "Add a random salt (say 0-31) to each row, group by seller_id and salt to get partial sums spread over many tasks, then group the partial sums by seller_id. The big seller's work is shared by 32 tasks.",
+          "Other options from the same guide: liquid clustering when a stored table is skewed, and the REBALANCE hint when the output is skewed. Check spill too: if the slow task also spills, fewer rows per task helps both."
+        ]
+      }
+    ],
+    "takeaway": [
+      "Skew shows as one task far slower than the rest.",
+      "AQE splits skewed join partitions, not skewed aggregations.",
+      "Salt the hot key and aggregate in two stages."
+    ],
+    "honesty": "If you haven't tuned Spark jobs, say so, and explain how to recognise skew in the Spark UI and what salting does. If you have, describe the before-and-after.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What would you ask before approving more compute?",
+          "How should success be measured?"
+        ],
+        "debrief": [
+          {
+            "title": "Before more compute",
+            "text": [
+              "\"Is the job using the compute it has? Is the time spread across tasks, or stuck in one?\""
+            ]
+          },
+          {
+            "title": "Success",
+            "text": [
+              "The job back near its old run time, at the same or lower cost."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "A data job got much slower after a business change. How do you approach it?",
+          "points": [
+            "Connect the slowdown to what changed in the business.",
+            "Ask for the cause before adding resources.",
+            "Expect data shape, not just volume, to matter.",
+            "Agree a target run time and cost.",
+            "Plan for similar growth in future."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What do you tell the people waiting for the daily figures?",
+          "What does this mean for the platform roadmap?"
+        ],
+        "debrief": [
+          {
+            "title": "Users",
+            "text": [
+              "Daily figures arrive an hour late while the team fixes the job's handling of one very large seller; expected back to normal by a stated date."
+            ]
+          },
+          {
+            "title": "Roadmap",
+            "text": [
+              "Big customers will keep arriving: review other jobs that group by customer or seller."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Growth with a big customer is causing technical problems. How do you plan for it?",
+          "points": [
+            "Treat it as a sign of success that needs capacity planning.",
+            "Find which systems are sensitive to one large customer.",
+            "Fix the most critical first.",
+            "Test with realistic data shapes.",
+            "Keep stakeholders informed of the impact."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you avoid wasting compute while it's investigated?",
+          "How do you spread the learning?"
+        ],
+        "debrief": [
+          {
+            "title": "Compute",
+            "text": [
+              "Revert the extra workers; they cost money without helping."
+            ]
+          },
+          {
+            "title": "Learning",
+            "text": [
+              "A short write-up on reading Summary Metrics for skew, shared with every team running Spark."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you build performance troubleshooting skills in a team?",
+          "points": [
+            "Teach a method: measure, locate, then change.",
+            "Share real cases and their fixes.",
+            "Pair less experienced engineers on investigations.",
+            "Write down patterns such as skew and spill.",
+            "Review costly fixes that didn't work."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "How would you write the salted aggregation?",
+          "How would you confirm it worked?"
+        ],
+        "debrief": [
+          {
+            "title": "Salted aggregation",
+            "text": [
+              "withColumn(\"salt\", (rand() * 32).cast(\"int\")), groupBy(\"seller_id\", \"salt\").agg(sum(\"amount\").alias(\"part\")), then groupBy(\"seller_id\").agg(sum(\"part\"))."
+            ]
+          },
+          {
+            "title": "Confirming",
+            "text": [
+              "In the Spark UI, the stage's max task duration close to the 75th percentile, and the job's total time back near 10 minutes."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you diagnose and fix a slow Spark stage?",
+          "points": [
+            "Open the stage's Summary Metrics in the Spark UI.",
+            "Skew: max task duration 50% or more above the 75th percentile.",
+            "AQE splits skewed join partitions; salt hot keys for aggregations.",
+            "Spill: memory exhausted; try shuffle partitions auto, fewer rows per task, or more memory.",
+            "Adding workers doesn't fix one overloaded task."
+          ]
+        }
+      }
+    }
+  }
+}

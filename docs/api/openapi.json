@@ -898,6 +898,10 @@
           "question_text": {
             "title": "Question Text",
             "type": "string"
+          },
+          "question_type": {
+            "$ref": "#/components/schemas/QuestionType",
+            "default": "single_choice"
           }
         },
         "required": [
@@ -7503,6 +7507,17 @@
             "title": "Is Correct",
             "type": "boolean"
           },
+          "match_target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match Target"
+          },
           "option_text": {
             "title": "Option Text",
             "type": "string"
@@ -7540,6 +7555,17 @@
             "default": false,
             "title": "Is Correct",
             "type": "boolean"
+          },
+          "match_target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match Target"
           },
           "option_text": {
             "title": "Option Text",
@@ -7815,7 +7841,9 @@
           "case_study",
           "image",
           "code",
-          "drag_and_drop"
+          "drag_and_drop",
+          "ordering",
+          "matching"
         ],
         "title": "QuestionType",
         "type": "string"
@@ -8818,6 +8846,10 @@
             "title": "Question Text",
             "type": "string"
           },
+          "question_type": {
+            "$ref": "#/components/schemas/QuestionType",
+            "default": "single_choice"
+          },
           "selected_option_ids": {
             "items": {
               "type": "integer"
@@ -8868,6 +8900,22 @@
           "is_correct": {
             "title": "Is Correct",
             "type": "boolean"
+          },
+          "match_target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match Target"
+          },
+          "order_index": {
+            "default": 0,
+            "title": "Order Index",
+            "type": "integer"
           },
           "text": {
             "title": "Text",

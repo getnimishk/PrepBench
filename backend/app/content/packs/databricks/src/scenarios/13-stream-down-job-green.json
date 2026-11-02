@@ -1,0 +1,230 @@
+{
+  "id": "13",
+  "number": 13,
+  "title": "The stream that was down while the job was green",
+  "outcome": "One of three streams in a continuous job failed and stayed down for days; the job looked healthy and nobody was told.",
+  "sources": "§10, §11, §15, §23",
+  "chapter": "monitoring",
+  "content": {
+    "bookmark": "In a job with several continuous tasks, a failed task retries on its own only with Task retry mode On failure. Notify on task failures, or give each critical stream its own job.",
+    "check": [
+      {
+        "prompt": "A continuous job runs several streaming tasks. When does a failed task retry on its own?",
+        "options": [
+          "Always, immediately",
+          "Never: one failed task always means the whole job must be restarted by hand",
+          "Only if Task retry mode is set to On failure"
+        ],
+        "answer": 2,
+        "why": "With several continuous tasks, a failed task retries alone only with Task retry mode On failure; otherwise the job waits for all tasks to fail."
+      },
+      {
+        "prompt": "Are job-level notifications sent for tasks that are retried?",
+        "options": [
+          "No: use task notifications to hear about every failure",
+          "Yes: job-level notifications are sent for every failed attempt of every task",
+          "Only when the retry also fails"
+        ],
+        "answer": 0,
+        "why": "Job-level notifications aren't sent for retried tasks; task notifications report every failure."
+      },
+      {
+        "prompt": "Why shouldn't a streaming job call awaitTermination()?",
+        "options": [
+          "It deletes the checkpoint when the query ends",
+          "The Jobs service already keeps the run alive, and the call blocks the tracking that backlog notifications need",
+          "It doubles the DBUs billed"
+        ],
+        "answer": 1,
+        "why": "Use awaitTermination() only interactively or locally. In jobs it is unnecessary and blocks tracking."
+      },
+      {
+        "prompt": "How does a streaming backlog notification measure the backlog?",
+        "options": [
+          "Once a day, as a summary of how far each stream fell behind",
+          "On every micro-batch",
+          "As a 10-minute average, repeating every 30 minutes while over the threshold"
+        ],
+        "answer": 2,
+        "why": "Streaming backlog alerts use a 10-minute average and repeat every 30 minutes."
+      }
+    ],
+    "caseStudy": {
+      "setting": "A ride-hailing company (fictional) runs one continuous Lakeflow job with three streaming tasks: trips, payments and driver locations. A failure notification is set on the job. Task retry mode was left at its setting from when the job was created.",
+      "events": [
+        {
+          "when": "Friday 18:00",
+          "what": "The payments stream fails on a malformed record. The trips and locations streams keep running."
+        },
+        {
+          "when": "Saturday and Sunday",
+          "what": "The job page shows the job running. No notification arrives. Payment dashboards show nothing new since Friday."
+        },
+        {
+          "when": "Monday 09:00",
+          "what": "Finance escalates. An engineer finds the payments task failed on Friday and never ran again."
+        }
+      ],
+      "pipeline": [
+        "Continuous job · three streaming tasks: trips, payments, locations",
+        "Job-level failure notification · email to the data team",
+        "Task retry mode · not set to On failure"
+      ],
+      "tasks": [
+        "Why did the payments stream stay down with no alert?",
+        "How should the job be set up?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why it stayed down",
+        "text": [
+          "With several continuous tasks in one job, a failed task retries on its own only when Task retry mode is On failure. Otherwise the job waits for all tasks to fail, so one dead stream can stay down while the job looks healthy.",
+          "The job never failed as a whole, so the job-level notification had nothing to report."
+        ]
+      },
+      {
+        "title": "Setting it up",
+        "text": [
+          "Set Task retry mode to On failure, and add task-level failure notifications so every failure reaches someone. Or give each critical stream its own job.",
+          "Add a streaming backlog notification on payments: it would have fired once unprocessed data passed its threshold, hours into Friday evening rather than on Monday."
+        ]
+      },
+      {
+        "title": "The malformed record",
+        "text": [
+          "A retry would fail on the same record again. The stream also needs a way to handle bad input, such as an expectation that drops or quarantines invalid rows, so one record can't stop the stream.",
+          "Make sure the code doesn't call awaitTermination(), which blocks the tracking backlog notifications use."
+        ]
+      }
+    ],
+    "takeaway": [
+      "Several streams in one job need Task retry mode On failure.",
+      "Use task notifications; job-level ones miss task retries.",
+      "Alert on streaming backlog, not only on failure."
+    ],
+    "honesty": "If you haven't run streaming jobs in production, say so, and explain how a stream can fail while its job looks healthy. If you have built alerting for streams, describe what you alerted on.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What should the business be told when payment data stops?",
+          "What freshness promise would you make?"
+        ],
+        "debrief": [
+          {
+            "title": "Telling the business",
+            "text": [
+              "As soon as data stops, not on Monday: an alert that reaches someone who can tell finance."
+            ]
+          },
+          {
+            "title": "Freshness promise",
+            "text": [
+              "\"Payments data is no more than N minutes old, and you'll hear within an hour if it is.\""
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you define reliability for a real-time data product?",
+          "points": [
+            "Set a freshness target users understand.",
+            "Monitor freshness, not just job status.",
+            "Alert people who can act, at any time it matters.",
+            "Tell users when the target is missed.",
+            "Review misses to improve the system."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "How do you handle Monday's escalation?",
+          "What follow-up do you commit to?"
+        ],
+        "debrief": [
+          {
+            "title": "Monday",
+            "text": [
+              "Restore the stream, backfill the weekend's payments, and give finance a time when dashboards are complete."
+            ]
+          },
+          {
+            "title": "Follow-up",
+            "text": [
+              "Retry mode, task notifications and a backlog alert on every streaming job, with a date."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "A data outage went unnoticed for a weekend. How do you respond?",
+          "points": [
+            "Restore service and complete the data.",
+            "Communicate the impact and the recovery time.",
+            "Find why monitoring missed it.",
+            "Monitor what users need, such as freshness.",
+            "Check every similar job."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "Who should be alerted out of hours?",
+          "How do you roll the fix out?"
+        ],
+        "debrief": [
+          {
+            "title": "Out of hours",
+            "text": [
+              "An on-call rota for business-critical streams, with notifications sent to it, not to a shared inbox."
+            ]
+          },
+          {
+            "title": "Rollout",
+            "text": [
+              "A checklist for streaming jobs (retry mode, task notifications, backlog alert), applied to every job and checked in deployment."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you set up operational support for a data platform?",
+          "points": [
+            "Classify pipelines by business criticality.",
+            "Give critical ones on-call cover and alerts.",
+            "Write runbooks for common failures.",
+            "Review incidents and track actions.",
+            "Report reliability to stakeholders."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "What would you change in the job's configuration?",
+          "How do you stop one bad record stopping the stream?"
+        ],
+        "debrief": [
+          {
+            "title": "Configuration",
+            "text": [
+              "Task retry mode On failure; task-level failure notifications; a streaming backlog threshold on each stream; or separate jobs per critical stream."
+            ]
+          },
+          {
+            "title": "Bad records",
+            "text": [
+              "Handle invalid input explicitly, for example in a declarative pipeline with an expectation that drops invalid rows, plus a quarantine table built on top."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you run Structured Streaming reliably in production?",
+          "points": [
+            "Run streams as Lakeflow jobs or pipelines on jobs compute, never all-purpose compute.",
+            "Configure automatic restart; the continuous trigger retries with exponential backoff.",
+            "With several streams in a job, use Task retry mode On failure.",
+            "Use task notifications and streaming backlog alerts.",
+            "Don't call awaitTermination() in jobs."
+          ]
+        }
+      }
+    }
+  }
+}

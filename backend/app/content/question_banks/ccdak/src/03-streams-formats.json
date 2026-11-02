@@ -1,0 +1,48 @@
+{
+  "section": 3,
+  "domain": "Apache Kafka Streams",
+  "questions": [
+    {
+      "id": "S37",
+      "topic": "KStream, KTable, GlobalKTable",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §9"
+      ],
+      "type": "matching",
+      "q": "Match each Kafka Streams abstraction to how it treats the records of its topic.",
+      "pairs": [
+        [
+          "KStream",
+          "Each record is an insert: a repeated key adds another record"
+        ],
+        [
+          "KTable",
+          "Each record is an update for its key, and a null value is a delete"
+        ],
+        [
+          "GlobalKTable",
+          "Every instance holds the data of all the topic's partitions"
+        ]
+      ],
+      "explain": "A KStream is a record stream; a KTable is a changelog stream (upserts per key, null deletes); a GlobalKTable is filled from all partitions on every instance, so joins against it need no co-partitioning, at the cost of local storage and broker load."
+    },
+    {
+      "id": "S38",
+      "topic": "State stores and fault tolerance",
+      "difficulty": "medium",
+      "sources": [
+        "ccdak §10"
+      ],
+      "type": "ordering",
+      "q": "An instance running a stateful task fails, and the task moves to another instance with no standby replica. Put what happens in order, first to last.",
+      "items": [
+        "The instance running the task fails",
+        "The task is assigned to another instance",
+        "The task restores its state store by replaying the store's changelog topic",
+        "The task starts processing records again"
+      ],
+      "explain": "Each state store has a changelog topic. A task restarted on another machine restores its store by replaying the changelog before it processes; standby replicas keep copies elsewhere to cut that restore time."
+    }
+  ]
+}

@@ -1,0 +1,230 @@
+{
+  "id": "14",
+  "number": 14,
+  "title": "The mask on every table but one",
+  "outcome": "Column masks were set by hand table by table; a new table with customer emails went out without one, and its files were also readable outside Unity Catalog.",
+  "sources": "§6",
+  "chapter": "access",
+  "content": {
+    "bookmark": "Masks and filters set one table at a time are only as good as the last table someone remembered. ABAC policies on governed tags cover new tagged tables automatically.",
+    "check": [
+      {
+        "prompt": "What is a column mask in Unity Catalog?",
+        "options": [
+          "A SQL UDF that returns the real value or a masked one for each query",
+          "A copy of the table with the column removed",
+          "A privilege that hides the column from SHOW GRANTS"
+        ],
+        "answer": 0,
+        "why": "A column mask is a SQL UDF applied to a column at query time; it returns the value or a masked version, often based on is_account_group_member()."
+      },
+      {
+        "prompt": "What does Databricks recommend for applying masks and filters consistently across many tables?",
+        "options": [
+          "A column mask set on each table by its owner",
+          "Dynamic views over every table",
+          "ABAC policies using governed tags"
+        ],
+        "answer": 2,
+        "why": "ABAC policies attached to a catalog, schema or table, matched by governed tags, are Databricks' recommended approach for consistency; new tables with the tag are covered automatically."
+      },
+      {
+        "prompt": "An ABAC policy is attached to a catalog. Can a table owner inside it override the policy?",
+        "options": [
+          "Yes: a table owner can drop the policy's mask on their own table at any time",
+          "No: table owners can't override the policy",
+          "Only by setting a stronger mask"
+        ],
+        "answer": 1,
+        "why": "Policies apply to matching tables in their scope, and table owners can't override them."
+      },
+      {
+        "prompt": "An external table's files are read directly from storage by another tool. Do its Unity Catalog masks apply?",
+        "options": [
+          "Yes, masks travel with the files",
+          "Only for the columns that carry a governed tag, because tags are stored in the files",
+          "No: Unity Catalog privileges aren't enforced on direct file access"
+        ],
+        "answer": 2,
+        "why": "Direct access to an external table's files bypasses Unity Catalog, so neither grants nor masks apply."
+      }
+    ],
+    "caseStudy": {
+      "setting": "An online retailer (fictional) masks customer email addresses for everyone outside customer support. Each table owner adds a column mask by hand with ALTER TABLE ... ALTER COLUMN email SET MASK. A new marketing table, marketing.campaigns.recipients, is created as an external table so an outside email tool can read its files.",
+      "events": [
+        {
+          "when": "Week 1",
+          "what": "The marketing table goes live. Nobody adds a mask; analysts across the company can see full email addresses."
+        },
+        {
+          "when": "Week 2",
+          "what": "A privacy review finds the unmasked column. The owner adds the mask. The reviewer then asks what the outside email tool can see."
+        },
+        {
+          "when": "Week 2, later",
+          "what": "The answer is everything: the tool reads the Parquet files directly from storage, where Unity Catalog masks don't apply."
+        }
+      ],
+      "pipeline": [
+        "Customer tables · masks added one by one by owners",
+        "marketing.campaigns.recipients · external table, no mask at first",
+        "Outside email tool · reads the table's files directly from ADLS"
+      ],
+      "tasks": [
+        "Why was the new table unprotected?",
+        "How should the masking be applied, and what about the outside tool?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Why the table was unprotected",
+        "text": [
+          "Table-level masks are set by the table owner, one table at a time. The rule \"emails are masked\" lived in people's memory, and the new table's owner didn't know it.",
+          "Databricks recommends ABAC policies for consistency across many tables: tag the column with a governed tag (for example PII), and attach a column-mask policy to the catalog. Any new table whose column carries the tag is covered, and owners can't override it."
+        ]
+      },
+      {
+        "title": "The outside tool",
+        "text": [
+          "Unity Catalog's controls apply to queries through Databricks. Direct reads of an external table's files bypass them, masks included.",
+          "Give the tool only what it should see: write the recipients it needs, without the fields it mustn't have, to the location it reads, or have it query through Databricks so the policies apply."
+        ]
+      },
+      {
+        "title": "Choosing the tools",
+        "text": [
+          "Row filters and column masks protect one table. ABAC policies with governed tags protect every matching table. Dynamic views expose a curated slice to people without access to the base tables.",
+          "Keep mask functions simple and deterministic: Databricks' performance advice favours simple SQL UDFs with few arguments."
+        ]
+      }
+    ],
+    "takeaway": [
+      "Per-table masks depend on someone remembering each table.",
+      "ABAC policies with governed tags cover new tagged tables automatically.",
+      "Direct file access to external tables bypasses Unity Catalog's controls."
+    ],
+    "honesty": "If you haven't set up data masking, say so, and explain column masks, ABAC policies and the limit of direct file access. If you have, describe how you kept it consistent.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "How would you state the privacy rule so the platform can enforce it?",
+          "What should a new data product's checklist include?"
+        ],
+        "debrief": [
+          {
+            "title": "The rule",
+            "text": [
+              "\"Columns tagged PII are masked for everyone except named groups\", owned by privacy, enforced by a policy."
+            ]
+          },
+          {
+            "title": "Checklist",
+            "text": [
+              "Sensitive columns tagged; any outside system reading the data reviewed for what it can see."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you make privacy part of building a data product?",
+          "points": [
+            "Classify sensitive data when it is created.",
+            "Turn privacy rules into enforced policies, not reminders.",
+            "Check every path to the data, including outside tools.",
+            "Review new products before launch.",
+            "Give privacy a named owner."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "Is this a reportable incident?",
+          "What do you commit to?"
+        ],
+        "debrief": [
+          {
+            "title": "Reporting",
+            "text": [
+              "Take it to the privacy officer now: whether staff or the outside tool's access needs reporting is their call, not the team's."
+            ]
+          },
+          {
+            "title": "Commitment",
+            "text": [
+              "Policy-based masking on the customer catalog, and a review of every outside tool reading table files."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Your team finds sensitive data was more exposed than intended. What do you do?",
+          "points": [
+            "Contain the exposure first.",
+            "Inform the privacy or security owner straight away.",
+            "Establish what was exposed, to whom, for how long.",
+            "Fix the cause, not only the instance.",
+            "Follow the organisation's reporting process."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "How do you move from per-table masks to policies?",
+          "Who owns the tags?"
+        ],
+        "debrief": [
+          {
+            "title": "The move",
+            "text": [
+              "Define governed tags, tag existing sensitive columns, attach the policy at catalog level, then remove the duplicated per-table masks."
+            ]
+          },
+          {
+            "title": "Tags",
+            "text": [
+              "Data owners tag columns; privacy owns the tag definitions and the policy."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How would you roll out a governance change across many teams' data?",
+          "points": [
+            "Agree the rule and its owner.",
+            "Prepare the mechanism centrally.",
+            "Have each team classify its own data.",
+            "Switch on enforcement and verify.",
+            "Make it part of creating new data."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "What would the policy look like?",
+          "How would you serve the outside tool safely?"
+        ],
+        "debrief": [
+          {
+            "title": "The policy",
+            "text": [
+              "A governed tag PII on email columns, a mask function, and CREATE POLICY ... ON CATALOG ... COLUMN MASK <function> TO `account users` EXCEPT `customer-support` FOR TABLES ... MATCH COLUMNS has_tag('PII') AS pii_col ON COLUMN pii_col."
+            ]
+          },
+          {
+            "title": "The outside tool",
+            "text": [
+              "Write a separate extract with only the fields the tool may have, or have it query through Databricks."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Explain the options for fine-grained access control in Unity Catalog.",
+          "points": [
+            "Row filters hide rows; column masks return masked values; both are SQL UDFs.",
+            "They are set per table by the owner or someone with MANAGE.",
+            "ABAC policies with governed tags apply them consistently across catalogs and schemas.",
+            "Dynamic views expose curated slices.",
+            "Direct file access to external tables bypasses all of these."
+          ]
+        }
+      }
+    }
+  }
+}

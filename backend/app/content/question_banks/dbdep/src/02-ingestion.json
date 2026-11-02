@@ -1,0 +1,624 @@
+{
+  "section": 2,
+  "domain": "Data Ingestion & Acquisition",
+  "questions": [
+    {
+      "id": "P201",
+      "topic": "Kafka sources",
+      "difficulty": "easy",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A Structured Streaming query reads from Kafka. Which option is required for every Kafka read, batch or streaming?",
+      "options": [
+        {
+          "t": "`kafka.group.id`, so Spark can commit offsets back to the Kafka cluster",
+          "why": "Not required; the checkpoint tracks progress."
+        },
+        {
+          "t": "`kafka.bootstrap.servers`",
+          "ok": true
+        },
+        {
+          "t": "`maxOffsetsPerTrigger`, so each micro-batch has a bounded size",
+          "why": "A rate limit, not a required option."
+        },
+        {
+          "t": "`startingOffsets`, which has no default and must always be given explicitly",
+          "why": "The required option is the bootstrap servers."
+        }
+      ],
+      "explain": "For both batch and streaming queries you must set kafka.bootstrap.servers, plus one of subscribe, subscribePattern or assign."
+    },
+    {
+      "id": "P202",
+      "topic": "Kafka sources",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A Kafka stream's `value` column must be parsed as JSON. What type does it arrive as?",
+      "options": [
+        {
+          "t": "VARIANT, already parsed from the JSON payload",
+          "why": "The reader doesn't parse payloads."
+        },
+        {
+          "t": "A STRUCT inferred from the topic's Schema Registry subject",
+          "why": "No schema is applied by the reader."
+        },
+        {
+          "t": "Binary: cast it to string and use from_json",
+          "ok": true
+        },
+        {
+          "t": "STRING, already decoded with the topic's character set",
+          "why": "Keys and values always arrive as byte arrays."
+        }
+      ],
+      "explain": "The reader returns key and value as binary (ByteArrayDeserializer); decode with cast('string'), from_json, from_avro or from_protobuf."
+    },
+    {
+      "id": "P203",
+      "topic": "Kafka sources",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A team needs to read every topic whose name starts with `orders-`. Which option fits?",
+      "options": [
+        {
+          "t": "`subscribe` with the value `orders-*` listed as a comma-separated topic",
+          "why": "subscribe takes a list of topic names."
+        },
+        {
+          "t": "`assign` with a JSON object naming the prefix",
+          "why": "assign takes specific topic partitions."
+        },
+        {
+          "t": "`topic` set to `orders-` on the reader",
+          "why": "topic is a writer option."
+        },
+        {
+          "t": "`subscribePattern` with a Java regex",
+          "ok": true
+        }
+      ],
+      "explain": "subscribe takes a topic list, subscribePattern a Java regex, assign specific partitions; exactly one of them is required."
+    },
+    {
+      "id": "P204",
+      "topic": "Kafka sources",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25",
+        "notes §8"
+      ],
+      "q": "A Kafka topic must be loaded into a Delta table on a schedule, processing what arrived and then stopping. What does Databricks recommend?",
+      "options": [
+        {
+          "t": "A stream with `Trigger.AvailableNow`, tracked by its checkpoint",
+          "ok": true
+        },
+        {
+          "t": "A continuous-processing trigger, stopped by the job's timeout",
+          "why": "Continuous isn't supported on Databricks."
+        },
+        {
+          "t": "A stream with no trigger, killed by a cron job each hour",
+          "why": "That isn't an orderly incremental batch."
+        },
+        {
+          "t": "A batch read with `startingOffsets` set by hand to the last offset read each run",
+          "why": "That needs you to track offsets yourself."
+        }
+      ],
+      "explain": "The Kafka page: for incremental batch loading, Databricks recommends Kafka with Trigger.AvailableNow."
+    },
+    {
+      "id": "P205",
+      "topic": "Kafka sources",
+      "difficulty": "hard",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A stream writes rows to Kafka with the writer option `topic` set to `alerts`, and the DataFrame also has a `topic` column. Where do the rows go?",
+      "options": [
+        {
+          "t": "To each row's own `topic` column value, ignoring the option",
+          "why": "The writer option overrides a topic column."
+        },
+        {
+          "t": "To `alerts`: the option overrides any topic column",
+          "ok": true
+        },
+        {
+          "t": "The write fails because both are set",
+          "why": "It doesn't fail."
+        },
+        {
+          "t": "To both, duplicating every row",
+          "why": "Rows are written once."
+        }
+      ],
+      "explain": "The writer's topic option sets the topic for all rows and overrides any topic column in the data."
+    },
+    {
+      "id": "P206",
+      "topic": "Kafka sources",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "In Databricks SQL, how do you read a Kafka topic incrementally into a table?",
+      "options": [
+        {
+          "t": "`SELECT * FROM kafka.topic_name` against a foreign catalog",
+          "why": "Kafka isn't a federation source."
+        },
+        {
+          "t": "`COPY INTO t FROM 'kafka://...'`",
+          "why": "COPY INTO loads files."
+        },
+        {
+          "t": "A streaming table: `... AS SELECT ... FROM STREAM read_kafka(...)`",
+          "ok": true
+        },
+        {
+          "t": "`CREATE VIEW v AS SELECT * FROM read_kafka(...)` refreshed by a job",
+          "why": "Streaming in SQL needs pipelines or streaming tables."
+        }
+      ],
+      "explain": "read_kafka is a table-valued function (DBR 13.3 LTS+). Streaming with SQL is supported only in Lakeflow pipelines or streaming tables."
+    },
+    {
+      "id": "P207",
+      "topic": "Lakeflow Connect",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "In the standard (gateway-based) SQL Server connector, what does the ingestion gateway do?",
+      "options": [
+        {
+          "t": "Runs once a day to copy a full snapshot of every table into the staging volume",
+          "why": "The gateway runs continuously."
+        },
+        {
+          "t": "Translates T-SQL into Spark SQL for the pipeline",
+          "why": "It extracts changes; it doesn't translate code."
+        },
+        {
+          "t": "Hosts a read replica of SQL Server in Databricks",
+          "why": "It isn't a database."
+        },
+        {
+          "t": "Runs continuously and manages the staging volume the pipeline reads from",
+          "ok": true
+        }
+      ],
+      "explain": "Standard CDC has two parts: an ingestion gateway that runs continuously and manages a staging volume, and an ingestion pipeline that references it. Integrated CDC uses one pipeline."
+    },
+    {
+      "id": "P208",
+      "topic": "Lakeflow Connect",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "With integrated CDC for SQL Server, what does the single pipeline reference?",
+      "options": [
+        {
+          "t": "A Unity Catalog connection",
+          "ok": true
+        },
+        {
+          "t": "A JDBC URL typed into the notebook",
+          "why": "Credentials live in a UC connection."
+        },
+        {
+          "t": "An external location for the database files",
+          "why": "The source is a database, reached through a connection."
+        },
+        {
+          "t": "An ingestion gateway's ID",
+          "why": "That is the standard, gateway-based architecture."
+        }
+      ],
+      "explain": "Integrated CDC creates one pipeline that references a Unity Catalog connection and embeds extraction in each update."
+    },
+    {
+      "id": "P209",
+      "topic": "Lakeflow Connect",
+      "difficulty": "hard",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A column is renamed in a SQL Server table ingested with Lakeflow Connect. What does the connector's page say?",
+      "options": [
+        {
+          "t": "Renames are applied automatically, like new columns",
+          "why": "New and deleted columns are supported; renames aren't."
+        },
+        {
+          "t": "Renames require a full refresh",
+          "ok": true
+        },
+        {
+          "t": "The pipeline ignores the column from then on",
+          "why": "It isn't ignored; a full refresh is needed."
+        },
+        {
+          "t": "The gateway rewrites the column name in staging",
+          "why": "Nothing rewrites it."
+        }
+      ],
+      "explain": "New and deleted columns are supported; column renames aren't and require a full refresh."
+    },
+    {
+      "id": "P210",
+      "topic": "Lakehouse Federation",
+      "difficulty": "easy",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "What kind of access does Lakehouse Federation give to an external PostgreSQL database?",
+      "options": [
+        {
+          "t": "Read and write, with Unity Catalog grants on each table",
+          "why": "Federation is read-only."
+        },
+        {
+          "t": "A nightly copy into managed Delta tables",
+          "why": "It queries in place."
+        },
+        {
+          "t": "Governed, read-only access through a foreign catalog",
+          "ok": true
+        },
+        {
+          "t": "Ungoverned access through the database's own users only",
+          "why": "Access is governed by Unity Catalog."
+        }
+      ],
+      "explain": "Lakehouse Federation gives governed, read-only access to external data through Unity Catalog foreign catalogs, with query pushdown."
+    },
+    {
+      "id": "P211",
+      "topic": "Lakehouse Federation",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "What is the difference between query federation and catalog federation?",
+      "options": [
+        {
+          "t": "Query federation is read-only, while catalog federation can also write changes back to the source catalog's tables",
+          "why": "Both are read-only."
+        },
+        {
+          "t": "Catalog federation works only for databases; query federation only for files",
+          "why": "It is the other way round in spirit: catalog federation reads table files."
+        },
+        {
+          "t": "They are two names for the same feature",
+          "why": "They are different paths."
+        },
+        {
+          "t": "Query federation pushes queries to the database over JDBC; catalog federation reads the tables in object storage on Databricks compute",
+          "ok": true
+        }
+      ],
+      "explain": "Query federation runs on Databricks and the remote database via JDBC; catalog federation (Hive metastore, Glue, Snowflake ...) reads directly from object storage and is more cost-effective."
+    },
+    {
+      "id": "P212",
+      "topic": "Lakehouse Federation",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A source supports both Lakehouse Federation and Lakeflow Connect, and the team needs high volumes at low latency. What does Databricks recommend?",
+      "options": [
+        {
+          "t": "Lakeflow Connect",
+          "ok": true
+        },
+        {
+          "t": "Either; they perform the same",
+          "why": "The page recommends Lakeflow Connect for this case."
+        },
+        {
+          "t": "Lakehouse Federation, because it copies no data",
+          "why": "For high volume and low latency the advice is Lakeflow Connect."
+        },
+        {
+          "t": "A Spark JDBC read in a notebook for every query",
+          "why": "Not the recommendation."
+        }
+      ],
+      "explain": "When a source supports both, Databricks recommends Lakeflow Connect if performance on higher data volumes and lower latency are priorities."
+    },
+    {
+      "id": "P213",
+      "topic": "Lakehouse Federation",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "In what order is query federation set up?",
+      "options": [
+        {
+          "t": "Foreign catalog first, then the connection that serves it, then grants on the catalog",
+          "why": "The connection comes first."
+        },
+        {
+          "t": "Connection (credentials and JDBC URL), then foreign catalog, then grants",
+          "ok": true
+        },
+        {
+          "t": "External location, then volume, then COPY INTO",
+          "why": "That is file ingestion."
+        },
+        {
+          "t": "Grants, then connection, then catalog",
+          "why": "You can't grant on a catalog that doesn't exist."
+        }
+      ],
+      "explain": "Create a connection with credentials and the JDBC URL, create a foreign catalog using it, grant privileges, then query; queries are pushed down."
+    },
+    {
+      "id": "P214",
+      "topic": "Iceberg",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A table in an AWS Glue catalog is read in Databricks as a foreign Iceberg table. Can a Databricks job write to it?",
+      "options": [
+        {
+          "t": "Yes, through the Iceberg REST Catalog API, which writes back to Glue",
+          "why": "The REST API is for UC tables; foreign Iceberg tables are read-only in Databricks."
+        },
+        {
+          "t": "Yes, with MODIFY on the foreign catalog",
+          "why": "No privilege makes it writable."
+        },
+        {
+          "t": "No: foreign Iceberg tables are read-only in Databricks",
+          "ok": true
+        },
+        {
+          "t": "Only with deletion vectors enabled",
+          "why": "Unrelated."
+        }
+      ],
+      "explain": "Foreign Iceberg tables are managed by a catalog outside Unity Catalog and are read-only in Databricks; managed Iceberg tables are created in Unity Catalog."
+    },
+    {
+      "id": "P215",
+      "topic": "Iceberg",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "How do external engines such as Spark, Flink or Trino read and write managed Iceberg tables in Unity Catalog?",
+      "options": [
+        {
+          "t": "By reading the table's Parquet files directly with storage keys",
+          "why": "UC privileges aren't enforced on direct file access; the REST catalog is the documented path."
+        },
+        {
+          "t": "Only through OpenSharing",
+          "why": "OpenSharing is for sharing, not engine access."
+        },
+        {
+          "t": "They can't; managed Iceberg tables are Databricks-only",
+          "why": "The REST Catalog API serves external engines."
+        },
+        {
+          "t": "Through the Iceberg REST Catalog API, with credential vending",
+          "ok": true
+        }
+      ],
+      "explain": "All Iceberg tables in Unity Catalog are reachable through the Iceberg REST Catalog API, which supports reads and writes and vends temporary credentials."
+    },
+    {
+      "id": "P216",
+      "topic": "Auto Loader",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "Which file detection mode does Databricks recommend for most Auto Loader workloads?",
+      "options": [
+        {
+          "t": "File notification with Unity Catalog file events",
+          "ok": true
+        },
+        {
+          "t": "Directory listing, because it needs only read access",
+          "why": "It is the default, not the recommendation."
+        },
+        {
+          "t": "Polling the folder from a job every minute",
+          "why": "That isn't an Auto Loader mode."
+        },
+        {
+          "t": "Whichever is first in the options, as the two give the same order",
+          "why": "Auto Loader never guarantees file order."
+        }
+      ],
+      "explain": "Directory listing is the default; Databricks recommends file notification with file events for most workloads."
+    },
+    {
+      "id": "P217",
+      "topic": "Auto Loader",
+      "difficulty": "hard",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "An Auto Loader stream must keep running when new columns appear, without adding them, and keep their values. Which mode?",
+      "options": [
+        {
+          "t": "failOnNewColumns, with a retry policy on the task",
+          "why": "That stops until the schema is fixed."
+        },
+        {
+          "t": "rescue",
+          "ok": true
+        },
+        {
+          "t": "none, which also rescues the values by default",
+          "why": "With none, new columns are ignored unless rescuedDataColumn is set."
+        },
+        {
+          "t": "addNewColumns, with the job set to restart",
+          "why": "That adds the columns."
+        }
+      ],
+      "explain": "rescue never evolves the schema or fails the stream; values for new columns go to the rescued data column."
+    },
+    {
+      "id": "P218",
+      "topic": "COPY INTO",
+      "difficulty": "easy",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "COPY INTO runs again over the same folder. What happens to files it loaded before?",
+      "options": [
+        {
+          "t": "They are deleted from the folder",
+          "why": "COPY INTO doesn't delete source files."
+        },
+        {
+          "t": "They are loaded again",
+          "why": "COPY INTO is idempotent."
+        },
+        {
+          "t": "They are skipped",
+          "ok": true
+        },
+        {
+          "t": "The command fails",
+          "why": "It is retriable."
+        }
+      ],
+      "explain": "COPY INTO is retriable and idempotent: files already loaded are skipped."
+    },
+    {
+      "id": "P219",
+      "topic": "Ingestion choice",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7"
+      ],
+      "q": "Databricks describes three ingestion layers. Which does it recommend starting with?",
+      "options": [
+        {
+          "t": "Structured Streaming, for full control from day one",
+          "why": "It is the most customisable, not the starting point."
+        },
+        {
+          "t": "Hand-written JDBC reads in notebooks",
+          "why": "Not one of the layers recommended first."
+        },
+        {
+          "t": "Lakeflow pipelines only, never connectors",
+          "why": "Start with the most managed layer that fits."
+        },
+        {
+          "t": "The most managed one: managed connectors",
+          "ok": true
+        }
+      ],
+      "explain": "From most customisable to most managed: Structured Streaming, Lakeflow pipelines, managed connectors. Start with the most managed and drop down only if it doesn't fit."
+    },
+    {
+      "id": "P220",
+      "topic": "Kafka sources",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A batch job writes rows to Kafka on Databricks Runtime 13.3 LTS. What does the Kafka page say about duplicate writes from retries?",
+      "options": [
+        {
+          "t": "Idempotent writes are enabled by default by the newer kafka-clients library",
+          "ok": true
+        },
+        {
+          "t": "Idempotence must be turned on with `kafka.enable.idempotence=true` every time",
+          "why": "DBR 13.3 LTS+ enables it by default."
+        },
+        {
+          "t": "Kafka can't receive writes from Databricks",
+          "why": "Writing to Kafka is supported."
+        },
+        {
+          "t": "Writes are at-most-once, so retries drop rows",
+          "why": "Not stated."
+        }
+      ],
+      "explain": "DBR 13.3 LTS and above includes a newer kafka-clients library that enables idempotent writes by default."
+    },
+    {
+      "id": "P221",
+      "topic": "Auto Loader",
+      "difficulty": "medium",
+      "sources": [
+        "notes §7",
+        "notes §8"
+      ],
+      "q": "Two Auto Loader streams load two folders into one bronze table. What do they need?",
+      "options": [
+        {
+          "t": "A shared checkpoint, so the table has one record of what was loaded",
+          "why": "Each source needs its own checkpoint."
+        },
+        {
+          "t": "Each its own checkpoint",
+          "ok": true
+        },
+        {
+          "t": "The same schemaLocation and the same checkpoint",
+          "why": "Checkpoints must not be shared."
+        },
+        {
+          "t": "Nothing: two streams can't write one table",
+          "why": "They can, each with its own checkpoint."
+        }
+      ],
+      "explain": "Each source location loaded into a target needs its own checkpoint; each query needs its own."
+    },
+    {
+      "id": "P222",
+      "topic": "Iceberg",
+      "difficulty": "hard",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "What do managed Iceberg tables require?",
+      "options": [
+        {
+          "t": "Hive metastore, not Unity Catalog",
+          "why": "They are created in Unity Catalog."
+        },
+        {
+          "t": "Only the Iceberg v1 specification",
+          "why": "Versions 1, 2 and 3 are supported."
+        },
+        {
+          "t": "Unity Catalog, DBR 16.4 LTS+, serverless and predictive optimization",
+          "ok": true
+        },
+        {
+          "t": "A classic cluster with the Iceberg JARs installed and the Hive metastore enabled",
+          "why": "They need serverless and DBR 16.4 LTS+."
+        }
+      ],
+      "explain": "Managed Iceberg tables are created in Unity Catalog on DBR 16.4 LTS+, need serverless compute, and can only be created with predictive optimization enabled for maintenance."
+    }
+  ]
+}

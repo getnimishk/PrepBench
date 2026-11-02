@@ -82,6 +82,29 @@ class QuestionValidator:
     def _normalize(text: str) -> str:
         return re.sub(r'\W+', '', text.lower()) if text else ""
 
+    def _structured_issues(self, q, options) -> List[ValidationErrorItem]:
+        """What an ordering or matching question needs: enough items, and for matching a distinct target for each."""
+        issues: List[ValidationErrorItem] = []
+        kind = "ordering" if q.question_type == QuestionType.ORDERING else "matching"
+        if len(options) < 3:
+            issues.append(ValidationErrorItem(
+                severity="error", field="options", error_category="structural",
+                message=f"An {kind} question needs at least 3 items (found {len(options)}).",
+            ))
+        if q.question_type == QuestionType.MATCHING:
+            targets = [(o.match_target or "").strip() for o in options]
+            if any(not t for t in targets):
+                issues.append(ValidationErrorItem(
+                    severity="error", field="options", error_category="structural",
+                    message="Every item of a matching question needs the text it is paired with (match_target).",
+                ))
+            elif len({self._normalize(t) for t in targets}) != len(targets):
+                issues.append(ValidationErrorItem(
+                    severity="error", field="options", error_category="structural",
+                    message="A matching question's targets must all be different, or the pairs are ambiguous.",
+                ))
+        return issues
+
     @staticmethod
     def _parse_number_word(word: str) -> Optional[int]:
         return NUMBER_WORDS.get(word.lower())
@@ -186,8 +209,13 @@ class QuestionValidator:
 
         # 3. Correct Answer & Prompt Intent Alignment Checks
         correct_count = sum(1 for o in options if o.is_correct)
-        
-        if correct_count == 0:
+        # Ordering and matching questions have no "correct choice": the order, or the pairs, are the answer
+        # (services/answer_grading.py). They are checked for what that needs instead.
+        structured = q.question_type in (QuestionType.ORDERING, QuestionType.MATCHING)
+        if structured:
+            issues.extend(self._structured_issues(q, options))
+
+        if correct_count == 0 and not structured:
             issues.append(ValidationErrorItem(
                 severity="error",
                 field="is_correct",

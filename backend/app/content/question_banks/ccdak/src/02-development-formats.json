@@ -1,0 +1,48 @@
+{
+  "section": 2,
+  "domain": "Apache Kafka Application Development",
+  "questions": [
+    {
+      "id": "D85",
+      "topic": "Delivery semantics",
+      "difficulty": "medium",
+      "sources": [
+        "notes §5"
+      ],
+      "type": "matching",
+      "q": "Match each delivery guarantee to how a consumer that writes its results to Kafka achieves it.",
+      "pairs": [
+        [
+          "At most once",
+          "Save the position, then process the records"
+        ],
+        [
+          "At least once",
+          "Process the records, then save the position"
+        ],
+        [
+          "Exactly once",
+          "Write the output and the offsets in one transaction"
+        ]
+      ],
+      "explain": "The design docs split the semantics by when the position is saved. Saving it first loses records on a crash (at most once); saving it after processing may process them again (at least once, the default). Kafka-to-Kafka exactly once stores the consumer's position as a message in an internal topic and commits it in the same transaction as the output."
+    },
+    {
+      "id": "D86",
+      "topic": "Transactions",
+      "difficulty": "hard",
+      "sources": [
+        "notes §5"
+      ],
+      "type": "ordering",
+      "q": "A consume-transform-produce application's transaction is aborted. Put what happens next in order, first to last.",
+      "items": [
+        "The producer aborts the transaction",
+        "The offsets written in that transaction are discarded, so the stored position reverts",
+        "The application resets its consumer to the last committed position",
+        "The records are processed again, in a new transaction"
+      ],
+      "explain": "On an abort the stored position reverts, but the consumer doesn't rewind by itself: the docs say the application must reset its consumer position. The simplest recovery is to recreate producer and consumer, which rewinds to the last committed offset."
+    }
+  ]
+}

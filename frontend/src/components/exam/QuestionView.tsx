@@ -7,6 +7,8 @@ import { Box, Button, Typography } from '@mui/material';
 import { Question } from '../../types/question';
 import { ConfidenceLevel } from '../../types/exam';
 import { Eyebrow, Note, Pill } from '../ui/primitives';
+import { StructuredInput } from './StructuredAnswer';
+import { isStructured } from '../../services/questionFormats';
 
 interface QuestionViewProps {
   question: Question;
@@ -60,6 +62,8 @@ export const QuestionView: React.FC<QuestionViewProps> = ({
   revealed = false,
 }) => {
   const isMultiple = question.question_type === 'multiple_choice';
+  // Ordering and matching questions answer with a list, not a pick (services/questionFormats.ts).
+  const structured = isStructured(question);
   const groupName = `question-${question.id}`;
 
   const toggle = (optionId: number) => {
@@ -75,9 +79,11 @@ export const QuestionView: React.FC<QuestionViewProps> = ({
 
   return (
     <Box>
-      {(isMultiple || revealed) && (
+      {(isMultiple || structured || revealed) && (
         <Box sx={{ display: 'flex', gap: '6px', flexWrap: 'wrap', mb: '12px' }}>
           {isMultiple && <Pill tone="accent">Choose all that apply</Pill>}
+          {question.question_type === 'ordering' && <Pill tone="accent">Put these in order, first to last</Pill>}
+          {question.question_type === 'matching' && <Pill tone="accent">Pair each item with one answer</Pill>}
           {revealed && (
             <>
               <Pill>{question.domain}</Pill>
@@ -107,6 +113,9 @@ export const QuestionView: React.FC<QuestionViewProps> = ({
         </Box>
       )}
 
+      {structured ? (
+        <StructuredInput question={question} selected={selectedOptionIds} onChange={(ids) => { if (!revealed) onSelectOption(ids); }} revealed={revealed} />
+      ) : (
       <Box
         role={isMultiple ? 'group' : 'radiogroup'}
         aria-label={isMultiple ? 'Options, choose all that apply' : 'Options'}
@@ -155,6 +164,7 @@ export const QuestionView: React.FC<QuestionViewProps> = ({
           );
         })}
       </Box>
+      )}
 
       {/* Asked once the answer is behind you, and never during a timed mock.
           Between the last option and Next it is a second decision per question

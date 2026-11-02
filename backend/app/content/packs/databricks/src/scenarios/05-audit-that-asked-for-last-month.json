@@ -1,0 +1,230 @@
+{
+  "id": "5",
+  "number": 5,
+  "title": "The audit that asked for last month",
+  "outcome": "History listed the version the auditor wanted, but its data files had already been vacuumed, so the table could not be read as it was.",
+  "sources": "§2, §23, §24",
+  "chapter": "history",
+  "content": {
+    "bookmark": "Time travel needs a version's log entry and its data files. The log is kept 30 days by default; the files only 7 once VACUUM runs. History is not a backup.",
+    "check": [
+      {
+        "prompt": "What is the default for delta.deletedFileRetentionDuration, the threshold VACUUM uses?",
+        "options": [
+          "30 days",
+          "7 days",
+          "90 days"
+        ],
+        "answer": 1,
+        "why": "Data files no longer referenced are kept for 7 days by default; VACUUM removes them after that."
+      },
+      {
+        "prompt": "What is the default for delta.logRetentionDuration, how long table history is kept?",
+        "options": [
+          "30 days",
+          "7 days",
+          "365 days"
+        ],
+        "answer": 0,
+        "why": "History is kept for 30 days by default."
+      },
+      {
+        "prompt": "What do you need to time travel to a version?",
+        "options": [
+          "Only its entry in DESCRIBE HISTORY, which is kept for 30 days",
+          "Only its data files; the log can be rebuilt from them",
+          "Both its log entry and its data files"
+        ],
+        "answer": 2,
+        "why": "A version is the log plus the files it points to. If VACUUM has removed the files, the version can't be read, even though history still lists it."
+      },
+      {
+        "prompt": "Predictive optimization runs VACUUM on a managed table whose deletedFileRetentionDuration is set to 2 days. How long are removed files kept?",
+        "options": [
+          "2 days, exactly as the property says",
+          "30 days, to match the log retention",
+          "At least 7 days"
+        ],
+        "answer": 2,
+        "why": "Predictive optimization honours the property but keeps at least 7 days even if it is set lower."
+      }
+    ],
+    "caseStudy": {
+      "setting": "A payments company (fictional) keeps daily settlement balances in a Unity Catalog managed table, updated by a nightly MERGE. Predictive optimization runs maintenance, including VACUUM, with default retention. Nobody has set any retention property.",
+      "events": [
+        {
+          "when": "Day 1",
+          "what": "An auditor asks for the balances exactly as they stood at month end, 20 days ago, to compare with a regulator's figures."
+        },
+        {
+          "when": "Day 1, an hour later",
+          "what": "An analyst runs DESCRIBE HISTORY and finds the version from that night. SELECT ... TIMESTAMP AS OF that date fails: time travel to a version older than the file retention is blocked."
+        },
+        {
+          "when": "Day 2",
+          "what": "The finance director asks why the history shows the version if the data can't be read, and whether this can happen again."
+        }
+      ],
+      "pipeline": [
+        "Nightly MERGE · updates settlement balances",
+        "finance.settlement.balances · managed Delta table, default retention",
+        "Predictive optimization · runs OPTIMIZE, VACUUM and ANALYZE automatically"
+      ],
+      "tasks": [
+        "Why does history list a version the table can't return?",
+        "What should the team change, and what can still be done for the auditor?"
+      ]
+    },
+    "debrief": [
+      {
+        "title": "Two retentions",
+        "text": [
+          "The log and the data files are kept for different times. History (the log) is kept 30 days by default, so the month-end version is listed. Removed data files are kept 7 days, then VACUUM deletes them.",
+          "Each nightly MERGE rewrote files, so the month-end version's files had been removed as no longer referenced. Without them the version can't be read, and recent runtimes block the attempt."
+        ]
+      },
+      {
+        "title": "Changing the setting",
+        "text": [
+          "For 30 days of time travel, set deletedFileRetentionDuration to 30 days to match the log. Longer retention costs storage.",
+          "With predictive optimization, raise the property before relying on it: its VACUUM honours the property and never keeps less than 7 days."
+        ]
+      },
+      {
+        "title": "History isn't a backup",
+        "text": [
+          "Databricks advises against using table history as a long-term backup. A month-end figure the business must reproduce belongs in a deliberate copy, such as a month-end snapshot table written by the job.",
+          "For the auditor now: if the source system or a downstream report kept month-end figures, reconstruct from those, and say plainly what can't be reproduced."
+        ]
+      }
+    ],
+    "takeaway": [
+      "Time travel needs both the log and the data files.",
+      "Raise deletedFileRetentionDuration if you need longer than 7 days.",
+      "Keep figures you must reproduce as deliberate snapshots, not as history."
+    ],
+    "honesty": "If you haven't managed Delta retention, say so, and explain the two retentions and why VACUUM ends time travel. If you have answered an audit request from data history, describe what you could and couldn't reproduce.",
+    "lenses": {
+      "po": {
+        "tasks": [
+          "What requirement was missing?",
+          "How would you write it?"
+        ],
+        "debrief": [
+          {
+            "title": "Missing requirement",
+            "text": [
+              "How far back the business must reproduce this table, and for whom (auditors, regulators)."
+            ]
+          },
+          {
+            "title": "Writing it",
+            "text": [
+              "\"Month-end balances must be reproducible for N years\" leads to snapshots; \"any point in the last 30 days\" leads to longer retention."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you capture data retention requirements for a product?",
+          "points": [
+            "Ask who needs old data and why: audit, regulation, analysis.",
+            "Separate point-in-time recovery from long-term records.",
+            "Turn each need into a period and a mechanism.",
+            "Include the storage cost in the decision.",
+            "Test that the requirement is met before an audit does."
+          ]
+        }
+      },
+      "pm": {
+        "tasks": [
+          "What do you tell the finance director?",
+          "What do you commit to?"
+        ],
+        "debrief": [
+          {
+            "title": "Finance director",
+            "text": [
+              "History lists changes for 30 days but the data behind them is kept for 7 by default. We didn't set it for audit use; we will now, and keep month-end snapshots."
+            ]
+          },
+          {
+            "title": "Commitment",
+            "text": [
+              "Longer retention on this table this week, month-end snapshots from next month, and a list of other tables with audit needs."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "An audit asked for data you can't produce. How do you respond?",
+          "points": [
+            "Say clearly what can and can't be produced.",
+            "Offer the best reconstruction from other sources.",
+            "Explain the cause without excuses.",
+            "Commit to a fix with dates.",
+            "Check other data for the same gap."
+          ]
+        }
+      },
+      "dm": {
+        "tasks": [
+          "What actions come out of this?",
+          "How do you find other tables at risk?"
+        ],
+        "debrief": [
+          {
+            "title": "Actions",
+            "text": [
+              "Set retention on this table, add a month-end snapshot task to the job, and document both."
+            ]
+          },
+          {
+            "title": "Other tables",
+            "text": [
+              "Ask each data owner which tables carry audit or reproduction needs, and check their retention properties."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "How do you turn one incident into a fix across the platform?",
+          "points": [
+            "State the rule the incident revealed.",
+            "Find every place the rule applies.",
+            "Prioritise by business risk.",
+            "Assign owners and dates.",
+            "Verify and report progress."
+          ]
+        }
+      },
+      "em": {
+        "tasks": [
+          "What would you change on the table?",
+          "How would you build the snapshots?"
+        ],
+        "debrief": [
+          {
+            "title": "Table properties",
+            "text": [
+              "Set delta.deletedFileRetentionDuration to 30 days with ALTER TABLE ... SET TBLPROPERTIES, keeping delta.logRetentionDuration at least as long."
+            ]
+          },
+          {
+            "title": "Snapshots",
+            "text": [
+              "A month-end task that writes the balances to a snapshot table with the month as a column, so reproduction doesn't depend on retention at all."
+            ]
+          }
+        ],
+        "sayIt": {
+          "question": "Explain Delta Lake time travel and what limits how far back you can go.",
+          "points": [
+            "Each write makes a new version; DESCRIBE HISTORY lists them.",
+            "Read old versions with VERSION AS OF or TIMESTAMP AS OF.",
+            "You need both the log (30 days by default) and the data files (7 days by default).",
+            "VACUUM removes unreferenced files older than the retention, ending time travel to those versions.",
+            "History isn't a backup: keep snapshots for long-term records."
+          ]
+        }
+      }
+    }
+  }
+}

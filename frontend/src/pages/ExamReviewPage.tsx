@@ -15,6 +15,8 @@ import { READINESS_LABELS, Subject } from '../types/subject';
 import { blockerSentence, plateauSentence, readySentence } from '../services/readinessText';
 import { loadFailed } from '../services/apiError';
 import { LoadingState } from '../components/common/States';
+import { answerGiven, isStructured } from '../services/questionFormats';
+import { StructuredAnswerKey } from '../components/exam/StructuredAnswer';
 import {
   Detail, Eyebrow, Grid, PageHead, Panel, Pill, Section, Sub, type Tone,
 } from '../components/ui/primitives';
@@ -86,7 +88,7 @@ export const ExamReviewPage: React.FC = () => {
       const answer = answersMap.get(q.id);
       const isCorrect = answer?.is_correct ?? false;
       const isFlagged = answer?.is_flagged ?? false;
-      const wasAnswered = (answer?.selected_option_ids?.length ?? 0) > 0;
+      const wasAnswered = answerGiven(q, answer);
       return { q, originalIdx, answer, isCorrect, isFlagged, wasAnswered };
     });
     return mappedQuestions.filter(({ isCorrect, isFlagged }) => {
@@ -359,6 +361,9 @@ export const ExamReviewPage: React.FC = () => {
 
                 {/* The prototype's question review: the right option green, a
                     wrong pick red, each with why. */}
+                {isStructured(currentQData.q) ? (
+                  <StructuredAnswerKey question={currentQData.q} selected={currentQData.answer?.selected_option_ids ?? undefined} />
+                ) : (
                 <Box component="ul" sx={{ m: 0, mt: '6px', p: 0, listStyle: 'none' }}>
                   {currentQData.q.options.map((opt, oidx) => {
                     const wasSelected = opt.id !== undefined && currentQData.answer?.selected_option_ids
@@ -391,6 +396,7 @@ export const ExamReviewPage: React.FC = () => {
                     );
                   })}
                 </Box>
+                )}
 
                 {currentQData.q.explanation && (
                   <Box sx={{ mt: '18px' }}>

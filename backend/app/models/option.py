@@ -19,6 +19,8 @@ class QuestionOption(Base):
     is_correct = Column(Boolean, default=False, nullable=False)
     explanation_why_incorrect = Column(Text, nullable=True)
     order_index = Column(Integer, default=0)
+    # A matching question's right-hand side: the text this option is paired with. NULL for every other type.
+    match_target = Column(Text, nullable=True)
 
     # Relationships
     question = relationship("Question", back_populates="options")

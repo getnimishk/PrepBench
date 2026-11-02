@@ -1,0 +1,7 @@
+{
+  "certification": "Databricks Certified Data Engineer Professional",
+  "source": "PrepBench Databricks Data Engineer Professional bank: Databricks, Azure Databricks, Delta Lake and Apache Spark docs, and the exam guide of 9 October 2026",
+  "notes": {
+    "notes": "docs/research/databricks-documentation-notes.md"
+  }
+}

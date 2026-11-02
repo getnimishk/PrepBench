@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 470" width="980" height="470" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <title>A Delta table: Parquet data files, and a _delta_log of numbered JSON commits that add and remove files, with a Parquet checkpoint every so often and a _last_checkpoint pointer</title>
+  <rect x="0" y="0" width="980" height="470" fill="#ffffff"/>
+  <text x="490" y="32" text-anchor="middle" font-size="17" font-weight="700" fill="#0f172a">A Delta table = Parquet data files + the _delta_log that says which files count</text>
+
+  <!-- Data files -->
+  <rect x="20" y="56" width="300" height="390" rx="12" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+  <text x="170" y="84" text-anchor="middle" font-size="15" font-weight="700" fill="#0f172a">Data files (Parquet)</text>
+  <g font-size="13">
+    <rect x="45" y="104" width="250" height="40" rx="8" fill="#e2e8f0" stroke="#64748b"/>
+    <text x="60" y="129" fill="#334155">part-0001.parquet  (removed in v2)</text>
+    <rect x="45" y="156" width="250" height="40" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+    <text x="60" y="181" fill="#14532d">part-0002.parquet  (live)</text>
+    <rect x="45" y="208" width="250" height="40" rx="8" fill="#dcfce7" stroke="#16a34a"/>
+    <text x="60" y="233" fill="#14532d">part-0003.parquet  (live, added v2)</text>
+    <rect x="45" y="260" width="250" height="40" rx="8" fill="#fee2e2" stroke="#dc2626" stroke-dasharray="5 4"/>
+    <text x="60" y="285" fill="#7f1d1d">part-0004.parquet  (never committed)</text>
+  </g>
+  <text x="45" y="330" font-size="13" fill="#334155">Only files the log adds and hasn't removed</text>
+  <text x="45" y="348" font-size="13" fill="#334155">are part of the table.</text>
+  <text x="45" y="378" font-size="13" fill="#334155">Removed files stay as tombstones until</text>
+  <text x="45" y="396" font-size="13" fill="#334155">VACUUM deletes them after the retention</text>
+  <text x="45" y="414" font-size="13" fill="#334155">period. Uncommitted files are invisible and</text>
+  <text x="45" y="432" font-size="13" fill="#334155">VACUUM removes them too.</text>
+
+  <!-- Log -->
+  <rect x="345" y="56" width="615" height="390" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="652" y="84" text-anchor="middle" font-size="15" font-weight="700" fill="#1e3a8a">_delta_log/</text>
+  <g font-size="13">
+    <rect x="370" y="104" width="565" height="44" rx="8" fill="#dbeafe" stroke="#2563eb"/>
+    <text x="385" y="124" fill="#1e3a8a" font-weight="700">00000000000000000000.json   version 0</text>
+    <text x="385" y="141" fill="#1e3a8a">protocol, metaData (schema), commitInfo: CREATE TABLE</text>
+    <rect x="370" y="158" width="565" height="44" rx="8" fill="#dbeafe" stroke="#2563eb"/>
+    <text x="385" y="178" fill="#1e3a8a" font-weight="700">00000000000000000001.json   version 1</text>
+    <text x="385" y="195" fill="#1e3a8a">add part-0001, add part-0002 (with min/max statistics), commitInfo: WRITE</text>
+    <rect x="370" y="212" width="565" height="44" rx="8" fill="#dbeafe" stroke="#2563eb"/>
+    <text x="385" y="232" fill="#1e3a8a" font-weight="700">00000000000000000002.json   version 2</text>
+    <text x="385" y="249" fill="#1e3a8a">remove part-0001 (tombstone), add part-0003, commitInfo: UPDATE</text>
+    <rect x="370" y="266" width="565" height="44" rx="8" fill="#fef3c7" stroke="#d97706"/>
+    <text x="385" y="286" fill="#78350f" font-weight="700">00000000000000000010.checkpoint.parquet</text>
+    <text x="385" y="303" fill="#78350f">every action up to version 10, already replayed</text>
+    <rect x="370" y="320" width="565" height="44" rx="8" fill="#fef3c7" stroke="#d97706"/>
+    <text x="385" y="340" fill="#78350f" font-weight="700">_last_checkpoint</text>
+    <text x="385" y="357" fill="#78350f">points to version 10, so readers needn't list the whole folder</text>
+  </g>
+  <text x="370" y="394" font-size="13" fill="#1e3a8a">A reader loads the newest checkpoint, replays the JSON commits after it,</text>
+  <text x="370" y="412" font-size="13" fill="#1e3a8a">and gets one consistent snapshot. A writer commits by creating the next</text>
+  <text x="370" y="430" font-size="13" fill="#1e3a8a">numbered JSON file; if another writer got there first, it checks for conflicts.</text>
+</svg>

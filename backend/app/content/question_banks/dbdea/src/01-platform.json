@@ -1,0 +1,517 @@
+{
+  "section": 1,
+  "domain": "Databricks Intelligence Platform",
+  "questions": [
+    {
+      "id": "P01",
+      "topic": "Lakehouse",
+      "difficulty": "easy",
+      "sources": [
+        "notes §13"
+      ],
+      "q": "What does Databricks say a data lakehouse combines?",
+      "options": [
+        {
+          "t": "A message queue and a key-value store, so events and lookups share one engine",
+          "why": "A lakehouse combines data lakes and data warehouses."
+        },
+        {
+          "t": "The benefits of data lakes and data warehouses",
+          "ok": true
+        },
+        {
+          "t": "An on-premises Hadoop cluster and a cloud backup of its files",
+          "why": "A lakehouse combines lake and warehouse benefits on open files in cloud storage."
+        },
+        {
+          "t": "A relational database and a separate copy of it for reporting",
+          "why": "The point is one copy of data, not a second reporting copy."
+        }
+      ],
+      "explain": "A data lakehouse combines the benefits of data lakes and data warehouses: open, direct access to data in cloud object storage plus reliable BI and ML on the same data."
+    },
+    {
+      "id": "P02",
+      "topic": "Core components",
+      "difficulty": "easy",
+      "sources": [
+        "notes §13",
+        "notes §2"
+      ],
+      "q": "Which component gives Databricks tables ACID transactions and schema enforcement?",
+      "options": [
+        {
+          "t": "Unity Catalog, which records every write in its audit log",
+          "why": "Unity Catalog governs access; Delta Lake provides ACID transactions."
+        },
+        {
+          "t": "Photon, the engine that executes every write in a transaction",
+          "why": "Photon is a query engine; Delta Lake provides transactions."
+        },
+        {
+          "t": "Delta Lake",
+          "ok": true
+        },
+        {
+          "t": "Lakeflow Jobs, which retries writes until they succeed",
+          "why": "Jobs orchestrate tasks; Delta Lake provides transactions."
+        }
+      ],
+      "explain": "On Databricks the lakehouse rests on Apache Spark (compute), Delta Lake (ACID, schema enforcement) and Unity Catalog (governance)."
+    },
+    {
+      "id": "P03",
+      "topic": "Core components",
+      "difficulty": "easy",
+      "sources": [
+        "notes §2"
+      ],
+      "q": "A table is created on Databricks without naming a format. What is it?",
+      "options": [
+        {
+          "t": "A Delta table",
+          "ok": true
+        },
+        {
+          "t": "A Parquet table without a transaction log",
+          "why": "Delta is the default for every table unless otherwise specified."
+        },
+        {
+          "t": "A CSV table, until a format is chosen later",
+          "why": "Delta is the default."
+        },
+        {
+          "t": "An Iceberg table, the default format since 2025",
+          "why": "Delta is the default."
+        }
+      ],
+      "explain": "Unless otherwise specified, every table on Databricks is a Delta Lake table."
+    },
+    {
+      "id": "P04",
+      "topic": "Architecture",
+      "difficulty": "medium",
+      "sources": [
+        "notes §17"
+      ],
+      "q": "On Azure Databricks, where does classic compute run?",
+      "options": [
+        {
+          "t": "In the Azure Databricks account, in a network boundary per workspace",
+          "why": "That describes serverless compute."
+        },
+        {
+          "t": "In the control plane, next to the web application",
+          "why": "The control plane holds backend services; classic compute runs in your subscription."
+        },
+        {
+          "t": "In your Azure subscription, inside the workspace's virtual network",
+          "ok": true
+        },
+        {
+          "t": "In a shared multi-tenant cluster that all customers use",
+          "why": "Classic compute runs in your own subscription."
+        }
+      ],
+      "explain": "Classic compute runs in the classic compute plane in your Azure subscription; serverless runs in a serverless compute plane in the Azure Databricks account, in your region."
+    },
+    {
+      "id": "P05",
+      "topic": "Architecture",
+      "difficulty": "medium",
+      "sources": [
+        "notes §17"
+      ],
+      "q": "Where do the web application and backend services of Azure Databricks run?",
+      "options": [
+        {
+          "t": "In your subscription's managed resource group, on VMs you pay for",
+          "why": "The control plane lives in the Azure Databricks account."
+        },
+        {
+          "t": "On the driver node of each cluster",
+          "why": "The control plane is a separate set of services."
+        },
+        {
+          "t": "In your ADLS Gen2 account, as static files",
+          "why": "The control plane runs in the Azure Databricks account."
+        },
+        {
+          "t": "In the control plane, in the Azure Databricks account",
+          "ok": true
+        }
+      ],
+      "explain": "The control plane (backend services, the web application) lives in the Azure Databricks account, not in your subscription."
+    },
+    {
+      "id": "P06",
+      "topic": "Architecture",
+      "difficulty": "medium",
+      "sources": [
+        "notes §17",
+        "notes §6"
+      ],
+      "q": "Which statement about Unity Catalog metastores is correct?",
+      "options": [
+        {
+          "t": "Each workspace must have its own metastore, never shared",
+          "why": "A metastore can be attached to several workspaces in the same region."
+        },
+        {
+          "t": "A metastore can be attached to several workspaces in the same region",
+          "ok": true
+        },
+        {
+          "t": "One metastore serves workspaces in every region of the account",
+          "why": "Metastores are per region."
+        },
+        {
+          "t": "Metastores are created inside each workspace by workspace admins",
+          "why": "The metastore is managed at the account level."
+        }
+      ],
+      "explain": "The account manages Unity Catalog metastores; a metastore can be attached to several workspaces in the same region, which then share one view of the data and its access controls."
+    },
+    {
+      "id": "P07",
+      "topic": "Compute",
+      "difficulty": "easy",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "Which compute is versionless, always on the latest runtime?",
+      "options": [
+        {
+          "t": "Classic all-purpose compute with autoscaling enabled",
+          "why": "Classic compute runs the runtime you choose."
+        },
+        {
+          "t": "Classic job compute pinned to an LTS runtime",
+          "why": "That runtime is chosen and pinned."
+        },
+        {
+          "t": "Serverless compute",
+          "ok": true
+        },
+        {
+          "t": "A pool of idle instances",
+          "why": "Pools serve classic compute with a chosen runtime."
+        }
+      ],
+      "explain": "Serverless compute is versionless: always the latest runtime."
+    },
+    {
+      "id": "P08",
+      "topic": "Compute",
+      "difficulty": "medium",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "A nightly ETL job runs on a shared all-purpose cluster. What does the documentation say about that?",
+      "options": [
+        {
+          "t": "It is billed at the all-purpose rate; Databricks doesn't recommend all-purpose compute for production jobs",
+          "ok": true
+        },
+        {
+          "t": "It is the recommended pattern, because the cluster is already running for interactive users",
+          "why": "Databricks doesn't recommend all-purpose compute for production jobs."
+        },
+        {
+          "t": "It is free, because all-purpose clusters are billed only for notebook commands",
+          "why": "All-purpose compute is billed, at a different rate from job compute."
+        },
+        {
+          "t": "It can't run at all, because jobs refuse all-purpose clusters",
+          "why": "Jobs can use all-purpose compute; it just isn't recommended for production."
+        }
+      ],
+      "explain": "On Azure, job compute and all-purpose compute are billed at different rates, and Databricks does not recommend all-purpose compute for production jobs."
+    },
+    {
+      "id": "P09",
+      "topic": "Compute",
+      "difficulty": "medium",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "Thirty business users run ad hoc SQL and dashboards at unpredictable times. Which compute does Databricks point to?",
+      "options": [
+        {
+          "t": "A classic SQL warehouse that runs all day with a fixed size",
+          "why": "Serverless suits many concurrent ad hoc users, scaling quickly without idling."
+        },
+        {
+          "t": "A shared all-purpose cluster with a high autoscaling maximum",
+          "why": "SQL and BI users are served by SQL warehouses."
+        },
+        {
+          "t": "One job compute cluster per user, started on demand",
+          "why": "Job compute runs jobs; SQL users use warehouses."
+        },
+        {
+          "t": "A serverless SQL warehouse",
+          "ok": true
+        }
+      ],
+      "explain": "Serverless SQL warehouses (Photon, Predictive IO, Intelligent Workload Management) start in about 2-6 seconds and scale fast; they are Databricks' choice for many concurrent BI and ad hoc users."
+    },
+    {
+      "id": "P10",
+      "topic": "Compute",
+      "difficulty": "medium",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "On Azure, what do you pay for when running classic compute?",
+      "options": [
+        {
+          "t": "Only DBUs, because Databricks covers the virtual machines",
+          "why": "With classic compute you pay Azure for the VMs as well as DBUs."
+        },
+        {
+          "t": "The virtual machines, and DBUs based on the instance chosen",
+          "ok": true
+        },
+        {
+          "t": "Only the virtual machines; DBUs apply to serverless only",
+          "why": "Classic compute is billed in DBUs as well as VMs."
+        },
+        {
+          "t": "A flat monthly fee per workspace, whatever is run",
+          "why": "Billing is VMs plus DBUs per second."
+        }
+      ],
+      "explain": "Azure Databricks bills for the VMs provisioned in clusters and for DBUs based on the instance selected, per second; with serverless, only DBUs are billed."
+    },
+    {
+      "id": "P11",
+      "topic": "Compute",
+      "difficulty": "medium",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "Which access mode does Databricks recommend by default for clusters shared by many users?",
+      "options": [
+        {
+          "t": "Dedicated, assigned to one user or group",
+          "why": "Dedicated is for what standard doesn't support."
+        },
+        {
+          "t": "No isolation shared, the legacy mode for older runtimes",
+          "why": "That is a legacy configuration, not recommended."
+        },
+        {
+          "t": "Standard (formerly shared), isolated by Lakeguard",
+          "ok": true
+        },
+        {
+          "t": "Single node, so users can't affect each other",
+          "why": "Single node is a cluster size choice, not an access mode."
+        }
+      ],
+      "explain": "Standard access mode (formerly shared) lets many users share compute, isolated by Lakeguard; it is Databricks' default recommendation. Dedicated (formerly single user) is for what standard doesn't support."
+    },
+    {
+      "id": "P12",
+      "topic": "Compute",
+      "difficulty": "hard",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "Which workload needs dedicated access mode rather than standard?",
+      "options": [
+        {
+          "t": "A SQL notebook reading Unity Catalog tables",
+          "why": "Standard access mode supports that."
+        },
+        {
+          "t": "A Python notebook writing Delta tables",
+          "why": "Standard access mode supports that."
+        },
+        {
+          "t": "A scheduled notebook task that runs a MERGE",
+          "why": "Standard access mode supports that."
+        },
+        {
+          "t": "A GPU workload using the ML runtime",
+          "ok": true
+        }
+      ],
+      "explain": "Standard access mode doesn't support the ML runtime, GPUs, R, Spark Submit tasks or some SparkContext APIs; use dedicated for those."
+    },
+    {
+      "id": "P13",
+      "topic": "Compute",
+      "difficulty": "medium",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "Which runtime choice does Databricks recommend for production jobs on classic compute?",
+      "options": [
+        {
+          "t": "An LTS (long-term support) runtime",
+          "ok": true
+        },
+        {
+          "t": "The newest beta runtime, to get fixes first",
+          "why": "Production jobs should use an LTS version."
+        },
+        {
+          "t": "The oldest runtime still listed, because it is the most tested",
+          "why": "Choose a supported LTS version."
+        },
+        {
+          "t": "Any runtime, because jobs always upgrade to the latest automatically",
+          "why": "Classic compute runs the runtime you pick; choose LTS for production."
+        }
+      ],
+      "explain": "Choose the latest runtime for all-purpose compute and an LTS version for production jobs."
+    },
+    {
+      "id": "P14",
+      "topic": "Compute",
+      "difficulty": "medium",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "What does Photon change for a workload?",
+      "options": [
+        {
+          "t": "It speeds up SQL, DataFrames, ETL and Delta writes, with no code changes",
+          "ok": true
+        },
+        {
+          "t": "It requires rewriting PySpark code in its own API before it runs faster",
+          "why": "Photon needs no code changes."
+        },
+        {
+          "t": "It replaces Delta Lake as the storage format for faster reads",
+          "why": "Photon is an engine, not a storage format."
+        },
+        {
+          "t": "It is only used for streaming queries in real-time mode",
+          "why": "Photon speeds up SQL, DataFrames, ETL and Delta writes generally."
+        }
+      ],
+      "explain": "Photon is a native C++ vectorized engine, on by default, that speeds up SQL, DataFrames, ETL and Delta writes, most for long queries on large data, with no code changes."
+    },
+    {
+      "id": "P15",
+      "topic": "Compute",
+      "difficulty": "hard",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "A pool keeps idle instances ready for clusters. What is charged for those idle instances?",
+      "options": [
+        {
+          "t": "Full DBUs and VM cost, as if a cluster were running on them",
+          "why": "No DBUs are charged for idle pool instances."
+        },
+        {
+          "t": "No DBUs; the cloud provider still bills the VMs",
+          "ok": true
+        },
+        {
+          "t": "Nothing at all, from Databricks or Azure",
+          "why": "Azure still bills the VMs."
+        },
+        {
+          "t": "Half the DBU rate, as a standby charge",
+          "why": "No DBUs are charged for idle pool instances."
+        }
+      ],
+      "explain": "Pools keep idle instances ready to cut start-up and autoscaling time; no DBUs are charged for idle pool instances, but the cloud provider still bills the VMs."
+    },
+    {
+      "id": "P16",
+      "topic": "Compute",
+      "difficulty": "medium",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "Which task type needs classic job compute rather than serverless?",
+      "options": [
+        {
+          "t": "A notebook task",
+          "why": "Databricks recommends serverless jobs compute for notebook tasks."
+        },
+        {
+          "t": "A Python wheel task",
+          "why": "Databricks recommends serverless jobs compute for wheel tasks."
+        },
+        {
+          "t": "A JAR task",
+          "ok": true
+        },
+        {
+          "t": "A SQL task",
+          "why": "SQL tasks run on a SQL warehouse, ideally serverless."
+        }
+      ],
+      "explain": "Recommended compute: serverless jobs for notebook, Python script and wheel tasks; a serverless SQL warehouse for SQL tasks; a serverless pipeline for pipelines. JAR and Spark Submit need classic jobs compute."
+    },
+    {
+      "id": "P17",
+      "topic": "Compute",
+      "difficulty": "medium",
+      "sources": [
+        "notes §12"
+      ],
+      "q": "What can an admin-defined compute policy do?",
+      "options": [
+        {
+          "t": "Grant SELECT on tables to users of the policy",
+          "why": "Data privileges are Unity Catalog grants, not compute policies."
+        },
+        {
+          "t": "Encrypt traffic between worker nodes",
+          "why": "That is a separate security setting."
+        },
+        {
+          "t": "Move clusters into another Azure region automatically",
+          "why": "Policies constrain configuration; they don't move clusters."
+        },
+        {
+          "t": "Limit what users can create, such as maximum cost per cluster",
+          "ok": true
+        }
+      ],
+      "explain": "Compute policies limit what users can create: fixed or hidden settings, cluster counts, maximum cost per cluster, required libraries; everyone gets the Personal Compute policy by default."
+    },
+    {
+      "id": "P18",
+      "topic": "Compute",
+      "difficulty": "hard",
+      "sources": [
+        "notes §12",
+        "notes §8"
+      ],
+      "q": "Which are limitations of serverless notebooks and jobs that might lead a team to use classic compute?",
+      "options": [
+        {
+          "t": "Only availableNow and Once streaming triggers",
+          "ok": true
+        },
+        {
+          "t": "No JAR or Spark Submit tasks",
+          "ok": true
+        },
+        {
+          "t": "No access to Unity Catalog tables",
+          "why": "Serverless is available in Unity Catalog workspaces and reads their tables."
+        },
+        {
+          "t": "No Python notebooks",
+          "why": "Serverless runs Python notebooks."
+        },
+        {
+          "t": "No Delta Lake writes",
+          "why": "Serverless writes Delta tables."
+        }
+      ],
+      "explain": "Serverless notebooks and jobs support only AvailableNow and Once triggers, and JAR and Spark Submit tasks need classic jobs compute."
+    }
+  ]
+}

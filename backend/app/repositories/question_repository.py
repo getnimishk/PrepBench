@@ -167,7 +167,8 @@ class QuestionRepository:
                 option_text=opt.option_text,
                 is_correct=opt.is_correct,
                 explanation_why_incorrect=opt.explanation_why_incorrect,
-                order_index=opt.order_index if opt.order_index is not None else idx
+                order_index=opt.order_index if opt.order_index is not None else idx,
+                match_target=opt.match_target,
             )
             self.db.add(option_db)
         
@@ -195,7 +196,8 @@ class QuestionRepository:
                     option_text=opt["option_text"],
                     is_correct=opt.get("is_correct", False),
                     explanation_why_incorrect=opt.get("explanation_why_incorrect"),
-                    order_index=opt.get("order_index", idx)
+                    order_index=opt.get("order_index", idx),
+                    match_target=opt.get("match_target"),
                 )
                 self.db.add(option_db)
 

@@ -14,6 +14,7 @@ import { guideChapterPath, readTopicContext } from '../services/topicContext';
 import { ChapterTopicContext } from '../components/roadmap/ChapterTopicContext';
 import { ADF_LAB } from '../services/adfLab/lab';
 import { KAFKA_LAB } from '../services/kafkaLab/lab';
+import { DATABRICKS_LAB } from '../services/databricksLab/lab';
 import type { ContentPackDetail } from '../types/contentPack';
 import { Explanation } from '../components/common/Explanation';
 import { ErrorState, LoadingState } from '../components/common/States';
@@ -119,7 +120,7 @@ export const GuideChapterPage: React.FC = () => {
   const practice = [...new Set([...own, ...linked])];
   const scenarioPath = (id: string) => `/scenarios/${pack.pack_id}/${id}`;
   // A lab's experiments name the chapters of their pack they practise; only built ones are linked.
-  const lab = [ADF_LAB, KAFKA_LAB].find((l) => l.packId === pack.pack_id) ?? null;
+  const lab = [ADF_LAB, KAFKA_LAB, DATABRICKS_LAB].find((l) => l.packId === pack.pack_id) ?? null;
   const experiments = lab
     ? lab.experiments.filter((e) => e.ready && e.chapters.some((c) => c.id === chapter.id))
     : [];

@@ -373,6 +373,20 @@ describe('Capabilities read from the preparation itself', () => {
     expect(getSubjectCapabilities(without).learningLabStatus).toBe('UNAVAILABLE');
   });
 
+  it("gives a learner's skill with the Databricks pack the Databricks Lab", () => {
+    const withPack = record({
+      kind: 'skill', slug: 'my-databricks', question_count: 0,
+      content_packs: [{ pack_id: 'databricks', pack_version: 2, chapter_count: 24, written_scenario_count: 18 }] as unknown as Subject['content_packs'],
+    });
+    expect(getSubjectCapabilities(withPack)).toMatchObject({ learningLab: true, lab: true, learningLabStatus: 'AVAILABLE', lakehouseLab: false });
+  });
+
+  it('gives a seeded preparation with no lab of its own the Databricks Lab when the Databricks pack is attached', () => {
+    const packs = [{ pack_id: 'databricks', pack_version: 2, chapter_count: 24, written_scenario_count: 18 }] as unknown as Subject['content_packs'];
+    const withPack = getSubjectCapabilities(record({ kind: 'skill', slug: 'system-design', question_count: 0, content_packs: packs }));
+    expect(withPack).toMatchObject({ learningLab: true, lab: true, learningLabStatus: 'AVAILABLE' });
+  });
+
   it('gives a seeded preparation with no lab of its own the Kafka Lab when the Kafka pack is attached', () => {
     const packs = [{ pack_id: 'kafka', pack_version: 2, chapter_count: 21, written_scenario_count: 18 }] as unknown as Subject['content_packs'];
     const plain = record({ kind: 'skill', slug: 'system-design', question_count: 0, content_packs: [] });
@@ -561,6 +575,18 @@ describe('Lakehouse Lab P1-1: interview capability from saved lab questions', ()
   it('unlocks interview: true for renumbered Databricks (id: 77, slug: databricks) when lab_interview_question_count > 0', () => {
     const caps = getSubjectCapabilities(seeded(77, { lab_interview_question_count: 2 }));
     expect(caps.interview).toBe(true);
+  });
+
+  it('unlocks interview for Databricks when its attached pack has written scenarios, whose Say-it questions it saves', () => {
+    const withScenarios = [{ pack_id: 'databricks', pack_version: 2, chapter_count: 24, written_scenario_count: 18 }];
+    const guideOnly = [{ pack_id: 'databricks', pack_version: 1, chapter_count: 24, written_scenario_count: 0 }];
+    const caps = getSubjectCapabilities(seeded(2, { content_packs: withScenarios as unknown as Subject['content_packs'] }));
+    expect(caps.interview).toBe(true);
+    expect(caps.scenarios).toBe(true);
+    expect(caps.lakehouseLab).toBe(true);
+    const v1 = getSubjectCapabilities(seeded(2, { content_packs: guideOnly as unknown as Subject['content_packs'] }));
+    expect(v1.interview).toBe(false);
+    expect(v1.scenarios).toBe(false);
   });
 
   it('unlocks interview for any non-Databricks preparation that owns a lab question without special casing the slug', () => {

@@ -1,0 +1,513 @@
+{
+  "section": 4,
+  "domain": "Monitoring and Alerting",
+  "questions": [
+    {
+      "id": "P401",
+      "topic": "System tables",
+      "difficulty": "easy",
+      "sources": [
+        "notes §15"
+      ],
+      "q": "Which system table records billable usage in DBUs?",
+      "options": [
+        {
+          "t": "`system.access.audit`, which logs every billable action",
+          "why": "That is the audit log."
+        },
+        {
+          "t": "`system.billing.usage`",
+          "ok": true
+        },
+        {
+          "t": "`system.query.history`, which totals the DBUs of each query",
+          "why": "That is query history."
+        },
+        {
+          "t": "`system.compute.clusters`, which holds the hourly DBU totals",
+          "why": "Compute tables describe compute, not usage records."
+        }
+      ],
+      "explain": "system.billing.usage holds billable usage in DBUs (records usually within 12 hours); join it with system.billing.list_prices to estimate cost."
+    },
+    {
+      "id": "P402",
+      "topic": "System tables",
+      "difficulty": "medium",
+      "sources": [
+        "notes §15"
+      ],
+      "q": "Which column of system.billing.usage attributes usage to a job?",
+      "options": [
+        {
+          "t": "`usage_date`, combined with the job's schedule",
+          "why": "That is the date."
+        },
+        {
+          "t": "`usage_quantity`, divided by the number of jobs",
+          "why": "That is the amount used."
+        },
+        {
+          "t": "`usage_metadata.job_id`",
+          "ok": true
+        },
+        {
+          "t": "`sku_name`, which names the job that used the compute",
+          "why": "That names the SKU."
+        }
+      ],
+      "explain": "The billing page's examples use usage_date, sku_name, usage_quantity and usage_metadata.job_id."
+    },
+    {
+      "id": "P403",
+      "topic": "System tables",
+      "difficulty": "medium",
+      "sources": [
+        "notes §15"
+      ],
+      "q": "A team plans to copy system tables to an external warehouse every night for reporting. What does Databricks say about exporting them?",
+      "options": [
+        {
+          "t": "It is required, since system tables keep 7 days only",
+          "why": "Retention differs by table; audit keeps 365 days free."
+        },
+        {
+          "t": "It is allowed only for the audit table, which isn't sensitive",
+          "why": "No such exception is stated."
+        },
+        {
+          "t": "It is the recommended way to report on usage across the account",
+          "why": "Databricks highly discourages it."
+        },
+        {
+          "t": "It highly discourages exporting system table data outside the platform",
+          "ok": true
+        }
+      ],
+      "explain": "Databricks highly discourages exporting system table data outside the platform."
+    },
+    {
+      "id": "P404",
+      "topic": "Pipeline event log",
+      "difficulty": "medium",
+      "sources": [
+        "notes §10",
+        "notes §15"
+      ],
+      "q": "How do you query a declarative pipeline's progress and data quality results?",
+      "options": [
+        {
+          "t": "Query `event_log(<pipeline id>)`, or the pipeline_events system table",
+          "ok": true
+        },
+        {
+          "t": "Run DESCRIBE HISTORY on each table the pipeline writes",
+          "why": "History shows writes, not the pipeline's quality metrics."
+        },
+        {
+          "t": "Open the Spark UI's Streaming tab for the pipeline",
+          "why": "Not the documented source of these metrics."
+        },
+        {
+          "t": "Read the pipeline's checkpoint folder in its storage location, which holds the metrics",
+          "why": "That holds stream state."
+        }
+      ],
+      "explain": "Every pipeline writes an event log to a hidden Delta table: query it with event_log(<pipelineId>), or use the pipeline_events system table across pipelines. Don't delete the event log."
+    },
+    {
+      "id": "P405",
+      "topic": "Pipeline event log",
+      "difficulty": "medium",
+      "sources": [
+        "notes §10"
+      ],
+      "q": "Several engineers need to query a pipeline's event log with event_log(). By default, who can?",
+      "options": [
+        {
+          "t": "Anyone with SELECT on the pipeline's tables",
+          "why": "Table privileges don't open the event log."
+        },
+        {
+          "t": "Only the pipeline's run-as user",
+          "ok": true
+        },
+        {
+          "t": "Only metastore admins",
+          "why": "Not the documented default."
+        },
+        {
+          "t": "Every workspace user",
+          "why": "By default only the run-as user can."
+        }
+      ],
+      "explain": "Query the event log with SELECT * FROM event_log(<pipelineId>); by default only the run-as user can. Databricks recommends the pipeline_events system table (Beta) across pipelines."
+    },
+    {
+      "id": "P406",
+      "topic": "Job notifications",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "A task fails, is retried and then succeeds. The job has a failure notification at job level. What does the on-call engineer receive?",
+      "options": [
+        {
+          "t": "A success notification, always",
+          "why": "Only if success notifications are configured."
+        },
+        {
+          "t": "A notification for the first failure, then nothing for the success",
+          "why": "Job-level notifications aren't sent for retried tasks."
+        },
+        {
+          "t": "Nothing: job-level notifications aren't sent for retried tasks",
+          "ok": true
+        },
+        {
+          "t": "Two notifications, one per attempt",
+          "why": "No."
+        }
+      ],
+      "explain": "Job-level notifications aren't sent for retried tasks; use task notifications to hear about every failure."
+    },
+    {
+      "id": "P407",
+      "topic": "Job notifications",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "A stream falls behind. Which job notification fits, and how is it measured?",
+      "options": [
+        {
+          "t": "A duration warning on the task, which fires once a day when the stream is late",
+          "why": "Duration warnings are about run time."
+        },
+        {
+          "t": "A failure notification, which fires when lag exceeds the threshold",
+          "why": "Lag isn't a failure."
+        },
+        {
+          "t": "A SQL alert on the Spark UI",
+          "why": "The Spark UI isn't a query source for alerts."
+        },
+        {
+          "t": "A streaming backlog notification: a 10-minute average, repeated every 30 minutes",
+          "ok": true
+        }
+      ],
+      "explain": "Job notifications cover streaming backlog over a threshold; backlog alerts use a 10-minute average and repeat every 30 minutes."
+    },
+    {
+      "id": "P408",
+      "topic": "SQL alerts",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "What are the states of a current Databricks SQL alert?",
+      "options": [
+        {
+          "t": "OK, TRIGGERED and ERROR",
+          "ok": true
+        },
+        {
+          "t": "GREEN, AMBER and RED",
+          "why": "Not alert states."
+        },
+        {
+          "t": "OK, TRIGGERED and UNKNOWN",
+          "why": "UNKNOWN belonged to legacy alerts."
+        },
+        {
+          "t": "RUNNING, FAILED and SUCCEEDED",
+          "why": "Those are run states."
+        }
+      ],
+      "explain": "SQL alerts run a query on a schedule and notify on a condition; states are OK, TRIGGERED and ERROR; legacy alerts' UNKNOWN status is gone."
+    },
+    {
+      "id": "P409",
+      "topic": "SQL alerts",
+      "difficulty": "hard",
+      "sources": [
+        "notes §23",
+        "notes §11"
+      ],
+      "q": "A job must run a remediation task only when a data-quality alert fires. How?",
+      "options": [
+        {
+          "t": "Use a For each task over the alert's rows",
+          "why": "For each iterates; it doesn't branch on alert state."
+        },
+        {
+          "t": "Add the alert as a SQL alert task; later tasks branch on its result",
+          "ok": true
+        },
+        {
+          "t": "Point the alert's webhook destination at the job's Run now URL so the job starts",
+          "why": "That isn't the documented pattern."
+        },
+        {
+          "t": "Set the remediation task's Run if to All done",
+          "why": "That runs it every time."
+        }
+      ],
+      "explain": "An alert can run as a job task so later tasks branch on it."
+    },
+    {
+      "id": "P410",
+      "topic": "Query profile",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "A query is slow and you suspect an exploding join. Where do you look?",
+      "options": [
+        {
+          "t": "The pipeline event log",
+          "why": "This is an ad hoc query."
+        },
+        {
+          "t": "system.billing.usage for the warehouse",
+          "why": "That shows usage, not operators."
+        },
+        {
+          "t": "The query profile: the operator graph with time, rows and memory per operator",
+          "ok": true
+        },
+        {
+          "t": "DESCRIBE DETAIL on each table in the query, comparing their file counts",
+          "why": "That gives table metadata."
+        }
+      ],
+      "explain": "The query profile shows each operator's time, rows and memory, a Top operators panel and insights, including exploding joins or full scans. It isn't available for results from the query cache."
+    },
+    {
+      "id": "P411",
+      "topic": "Query profile",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "A query was answered from the query result cache. Can you open its query profile?",
+      "options": [
+        {
+          "t": "Yes, it is always available",
+          "why": "Not for cached results."
+        },
+        {
+          "t": "Yes, but only as an image",
+          "why": "No."
+        },
+        {
+          "t": "Only with ownership of the warehouse that answered the query from its cache",
+          "why": "Ownership or CAN MONITOR is needed in general; cached results have no profile."
+        },
+        {
+          "t": "No: profiles aren't available for results served from the query cache",
+          "ok": true
+        }
+      ],
+      "explain": "The query profile is not available for queries answered from the query cache, and needs ownership or CAN MONITOR on the warehouse."
+    },
+    {
+      "id": "P412",
+      "topic": "Spark UI",
+      "difficulty": "medium",
+      "sources": [
+        "notes §15"
+      ],
+      "q": "In the Spark UI's Streaming tab, what suggests a backlog is building?",
+      "options": [
+        {
+          "t": "Batches taking more than about 80% of the trigger interval",
+          "ok": true
+        },
+        {
+          "t": "More than 200 tasks per batch, the default number of shuffle partitions",
+          "why": "Task count isn't the signal."
+        },
+        {
+          "t": "An input rate higher than zero",
+          "why": "Any working stream has input."
+        },
+        {
+          "t": "A checkpoint folder larger than 1 GB",
+          "why": "Not the documented signal."
+        }
+      ],
+      "explain": "A batch should finish within about 80% of the batch interval, or a backlog builds."
+    },
+    {
+      "id": "P413",
+      "topic": "Audit",
+      "difficulty": "medium",
+      "sources": [
+        "notes §15"
+      ],
+      "q": "Which system table holds audit events, and how long are they kept free?",
+      "options": [
+        {
+          "t": "system.billing.usage, 30 days, then archived",
+          "why": "That is billing."
+        },
+        {
+          "t": "system.access.audit, 365 days",
+          "ok": true
+        },
+        {
+          "t": "system.lakeflow.jobs, 90 days",
+          "why": "That describes jobs."
+        },
+        {
+          "t": "system.query.history, forever",
+          "why": "That is query history."
+        }
+      ],
+      "explain": "system.access.audit holds audit events with 365 days of free retention."
+    },
+    {
+      "id": "P414",
+      "topic": "Lineage",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "Before dropping a silver column, a team wants every table and dashboard query that uses it. Where?",
+      "options": [
+        {
+          "t": "SHOW GRANTS on the column",
+          "why": "Grants aren't usage."
+        },
+        {
+          "t": "The table's comment",
+          "why": "Comments aren't lineage."
+        },
+        {
+          "t": "Column-level lineage, in Catalog Explorer or system.access.column_lineage",
+          "ok": true
+        },
+        {
+          "t": "DESCRIBE HISTORY on the silver table, which lists every query that read it",
+          "why": "History lists writes, not readers."
+        }
+      ],
+      "explain": "Lineage is captured automatically down to column level, across workspaces on the metastore, and queryable in system.access.table_lineage and column_lineage."
+    },
+    {
+      "id": "P415",
+      "topic": "Job monitoring",
+      "difficulty": "easy",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "In a job's matrix view, what does a pink bar mean?",
+      "options": [
+        {
+          "t": "Waiting for retry",
+          "why": "Yellow is waiting for retry."
+        },
+        {
+          "t": "Failed",
+          "why": "Red is failure."
+        },
+        {
+          "t": "Succeeded",
+          "why": "Green is success."
+        },
+        {
+          "t": "Skipped",
+          "ok": true
+        }
+      ],
+      "explain": "Run bars are coloured by status: green success, red failure, pink skipped, yellow waiting for retry, grey pending, cancelled or timed out."
+    },
+    {
+      "id": "P416",
+      "topic": "Job monitoring",
+      "difficulty": "hard",
+      "sources": [
+        "notes §11",
+        "notes §23"
+      ],
+      "q": "An hourly job's runs take 90 minutes, and every other hourly run is missing from history. Why?",
+      "options": [
+        {
+          "t": "Runs beyond maximum concurrent runs (default one) are skipped",
+          "ok": true
+        },
+        {
+          "t": "Failed runs are hidden in the matrix view",
+          "why": "Missing runs were never started."
+        },
+        {
+          "t": "The job's timeout cancels them silently",
+          "why": "A timeout shows Timed Out."
+        },
+        {
+          "t": "The scheduler rounds the hourly schedule to two hours whenever the workspace is under load",
+          "why": "Not documented."
+        }
+      ],
+      "explain": "By default a job runs one run at a time and runs beyond maximum concurrent runs are skipped; fix the duration or raise the limit if overlap is safe."
+    },
+    {
+      "id": "P417",
+      "topic": "System tables",
+      "difficulty": "medium",
+      "sources": [
+        "notes §15"
+      ],
+      "q": "Which system tables describe Lakeflow job runs across the account?",
+      "options": [
+        {
+          "t": "system.billing.list_prices",
+          "why": "That holds prices."
+        },
+        {
+          "t": "system.lakeflow.jobs, job_tasks and job_run_timeline",
+          "ok": true
+        },
+        {
+          "t": "system.access.audit only, filtered to the jobs service",
+          "why": "Audit records events, not run timelines."
+        },
+        {
+          "t": "system.compute.warehouses",
+          "why": "That describes warehouses."
+        }
+      ],
+      "explain": "System tables include system.lakeflow.jobs, job_tasks, job_run_timeline, job_task_run_timeline, pipelines and pipeline_update_timeline."
+    },
+    {
+      "id": "P418",
+      "topic": "Client metrics",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "A continuous job runs three streams and one fails while the others run. Which setting makes the failed one retry on its own?",
+      "options": [
+        {
+          "t": "A duration warning on each task",
+          "why": "That only raises an event."
+        },
+        {
+          "t": "Autoscaling turned on",
+          "why": "Not for retries; and not recommended for streams."
+        },
+        {
+          "t": "Task retry mode set to On failure",
+          "ok": true
+        },
+        {
+          "t": "Maximum concurrent runs set to 3, one per stream",
+          "why": "Unrelated to task retries."
+        }
+      ],
+      "explain": "With several continuous tasks in one job, a failed task retries on its own only if Task retry mode is On failure; otherwise the job waits for all tasks to fail."
+    }
+  ]
+}

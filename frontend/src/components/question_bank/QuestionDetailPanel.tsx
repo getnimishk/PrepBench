@@ -2,6 +2,8 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
+import { isStructured } from '../../services/questionFormats';
+import { StructuredAnswerKey } from '../exam/StructuredAnswer';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Box, Drawer, Typography, Button, CircularProgress, Alert, IconButton,
@@ -187,6 +189,7 @@ export const QuestionDetailPanel: React.FC<QuestionDetailPanelProps> = ({
           {currentQ.code_snippet && (
             <Box className="code-block" sx={{ mt: '12px' }}><pre style={{ margin: 0 }}><code>{currentQ.code_snippet}</code></pre></Box>
           )}
+          {isStructured(currentQ) ? <StructuredAnswerKey question={currentQ} /> : (
           <Box component="ul" sx={{ m: 0, mt: '6px', p: 0, listStyle: 'none' }}>
             {currentQ.options.map((opt, idx) => (
               <Box
@@ -207,6 +210,7 @@ export const QuestionDetailPanel: React.FC<QuestionDetailPanelProps> = ({
               </Box>
             ))}
           </Box>
+          )}
           {currentQ.explanation ? (
             <Box sx={{ mt: '22px' }}>
               <Eyebrow>Explanation</Eyebrow>

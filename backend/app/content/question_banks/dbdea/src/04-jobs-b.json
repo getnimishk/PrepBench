@@ -1,0 +1,689 @@
+{
+  "section": 4,
+  "domain": "Working with Lakeflow Jobs",
+  "questions": [
+    {
+      "id": "J25",
+      "topic": "Repair runs",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "A five-task run fails at task 3. What does Repair run re-run?",
+      "options": [
+        {
+          "t": "All five tasks, from the beginning",
+          "why": "Repair re-runs only the unsuccessful tasks and their dependents."
+        },
+        {
+          "t": "Only task 3, never its dependents",
+          "why": "Dependents of the failed task are re-run too."
+        },
+        {
+          "t": "Task 3 and the tasks that depend on it",
+          "ok": true
+        },
+        {
+          "t": "Only tasks that succeeded, to confirm their results",
+          "why": "Successful tasks aren't re-run."
+        }
+      ],
+      "explain": "Repair re-runs only the unsuccessful tasks and their dependents; successful tasks and those depending only on them aren't re-run."
+    },
+    {
+      "id": "J26",
+      "topic": "Repair runs",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "A task failed because of a bug. You fix the notebook, then repair the run. Which version runs?",
+      "options": [
+        {
+          "t": "The fixed notebook: repairs use the current job and task settings",
+          "ok": true
+        },
+        {
+          "t": "The original notebook, frozen at the time of the failed run",
+          "why": "Unsuccessful tasks re-run with the current settings."
+        },
+        {
+          "t": "Neither: a repair only re-checks the task's output",
+          "why": "A repair re-runs the task."
+        },
+        {
+          "t": "The fixed notebook, but only if the job is recreated first",
+          "why": "No recreation is needed; repair uses current settings."
+        }
+      ],
+      "explain": "Unsuccessful tasks are re-run with the current job and task settings, so fix first, then repair."
+    },
+    {
+      "id": "J27",
+      "topic": "Repair runs",
+      "difficulty": "hard",
+      "sources": [
+        "notes §11",
+        "notes §23"
+      ],
+      "q": "A task appended half its rows to a table, then failed. The run is repaired. What is the risk?",
+      "options": [
+        {
+          "t": "None: repair resumes the task from the row where it stopped",
+          "why": "A repaired task restarts from the beginning."
+        },
+        {
+          "t": "None: Lakeflow Jobs makes every task idempotent",
+          "why": "Lakeflow Jobs doesn't make tasks idempotent."
+        },
+        {
+          "t": "The repaired task appends all its rows again, duplicating the first half",
+          "ok": true
+        },
+        {
+          "t": "The table is rolled back automatically before the repair",
+          "why": "Nothing is rolled back automatically."
+        }
+      ],
+      "explain": "A repair re-runs each unsuccessful task from the beginning, and Lakeflow Jobs doesn't make tasks idempotent; a task that wrote part of its output can duplicate it. Use overwrite or merge rather than append."
+    },
+    {
+      "id": "J28",
+      "topic": "Repair runs",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "A single-task job failed. How is it run again?",
+      "options": [
+        {
+          "t": "With Repair run, like any other job",
+          "why": "Repair needs two or more tasks."
+        },
+        {
+          "t": "With Run now",
+          "ok": true
+        },
+        {
+          "t": "By deleting and recreating the job",
+          "why": "Run now re-runs it."
+        },
+        {
+          "t": "By restoring the job's last successful version",
+          "why": "Run now re-runs it."
+        }
+      ],
+      "explain": "Repair is supported only for jobs with two or more tasks; a single-task job is re-run with Run now."
+    },
+    {
+      "id": "J29",
+      "topic": "Repair runs",
+      "difficulty": "hard",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "Several tasks share a job cluster. The run fails and is repaired. Which cluster does the repair use?",
+      "options": [
+        {
+          "t": "The same job cluster, kept running for the repair",
+          "why": "A repair run creates a new job cluster."
+        },
+        {
+          "t": "Any all-purpose cluster the user is attached to",
+          "why": "A repair creates a new job cluster."
+        },
+        {
+          "t": "A serverless cluster, regardless of the job's settings",
+          "why": "A repair creates a new job cluster."
+        },
+        {
+          "t": "A new job cluster",
+          "ok": true
+        }
+      ],
+      "explain": "If tasks share a job cluster, a repair run creates a new job cluster."
+    },
+    {
+      "id": "J30",
+      "topic": "Monitoring runs",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "In a job's matrix view, what does a pink task bar mean?",
+      "options": [
+        {
+          "t": "The task succeeded",
+          "why": "Green is success."
+        },
+        {
+          "t": "The task failed",
+          "why": "Red is failure."
+        },
+        {
+          "t": "The task was skipped",
+          "ok": true
+        },
+        {
+          "t": "The task is waiting for a retry",
+          "why": "Yellow is waiting for retry."
+        }
+      ],
+      "explain": "Run bars are coloured by status: green success, red failure, pink skipped, yellow waiting for retry, grey pending, cancelled or timed out."
+    },
+    {
+      "id": "J31",
+      "topic": "Monitoring runs",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "A task in last night's run failed. Where do you find its error message?",
+      "options": [
+        {
+          "t": "In the pipeline event log of the workspace",
+          "why": "The event log is for pipelines; task errors are in task run details."
+        },
+        {
+          "t": "In the task run details, opened from the run's matrix view",
+          "ok": true
+        },
+        {
+          "t": "In DESCRIBE HISTORY of the table it wrote",
+          "why": "History lists table operations, not task errors."
+        },
+        {
+          "t": "In system.billing.usage for that run",
+          "why": "Billing usage records consumption, not errors."
+        }
+      ],
+      "explain": "Open the job's Runs tab and matrix view, then click the failed task: its task run details show the output, error message and metadata."
+    },
+    {
+      "id": "J32",
+      "topic": "Notifications",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "A job-level failure notification is set, and a task fails then succeeds on retry. Is a failure notification sent?",
+      "options": [
+        {
+          "t": "Yes, for every failed attempt",
+          "why": "Job-level notifications aren't sent when failed tasks are retried."
+        },
+        {
+          "t": "Only if the retry also fails",
+          "why": "To hear about every failed attempt, use task notifications."
+        },
+        {
+          "t": "No: job-level notifications aren't sent for retried tasks",
+          "ok": true
+        },
+        {
+          "t": "Yes, but only by email",
+          "why": "Retried task failures don't send job-level notifications by any channel."
+        }
+      ],
+      "explain": "Job-level notifications aren't sent when failed tasks are retried; for a notification after every failed task, use task notifications."
+    },
+    {
+      "id": "J33",
+      "topic": "Notifications",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "Which events can a job notification be set for?",
+      "options": [
+        {
+          "t": "Duration exceeding a threshold",
+          "ok": true
+        },
+        {
+          "t": "Streaming backlog exceeding a threshold",
+          "ok": true
+        },
+        {
+          "t": "A grant changed on a table the job reads",
+          "why": "That isn't a job notification event."
+        },
+        {
+          "t": "The workspace's DBU budget being reached",
+          "why": "That isn't a job notification event."
+        },
+        {
+          "t": "A schema change on a source table",
+          "why": "That isn't a job notification event."
+        }
+      ],
+      "explain": "Notifications can be set for start, success, failure, duration over a threshold, streaming backlog over a threshold, and maintenance start and end for continuous jobs."
+    },
+    {
+      "id": "J34",
+      "topic": "Notifications",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "Which destinations can job notifications go to?",
+      "options": [
+        {
+          "t": "Email only",
+          "why": "Admin-configured destinations such as Slack, Teams, PagerDuty and webhooks are also supported."
+        },
+        {
+          "t": "Only the job owner's inbox",
+          "why": "Any email address and configured system destinations can be used."
+        },
+        {
+          "t": "The notebook output of the failed task",
+          "why": "Notifications go to email or system destinations."
+        },
+        {
+          "t": "Email and admin-configured destinations such as Slack, Teams, PagerDuty or webhooks",
+          "ok": true
+        }
+      ],
+      "explain": "Notifications go to email addresses or admin-configured system destinations such as Slack, Microsoft Teams, PagerDuty and webhooks, up to three per event."
+    },
+    {
+      "id": "J35",
+      "topic": "Notifications",
+      "difficulty": "hard",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "A run ends in the state 'Succeeded with failures'. Which notification does it trigger?",
+      "options": [
+        {
+          "t": "Failure",
+          "why": "It counts as a successful state."
+        },
+        {
+          "t": "Success",
+          "ok": true
+        },
+        {
+          "t": "None",
+          "why": "It counts as success, so success notifications fire."
+        },
+        {
+          "t": "Duration warning",
+          "why": "That depends on duration, not this state."
+        }
+      ],
+      "explain": "A run completed in a Succeeded with failures state is considered successful; to be notified, select Success."
+    },
+    {
+      "id": "J36",
+      "topic": "SQL alerts",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "A job should continue to the publish step only if a data quality query finds no bad rows. Which task can evaluate that?",
+      "options": [
+        {
+          "t": "A SQL alert task, so downstream tasks can branch on its result",
+          "ok": true
+        },
+        {
+          "t": "A dashboard task, which refreshes the quality dashboard first",
+          "why": "Dashboard tasks refresh dashboards; an alert task evaluates a condition."
+        },
+        {
+          "t": "A Run Job task, which always fails when a query returns rows",
+          "why": "An alert task evaluates the condition."
+        },
+        {
+          "t": "A pipeline task with no expectations",
+          "why": "An alert task evaluates the query's condition."
+        }
+      ],
+      "explain": "A Databricks SQL alert can run as a job task so condition checks run in the pipeline and downstream tasks can branch on the result."
+    },
+    {
+      "id": "J37",
+      "topic": "SQL alerts",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "What states can a Databricks SQL alert evaluation resolve to?",
+      "options": [
+        {
+          "t": "OK, TRIGGERED or ERROR",
+          "ok": true
+        },
+        {
+          "t": "OK, UNKNOWN or FAILED",
+          "why": "UNKNOWN is a legacy alert status; the current states are OK, TRIGGERED, ERROR."
+        },
+        {
+          "t": "PASSED or FAILED only",
+          "why": "The states are OK, TRIGGERED and ERROR."
+        },
+        {
+          "t": "GREEN, AMBER or RED",
+          "why": "The states are OK, TRIGGERED and ERROR."
+        }
+      ],
+      "explain": "Alert evaluations resolve to OK, TRIGGERED or ERROR; the UNKNOWN status of legacy alerts is gone."
+    },
+    {
+      "id": "J38",
+      "topic": "Job design",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11",
+        "notes §23"
+      ],
+      "q": "Which practice makes a job task safe to retry or repair?",
+      "options": [
+        {
+          "t": "Appending its results to the target table every time it runs",
+          "why": "A rerun would append again and duplicate rows."
+        },
+        {
+          "t": "Writing results only after a long sleep, so earlier attempts finish",
+          "why": "Timing doesn't make a task idempotent."
+        },
+        {
+          "t": "Overwriting the range it owns or merging on a key",
+          "ok": true
+        },
+        {
+          "t": "Running it on all-purpose compute so state is kept between attempts",
+          "why": "Compute type doesn't make a write idempotent."
+        }
+      ],
+      "explain": "Because repairs re-run tasks from the start and retries rerun them, tasks should overwrite what they own or merge on keys, not blindly append."
+    },
+    {
+      "id": "J39",
+      "topic": "Compute for jobs",
+      "difficulty": "medium",
+      "sources": [
+        "notes §12",
+        "notes §23"
+      ],
+      "q": "Which compute should a scheduled production job run on?",
+      "options": [
+        {
+          "t": "A shared all-purpose cluster used for development during the day",
+          "why": "Databricks doesn't recommend all-purpose compute for production jobs."
+        },
+        {
+          "t": "Job compute or serverless jobs compute",
+          "ok": true
+        },
+        {
+          "t": "A SQL warehouse for every task type, including Python",
+          "why": "SQL warehouses run SQL tasks; jobs use job or serverless compute."
+        },
+        {
+          "t": "Whatever cluster the job's creator last used interactively",
+          "why": "Production jobs use job or serverless compute."
+        }
+      ],
+      "explain": "Databricks recommends job compute (or serverless jobs compute) for scheduled work; on job failure and retry, new compute resources deploy."
+    },
+    {
+      "id": "J40",
+      "topic": "Streaming jobs",
+      "difficulty": "hard",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "Several streaming tasks run in one continuous job. One fails while the others keep running. What can happen if task retry mode isn't 'On failure'?",
+      "options": [
+        {
+          "t": "The job restarts immediately and all streams resume",
+          "why": "Without On failure, the job waits until all tasks have failed."
+        },
+        {
+          "t": "The failed stream retries on its own every minute",
+          "why": "It retries on its own only with Task retry mode On failure."
+        },
+        {
+          "t": "The other streams are stopped so the job can restart cleanly",
+          "why": "They keep running; the job doesn't restart until all fail."
+        },
+        {
+          "t": "The failed stream stays down while the job looks healthy",
+          "ok": true
+        }
+      ],
+      "explain": "In a multi-task continuous job, a failed task retries on its own only if Task retry mode is On failure; otherwise the job doesn't start a new run until all other tasks also fail."
+    },
+    {
+      "id": "J41",
+      "topic": "Streaming jobs",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "How does Databricks recommend scheduling a production Structured Streaming job?",
+      "options": [
+        {
+          "t": "On a schedule every minute, with the trigger set to availableNow",
+          "why": "Databricks recommends the Continuous job trigger for streaming workloads."
+        },
+        {
+          "t": "As a manual run that someone restarts after failures",
+          "why": "Streams should restart automatically."
+        },
+        {
+          "t": "With the Continuous trigger, on jobs compute",
+          "ok": true
+        },
+        {
+          "t": "On an all-purpose cluster with autoscaling enabled",
+          "why": "Use jobs compute, and don't enable autoscaling for streaming jobs."
+        }
+      ],
+      "explain": "Schedule streams as Lakeflow Jobs on jobs compute using Continuous mode, which prevents concurrent runs, starts a new run after failure and uses exponential backoff."
+    },
+    {
+      "id": "J42",
+      "topic": "Streaming jobs",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "Why shouldn't a streaming notebook run as a Lakeflow job call awaitTermination()?",
+      "options": [
+        {
+          "t": "The Jobs service already keeps the run alive, and the call blocks it from tracking the query",
+          "ok": true
+        },
+        {
+          "t": "It makes the stream run in batch mode instead of streaming",
+          "why": "It blocks the notebook; it doesn't change the mode."
+        },
+        {
+          "t": "It deletes the checkpoint when the query ends",
+          "why": "It doesn't touch the checkpoint."
+        },
+        {
+          "t": "It isn't available on Databricks at all",
+          "why": "It exists; it just shouldn't be used in jobs."
+        }
+      ],
+      "explain": "In Lakeflow Jobs, don't use awaitTermination(): the Jobs service prevents a run completing while a query is active, and the call blocks the service from tracking the query (streaming backlog notifications need that)."
+    },
+    {
+      "id": "J43",
+      "topic": "Continuous jobs",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "A continuous job keeps failing. What does Lakeflow Jobs do?",
+      "options": [
+        {
+          "t": "Stops the job permanently after the third failure",
+          "why": "It retries with exponential backoff."
+        },
+        {
+          "t": "Retries with exponential backoff; Restart run resets it",
+          "ok": true
+        },
+        {
+          "t": "Switches it to a scheduled trigger automatically",
+          "why": "It stays continuous and backs off between retries."
+        },
+        {
+          "t": "Deletes the job's checkpoints and starts fresh",
+          "why": "Backoff doesn't touch checkpoints."
+        }
+      ],
+      "explain": "When consecutive failures of a continuous job exceed a threshold, Lakeflow Jobs uses exponential backoff; the job page shows consecutive failures and the next retry, and Restart run resets it."
+    },
+    {
+      "id": "J44",
+      "topic": "Task types",
+      "difficulty": "hard",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "Which of these are Lakeflow Jobs task types?",
+      "options": [
+        {
+          "t": "dbt",
+          "ok": true
+        },
+        {
+          "t": "Dashboard",
+          "ok": true
+        },
+        {
+          "t": "VACUUM",
+          "why": "VACUUM is a SQL command, run inside a SQL or notebook task."
+        },
+        {
+          "t": "Grant",
+          "why": "Grants are SQL statements, not a task type."
+        },
+        {
+          "t": "Checkpoint",
+          "why": "Checkpoints belong to streams, not task types."
+        }
+      ],
+      "explain": "Task types include notebook, Python script, Python wheel, SQL, pipeline, ingestion pipeline, dashboard, Power BI, dbt, JAR, Spark Submit, Run Job, If/else, For each and SQL alert."
+    },
+    {
+      "id": "J45",
+      "topic": "Run if conditions",
+      "difficulty": "hard",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "An alerting task should run only when every upstream task failed. Which condition is that?",
+      "options": [
+        {
+          "t": "At least one failed",
+          "why": "That runs when any upstream task failed."
+        },
+        {
+          "t": "None failed",
+          "why": "That runs when no upstream task failed."
+        },
+        {
+          "t": "All failed",
+          "ok": true
+        },
+        {
+          "t": "All done",
+          "why": "That runs whatever the results."
+        }
+      ],
+      "explain": "The Run if conditions include At least one failed and All failed; All failed runs only when every upstream task failed."
+    },
+    {
+      "id": "J46",
+      "topic": "Tasks and the DAG",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "What is the maximum number of tasks in one Lakeflow job?",
+      "options": [
+        {
+          "t": "100",
+          "why": "The limit is 1,000 tasks per job."
+        },
+        {
+          "t": "250",
+          "why": "The limit is 1,000 tasks per job."
+        },
+        {
+          "t": "1,000",
+          "ok": true
+        },
+        {
+          "t": "There is no limit",
+          "why": "The limit is 1,000 tasks per job."
+        }
+      ],
+      "explain": "Limits include 1,000 tasks per job, 12,000 saved jobs, 10,000 job creations per hour and 2,000 concurrent task runs per workspace."
+    },
+    {
+      "id": "J47",
+      "topic": "Triggers",
+      "difficulty": "medium",
+      "sources": [
+        "notes §11"
+      ],
+      "q": "What makes a file arrival trigger react faster?",
+      "options": [
+        {
+          "t": "Enabling file events",
+          "ok": true
+        },
+        {
+          "t": "Raising maximum concurrent runs to 100",
+          "why": "Concurrency doesn't change detection speed; file events do."
+        },
+        {
+          "t": "Adding a For each task over the files",
+          "why": "That changes processing, not detection."
+        },
+        {
+          "t": "Using an all-purpose cluster for the job",
+          "why": "Compute choice doesn't change detection."
+        }
+      ],
+      "explain": "File arrival checks about every minute, best effort, and is faster with file events enabled."
+    },
+    {
+      "id": "J48",
+      "topic": "Concurrency",
+      "difficulty": "medium",
+      "sources": [
+        "notes §23"
+      ],
+      "q": "A run failed because the job was already at its maximum concurrent runs. What fixes are documented?",
+      "options": [
+        {
+          "t": "Wait for other runs to finish, or raise maximum concurrent runs",
+          "ok": true
+        },
+        {
+          "t": "Repair the skipped run, which bypasses the concurrency limit",
+          "why": "Repair doesn't bypass the limit; wait or raise maximum concurrent runs."
+        },
+        {
+          "t": "Switch the job to a SQL warehouse, which has no limit",
+          "why": "The limit is a job setting, not a compute property."
+        },
+        {
+          "t": "Delete earlier runs from the run history",
+          "why": "Run history doesn't affect concurrency; active runs do."
+        }
+      ],
+      "explain": "If a failure is caused by exceeding the maximum concurrent runs, either wait for other runs to complete or edit the job's maximum concurrent runs."
+    }
+  ]
+}

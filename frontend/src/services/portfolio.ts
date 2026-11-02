@@ -6,6 +6,7 @@ import type { Tone } from '../components/ui/primitives';
 import type { AssessedBy, EvidenceKind, EvidenceLevel, WorkspaceKind } from '../types/portfolio';
 import { ADF_LAB_EXPERIMENTS, type LabExperiment } from './adfLab/experiments';
 import { KAFKA_LAB_EXPERIMENTS } from './kafkaLab/lab';
+import { DATABRICKS_LAB_EXPERIMENTS } from './databricksLab/lab';
 import { TIERING_CHALLENGE } from './lakehouse/factoryModel';
 import { ACCESS_CHALLENGE, WATERMARK_CHALLENGE } from './lakehouse/pipelineChallenges';
 import { challengeById } from './lakehouse/stationC';
@@ -43,7 +44,10 @@ const LAKEHOUSE_TITLES: Record<string, string> = {
 /** The title to show for an item: from the lab's own registry when it is lab work. */
 export function titleOf(item: { title: string; ref: Record<string, string> }): string {
   const { track, lab, challenge_id: challenge, concept_id: concept } = item.ref ?? {};
-  if (track) return adfTrackTitle(track, lab === 'kafka' ? KAFKA_LAB_EXPERIMENTS : ADF_LAB_EXPERIMENTS) ?? item.title;
+  if (track) {
+    const experiments = lab === 'kafka' ? KAFKA_LAB_EXPERIMENTS : lab === 'databricks' ? DATABRICKS_LAB_EXPERIMENTS : ADF_LAB_EXPERIMENTS;
+    return adfTrackTitle(track, experiments) ?? item.title;
+  }
   if (challenge?.startsWith('lakehouse.')) {
     return LAKEHOUSE_TITLES[challenge] ?? challengeById(challenge)?.title ?? defectTitle(challenge) ?? item.title;
   }

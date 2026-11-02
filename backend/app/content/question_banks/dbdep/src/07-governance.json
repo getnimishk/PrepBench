@@ -1,0 +1,290 @@
+{
+  "section": 7,
+  "domain": "Data Governance",
+  "questions": [
+    {
+      "id": "P701",
+      "topic": "Privileges",
+      "difficulty": "easy",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "Which privileges does reading a table need?",
+      "options": [
+        {
+          "t": "BROWSE on the catalog and SELECT on the table",
+          "why": "BROWSE shows that objects exist."
+        },
+        {
+          "t": "MODIFY on the table",
+          "why": "MODIFY is for changes."
+        },
+        {
+          "t": "SELECT on the table",
+          "why": "Not enough alone."
+        },
+        {
+          "t": "SELECT, USE SCHEMA and USE CATALOG",
+          "ok": true
+        }
+      ],
+      "explain": "Reading needs SELECT on the table, USE SCHEMA on its schema and USE CATALOG on its catalog."
+    },
+    {
+      "id": "P702",
+      "topic": "Privileges",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "SELECT is granted on a schema. What does it cover?",
+      "options": [
+        {
+          "t": "Current and future tables and views in the schema",
+          "ok": true
+        },
+        {
+          "t": "The schema's metadata only",
+          "why": "It covers the data."
+        },
+        {
+          "t": "Every schema in the catalog",
+          "why": "Only that schema."
+        },
+        {
+          "t": "Only the tables that exist at the time of the grant",
+          "why": "Grants inherit to future objects."
+        }
+      ],
+      "explain": "A privilege on a catalog or schema applies to current and future objects inside it."
+    },
+    {
+      "id": "P703",
+      "topic": "Privileges",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "How do you stop a group reading a table in Unity Catalog SQL?",
+      "options": [
+        {
+          "t": "`DENY SELECT ON TABLE t TO grp`",
+          "why": "Unity Catalog SQL has no DENY statement."
+        },
+        {
+          "t": "Don't grant it, or REVOKE the grant that gives it",
+          "ok": true
+        },
+        {
+          "t": "Rename the table so the group's queries no longer find it",
+          "why": "Renaming isn't access control."
+        },
+        {
+          "t": "Set the table's comment to private",
+          "why": "Comments aren't access control."
+        }
+      ],
+      "explain": "There is no DENY statement in Unity Catalog SQL (DENY belongs to legacy Hive metastore table ACLs); access comes only from grants. An ABAC DENY policy (Beta) exists only for MANAGE ACCESS CONTROL."
+    },
+    {
+      "id": "P704",
+      "topic": "Ownership",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "Who does Databricks generally recommend should own tables?",
+      "options": [
+        {
+          "t": "The metastore admin",
+          "why": "Not the recommendation."
+        },
+        {
+          "t": "Service principals only",
+          "why": "The guidance names groups."
+        },
+        {
+          "t": "Groups",
+          "ok": true
+        },
+        {
+          "t": "The engineer who created them",
+          "why": "Ownership by groups survives people leaving."
+        }
+      ],
+      "explain": "Databricks generally recommends granting table ownership to groups."
+    },
+    {
+      "id": "P705",
+      "topic": "Tags",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "What does a user need to add a governed tag to a column?",
+      "options": [
+        {
+          "t": "MODIFY on the table",
+          "why": "MODIFY is for data."
+        },
+        {
+          "t": "Metastore admin rights",
+          "why": "Not required."
+        },
+        {
+          "t": "Ownership of the table only",
+          "why": "Governed tags also need ASSIGN."
+        },
+        {
+          "t": "APPLY TAG on the object (or ownership), USE SCHEMA, USE CATALOG, and ASSIGN on the governed tag",
+          "ok": true
+        }
+      ],
+      "explain": "Adding tags needs ownership or APPLY TAG plus USE SCHEMA and USE CATALOG; a governed tag also needs ASSIGN on it."
+    },
+    {
+      "id": "P706",
+      "topic": "Tags",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A tag is set on a catalog. Which objects inherit it for ABAC?",
+      "options": [
+        {
+          "t": "Schemas and tables beneath it, but not columns",
+          "ok": true
+        },
+        {
+          "t": "Everything beneath it, columns included, without exception",
+          "why": "Tags don't inherit to columns."
+        },
+        {
+          "t": "Nothing: tags never inherit",
+          "why": "They inherit down the hierarchy."
+        },
+        {
+          "t": "Only views",
+          "why": "Not the rule."
+        }
+      ],
+      "explain": "Tags at one level apply to all objects beneath it, but don't inherit to the column level."
+    },
+    {
+      "id": "P707",
+      "topic": "Lineage",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "What does Unity Catalog lineage capture?",
+      "options": [
+        {
+          "t": "Only table-level reads, and only within the same workspace",
+          "why": "It goes down to column level, across workspaces on the metastore."
+        },
+        {
+          "t": "Column-level lineage for Spark and SQL queries, across workspaces on the metastore",
+          "ok": true
+        },
+        {
+          "t": "Only lineage that teams declare in YAML",
+          "why": "It is captured automatically."
+        },
+        {
+          "t": "Only pipeline lineage",
+          "why": "Notebooks and SQL too."
+        }
+      ],
+      "explain": "Lineage is captured automatically down to column level for Spark DataFrame and Databricks SQL queries, across all workspaces on the metastore."
+    },
+    {
+      "id": "P708",
+      "topic": "OpenSharing",
+      "difficulty": "medium",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "A partner without Databricks must read three tables. Which way of sharing fits?",
+      "options": [
+        {
+          "t": "Lakehouse Federation",
+          "why": "That reads external sources into Databricks."
+        },
+        {
+          "t": "Databricks-to-Databricks sharing",
+          "why": "That needs a Unity Catalog workspace on the recipient's side."
+        },
+        {
+          "t": "Databricks-to-Open sharing",
+          "ok": true
+        },
+        {
+          "t": "A Clean Room",
+          "why": "For joint work without seeing each other's data."
+        }
+      ],
+      "explain": "Databricks-to-Open sharing reaches users on any platform, with a bearer token or OIDC federation; Databricks-to-Databricks needs a recipient on a Unity Catalog workspace."
+    },
+    {
+      "id": "P709",
+      "topic": "OpenSharing",
+      "difficulty": "hard",
+      "sources": [
+        "notes §25"
+      ],
+      "q": "Which statements about OpenSharing are correct? (Choose two.)",
+      "options": [
+        {
+          "t": "Recipients access shared assets read-only",
+          "ok": true
+        },
+        {
+          "t": "Notebooks, volumes and models can be shared only Databricks-to-Databricks",
+          "ok": true
+        },
+        {
+          "t": "Tables with row filters can be shared as they are",
+          "why": "Tables with row filters or column masks can't be shared."
+        },
+        {
+          "t": "A recipient must have Unity Catalog to receive shares",
+          "why": "Unity Catalog isn't required, though it helps."
+        },
+        {
+          "t": "Sharing within a region incurs egress cost",
+          "why": "Within a region there is no egress cost."
+        }
+      ],
+      "explain": "Shares are read-only collections; recipients read them read-only. Notebooks, volumes, models and metric views need Databricks-to-Databricks sharing."
+    },
+    {
+      "id": "P710",
+      "topic": "Managed and external tables",
+      "difficulty": "medium",
+      "sources": [
+        "notes §6"
+      ],
+      "q": "An external Delta table is converted to managed. How long can the conversion be rolled back?",
+      "options": [
+        {
+          "t": "7 days, with UNDROP TABLE on the managed copy",
+          "why": "UNDROP is for dropped tables."
+        },
+        {
+          "t": "30 days, with RESTORE",
+          "why": "RESTORE is for versions."
+        },
+        {
+          "t": "It can't be rolled back",
+          "why": "UNSET MANAGED rolls it back."
+        },
+        {
+          "t": "14 days, with ALTER TABLE ... UNSET MANAGED",
+          "ok": true
+        }
+      ],
+      "explain": "ALTER TABLE t SET MANAGED keeps name, permissions and history; roll back within 14 days with UNSET MANAGED."
+    }
+  ]
+}

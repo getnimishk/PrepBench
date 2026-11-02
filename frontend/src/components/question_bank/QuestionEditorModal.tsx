@@ -2,6 +2,7 @@
 // Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
 // Commercial use requires a separate licence from the copyright holder.
 
+import { storedOrder } from '../../services/questionFormats';
 import React, { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -66,7 +67,8 @@ export const QuestionEditorModal: React.FC<Props> = ({ open, question, onClose, 
       setReferenceUrl(question.reference_url || '');
       setCodeSnippet(question.code_snippet || '');
       setCaseStudyText(question.case_study_text || '');
-      setOptions(question.options.length > 0 ? question.options.map(opt => ({...opt, _tempKey: opt.id?.toString() || Math.random().toString()})) : [{ option_text: '', is_correct: true, _tempKey: Math.random().toString() }]);
+      // Ordering and matching are listed in their stored order: for ordering, that order is the answer.
+      setOptions(question.options.length > 0 ? storedOrder(question).map(opt => ({...opt, _tempKey: opt.id?.toString() || Math.random().toString()})) : [{ option_text: '', is_correct: true, _tempKey: Math.random().toString() }]);
     } else {
       setText('');
       setDomain('General');
@@ -109,9 +111,13 @@ export const QuestionEditorModal: React.FC<Props> = ({ open, question, onClose, 
     }
   };
 
-  const isOptionsValid = options.length >= 2 && 
-                         options.every(opt => opt.option_text.trim().length > 0) &&
-                         options.some(opt => opt.is_correct);
+  const structured = questionType === 'ordering' || questionType === 'matching';
+  const isOptionsValid = structured
+    ? options.length >= 3 && options.every(opt => opt.option_text.trim().length > 0)
+      && (questionType !== 'matching' || options.every(opt => (opt.match_target ?? '').trim().length > 0))
+    : options.length >= 2 &&
+      options.every(opt => opt.option_text.trim().length > 0) &&
+      options.some(opt => opt.is_correct);
   const isValid = text.trim().length > 0 && isOptionsValid;
 
   const handleSubmit = async () => {
@@ -129,7 +135,10 @@ export const QuestionEditorModal: React.FC<Props> = ({ open, question, onClose, 
         reference_url: referenceUrl || undefined,
         code_snippet: codeSnippet || undefined,
         case_study_text: caseStudyText || undefined,
-        options: options.map(({ _tempKey, ...opt }) => opt),
+        // Ordering: the list order is the answer. Matching: each item with its pair. Every item is part of the answer.
+        options: options.map(({ _tempKey, ...opt }, i) => (structured
+          ? { ...opt, is_correct: true, order_index: i, match_target: questionType === 'matching' ? opt.match_target : null }
+          : opt)),
       });
       onClose();
     } catch (err) {
@@ -163,16 +172,25 @@ export const QuestionEditorModal: React.FC<Props> = ({ open, question, onClose, 
           />
 
           <Box>
-            <Eyebrow>Answer options · tick the correct one</Eyebrow>
+            <Eyebrow>
+              {questionType === 'ordering' ? 'Items · list them in the right order, first to last'
+                : questionType === 'matching' ? 'Pairs · each item and what it matches'
+                  : 'Answer options · tick the correct one'}
+            </Eyebrow>
             {!isOptionsValid && text.trim().length > 0 && (
               <Alert severity="info" sx={{ mt: '8px' }}>
-                Ensure at least 2 options exist, all options have text, and at least one is marked correct.
+                {structured
+                  ? `Ensure at least 3 items exist and every item has text${questionType === 'matching' ? ' and a match' : ''}. Learners see them shuffled.`
+                  : 'Ensure at least 2 options exist, all options have text, and at least one is marked correct.'}
               </Alert>
             )}
             {options.map((opt, idx) => {
               const letter = String.fromCharCode(65 + idx);
               return (
                 <Box key={opt._tempKey || opt.id || idx} sx={{ display: 'flex', gap: '10px', alignItems: 'center', mt: '8px' }}>
+                  {structured ? (
+                    <Box component="span" sx={{ minWidth: '1.6em', fontWeight: 700 }}>{idx + 1}.</Box>
+                  ) : (
                   <Checkbox
                     checked={opt.is_correct}
                     onChange={() => handleCorrectToggle(idx)}
@@ -180,13 +198,23 @@ export const QuestionEditorModal: React.FC<Props> = ({ open, question, onClose, 
                     slotProps={{ input: { 'aria-label': `Option ${letter} is correct` } }}
                     sx={{ p: '6px' }}
                   />
+                  )}
                   <TextField
                     fullWidth
-                    placeholder={`Option ${letter}`}
+                    placeholder={structured ? `Item ${idx + 1}` : `Option ${letter}`}
                     value={opt.option_text}
                     onChange={(e) => handleOptionTextChange(idx, e.target.value)}
-                    slotProps={{ htmlInput: { 'aria-label': `Option ${letter}` } }}
+                    slotProps={{ htmlInput: { 'aria-label': structured ? `Item ${idx + 1}` : `Option ${letter}` } }}
                   />
+                  {questionType === 'matching' && (
+                    <TextField
+                      fullWidth
+                      placeholder={`Matches ${idx + 1}`}
+                      value={opt.match_target ?? ''}
+                      onChange={(e) => setOptions(options.map((o, i) => (i === idx ? { ...o, match_target: e.target.value } : o)))}
+                      slotProps={{ htmlInput: { 'aria-label': `What item ${idx + 1} matches` } }}
+                    />
+                  )}
                   {options.length > 2 && (
                     <IconButton color="error" onClick={() => handleRemoveOption(idx)} aria-label={`Remove option ${letter}`}>
                       <Trash2 size={18} />
@@ -236,6 +264,8 @@ export const QuestionEditorModal: React.FC<Props> = ({ open, question, onClose, 
               <MenuItem value="scenario">Scenario</MenuItem>
               <MenuItem value="case_study">Case study</MenuItem>
               <MenuItem value="code">Code</MenuItem>
+              <MenuItem value="ordering">Ordering (build list)</MenuItem>
+              <MenuItem value="matching">Matching</MenuItem>
             </TextField>
           </Grid>
 
