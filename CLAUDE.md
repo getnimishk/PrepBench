@@ -45,6 +45,28 @@ holds the start of its question's text: a product decision). (Station D's Eviden
 Certification hub's id links were fixed in #90.) Full Playwright runs here use
 `PREPBENCH_E2E_WORKERS=3`; close the learner's app first, and run one suite at a time.
 
+**Open, parked by the learner (2026-11-02): a certification has no study guide.** Packs attach only to skills (D1), and
+the Study Library lists only the chosen preparation's packs. So with **Databricks Data Engineer Associate** or
+**Professional** picked (both certifications, holding the banks), there is no guide, no scenarios and no Databricks Lab:
+those live on the **Databricks Data Platform** skill. The learner has to switch preparation to read the chapter behind
+a missed question. Kafka is split the same way (CCDAK the certification, the guide on a Kafka skill).
+
+Options brainstormed:
+1. Lift D1, so certifications attach packs too. This copies the guide into three places that can drift apart (versions,
+   progress).
+2. Link a certification to its skill. Its Study Library, scenarios and lab come from that skill: one guide, one
+   roadmap.
+3. Make certifications exam targets inside one skill preparation. The biggest change: readiness, mocks and isolation
+   are per preparation.
+4. Delete the skill and make the certification the home. Leaves the second certification with nothing.
+5. Keep the structure and add a "Read the chapter" link on each question. Questions and chapters cite the same notes
+   sections, so the mapping can mostly be derived.
+6. Group a skill and its certifications as one family in the preparation picker.
+
+The recommendation was 2 plus 5. The riskiest open question is whether the learner wants the certification to *be* where
+they study, or only to *find* the guide quickly from it (then 5 or 6 alone may do). **The learner decided: no change for
+now.** Don't build any of these, and don't reopen D1, until the learner asks.
+
 **The learning journey (roadmap → topic → guide → practice → demonstration), 2026-10-28.** One rule names
 the next topic everywhere -- Home (skill tracks), the roadmap panel and phase rows, a finished topic's
 "Next:", the Study Library and the chapter's topic strip: `services/roadmapNext.ts` (in progress first,
